@@ -107,6 +107,39 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL UNIQUE,
+  tier TEXT NOT NULL DEFAULT 'free',
+  status TEXT NOT NULL DEFAULT 'active',
+  started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  ends_at DATETIME,
+  auto_renew INTEGER DEFAULT 1,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS payment_methods (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  card_type TEXT NOT NULL,
+  last_four TEXT NOT NULL,
+  expiry_month INTEGER NOT NULL,
+  expiry_year INTEGER NOT NULL,
+  is_default INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  tier TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'paid',
+  invoice_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
 `);
 
 // Migration: Add new columns if they don't exist
@@ -550,5 +583,71 @@ module.exports = {
   deletePushSubscription: (endpoint) => {
     const stmt = db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`);
     stmt.run(endpoint);
+  },
+  // Subscription helpers
+  getUserSubscription: (userId) => {
+    const stmt = db.prepare(`SELECT * FROM user_subscriptions WHERE user_id = ?`);
+    return stmt.get(userId);
+  },
+  createOrUpdateSubscription: ({ userId, tier, status = 'active', endsAt = null, autoRenew = 1 }) => {
+    const existing = db.prepare(`SELECT id FROM user_subscriptions WHERE user_id = ?`).get(userId);
+    if (existing) {
+      const stmt = db.prepare(`
+        UPDATE user_subscriptions 
+        SET tier = ?, status = ?, ends_at = ?, auto_renew = ?, started_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `);
+      stmt.run(tier, status, endsAt, autoRenew, userId);
+      return existing.id;
+    } else {
+      const stmt = db.prepare(`
+        INSERT INTO user_subscriptions (user_id, tier, status, ends_at, auto_renew)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      const result = stmt.run(userId, tier, status, endsAt, autoRenew);
+      return result.lastInsertRowid;
+    }
+  },
+  cancelSubscription: (userId) => {
+    const stmt = db.prepare(`UPDATE user_subscriptions SET status = 'cancelled', auto_renew = 0 WHERE user_id = ?`);
+    stmt.run(userId);
+  },
+  // Payment methods
+  addPaymentMethod: ({ userId, cardType, lastFour, expiryMonth, expiryYear, isDefault = 0 }) => {
+    // If this is the default, unset other defaults
+    if (isDefault) {
+      db.prepare(`UPDATE payment_methods SET is_default = 0 WHERE user_id = ?`).run(userId);
+    }
+    const stmt = db.prepare(`
+      INSERT INTO payment_methods (user_id, card_type, last_four, expiry_month, expiry_year, is_default)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(userId, cardType, lastFour, expiryMonth, expiryYear, isDefault);
+    return result.lastInsertRowid;
+  },
+  getPaymentMethods: (userId) => {
+    const stmt = db.prepare(`SELECT * FROM payment_methods WHERE user_id = ? ORDER BY is_default DESC, created_at DESC`);
+    return stmt.all(userId);
+  },
+  deletePaymentMethod: (id) => {
+    const stmt = db.prepare(`DELETE FROM payment_methods WHERE id = ?`);
+    stmt.run(id);
+  },
+  setDefaultPaymentMethod: (id, userId) => {
+    db.prepare(`UPDATE payment_methods SET is_default = 0 WHERE user_id = ?`).run(userId);
+    db.prepare(`UPDATE payment_methods SET is_default = 1 WHERE id = ?`).run(id);
+  },
+  // Invoices
+  createInvoice: ({ userId, amount, tier, status = 'paid' }) => {
+    const stmt = db.prepare(`
+      INSERT INTO invoices (user_id, amount, tier, status)
+      VALUES (?, ?, ?, ?)
+    `);
+    const result = stmt.run(userId, amount, tier, status);
+    return result.lastInsertRowid;
+  },
+  getInvoices: (userId) => {
+    const stmt = db.prepare(`SELECT * FROM invoices WHERE user_id = ? ORDER BY invoice_date DESC`);
+    return stmt.all(userId);
   }
 };
