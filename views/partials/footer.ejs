@@ -14,5 +14,33 @@
     <!-- SimpleWebAuthn Browser UMD bundle for passkeys -->
     <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
     <script src="/js/main.js"></script>
+    
+    <% if(typeof authUser !== 'undefined' && authUser){ %>
+    <!-- Notification Panel HTML -->
+    <div id="notificationPanel" style="display:none;position:fixed;top:60px;right:20px;width:360px;max-height:500px;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:9999;overflow:hidden;">
+        <div style="padding:16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;">Notifications</h3>
+            <button id="markAllRead" style="background:none;border:none;color:var(--primary-color);font-size:0.85rem;font-weight:600;cursor:pointer;">Mark all read</button>
+        </div>
+        <div id="notificationList" style="max-height:400px;overflow-y:auto;"></div>
+    </div>
+    
+    <!-- Global authUser for notifications -->
+    <script>
+        window.authUser = { id: <%= authUser.id %> };
+    </script>
+    <script src="/js/notifications.js"></script>
+    
+    <style>
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(400px); opacity: 0; }
+        }
+    </style>
+    <% } %>
 </body>
 </html>

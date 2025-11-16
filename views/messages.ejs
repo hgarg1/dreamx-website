@@ -3,7 +3,10 @@
 <section class="messages-layout">
   <!-- Conversations Column -->
   <aside class="conversations-column">
-    <h2 class="conversations-title">Conversations</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h2 class="conversations-title">Conversations</h2>
+      <button type="button" id="newGroupBtn" style="background:var(--primary-color);color:#fff;border:none;padding:.5rem .75rem;border-radius:20px;font-size:.65rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(255,79,163,.35);" title="New Group">+ Group</button>
+    </div>
     <div class="conversation-search">
       <input type="text" class="conversation-search-input" placeholder="Search" aria-label="Search conversations" />
     </div>
@@ -44,18 +47,28 @@
     <% if(currentConversation) { %>
       <header class="chat-header">
         <div class="chat-header-left">
-          <% if (currentConversation.other_user_picture) { %>
-            <img src="/uploads/<%= currentConversation.other_user_picture %>" alt="<%= currentConversation.other_user_name %>" class="chat-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;">
+          <% if (currentConversation.is_group) { %>
+            <div class="chat-avatar" style="background:linear-gradient(135deg,#667eea,#764ba2);">👥</div>
+            <div class="chat-partner-info">
+              <span class="chat-partner-name"><%= currentConversation.group_name || 'Group Chat' %></span>
+              <span class="chat-partner-passion" style="background:#667eea;"><%= participants.length %> members</span>
+            </div>
           <% } else { %>
-            <div class="chat-avatar"><%= (currentConversation.other_user_name || 'U').charAt(0) %></div>
+            <% if (currentConversation.other_user_picture) { %>
+              <img src="/uploads/<%= currentConversation.other_user_picture %>" alt="<%= currentConversation.other_user_name %>" class="chat-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;">
+            <% } else { %>
+              <div class="chat-avatar"><%= (currentConversation.other_user_name || 'U').charAt(0) %></div>
+            <% } %>
+            <div class="chat-partner-info">
+              <span class="chat-partner-name"><%= currentConversation.other_user_name %></span>
+              <span class="chat-partner-passion">DreamX Member</span>
+            </div>
           <% } %>
-          <div class="chat-partner-info">
-            <span class="chat-partner-name"><%= currentConversation.other_user_name %></span>
-            <span class="chat-partner-passion">DreamX Member</span>
-          </div>
         </div>
         <div class="chat-header-actions">
-          <a href="/profile/<%= currentConversation.other_user_id %>" class="chat-view-profile">View Profile →</a>
+          <% if (!currentConversation.is_group) { %>
+            <a href="/profile/<%= currentConversation.other_user_id %>" class="chat-view-profile">View Profile →</a>
+          <% } %>
         </div>
       </header>
 
@@ -64,7 +77,27 @@
           <% messages.forEach(function(msg){ %>
             <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>">
               <div class="chat-bubble">
-                <p class="chat-text"><%= msg.content %></p>
+                <% if (msg.content) { %>
+                  <p class="chat-text"><%= msg.content %></p>
+                <% } else if (msg.attachment_url) { %>
+                  <p class="chat-text" style="font-size:0.85rem;opacity:0.8;">📎 <%= msg.attachment_url.split('/').pop().replace(/^chat-\d+-\d+-/, '') %></p>
+                <% } %>
+                <% if (msg.attachment_url) { %>
+                  <% const mime = (msg.attachment_mime || '').toLowerCase(); %>
+                  <% if (mime.startsWith('image/')) { %>
+                    <img class="chat-attachment-image" src="<%= msg.attachment_url %>" alt="Image attachment" />
+                  <% } else if (mime.startsWith('video/')) { %>
+                    <video class="chat-attachment-video" controls src="<%= msg.attachment_url %>"></video>
+                  <% } else if (mime.startsWith('audio/')) { %>
+                    <audio class="chat-attachment-audio" controls src="<%= msg.attachment_url %>"></audio>
+                  <% } else if (mime === 'application/pdf') { %>
+                    <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">View PDF</a>
+                  <% } else if (mime === 'text/plain') { %>
+                    <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">View Text File</a>
+                  <% } else { %>
+                    <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">Download attachment</a>
+                  <% } %>
+                <% } %>
                 <span class="chat-time"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %></span>
               </div>
             </div>
@@ -80,10 +113,23 @@
         <% } %>
       </div>
 
-      <form id="messageForm" class="chat-input-row">
-        <textarea id="messageInput" class="chat-input" rows="1" placeholder="Type a message..." aria-label="Message input" required></textarea>
-        <button type="submit" class="chat-send-btn">Send</button>
+      <div id="fileStatusIndicator" style="display:none;padding:.75rem;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:.5rem;">
+        <span id="fileStatusIcon">📎</span>
+        <span id="fileStatusText">Ready to send</span>
+      </div>
+      <form id="messageForm" class="chat-input-row" enctype="multipart/form-data">
+        <label class="chat-attach-btn" for="fileInput" title="Attach file" aria-label="Attach file">📎</label>
+        <input type="file" id="fileInput" name="file" accept="image/*,video/*,audio/*,.pdf,.txt" style="display:none" />
+        <div id="filePreview" style="display:none;padding:.5rem;border:2px dashed var(--border-color);border-radius:8px;margin-bottom:.5rem;font-size:.7rem;"></div>
+        <textarea id="messageInput" class="chat-input" rows="1" placeholder="Type a message..." aria-label="Message input"></textarea>
+        <button type="submit" class="chat-send-btn" id="sendBtn">Send</button>
       </form>
+      <div id="uploadProgress" style="display:none;padding:.5rem;background:var(--bg-light);border-radius:8px;margin-top:.5rem;">
+        <div style="font-size:.7rem;margin-bottom:.25rem;font-weight:600;">Uploading...</div>
+        <div style="background:#e5e7eb;border-radius:8px;height:6px;overflow:hidden;">
+          <div id="progressBar" style="background:var(--primary-color);height:100%;width:0%;transition:width .3s;"></div>
+        </div>
+      </div>
     <% } else { %>
       <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;">
         Select a conversation to start messaging
@@ -115,38 +161,148 @@
     }
   });
 
-  // Send message form handler
+  // Send message form handler (with optional file + drag-drop + progress)
+  let selectedFile = null;
+  const fileInput = document.getElementById('fileInput');
+  const filePreview = document.getElementById('filePreview');
+  const uploadProgress = document.getElementById('uploadProgress');
+  const progressBar = document.getElementById('progressBar');
+  const sendBtn = document.getElementById('sendBtn');
+
+  fileInput?.addEventListener('change', (e) => {
+    selectedFile = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+    updateFilePreview();
+  });
+
+  function updateFilePreview() {
+    const statusIndicator = document.getElementById('fileStatusIndicator');
+    const statusIcon = document.getElementById('fileStatusIcon');
+    const statusText = document.getElementById('fileStatusText');
+    
+    if (!selectedFile) {
+      filePreview.style.display = 'none';
+      filePreview.innerHTML = '';
+      statusIndicator.style.display = 'none';
+      return;
+    }
+    
+    // Show status indicator
+    statusIndicator.style.display = 'flex';
+    statusIcon.textContent = '📎';
+    statusText.textContent = `Ready to send: ${selectedFile.name}`;
+    
+    filePreview.style.display = 'block';
+    filePreview.innerHTML = `
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <span style="font-weight:700;">${selectedFile.name}</span>
+        <span style="color:var(--text-light);">(${(selectedFile.size / 1024).toFixed(1)} KB)</span>
+        <button type="button" onclick="clearFile()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--primary-color);font-weight:700;">✕</button>
+      </div>
+    `;
+  }
+
+  window.clearFile = () => {
+    selectedFile = null;
+    fileInput.value = '';
+    updateFilePreview();
+  };
+
+  // Drag-and-drop support
+  const chatHistory = document.getElementById('chatHistory');
+  chatHistory?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    chatHistory.style.background = 'rgba(124,58,237,0.05)';
+  });
+  chatHistory?.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    chatHistory.style.background = '';
+  });
+  chatHistory?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    chatHistory.style.background = '';
+    const files = e.dataTransfer?.files;
+    if (files && files[0]) {
+      selectedFile = files[0];
+      fileInput.files = e.dataTransfer.files;
+      updateFilePreview();
+    }
+  });
+
   document.getElementById('messageForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const input = document.getElementById('messageInput');
-    const content = input.value.trim();
+    const content = (input.value || '').trim();
     
-    if (!content || !currentConversationId) return;
+    if ((!content && !selectedFile) || !currentConversationId) return;
     
     try {
-      const response = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationId: currentConversationId,
-          content: content
-        })
-      });
+      const statusIndicator = document.getElementById('fileStatusIndicator');
+      const statusIcon = document.getElementById('fileStatusIcon');
+      const statusText = document.getElementById('fileStatusText');
       
-      if (response.ok) {
-        input.value = '';
-        input.style.height = 'auto';
-      } else {
-        alert('Failed to send message');
+      uploadProgress.style.display = 'block';
+      progressBar.style.width = '0%';
+      sendBtn.disabled = true;
+
+      if (selectedFile) {
+        statusIndicator.style.display = 'flex';
+        statusIcon.textContent = '⏳';
+        statusText.textContent = 'Uploading...';
       }
+
+      const form = new FormData();
+      form.append('conversationId', currentConversationId);
+      form.append('content', content);
+      if (selectedFile) form.append('file', selectedFile);
+
+      // XMLHttpRequest for real progress tracking
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', (evt) => {
+        if (evt.lengthComputable) {
+          const pct = (evt.loaded / evt.total) * 100;
+          progressBar.style.width = pct + '%';
+          if (selectedFile) {
+            statusText.textContent = `Uploading... ${Math.round(pct)}%`;
+          }
+        }
+      });
+      xhr.addEventListener('load', () => {
+        const statusIndicator = document.getElementById('fileStatusIndicator');
+        if (xhr.status >= 200 && xhr.status < 300) {
+          input.value = '';
+          input.style.height = 'auto';
+          clearFile();
+          uploadProgress.style.display = 'none';
+          statusIndicator.style.display = 'none';
+          sendBtn.disabled = false;
+        } else {
+          const data = JSON.parse(xhr.responseText || '{}');
+          alert(data.error || 'Failed to send message');
+          uploadProgress.style.display = 'none';
+          statusIndicator.style.display = 'none';
+          sendBtn.disabled = false;
+        }
+      });
+      xhr.addEventListener('error', () => {
+        alert('Error sending message');
+        uploadProgress.style.display = 'none';
+        sendBtn.disabled = false;
+      });
+      xhr.open('POST', '/api/messages/send');
+      xhr.send(form);
     } catch (err) {
       console.error('Error sending message:', err);
       alert('Error sending message');
+      uploadProgress.style.display = 'none';
+      sendBtn.disabled = false;
     }
   });
 
-  // Helper: Append message to chat history
+  // Helper: Append message to chat history (supports attachments)
   function appendMessage(msg) {
     const chatHistory = document.getElementById('chatHistory');
     const isOutgoing = msg.sender_id === authUserId;
@@ -157,16 +313,74 @@
     
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
-    
-    const text = document.createElement('p');
-    text.className = 'chat-text';
-    text.textContent = msg.content;
+
+    if (msg.content) {
+      const text = document.createElement('p');
+      text.className = 'chat-text';
+      text.textContent = msg.content;
+      bubble.appendChild(text);
+    } else if (msg.attachment_url) {
+      // Show filename when there's no message content
+      const text = document.createElement('p');
+      text.className = 'chat-text';
+      text.style.fontSize = '0.85rem';
+      text.style.opacity = '0.8';
+      const filename = msg.attachment_url.split('/').pop().replace(/^chat-\d+-\d+-/, '');
+      text.textContent = '📎 ' + filename;
+      bubble.appendChild(text);
+    }
+
+    if (msg.attachment_url) {
+      const m = (msg.attachment_mime || '').toLowerCase();
+      if (m.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.className = 'chat-attachment-image';
+        img.src = msg.attachment_url;
+        img.alt = 'Image attachment';
+        bubble.appendChild(img);
+      } else if (m.startsWith('video/')) {
+        const v = document.createElement('video');
+        v.className = 'chat-attachment-video';
+        v.controls = true;
+        v.src = msg.attachment_url;
+        bubble.appendChild(v);
+      } else if (m.startsWith('audio/')) {
+        const a = document.createElement('audio');
+        a.className = 'chat-attachment-audio';
+        a.controls = true;
+        a.src = msg.attachment_url;
+        bubble.appendChild(a);
+      } else if (m === 'application/pdf') {
+        const link = document.createElement('a');
+        link.className = 'chat-attachment-file';
+        link.href = msg.attachment_url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'View PDF';
+        bubble.appendChild(link);
+      } else if (m === 'text/plain') {
+        const link = document.createElement('a');
+        link.className = 'chat-attachment-file';
+        link.href = msg.attachment_url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'View Text File';
+        bubble.appendChild(link);
+      } else {
+        const link = document.createElement('a');
+        link.className = 'chat-attachment-file';
+        link.href = msg.attachment_url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Download attachment';
+        bubble.appendChild(link);
+      }
+    }
     
     const time = document.createElement('span');
     time.className = 'chat-time';
     time.textContent = new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
     
-    bubble.appendChild(text);
     bubble.appendChild(time);
     wrapper.appendChild(bubble);
     chatHistory.appendChild(wrapper);
@@ -194,6 +408,114 @@
   if (currentConversationId) {
     scrollToBottom();
   }
+
+  // New Group modal
+  document.getElementById('newGroupBtn')?.addEventListener('click', () => {
+    document.getElementById('groupModal').style.display = 'flex';
+  });
+  window.closeGroupModal = () => {
+    document.getElementById('groupModal').style.display = 'none';
+    document.getElementById('groupUserSearch').value = '';
+    document.getElementById('groupUserResults').innerHTML = '';
+    document.getElementById('selectedUsers').innerHTML = '';
+    window.selectedUserIds = [];
+  };
+  window.selectedUserIds = [];
+  
+  const groupSearchInput = document.getElementById('groupUserSearch');
+  let groupSearchTimeout = null;
+  groupSearchInput?.addEventListener('input', async () => {
+    clearTimeout(groupSearchTimeout);
+    const q = (groupSearchInput.value || '').trim();
+    if (!q) {
+      document.getElementById('groupUserResults').innerHTML = '';
+      return;
+    }
+    groupSearchTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        const users = (data.results || []).filter(u => !window.selectedUserIds.includes(u.id));
+        document.getElementById('groupUserResults').innerHTML = users.map(u => `
+          <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem;border-bottom:1px solid var(--border-color);cursor:pointer;" onclick="addUserToGroup(${u.id}, '${u.full_name.replace(/'/g,"\\'")}', '${u.profile_picture || ''}')">
+            ${u.profile_picture ? `<img src="/uploads/${u.profile_picture}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--primary-color);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;">${u.full_name.charAt(0)}</div>`}
+            <span style="font-weight:600;font-size:.8rem;">${u.full_name}</span>
+          </div>
+        `).join('');
+      } catch(e) {
+        console.error('Group search error:', e);
+      }
+    }, 250);
+  });
+
+  window.addUserToGroup = (id, name, pic) => {
+    if (window.selectedUserIds.includes(id)) return;
+    window.selectedUserIds.push(id);
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:.35rem;background:var(--primary-color);color:#fff;padding:.35rem .6rem;border-radius:20px;font-size:.65rem;font-weight:700;';
+    chip.innerHTML = `${name} <button type="button" onclick="removeUserFromGroup(${id})" style="background:none;border:none;color:#fff;cursor:pointer;font-weight:700;padding:0;margin-left:.15rem;">✕</button>`;
+    document.getElementById('selectedUsers').appendChild(chip);
+    document.getElementById('groupUserSearch').value = '';
+    document.getElementById('groupUserResults').innerHTML = '';
+  };
+  window.removeUserFromGroup = (id) => {
+    window.selectedUserIds = window.selectedUserIds.filter(uid => uid !== id);
+    renderSelectedUsers();
+  };
+  function renderSelectedUsers() {
+    // Re-render would require storing names; simpler to rebuild via data attribute or global map
+    // For now, user must re-add if removed
+  }
+
+  window.createGroup = async () => {
+    const groupName = document.getElementById('groupNameInput').value.trim() || 'Group Chat';
+    if (window.selectedUserIds.length === 0) {
+      alert('Add at least one participant');
+      return;
+    }
+    try {
+      const res = await fetch('/messages/group/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantIds: window.selectedUserIds, groupName })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = `/messages?conversation=${data.conversationId}`;
+      } else {
+        alert(data.error || 'Failed to create group');
+      }
+    } catch(e) {
+      console.error('Group creation error:', e);
+      alert('Failed to create group');
+    }
+  };
 </script>
+
+<!-- Group Creation Modal -->
+<div id="groupModal" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:white;border-radius:20px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="padding:1.5rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;font-size:1.25rem;font-weight:700;">New Group</h3>
+      <button type="button" onclick="closeGroupModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-light);">&times;</button>
+    </div>
+    <div style="padding:1.5rem;">
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;margin-bottom:.5rem;font-weight:600;font-size:.8rem;">Group Name</label>
+        <input type="text" id="groupNameInput" placeholder="Enter group name" style="width:100%;padding:.65rem;border:2px solid var(--border-color);border-radius:8px;font-size:.85rem;">
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;margin-bottom:.5rem;font-weight:600;font-size:.8rem;">Add Participants</label>
+        <input type="text" id="groupUserSearch" placeholder="Search users..." style="width:100%;padding:.65rem;border:2px solid var(--border-color);border-radius:8px;font-size:.85rem;margin-bottom:.5rem;">
+        <div id="groupUserResults" style="max-height:200px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;"></div>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;margin-bottom:.5rem;font-weight:600;font-size:.8rem;">Selected</label>
+        <div id="selectedUsers" style="display:flex;flex-wrap:wrap;gap:.4rem;min-height:40px;padding:.5rem;border:2px dashed var(--border-color);border-radius:8px;"></div>
+      </div>
+      <button type="button" onclick="createGroup()" style="width:100%;background:var(--primary-color);color:#fff;border:none;padding:.75rem;border-radius:50px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,79,163,.4);">Create Group</button>
+    </div>
+  </div>
+</div>
 
 <%- include('partials/footer') %>

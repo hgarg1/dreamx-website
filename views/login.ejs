@@ -103,19 +103,19 @@
             <% } %>
 
             <% if (mp) { %>
-            <a href="/auth/microsoft" class="btn btn-primary btn-full" style="margin-top:10px;background:#2F2F2F;border:1px solid #2F2F2F;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <a href="/auth/microsoft" class="btn btn-full" style="margin-top:10px;background:#2F2F2F;border:2px solid #2F2F2F;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;padding:0.75rem 1.5rem;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.3s ease;">
                 <span style="font-weight:600;">Continue with Microsoft</span>
             </a>
             <% } else { %>
-            <button class="btn btn-primary btn-full" disabled style="margin-top:10px;opacity:.6;cursor:not-allowed;">Microsoft not configured</button>
+            <button class="btn btn-full" disabled style="margin-top:10px;opacity:.6;cursor:not-allowed;background:#2F2F2F;border:2px solid #2F2F2F;color:#fff;padding:0.75rem 1.5rem;border-radius:8px;font-size:1rem;font-weight:600;">Microsoft not configured</button>
             <% } %>
 
             <% if (ap) { %>
-            <a href="/auth/apple" class="btn btn-primary btn-full" style="margin-top:10px;background:#000;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <a href="/auth/apple" class="btn btn-full" style="margin-top:10px;background:#000;border:2px solid #000;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;padding:0.75rem 1.5rem;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.3s ease;">
                 <span style="font-weight:600;">Continue with Apple</span>
             </a>
             <% } else { %>
-            <button class="btn btn-primary btn-full" disabled style="margin-top:10px;opacity:.6;cursor:not-allowed;">Apple requires HTTPS callback</button>
+            <button class="btn btn-full" disabled style="margin-top:10px;opacity:.6;cursor:not-allowed;background:#000;border:2px solid #000;color:#fff;padding:0.75rem 1.5rem;border-radius:8px;font-size:1rem;font-weight:600;">Apple requires HTTPS callback</button>
             <% } %>
 
             <!-- Sign Up Link -->

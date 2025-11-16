@@ -31,7 +31,13 @@ const {
     // Posts
     createPost, getFeedPosts, getUserPosts,
     // WebAuthn
-    addWebAuthnCredential, getCredentialsForUser, getCredentialById, updateCredentialCounter
+    addWebAuthnCredential, getCredentialsForUser, getCredentialById, updateCredentialCounter,
+    // Groups
+    createGroupConversation, getConversationParticipants, isUserInConversation,
+    // Notifications
+    createNotification, getUserNotifications, getUnreadNotificationCount,
+    markNotificationAsRead, markAllNotificationsAsRead, deleteNotification,
+    savePushSubscription, getPushSubscriptions, deletePushSubscription
  } = require('./db');
 let fetch;
 try {
@@ -59,13 +65,34 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ 
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for profile/banner images
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
       cb(new Error('Only image files allowed'));
     }
+  }
+});
+// Separate multer for chat attachments (modest size, broader types)
+const chatStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, 'public', 'uploads'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'chat-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const chatUpload = multer({
+  storage: chatStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for chat
+  fileFilter: (req, file, cb) => {
+    const m = (file.mimetype || '').toLowerCase();
+    if (m.startsWith('image/') || m.startsWith('video/') || m.startsWith('audio/') || m === 'application/pdf' || m === 'text/plain') {
+      return cb(null, true);
+    }
+    cb(new Error('Unsupported file type for chat'));
   }
 });
 
@@ -660,16 +687,46 @@ app.post('/feed/post', upload.single('media'), (req, res) => {
     res.redirect('/feed');
 });
 
-// Profile page (public user profile placeholder)
+// Profile page (current user)
 app.get('/profile', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
-    // Build view model
     const passions = row.categories ? JSON.parse(row.categories) : [];
     const goals = row.goals ? JSON.parse(row.goals) : [];
     const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
     const userPosts = getUserPosts(req.session.userId);
+    const user = {
+        displayName: row.full_name,
+        handle: row.email.split('@')[0],
+        bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
+        passions,
+        skills: skillsList,
+        stats: { posts: userPosts.length, followers: 0, following: 0, sessions: 0 },
+        isSeller: false,
+        bannerImage: row.banner_image
+    };
+    const projects = [];
+    const services = [];
+    res.render('profile', {
+        title: `${user.displayName} - Profile - Dream X`,
+        currentPage: 'profile',
+        user,
+        projects,
+        services
+    });
+});
+// Public profile by ID (view others)
+app.get('/profile/:id', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const uid = parseInt(req.params.id, 10);
+    if (!uid || isNaN(uid)) return res.redirect('/feed');
+    const row = getUserById(uid);
+    if (!row) return res.redirect('/feed');
+    const passions = row.categories ? JSON.parse(row.categories) : [];
+    const goals = row.goals ? JSON.parse(row.goals) : [];
+    const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
+    const userPosts = getUserPosts(uid);
     const user = {
         displayName: row.full_name,
         handle: row.email.split('@')[0],
@@ -696,6 +753,7 @@ app.get('/profile/edit', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
+    const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture };
     const passions = row.categories ? JSON.parse(row.categories) : [];
     const user = {
         displayName: row.full_name,
@@ -709,6 +767,7 @@ app.get('/profile/edit', (req, res) => {
     res.render('edit-profile', {
         title: 'Edit Profile - Dream X',
         currentPage: 'profile',
+        authUser,
         user,
         allPassions
     });
@@ -827,6 +886,7 @@ app.get('/messages', (req, res) => {
     const conversations = getUserConversations(req.session.userId);
     let currentConversation = null;
     let messages = [];
+    let participants = [];
 
     if (conversations.length > 0) {
         const requestedId = parseInt(req.query.conversation || '', 10);
@@ -836,6 +896,9 @@ app.get('/messages', (req, res) => {
             currentConversation = conversations[0];
         }
         messages = getConversationMessages(currentConversation.id);
+        if (currentConversation.is_group) {
+            participants = getConversationParticipants(currentConversation.id);
+        }
         // Mark messages as read
         markMessagesAsRead({ conversationId: currentConversation.id, userId: req.session.userId });
     }
@@ -846,8 +909,29 @@ app.get('/messages', (req, res) => {
         conversations,
         currentConversation,
         messages,
+        participants,
         currentUserId: req.session.userId
     });
+});
+
+// Create group conversation
+app.post('/messages/group/create', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { participantIds, groupName } = req.body;
+    if (!Array.isArray(participantIds) || participantIds.length === 0) {
+        return res.status(400).json({ error: 'At least one participant required' });
+    }
+    try {
+        const conv = createGroupConversation({
+            creatorId: req.session.userId,
+            participantIds: participantIds.map(id => parseInt(id, 10)),
+            groupName: groupName || 'Group Chat'
+        });
+        res.json({ success: true, conversationId: conv.id });
+    } catch (e) {
+        console.error('Group creation error:', e);
+        res.status(500).json({ error: 'Failed to create group' });
+    }
 });
 
 // Get conversation messages API (for switching conversations)
@@ -861,31 +945,115 @@ app.get('/api/messages/:conversationId', (req, res) => {
     res.json({ messages, userId: req.session.userId });
 });
 
-// Send message API
-app.post('/api/messages/send', (req, res) => {
+// Start or get a conversation with a user, then redirect
+app.get('/messages/start/:userId', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const otherId = parseInt(req.params.userId, 10);
+    if (!otherId || isNaN(otherId) || otherId === req.session.userId) return res.redirect('/messages');
+    const conv = getOrCreateConversation({ user1Id: req.session.userId, user2Id: otherId });
+    res.redirect(`/messages?conversation=${conv.id}`);
+});
+
+// User search API for feed search box
+app.get('/api/users/search', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    
-    const { conversationId, content } = req.body;
-    if (!content || !content.trim()) {
-        return res.status(400).json({ error: 'Message content required' });
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json({ results: [] });
+    try {
+        const results = require('./db').searchUsers({ query: q, limit: 10, excludeUserId: req.session.userId });
+        res.json({ results });
+    } catch (e) {
+        console.error('User search error:', e);
+        res.status(500).json({ error: 'Search failed' });
     }
-    
+});
+
+// Send message API (supports optional file attachment)
+app.post('/api/messages/send', chatUpload.single('file'), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const conversationId = parseInt(req.body.conversationId, 10);
+    const content = (req.body.content || '').trim();
+    const file = req.file || null;
+
+    if ((!content || content.length === 0) && !file) {
+      return res.status(400).json({ error: 'Message must include text or a file' });
+    }
+
+    // Check user is in conversation
+    if (!isUserInConversation({ conversationId, userId: req.session.userId })) {
+      return res.status(403).json({ error: 'Not a participant in this conversation' });
+    }
+
+    const attachmentUrl = file ? `/uploads/${file.filename}` : null;
+    const attachmentMime = file ? file.mimetype : null;
+
     const messageId = createMessage({
         conversationId,
         senderId: req.session.userId,
-        content: content.trim()
+        content: content || '',
+        attachmentUrl,
+        attachmentMime
     });
+
+    // Get conversation details and participants to send notifications
+    const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+    const participants = getConversationParticipants(conversationId);
+    const sender = getUserById(req.session.userId);
     
+    // Create notifications for other participants
+    participants.forEach(participant => {
+        if (participant.user_id !== req.session.userId) {
+            const notifTitle = conv.is_group 
+                ? `New message in ${conv.group_name || 'Group Chat'}`
+                : `New message from ${sender.full_name}`;
+            const notifMessage = content || '📎 Sent an attachment';
+            
+            createNotification({
+                userId: participant.user_id,
+                type: 'message',
+                title: notifTitle,
+                message: notifMessage,
+                link: `/messages?conversation=${conversationId}`
+            });
+            
+            // Emit notification via socket
+            io.to(`user-${participant.user_id}`).emit('notification', {
+                type: 'message',
+                title: notifTitle,
+                message: notifMessage,
+                link: `/messages?conversation=${conversationId}`,
+                timestamp: new Date().toISOString()
+            });
+        }
+    });
+
     // Emit to socket for real-time delivery
     io.to(`conversation-${conversationId}`).emit('new-message', {
         id: messageId,
         conversation_id: conversationId,
         sender_id: req.session.userId,
-        content: content.trim(),
+        content: content || '',
+        attachment_url: attachmentUrl,
+        attachment_mime: attachmentMime,
         created_at: new Date().toISOString()
     });
-    
-    res.json({ success: true, messageId });
+
+    res.json({ success: true, messageId, attachmentUrl, attachmentMime });
+});
+
+// Protected file download
+app.get('/uploads/:filename', (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Unauthorized');
+    const filename = req.params.filename;
+    // Check if file is a chat attachment
+    if (filename.startsWith('chat-')) {
+        const msg = db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url = ?`).get(`/uploads/${filename}`);
+        if (!msg || !isUserInConversation({ conversationId: msg.conversation_id, userId: req.session.userId })) {
+            return res.status(403).send('Forbidden');
+        }
+    }
+    res.sendFile(path.join(__dirname, 'public', 'uploads', filename));
 });
 
 // Mark messages as read
@@ -1148,14 +1316,105 @@ app.post('/onboarding', (req, res) => {
     res.redirect('/profile');
 });
 
+// === NOTIFICATION API ROUTES ===
+// Get user notifications
+app.get('/api/notifications', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+    try {
+        const notifications = getUserNotifications(req.session.userId);
+        const unreadCount = getUnreadNotificationCount(req.session.userId);
+        res.json({ notifications, unreadCount });
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+        res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+});
+
+// Mark notification as read
+app.post('/api/notifications/:id/read', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+    try {
+        markNotificationAsRead(parseInt(req.params.id));
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error marking notification as read:', error);
+        res.status(500).json({ error: 'Failed to mark notification as read' });
+    }
+});
+
+// Mark all notifications as read
+app.post('/api/notifications/read-all', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+    try {
+        markAllNotificationsAsRead(req.session.userId);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error marking all notifications as read:', error);
+        res.status(500).json({ error: 'Failed to mark all notifications as read' });
+    }
+});
+
+// Delete notification
+app.delete('/api/notifications/:id', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+    try {
+        deleteNotification(parseInt(req.params.id));
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting notification:', error);
+        res.status(500).json({ error: 'Failed to delete notification' });
+    }
+});
+
+// Save push subscription
+app.post('/api/push/subscribe', express.json(), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+    try {
+        const { endpoint, keys } = req.body;
+        if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
+            return res.status(400).json({ error: 'Invalid subscription data' });
+        }
+        savePushSubscription({
+            userId: req.session.userId,
+            endpoint,
+            p256dh: keys.p256dh,
+            auth: keys.auth
+        });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving push subscription:', error);
+        res.status(500).json({ error: 'Failed to save push subscription' });
+    }
+});
+
+// Unsubscribe from push
+app.post('/api/push/unsubscribe', express.json(), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+    try {
+        const { endpoint } = req.body;
+        if (!endpoint) return res.status(400).json({ error: 'Endpoint required' });
+        deletePushSubscription(endpoint);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error unsubscribing from push:', error);
+        res.status(500).json({ error: 'Failed to unsubscribe' });
+    }
+});
+
 // 404 handler - must be last route
 app.use((req, res) => {
     res.status(404).send('<h1>404 - Page Not Found</h1>');
 });
 
-// Socket.IO for real-time messaging
+// Socket.IO for real-time messaging and notifications
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+    
+    // Join user's personal notification room
+    socket.on('join-user-room', (userId) => {
+        socket.join(`user-${userId}`);
+        console.log(`Socket ${socket.id} joined user room ${userId}`);
+    });
     
     socket.on('join-conversation', (conversationId) => {
         socket.join(`conversation-${conversationId}`);

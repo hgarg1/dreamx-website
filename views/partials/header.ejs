@@ -8,6 +8,11 @@
     
     <!-- CSS Stylesheet -->
     <link rel="stylesheet" href="/css/style.css">
+    
+    <% if(authUser){ %>
+    <!-- Socket.IO for real-time notifications -->
+    <script src="/socket.io/socket.io.js"></script>
+    <% } %>
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -33,6 +38,7 @@
                                     <li><a href="/services" class="<%= currentPage === 'services' ? 'active' : '' %>">Services</a></li>
                                     <li><a href="/pricing" class="<%= currentPage === 'pricing' ? 'active' : '' %>">Pricing</a></li>
                                     <li><a href="/messages" class="<%= currentPage === 'messages' ? 'active' : '' %>">Messages <% if(unreadMessageCount > 0){ %><span style="background:#ef4444;color:white;padding:2px 6px;border-radius:10px;font-size:11px;margin-left:4px;"><%= unreadMessageCount %></span><% } %></a></li>
+                                    <li><a href="#" id="notificationBell" style="position:relative;">🔔 <span id="notificationBadge" style="display:none;position:absolute;top:-4px;right:-8px;background:#ef4444;color:white;padding:2px 6px;border-radius:10px;font-size:11px;min-width:18px;text-align:center;"></span></a></li>
                                     
                                     <!-- User Dropdown -->
                                     <li class="nav-user dropdown">

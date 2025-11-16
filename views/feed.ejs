@@ -177,6 +177,12 @@
 
   <!-- Right Sidebar -->
   <aside class="feed-sidebar right-sidebar">
+    <h2 class="sidebar-title">Find People</h2>
+    <div class="user-search-box" style="background:white;border-radius:12px;padding:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);margin-bottom:16px;">
+      <input id="userSearchInput" type="text" placeholder="Search by name or email" aria-label="Search users" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;">
+      <ul id="userSearchResults" style="list-style:none;margin:12px 0 0 0;padding:0;max-height:260px;overflow:auto;display:none;"></ul>
+    </div>
+
     <h2 class="sidebar-title">Suggested Creators to Follow</h2>
     <div class="suggested-creators">
       <% suggestions.forEach(function(s){ %>
@@ -190,6 +196,41 @@
         </div>
       <% }); %>
     </div>
+
+    <script>
+      (function(){
+        const input = document.getElementById('userSearchInput');
+        const list = document.getElementById('userSearchResults');
+        let t = null;
+        async function run(q){
+          if (!q) { list.style.display='none'; list.innerHTML=''; return; }
+          try {
+            const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+            if (!res.ok) throw new Error('Search failed');
+            const data = await res.json();
+            const users = data.results || [];
+            list.innerHTML = users.map(u => `
+              <li style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid #f3f4f6;">
+                ${u.profile_picture ? `<img src="/uploads/${u.profile_picture}" alt="${u.full_name}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">` : `<div style=\"width:36px;height:36px;border-radius:50%;background:#7C3AED;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;\">${(u.full_name||'U').charAt(0)}</div>`}
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name}</div>
+                  <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.email}</div>
+                </div>
+                <a href="/profile/${u.id}" style="font-size:12px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px;color:#374151;text-decoration:none;">View</a>
+                <a href="/messages/start/${u.id}" style="font-size:12px;padding:6px 8px;background:#7C3AED;color:#fff;border-radius:6px;text-decoration:none;">Message</a>
+              </li>
+            `).join('');
+            list.style.display = users.length ? 'block' : 'none';
+          } catch(e) {
+            list.innerHTML = '<li style="padding:8px;color:#6b7280;">Search failed</li>';
+            list.style.display = 'block';
+          }
+        }
+        input.addEventListener('input', () => {
+          clearTimeout(t); t = setTimeout(() => run(input.value.trim()), 250);
+        });
+      })();
+    </script>
   </aside>
 </div>
 

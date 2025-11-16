@@ -58,9 +58,21 @@ CREATE TABLE IF NOT EXISTS conversations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user1_id INTEGER NOT NULL,
   user2_id INTEGER NOT NULL,
+  is_group INTEGER DEFAULT 0,
+  group_name TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user1_id) REFERENCES users(id),
   FOREIGN KEY (user2_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS conversation_participants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE(conversation_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -72,6 +84,28 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (conversation_id) REFERENCES conversations(id),
   FOREIGN KEY (sender_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  link TEXT,
+  read INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 `);
 
@@ -141,6 +175,35 @@ try {
 } catch (e) {
   // Column already exists, ignore
 }
+// Messages attachments migration (idempotent)
+try {
+  db.exec(`ALTER TABLE messages ADD COLUMN attachment_url TEXT;`);
+} catch (e) {
+  // Column exists
+}
+try {
+  db.exec(`ALTER TABLE messages ADD COLUMN attachment_mime TEXT;`);
+} catch (e) {
+  // Column exists
+}
+// Group conversations migration
+try {
+  db.exec(`ALTER TABLE conversations ADD COLUMN is_group INTEGER DEFAULT 0;`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE conversations ADD COLUMN group_name TEXT;`);
+} catch (e) {}
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS conversation_participants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(conversation_id, user_id)
+  );`);
+} catch (e) {}
 
 // Ensure audit logs table exists
 try {
@@ -213,6 +276,25 @@ module.exports = {
     }
     return db.prepare(`SELECT COUNT(*) as c FROM users`).get().c;
   },
+  searchUsers: ({ query, limit = 10, excludeUserId }) => {
+    const s = `%${(query || '').toLowerCase()}%`;
+    if (excludeUserId) {
+      return db.prepare(`
+        SELECT id, full_name, email, profile_picture, bio, location
+        FROM users
+        WHERE id != ? AND (LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?)
+        ORDER BY full_name ASC
+        LIMIT ?
+      `).all(excludeUserId, s, s, limit);
+    }
+    return db.prepare(`
+      SELECT id, full_name, email, profile_picture, bio, location
+      FROM users
+      WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?
+      ORDER BY full_name ASC
+      LIMIT ?
+    `).all(s, s, limit);
+  },
   getStats: () => {
     const users = db.prepare(`SELECT COUNT(*) as c FROM users`).get().c;
     const conv = db.prepare(`SELECT COUNT(*) as c FROM conversations`).get().c;
@@ -262,27 +344,86 @@ module.exports = {
   getOrCreateConversation: ({ user1Id, user2Id }) => {
     const existing = db.prepare(`
       SELECT * FROM conversations 
-      WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
+      WHERE is_group = 0 AND ((user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?))
     `).get(user1Id, user2Id, user2Id, user1Id);
     if (existing) return existing;
-    const stmt = db.prepare(`INSERT INTO conversations (user1_id, user2_id) VALUES (?,?)`);
+    const stmt = db.prepare(`INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,0)`);
     const info = stmt.run(user1Id, user2Id);
     return db.prepare('SELECT * FROM conversations WHERE id = ?').get(info.lastInsertRowid);
   },
-  getUserConversations: (userId) => {
+  createGroupConversation: ({ creatorId, participantIds, groupName }) => {
+    const stmt = db.prepare(`INSERT INTO conversations (user1_id, user2_id, is_group, group_name) VALUES (?,?,1,?)`);
+    const info = stmt.run(creatorId, creatorId, groupName || 'Group Chat');
+    const convId = info.lastInsertRowid;
+    const addStmt = db.prepare(`INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id) VALUES (?,?)`);
+    addStmt.run(convId, creatorId);
+    participantIds.forEach(uid => addStmt.run(convId, uid));
+    return db.prepare('SELECT * FROM conversations WHERE id = ?').get(convId);
+  },
+  getConversationParticipants: (conversationId) => {
     return db.prepare(`
+      SELECT u.id, u.full_name, u.email, u.profile_picture
+      FROM conversation_participants cp
+      JOIN users u ON u.id = cp.user_id
+      WHERE cp.conversation_id = ?
+    `).all(conversationId);
+  },
+  isUserInConversation: ({ conversationId, userId }) => {
+    const conv = db.prepare(`SELECT * FROM conversations WHERE id = ?`).get(conversationId);
+    if (!conv) return false;
+    if (conv.is_group) {
+      const part = db.prepare(`SELECT * FROM conversation_participants WHERE conversation_id = ? AND user_id = ?`).get(conversationId, userId);
+      return !!part;
+    }
+    return conv.user1_id === userId || conv.user2_id === userId;
+  },
+  getUserConversations: (userId) => {
+    const direct = db.prepare(`
       SELECT c.*, 
         CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END as other_user_id,
         u.full_name as other_user_name,
         u.profile_picture as other_user_picture,
-        (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
+        (
+          SELECT CASE 
+            WHEN attachment_url IS NOT NULL THEN '[Attachment]'
+            ELSE content 
+          END 
+          FROM messages 
+          WHERE conversation_id = c.id 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        ) as last_message,
         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_time,
         (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND read = 0) as unread_count
       FROM conversations c
       JOIN users u ON (CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END) = u.id
-      WHERE c.user1_id = ? OR c.user2_id = ?
-      ORDER BY last_message_time DESC
+      WHERE (c.user1_id = ? OR c.user2_id = ?) AND c.is_group = 0
     `).all(userId, userId, userId, userId, userId);
+    const groups = db.prepare(`
+      SELECT c.*,
+        c.group_name as other_user_name,
+        NULL as other_user_picture,
+        (
+          SELECT CASE 
+            WHEN attachment_url IS NOT NULL THEN '[Attachment]'
+            ELSE content 
+          END 
+          FROM messages 
+          WHERE conversation_id = c.id 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        ) as last_message,
+        (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_time,
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND read = 0) as unread_count
+      FROM conversations c
+      JOIN conversation_participants cp ON cp.conversation_id = c.id
+      WHERE cp.user_id = ? AND c.is_group = 1
+    `).all(userId, userId);
+    return [...direct, ...groups].sort((a, b) => {
+      const ta = new Date(a.last_message_time || 0).getTime();
+      const tb = new Date(b.last_message_time || 0).getTime();
+      return tb - ta;
+    });
   },
   getConversationMessages: (conversationId) => {
     return db.prepare(`
@@ -293,9 +434,12 @@ module.exports = {
       ORDER BY m.created_at ASC
     `).all(conversationId);
   },
-  createMessage: ({ conversationId, senderId, content }) => {
-    const stmt = db.prepare(`INSERT INTO messages (conversation_id, sender_id, content) VALUES (?,?,?)`);
-    const info = stmt.run(conversationId, senderId, content);
+  createMessage: ({ conversationId, senderId, content, attachmentUrl, attachmentMime }) => {
+    const stmt = db.prepare(`
+      INSERT INTO messages (conversation_id, sender_id, content, attachment_url, attachment_mime)
+      VALUES (?,?,?,?,?)
+    `);
+    const info = stmt.run(conversationId, senderId, content || '', attachmentUrl || null, attachmentMime || null);
     return info.lastInsertRowid;
   },
   markMessagesAsRead: ({ conversationId, userId }) => {
@@ -357,5 +501,54 @@ module.exports = {
   },
   updateCredentialCounter: ({ credentialId, counter }) => {
     db.prepare(`UPDATE webauthn_credentials SET counter = ? WHERE credential_id = ?`).run(counter, credentialId);
+  },
+  // Notification helpers
+  createNotification: ({ userId, type, title, message, link }) => {
+    const stmt = db.prepare(`INSERT INTO notifications (user_id, type, title, message, link) VALUES (?, ?, ?, ?, ?)`);
+    const result = stmt.run(userId, type, title, message, link || null);
+    return result.lastInsertRowid;
+  },
+  getUserNotifications: (userId, limit = 50) => {
+    const stmt = db.prepare(`
+      SELECT id, type, title, message, link, read, created_at
+      FROM notifications
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `);
+    return stmt.all(userId, limit);
+  },
+  getUnreadNotificationCount: (userId) => {
+    const stmt = db.prepare(`SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = 0`);
+    const row = stmt.get(userId);
+    return row ? row.count : 0;
+  },
+  markNotificationAsRead: (notificationId) => {
+    const stmt = db.prepare(`UPDATE notifications SET read = 1 WHERE id = ?`);
+    stmt.run(notificationId);
+  },
+  markAllNotificationsAsRead: (userId) => {
+    const stmt = db.prepare(`UPDATE notifications SET read = 1 WHERE user_id = ?`);
+    stmt.run(userId);
+  },
+  deleteNotification: (notificationId) => {
+    const stmt = db.prepare(`DELETE FROM notifications WHERE id = ?`);
+    stmt.run(notificationId);
+  },
+  savePushSubscription: ({ userId, endpoint, p256dh, auth }) => {
+    const stmt = db.prepare(`
+      INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth
+    `);
+    stmt.run(userId, endpoint, p256dh, auth);
+  },
+  getPushSubscriptions: (userId) => {
+    const stmt = db.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`);
+    return stmt.all(userId);
+  },
+  deletePushSubscription: (endpoint) => {
+    const stmt = db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`);
+    stmt.run(endpoint);
   }
 };
