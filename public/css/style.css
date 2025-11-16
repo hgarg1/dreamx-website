@@ -2852,6 +2852,37 @@ main {
     border-radius:12px;
     letter-spacing:0.5px;
 }
+.billing-badge-pink {
+    background:#ffe6f2;
+    color:#ff4fa3;
+}
+.billing-badge-blue {
+    background:#dbeafe;
+    color:#3b82f6;
+}
+.billing-badge-purple {
+    background:#f3e8ff;
+    color:#a855f7;
+}
+.billing-badge-teal {
+    background:#ccfbf1;
+    color:#14b8a6;
+}
+.billing-badge-neutral {
+    background:#f3f4f6;
+    color:#6b7280;
+}
+.billing-info-value-with-badge {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    width:100%;
+    font-weight:600;
+    color:#1f2937;
+}
+.plan-name-text {
+    flex:1;
+}
 
 /* Buttons */
 .billing-actions {
@@ -2933,6 +2964,25 @@ main {
 }
 .payment-method-icon {
     font-size:1.5rem;
+}
+.payment-card-icon {
+    width:40px;
+    height:28px;
+    background:#fbbf24;
+    border-radius:4px;
+    position:relative;
+    box-shadow:0 2px 4px rgba(251,191,36,0.3);
+}
+.payment-card-icon::after {
+    content:'';
+    position:absolute;
+    bottom:4px;
+    right:4px;
+    width:8px;
+    height:8px;
+    background:#fff;
+    border-radius:50%;
+    opacity:0.6;
 }
 .payment-method-details {
     display:flex;
@@ -3046,7 +3096,8 @@ main {
 }
 .tier-card-current {
     border-color:#ff4fa3;
-    background:#fef2f8;
+    border-width:3px;
+    background:#fff;
     box-shadow:0 8px 24px rgba(255,79,163,.25);
 }
 .tier-card-name {

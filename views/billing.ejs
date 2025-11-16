@@ -20,9 +20,9 @@
         elite_seller: { name: 'Elite Seller', desc: 'build a full microbrand.', price: '$29.99', badge: 'purple', badgeColor: '#a855f7' },
         enterprise: { name: 'Enterprise Creator', desc: 'social and learning hub for your community.', price: '$99.99', badge: 'teal', badgeColor: '#14b8a6' }
       };
-      const rawTier = (typeof userTier !== 'undefined' && userTier) ? String(userTier).toLowerCase() : 'free';
+      const rawTier = (typeof userTier !== 'undefined' && userTier) ? String(userTier).toLowerCase() : 'pro_seller';
       const normalized = rawTier.replace(/-/g, '_');
-      const currentTier = tierDetails[normalized] || tierDetails.free;
+      const currentTier = tierDetails[normalized] || tierDetails.pro_seller;
     %>
     <p class="billing-plan-subheading">
       <%= currentTier.name %> — <%= currentTier.desc %>
@@ -31,16 +31,16 @@
       <div class="billing-plan-info">
         <div class="billing-info-row">
           <span class="billing-info-label">Plan:</span>
-          <span class="billing-info-value">
-            <%= currentTier.name %>
-            <span class="billing-badge billing-badge-<%= currentTier.badge %>"><%= currentTier.name.toUpperCase() %></span>
+          <span class="billing-info-value-with-badge">
+            <span class="plan-name-text"><%= currentTier.name %></span>
+            <span class="billing-badge billing-badge-<%= currentTier.badge %>"><%= normalized === 'pro_seller' ? 'PRO SELLER' : currentTier.name.toUpperCase() %></span>
           </span>
         </div>
         <div class="billing-info-row">
           <span class="billing-info-label">Monthly Price:</span>
           <span class="billing-info-value billing-price"><%= currentTier.price %>/mo</span>
         </div>
-        <% if (userTier !== 'free') { %>
+        <% if (normalized !== 'free') { %>
         <div class="billing-info-row">
           <span class="billing-info-label">Next Billing Date:</span>
           <span class="billing-info-value">January 15, 2026</span>
@@ -51,9 +51,7 @@
     <div class="billing-actions">
       <a href="/pricing" class="billing-btn billing-btn-primary">Change Plan</a>
       <% if (normalized !== 'free') { %>
-        <form action="/settings/billing/subscription/cancel" method="POST" style="display:inline;">
-          <button type="submit" class="billing-btn billing-btn-secondary">Cancel Subscription</button>
-        </form>
+        <button type="button" class="billing-btn billing-btn-secondary">Cancel Subscription</button>
       <% } %>
     </div>
     <p class="billing-note">
@@ -68,7 +66,7 @@
     <div class="payment-methods-list">
       <div class="payment-method">
         <div class="payment-method-info">
-          <div class="payment-method-icon">💳</div>
+          <div class="payment-card-icon"></div>
           <div class="payment-method-details">
             <div class="payment-method-brand">Visa •••• 4242</div>
             <div class="payment-method-expiry">Expires 12/2026</div>
@@ -80,7 +78,7 @@
       </div>
       <div class="payment-method">
         <div class="payment-method-info">
-          <div class="payment-method-icon">💳</div>
+          <div class="payment-card-icon"></div>
           <div class="payment-method-details">
             <div class="payment-method-brand">Mastercard •••• 8888</div>
             <div class="payment-method-expiry">Expires 08/2025</div>
