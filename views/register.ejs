@@ -10,13 +10,28 @@
                 <p class="auth-subtitle">Start by telling us who you are.</p>
             </div>
 
-                        <!-- Registration Form -->
-                        <% if(typeof error !== 'undefined' && error){ %>
-                            <div style="background:#ffe6ef;color:#c30055;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.85rem;font-weight:600;">
-                                <%= error %>
-                            </div>
-                        <% } %>
-                        <form class="auth-form" action="/register" method="POST" novalidate>
+            <!-- Registration Form -->
+            <% if(typeof error !== 'undefined' && error){ %>
+                <div style="background:#ffe6ef;color:#c30055;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.85rem;font-weight:600;">
+                    <%= error %>
+                </div>
+            <% } %>
+            
+            <% if(typeof suggestedHandles !== 'undefined' && suggestedHandles && suggestedHandles.length > 0){ %>
+                <div style="background:#e0f2fe;color:#075985;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.85rem;">
+                    <strong>Available handles:</strong>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                        <% suggestedHandles.forEach(function(suggested) { %>
+                            <button type="button" onclick="document.getElementById('handle').value='<%= suggested %>'" 
+                                    style="padding:4px 12px;background:#0284c7;color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;">
+                                @<%= suggested %>
+                            </button>
+                        <% }); %>
+                    </div>
+                </div>
+            <% } %>
+            
+            <form class="auth-form" action="/register" method="POST" novalidate>
                 <!-- Full Name -->
                 <div class="form-group">
                     <label for="fullName">Full Name</label>
@@ -27,6 +42,7 @@
                         required 
                         placeholder="Jane Doe" 
                         autocomplete="name"
+                        value="<%= typeof formData !== 'undefined' && formData ? (formData.fullName || '') : '' %>"
                     >
                 </div>
 
@@ -40,7 +56,29 @@
                         required 
                         placeholder="you@example.com" 
                         autocomplete="email"
+                        value="<%= typeof formData !== 'undefined' && formData ? (formData.email || '') : '' %>"
                     >
+                </div>
+                
+                <!-- Handle -->
+                <div class="form-group">
+                    <label for="handle">Handle (username)</label>
+                    <div style="position:relative;">
+                        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6b7280;font-weight:500;">@</span>
+                        <input 
+                            type="text" 
+                            id="handle" 
+                            name="handle" 
+                            placeholder="yourhandle" 
+                            autocomplete="off"
+                            pattern="[a-z0-9_]{3,20}"
+                            style="padding-left:28px;"
+                            value="<%= typeof formData !== 'undefined' && formData ? (formData.handle || '') : '' %>"
+                        >
+                    </div>
+                    <small style="color:#6b7280;font-size:0.8rem;margin-top:4px;display:block;">
+                        3-20 characters: lowercase letters, numbers, and underscores only. Leave blank to auto-generate.
+                    </small>
                 </div>
 
                 <!-- Password -->

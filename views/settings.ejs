@@ -27,6 +27,20 @@
         <label class="settings-label" for="accountDisplayName">Display Name</label>
         <input id="accountDisplayName" name="displayName" type="text" class="settings-input" value="<%= authUser.displayName %>" required />
       </div>
+      <div class="settings-field-group">
+        <label class="settings-label" for="accountHandle">Handle</label>
+        <div style="position:relative;">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6b7280;font-weight:500;">@</span>
+          <input id="accountHandle" name="handle" type="text" class="settings-input" 
+                 style="padding-left:28px;" 
+                 value="<%= authUser.handle || '' %>" 
+                 pattern="[a-z0-9_]{3,20}"
+                 required />
+        </div>
+        <small style="color:#6b7280;font-size:0.8rem;margin-top:4px;display:block;">
+          3-20 characters: lowercase letters, numbers, and underscores only
+        </small>
+      </div>
       <div class="settings-actions-inline">
         <button type="submit" class="settings-btn primary">Update Account</button>
       </div>
