@@ -768,12 +768,17 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     const user = getUserByEmail((email || '').trim().toLowerCase());
+    // Ensure OAuth provider flags are always available to the template
+    const googleEnabled = !!passport._strategy('google');
+    const microsoftEnabled = !!passport._strategy('microsoft');
+    const appleEnabled = !!passport._strategy('apple') && !!process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://');
+    const providers = { googleEnabled, microsoftEnabled, appleEnabled };
     if (!user) {
-        return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.' });
+        return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.', providers });
     }
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) {
-        return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.' });
+        return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.', providers });
     }
     req.session.userId = user.id;
     if (user.role === 'admin' || user.role === 'super_admin') {
