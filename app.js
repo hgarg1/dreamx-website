@@ -19,8 +19,8 @@ const {
 } = require('@simplewebauthn/server');
 const socketIo = require('socket.io');
 const { 
-    db, getUserById, getUserByEmail, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
-    updateProfilePicture, updateBannerImage, updatePassword, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
+    db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
+    updateProfilePicture, updateBannerImage, updatePassword, updateUserHandle, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
     getOrCreateConversation, getUserConversations, getConversationMessages,
     createMessage, markMessagesAsRead, getUnreadMessageCount,
     updateUserRole, getAllUsers, getStats,
@@ -37,7 +37,11 @@ const {
     // Notifications
     createNotification, getUserNotifications, getUnreadNotificationCount,
     markNotificationAsRead, markAllNotificationsAsRead, deleteNotification,
-    savePushSubscription, getPushSubscriptions, deletePushSubscription
+    savePushSubscription, getPushSubscriptions, deletePushSubscription,
+    // Subscriptions
+    getUserSubscription, createOrUpdateSubscription, cancelSubscription,
+    addPaymentMethod, getPaymentMethods, deletePaymentMethod, setDefaultPaymentMethod,
+    createInvoice, getInvoices
  } = require('./db');
 let fetch;
 try {
@@ -140,6 +144,66 @@ function validatePasswordComplexity(password) {
     return { valid: errors.length === 0, errors };
 }
 
+// Generate a base handle from full name or email
+function generateBaseHandle(fullName, email) {
+    // Try full name first
+    if (fullName) {
+        return fullName
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '')
+            .substring(0, 20);
+    }
+    // Fallback to email username
+    if (email) {
+        return email.split('@')[0]
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '')
+            .substring(0, 20);
+    }
+    return 'user';
+}
+
+// Generate unique handle with collision resolution
+function generateUniqueHandle(baseHandle, excludeUserId = null) {
+    let handle = baseHandle;
+    let counter = 0;
+    
+    while (true) {
+        const existing = getUserByHandle(handle);
+        // Handle is available if it doesn't exist or belongs to the current user
+        if (!existing || (excludeUserId && existing.id === excludeUserId)) {
+            return handle;
+        }
+        // Try with incrementing number
+        counter++;
+        handle = `${baseHandle}${counter}`;
+    }
+}
+
+// Get suggested handles when collision occurs
+function getSuggestedHandles(baseHandle, count = 3) {
+    const suggestions = [];
+    const random = () => Math.floor(Math.random() * 999);
+    
+    // Suggestion 1: base + random number
+    suggestions.push(generateUniqueHandle(`${baseHandle}${random()}`));
+    
+    // Suggestion 2: base + underscore + random number
+    suggestions.push(generateUniqueHandle(`${baseHandle}_${random()}`));
+    
+    // Suggestion 3: base + sequential number
+    let num = 1;
+    while (suggestions.length < count) {
+        const candidate = `${baseHandle}${num}`;
+        if (!getUserByHandle(candidate)) {
+            suggestions.push(candidate);
+        }
+        num++;
+    }
+    
+    return suggestions.slice(0, count);
+}
+
 // Helper to find or create a user from OAuth profile
 async function findOrCreateOAuthUser({ provider, providerId, displayName, email }) {
     let user = getUserByProvider(provider, providerId);
@@ -152,7 +216,14 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email 
         }
     }
     const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
-    const userId = createUser({ fullName: displayName || (email || 'User'), email: email || `${providerId}@${provider}.oauth.local`, passwordHash: dummyHash });
+    const baseHandle = generateBaseHandle(displayName, email);
+    const uniqueHandle = generateUniqueHandle(baseHandle);
+    const userId = createUser({ 
+        fullName: displayName || (email || 'User'), 
+        email: email || `${providerId}@${provider}.oauth.local`, 
+        passwordHash: dummyHash,
+        handle: uniqueHandle
+    });
     updateUserProvider({ userId, provider, providerId });
     return getUserById(userId);
 }
@@ -583,30 +654,94 @@ app.get('/register', (req, res) => {
     res.render('register', {
         title: 'Register - Dream X',
         currentPage: 'register',
-        error: null
+        error: null,
+        suggestedHandles: null,
+        formData: null
     });
 });
 
 // Handle registration
 app.post('/register', async (req, res) => {
-    const { fullName, email, password, confirmPassword } = req.body;
+    const { fullName, email, password, confirmPassword, handle } = req.body;
     if (!fullName || !email || !password || !confirmPassword) {
-        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'All fields are required.' });
+        return res.status(400).render('register', { 
+            title: 'Register - Dream X', 
+            currentPage: 'register', 
+            error: 'All fields are required.',
+            suggestedHandles: null,
+            formData: req.body
+        });
     }
     if (password !== confirmPassword) {
-        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Passwords do not match.' });
+        return res.status(400).render('register', { 
+            title: 'Register - Dream X', 
+            currentPage: 'register', 
+            error: 'Passwords do not match.',
+            suggestedHandles: null,
+            formData: req.body
+        });
     }
     const complexityCheck = validatePasswordComplexity(password);
     if (!complexityCheck.valid) {
-        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: `Password must contain ${complexityCheck.errors.join(', ')}.` });
+        return res.status(400).render('register', { 
+            title: 'Register - Dream X', 
+            currentPage: 'register', 
+            error: `Password must contain ${complexityCheck.errors.join(', ')}.`,
+            suggestedHandles: null,
+            formData: req.body
+        });
     }
     const existing = getUserByEmail(email.trim().toLowerCase());
     if (existing) {
-        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Email already in use.' });
+        return res.status(400).render('register', { 
+            title: 'Register - Dream X', 
+            currentPage: 'register', 
+            error: 'Email already in use.',
+            suggestedHandles: null,
+            formData: req.body
+        });
     }
+    
+    // Handle validation
+    let userHandle = handle ? handle.trim().toLowerCase() : '';
+    if (!userHandle) {
+        // Auto-generate if not provided
+        const baseHandle = generateBaseHandle(fullName, email);
+        userHandle = generateUniqueHandle(baseHandle);
+    } else {
+        // Validate format
+        if (!/^[a-z0-9_]{3,20}$/.test(userHandle)) {
+            return res.status(400).render('register', {
+                title: 'Register - Dream X',
+                currentPage: 'register',
+                error: 'Handle must be 3-20 characters and contain only lowercase letters, numbers, and underscores.',
+                suggestedHandles: null,
+                formData: req.body
+            });
+        }
+        // Check for collision
+        const handleExists = getUserByHandle(userHandle);
+        if (handleExists) {
+            const baseHandle = generateBaseHandle(fullName, email);
+            const suggestions = getSuggestedHandles(baseHandle);
+            return res.status(400).render('register', {
+                title: 'Register - Dream X',
+                currentPage: 'register',
+                error: `Handle "@${userHandle}" is already taken. Here are some suggestions:`,
+                suggestedHandles: suggestions,
+                formData: req.body
+            });
+        }
+    }
+    
     try {
         const hash = await bcrypt.hash(password, 10);
-        const userId = createUser({ fullName, email: email.trim().toLowerCase(), passwordHash: hash });
+        const userId = createUser({ 
+            fullName, 
+            email: email.trim().toLowerCase(), 
+            passwordHash: hash,
+            handle: userHandle
+        });
         req.session.userId = userId;
         return res.redirect('/onboarding');
     } catch (e) {
@@ -698,7 +833,7 @@ app.get('/profile', (req, res) => {
     const userPosts = getUserPosts(req.session.userId);
     const user = {
         displayName: row.full_name,
-        handle: row.email.split('@')[0],
+        handle: row.handle || row.email.split('@')[0],
         bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
         passions,
         skills: skillsList,
@@ -729,7 +864,7 @@ app.get('/profile/:id', (req, res) => {
     const userPosts = getUserPosts(uid);
     const user = {
         displayName: row.full_name,
-        handle: row.email.split('@')[0],
+        handle: row.handle || row.email.split('@')[0],
         bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
         passions,
         skills: skillsList,
@@ -753,11 +888,11 @@ app.get('/profile/edit', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
-    const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture };
+    const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture, handle: row.handle };
     const passions = row.categories ? JSON.parse(row.categories) : [];
     const user = {
         displayName: row.full_name,
-        handle: row.email.split('@')[0],
+        handle: row.handle || row.email.split('@')[0],
         bio: row.bio || '',
         passions,
         skills: row.skills || '',
@@ -1074,6 +1209,7 @@ app.get('/settings', (req, res) => {
     const user = { 
         email: row.email, 
         fullName: row.full_name,
+        handle: row.handle || '',
         emailNotifications: row.email_notifications === 1,
         pushNotifications: row.push_notifications === 1,
         messageNotifications: row.message_notifications === 1
@@ -1083,12 +1219,21 @@ app.get('/settings', (req, res) => {
         const accounts = getLinkedAccountsForUser(req.session.userId) || [];
         accounts.forEach(a => { if (a.provider && linked.hasOwnProperty(a.provider)) linked[a.provider] = true; });
     } catch (e) {}
+    
+    // Get subscription and billing data
+    const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
+    const paymentMethods = getPaymentMethods(req.session.userId) || [];
+    const invoices = getInvoices(req.session.userId) || [];
+    
     res.render('settings', {
         title: 'Settings - Dream X',
         currentPage: 'settings',
         user,
         linked,
         getUserById,
+        subscription,
+        paymentMethods,
+        invoices,
         success: req.query.success,
         error: req.query.error
     });
@@ -1114,11 +1259,23 @@ app.get('/billing', (req, res) => {
 // Update account settings
 app.post('/settings/account', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
-    const { displayName, email } = req.body;
+    const { displayName, email, handle } = req.body;
     const fullName = displayName;
     
-    if (!fullName || !email) {
+    if (!fullName || !email || !handle) {
         return res.redirect('/settings?error=All fields required');
+    }
+    
+    // Validate handle format
+    const cleanHandle = handle.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,20}$/.test(cleanHandle)) {
+        return res.redirect('/settings?error=Handle must be 3-20 characters and contain only lowercase letters, numbers, and underscores');
+    }
+    
+    // Check for handle collision (excluding current user)
+    const existingHandle = getUserByHandle(cleanHandle);
+    if (existingHandle && existingHandle.id !== req.session.userId) {
+        return res.redirect('/settings?error=Handle is already taken. Please choose another one');
     }
     
     try {
@@ -1128,6 +1285,10 @@ app.post('/settings/account', (req, res) => {
             bio: getUserById(req.session.userId).bio || '',
             location: getUserById(req.session.userId).location || '',
             skills: getUserById(req.session.userId).skills || ''
+        });
+        updateUserHandle({
+            userId: req.session.userId,
+            handle: cleanHandle
         });
         res.redirect('/settings?success=Account updated successfully');
     } catch (e) {
@@ -1215,6 +1376,154 @@ app.post('/settings/connections/unlink', (req, res) => {
     } catch (e) {
         console.error('Unlink error:', e);
         return res.redirect('/settings?error=Failed+to+disconnect+provider');
+    }
+});
+
+// Billing: Add payment method
+app.post('/settings/billing/payment-methods/add', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const { cardType, lastFour, expiryMonth, expiryYear, isDefault } = req.body;
+    
+    if (!cardType || !lastFour || !expiryMonth || !expiryYear) {
+        return res.redirect('/settings?error=All payment method fields required');
+    }
+    
+    try {
+        addPaymentMethod({
+            userId: req.session.userId,
+            cardType,
+            lastFour,
+            expiryMonth: parseInt(expiryMonth),
+            expiryYear: parseInt(expiryYear),
+            isDefault: isDefault === 'on' ? 1 : 0
+        });
+        res.redirect('/settings?success=Payment method added');
+    } catch (e) {
+        console.error('Add payment method error:', e);
+        res.redirect('/settings?error=Failed to add payment method');
+    }
+});
+
+// Billing: Delete payment method
+app.post('/settings/billing/payment-methods/:id/delete', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    try {
+        deletePaymentMethod(parseInt(req.params.id));
+        res.redirect('/settings?success=Payment method removed');
+    } catch (e) {
+        console.error('Delete payment method error:', e);
+        res.redirect('/settings?error=Failed to remove payment method');
+    }
+});
+
+// Billing: Set default payment method
+app.post('/settings/billing/payment-methods/:id/set-default', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    try {
+        setDefaultPaymentMethod(parseInt(req.params.id), req.session.userId);
+        res.redirect('/settings?success=Default payment method updated');
+    } catch (e) {
+        console.error('Set default payment method error:', e);
+        res.redirect('/settings?error=Failed to update default payment method');
+    }
+});
+
+// Billing: Cancel subscription
+app.post('/settings/billing/subscription/cancel', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    try {
+        cancelSubscription(req.session.userId);
+        res.redirect('/settings?success=Subscription cancelled');
+    } catch (e) {
+        console.error('Cancel subscription error:', e);
+        res.redirect('/settings?error=Failed to cancel subscription');
+    }
+});
+
+// Checkout: Process subscription purchase
+app.post('/api/checkout/subscribe', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const { tier, cardType, cardNumber, expiryMonth, expiryYear, cvv, saveCard } = req.body;
+    
+    // Validate tier
+    const validTiers = ['free', 'pro-buyer', 'pro-seller', 'elite-seller'];
+    if (!validTiers.includes(tier)) {
+        return res.status(400).json({ error: 'Invalid tier selected' });
+    }
+    
+    // For free tier, no payment needed
+    if (tier === 'free') {
+        try {
+            createOrUpdateSubscription({
+                userId: req.session.userId,
+                tier: 'free',
+                status: 'active'
+            });
+            return res.json({ success: true, message: 'Downgraded to free tier' });
+        } catch (e) {
+            console.error('Subscription update error:', e);
+            return res.status(500).json({ error: 'Failed to update subscription' });
+        }
+    }
+    
+    // Validate payment info for paid tiers
+    if (!cardType || !cardNumber || !expiryMonth || !expiryYear || !cvv) {
+        return res.status(400).json({ error: 'All payment fields required' });
+    }
+    
+    // Mock payment processing - in production, integrate with Stripe/PayPal
+    try {
+        // Simulate payment processing delay
+        const lastFour = cardNumber.slice(-4);
+        
+        // Calculate amount based on tier
+        const amounts = {
+            'pro-buyer': 5.99,
+            'pro-seller': 9.99,
+            'elite-seller': 29.99
+        };
+        const amount = amounts[tier] || 0;
+        
+        // Save payment method if requested
+        if (saveCard) {
+            addPaymentMethod({
+                userId: req.session.userId,
+                cardType,
+                lastFour,
+                expiryMonth: parseInt(expiryMonth),
+                expiryYear: parseInt(expiryYear),
+                isDefault: 1
+            });
+        }
+        
+        // Create subscription
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        createOrUpdateSubscription({
+            userId: req.session.userId,
+            tier,
+            status: 'active',
+            endsAt: nextMonth.toISOString()
+        });
+        
+        // Create invoice
+        createInvoice({
+            userId: req.session.userId,
+            amount,
+            tier,
+            status: 'paid'
+        });
+        
+        res.json({ 
+            success: true, 
+            message: 'Subscription activated successfully',
+            tier,
+            amount
+        });
+    } catch (e) {
+        console.error('Checkout error:', e);
+        res.status(500).json({ error: 'Payment processing failed. Please try again.' });
     }
 });
 
