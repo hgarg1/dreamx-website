@@ -1094,6 +1094,23 @@ app.get('/settings', (req, res) => {
     });
 });
 
+// Billing page
+app.get('/billing', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const row = getUserById(req.session.userId);
+    if (!row) return res.redirect('/login');
+    
+    // Default to 'pro_seller' for demo purposes, or use user's actual tier from database
+    const userTier = row.subscription_tier || 'pro_seller';
+    
+    res.render('billing', {
+        title: 'Billing - Dream X',
+        currentPage: 'billing',
+        userTier,
+        authUser: row
+    });
+});
+
 // Update account settings
 app.post('/settings/account', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
