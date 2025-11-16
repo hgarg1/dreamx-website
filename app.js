@@ -857,8 +857,8 @@ app.get('/profile', (req, res) => {
         services
     });
 });
-// Public profile by ID (view others)
-app.get('/profile/:id', (req, res) => {
+// Public profile by ID (view others) — only match numeric IDs to avoid catching '/profile/edit'
+app.get('/profile/:id(\\d+)', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const uid = parseInt(req.params.id, 10);
     if (!uid || isNaN(uid)) return res.redirect('/feed');

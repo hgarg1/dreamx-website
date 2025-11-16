@@ -3,17 +3,8 @@
 <section class="settings-wrapper">
   <h1 class="settings-title">Settings</h1>
 
-  <% if (typeof success !== 'undefined' && success) { %>
-    <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:20px;border:1px solid #c3e6cb;">
-      <%= success %>
-    </div>
-  <% } %>
-  
-  <% if (typeof error !== 'undefined' && error) { %>
-    <div style="background:#f8d7da;color:#721c24;padding:12px;border-radius:8px;margin-bottom:20px;border:1px solid #f5c6cb;">
-      <%= error %>
-    </div>
-  <% } %>
+  <!-- Toast Notification (replaces bulky inline success/error banners) -->
+  <!-- Toasts now provided globally via footer include -->
 
   <!-- Account Section -->
   <div class="settings-card">
@@ -284,7 +275,7 @@
         <div>
           <h3 style="font-size:1.1rem;font-weight:700;margin:0;text-transform:capitalize;"><%= subscription.tier.replace('-', ' ') %> Plan</h3>
           <p style="color:#6b7280;font-size:0.9rem;margin:4px 0 0;">
-            Status: <span style="color:<%= subscription.status === 'active' ? '#10b981' : '#ef4444' %>;font-weight:600;text-transform:capitalize;"><%= subscription.status %></span>
+            Status: <span class="status-badge <%= (subscription.status === 'active' ? 'is-active' : 'is-cancelled') %>"><%= subscription.status %></span>
           </p>
         </div>
         <button onclick="document.getElementById('subscriptionModal').style.display='flex'" class="settings-btn primary">Manage Subscription</button>
@@ -309,7 +300,7 @@
       
       <div style="background:#f9fafb;padding:20px;border-radius:12px;margin-bottom:20px;">
         <p style="font-weight:600;margin:0 0 8px;">Current Plan: <span style="text-transform:capitalize;"><%= subscription.tier.replace('-', ' ') %></span></p>
-        <p style="color:#6b7280;font-size:0.9rem;margin:0;">Want to change your plan? Visit the <a href="/pricing" style="color:#7C3AED;">pricing page</a> to upgrade or downgrade.</p>
+          <p style="color:#6b7280;font-size:0.9rem;margin:0;">Want to change your plan? Visit the <a href="/pricing" style="color:#7C3AED;">pricing page</a> to upgrade or downgrade.</p>
       </div>
       
       <% if (subscription.tier !== 'free' && subscription.status === 'active') { %>
@@ -415,7 +406,7 @@
                   <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-transform:capitalize;"><%= inv.tier.replace('-', ' ') %></td>
                   <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">$<%= inv.amount.toFixed(2) %></td>
                   <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:center;">
-                    <span style="display:inline-block;padding:4px 12px;background:<%= inv.status === 'paid' ? '#d1fae5' : '#fee2e2' %>;color:<%= inv.status === 'paid' ? '#065f46' : '#991b1b' %>;font-size:0.85rem;border-radius:12px;font-weight:600;text-transform:capitalize;"><%= inv.status %></span>
+                    <span class="inv-status <%= inv.status === 'paid' ? 'paid' : 'unpaid' %>"><%= inv.status %></span>
                   </td>
                 </tr>
               <% }); %>
@@ -437,6 +428,12 @@
     #invoicesModal[style*="display:flex"], #invoicesModal[style*="display: flex"] { 
       display: flex !important; 
     }
+    .status-badge{font-weight:600;text-transform:capitalize;}
+    .status-badge.is-active{color:#10b981;}
+    .status-badge.is-cancelled{color:#ef4444;}
+    .inv-status{display:inline-block;padding:4px 12px;border-radius:12px;font-weight:600;text-transform:capitalize;font-size:0.85rem;background:#f3f4f6;color:#111827;}
+    .inv-status.paid{background:#d1fae5;color:#065f46;}
+    .inv-status.unpaid{background:#fee2e2;color:#991b1b;}
   </style>
 
   <!-- Privacy Section -->

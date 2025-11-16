@@ -13,7 +13,28 @@
     <!-- JavaScript -->
     <!-- SimpleWebAuthn Browser UMD bundle for passkeys -->
     <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+    <!-- Toast assets -->
+    <link rel="stylesheet" href="/css/toast.css">
+    <script src="/js/toast.js"></script>
     <script src="/js/main.js"></script>
+    
+    <!-- Global Toast Container -->
+    <div id="fx-toast" class="fx-toast" role="alert" aria-live="polite" aria-atomic="true" style="display:none;">
+        <div class="fx-toast-icon" aria-hidden="true"></div>
+        <div class="fx-toast-message"></div>
+        <button type="button" class="fx-toast-close" aria-label="Close">✕</button>
+    </div>
+    
+    <!-- Optional server-provided flash messages -->
+    <script>
+        (function(){
+            try{
+                var _succ = <%- (typeof success !== 'undefined' ? JSON.stringify(success) : 'null') %>;
+                var _err = <%- (typeof error !== 'undefined' ? JSON.stringify(error) : 'null') %>;
+                window.pageFlash = { success: _succ, error: _err };
+            }catch(e){ /* noop */ }
+        })();
+    </script>
     
     <% if(typeof authUser !== 'undefined' && authUser){ %>
     <!-- Notification Panel HTML -->

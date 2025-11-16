@@ -1,0 +1,12 @@
+/* Toast notifications for Dream X */
+.fx-toast{position:fixed;top:24px;right:24px;z-index:10000;display:none;align-items:center;gap:12px;padding:12px 14px;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.12);border-left:4px solid #6b7280;min-width:280px;max-width:420px;animation:fx-toast-in .18s ease-out;font-weight:600}
+.fx-toast.show{display:flex}
+.fx-toast .fx-toast-icon{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800}
+.fx-toast .fx-toast-message{flex:1;color:#111827;font-weight:600}
+.fx-toast .fx-toast-close{background:transparent;border:none;color:#6b7280;font-size:18px;cursor:pointer;padding:4px;border-radius:6px}
+.fx-toast .fx-toast-close:hover{background:#f3f4f6}
+.fx-toast.success{border-left-color:#10b981}
+.fx-toast.success .fx-toast-icon{background:#d1fae5;color:#065f46}
+.fx-toast.error{border-left-color:#ef4444}
+.fx-toast.error .fx-toast-icon{background:#fee2e2;color:#991b1b}
+@keyframes fx-toast-in{from{transform:translateY(-6px);opacity:0}to{transform:translateY(0);opacity:1}}
