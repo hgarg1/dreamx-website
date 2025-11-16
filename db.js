@@ -226,6 +226,18 @@ try {
 try {
   db.exec(`ALTER TABLE conversations ADD COLUMN group_name TEXT;`);
 } catch (e) {}
+// Handle column migration (can't add UNIQUE directly in ALTER TABLE)
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN handle TEXT;`);
+} catch (e) {
+  // Column already exists, ignore
+}
+// Create unique index for handle if it doesn't exist
+try {
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users(handle);`);
+} catch (e) {
+  // Index already exists, ignore
+}
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS conversation_participants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -266,6 +278,7 @@ module.exports = {
   db,
   getUserById: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
   getUserByEmail: (email) => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
+  getUserByHandle: (handle) => db.prepare('SELECT * FROM users WHERE handle = ?').get(handle),
   getUserByProvider: (provider, providerId) => db.prepare(`
       SELECT u.* FROM oauth_accounts oa
       JOIN users u ON u.id = oa.user_id
@@ -274,10 +287,13 @@ module.exports = {
   getLinkedAccountsForUser: (userId) => db.prepare(
     `SELECT provider, provider_id FROM oauth_accounts WHERE user_id = ?`
   ).all(userId),
-  createUser: ({ fullName, email, passwordHash }) => {
-    const stmt = db.prepare(`INSERT INTO users (full_name, email, password_hash) VALUES (?,?,?)`);
-    const info = stmt.run(fullName, email, passwordHash);
+  createUser: ({ fullName, email, passwordHash, handle }) => {
+    const stmt = db.prepare(`INSERT INTO users (full_name, email, password_hash, handle) VALUES (?,?,?,?)`);
+    const info = stmt.run(fullName, email, passwordHash, handle || null);
     return info.lastInsertRowid;
+  },
+  updateUserHandle: ({ userId, handle }) => {
+    db.prepare(`UPDATE users SET handle = ? WHERE id = ?`).run(handle, userId);
   },
   updateUserRole: ({ userId, role }) => {
     db.prepare(`UPDATE users SET role = ? WHERE id = ?`).run(role, userId);

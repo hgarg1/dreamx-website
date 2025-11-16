@@ -19,8 +19,8 @@ const {
 } = require('@simplewebauthn/server');
 const socketIo = require('socket.io');
 const { 
-    db, getUserById, getUserByEmail, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
-    updateProfilePicture, updateBannerImage, updatePassword, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
+    db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
+    updateProfilePicture, updateBannerImage, updatePassword, updateUserHandle, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
     getOrCreateConversation, getUserConversations, getConversationMessages,
     createMessage, markMessagesAsRead, getUnreadMessageCount,
     updateUserRole, getAllUsers, getStats,
@@ -144,6 +144,66 @@ function validatePasswordComplexity(password) {
     return { valid: errors.length === 0, errors };
 }
 
+// Generate a base handle from full name or email
+function generateBaseHandle(fullName, email) {
+    // Try full name first
+    if (fullName) {
+        return fullName
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '')
+            .substring(0, 20);
+    }
+    // Fallback to email username
+    if (email) {
+        return email.split('@')[0]
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '')
+            .substring(0, 20);
+    }
+    return 'user';
+}
+
+// Generate unique handle with collision resolution
+function generateUniqueHandle(baseHandle, excludeUserId = null) {
+    let handle = baseHandle;
+    let counter = 0;
+    
+    while (true) {
+        const existing = getUserByHandle(handle);
+        // Handle is available if it doesn't exist or belongs to the current user
+        if (!existing || (excludeUserId && existing.id === excludeUserId)) {
+            return handle;
+        }
+        // Try with incrementing number
+        counter++;
+        handle = `${baseHandle}${counter}`;
+    }
+}
+
+// Get suggested handles when collision occurs
+function getSuggestedHandles(baseHandle, count = 3) {
+    const suggestions = [];
+    const random = () => Math.floor(Math.random() * 999);
+    
+    // Suggestion 1: base + random number
+    suggestions.push(generateUniqueHandle(`${baseHandle}${random()}`));
+    
+    // Suggestion 2: base + underscore + random number
+    suggestions.push(generateUniqueHandle(`${baseHandle}_${random()}`));
+    
+    // Suggestion 3: base + sequential number
+    let num = 1;
+    while (suggestions.length < count) {
+        const candidate = `${baseHandle}${num}`;
+        if (!getUserByHandle(candidate)) {
+            suggestions.push(candidate);
+        }
+        num++;
+    }
+    
+    return suggestions.slice(0, count);
+}
+
 // Helper to find or create a user from OAuth profile
 async function findOrCreateOAuthUser({ provider, providerId, displayName, email }) {
     let user = getUserByProvider(provider, providerId);
@@ -156,7 +216,14 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email 
         }
     }
     const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
-    const userId = createUser({ fullName: displayName || (email || 'User'), email: email || `${providerId}@${provider}.oauth.local`, passwordHash: dummyHash });
+    const baseHandle = generateBaseHandle(displayName, email);
+    const uniqueHandle = generateUniqueHandle(baseHandle);
+    const userId = createUser({ 
+        fullName: displayName || (email || 'User'), 
+        email: email || `${providerId}@${provider}.oauth.local`, 
+        passwordHash: dummyHash,
+        handle: uniqueHandle
+    });
     updateUserProvider({ userId, provider, providerId });
     return getUserById(userId);
 }
@@ -587,30 +654,94 @@ app.get('/register', (req, res) => {
     res.render('register', {
         title: 'Register - Dream X',
         currentPage: 'register',
-        error: null
+        error: null,
+        suggestedHandles: null,
+        formData: null
     });
 });
 
 // Handle registration
 app.post('/register', async (req, res) => {
-    const { fullName, email, password, confirmPassword } = req.body;
+    const { fullName, email, password, confirmPassword, handle } = req.body;
     if (!fullName || !email || !password || !confirmPassword) {
-        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'All fields are required.' });
+        return res.status(400).render('register', { 
+            title: 'Register - Dream X', 
+            currentPage: 'register', 
+            error: 'All fields are required.',
+            suggestedHandles: null,
+            formData: req.body
+        });
     }
     if (password !== confirmPassword) {
-        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Passwords do not match.' });
+        return res.status(400).render('register', { 
+            title: 'Register - Dream X', 
+            currentPage: 'register', 
+            error: 'Passwords do not match.',
+            suggestedHandles: null,
+            formData: req.body
+        });
     }
     const complexityCheck = validatePasswordComplexity(password);
     if (!complexityCheck.valid) {
-        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: `Password must contain ${complexityCheck.errors.join(', ')}.` });
+        return res.status(400).render('register', { 
+            title: 'Register - Dream X', 
+            currentPage: 'register', 
+            error: `Password must contain ${complexityCheck.errors.join(', ')}.`,
+            suggestedHandles: null,
+            formData: req.body
+        });
     }
     const existing = getUserByEmail(email.trim().toLowerCase());
     if (existing) {
-        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Email already in use.' });
+        return res.status(400).render('register', { 
+            title: 'Register - Dream X', 
+            currentPage: 'register', 
+            error: 'Email already in use.',
+            suggestedHandles: null,
+            formData: req.body
+        });
     }
+    
+    // Handle validation
+    let userHandle = handle ? handle.trim().toLowerCase() : '';
+    if (!userHandle) {
+        // Auto-generate if not provided
+        const baseHandle = generateBaseHandle(fullName, email);
+        userHandle = generateUniqueHandle(baseHandle);
+    } else {
+        // Validate format
+        if (!/^[a-z0-9_]{3,20}$/.test(userHandle)) {
+            return res.status(400).render('register', {
+                title: 'Register - Dream X',
+                currentPage: 'register',
+                error: 'Handle must be 3-20 characters and contain only lowercase letters, numbers, and underscores.',
+                suggestedHandles: null,
+                formData: req.body
+            });
+        }
+        // Check for collision
+        const handleExists = getUserByHandle(userHandle);
+        if (handleExists) {
+            const baseHandle = generateBaseHandle(fullName, email);
+            const suggestions = getSuggestedHandles(baseHandle);
+            return res.status(400).render('register', {
+                title: 'Register - Dream X',
+                currentPage: 'register',
+                error: `Handle "@${userHandle}" is already taken. Here are some suggestions:`,
+                suggestedHandles: suggestions,
+                formData: req.body
+            });
+        }
+    }
+    
     try {
         const hash = await bcrypt.hash(password, 10);
-        const userId = createUser({ fullName, email: email.trim().toLowerCase(), passwordHash: hash });
+        const userId = createUser({ 
+            fullName, 
+            email: email.trim().toLowerCase(), 
+            passwordHash: hash,
+            handle: userHandle
+        });
         req.session.userId = userId;
         return res.redirect('/onboarding');
     } catch (e) {
@@ -702,7 +833,7 @@ app.get('/profile', (req, res) => {
     const userPosts = getUserPosts(req.session.userId);
     const user = {
         displayName: row.full_name,
-        handle: row.email.split('@')[0],
+        handle: row.handle || row.email.split('@')[0],
         bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
         passions,
         skills: skillsList,
@@ -733,7 +864,7 @@ app.get('/profile/:id', (req, res) => {
     const userPosts = getUserPosts(uid);
     const user = {
         displayName: row.full_name,
-        handle: row.email.split('@')[0],
+        handle: row.handle || row.email.split('@')[0],
         bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
         passions,
         skills: skillsList,
@@ -757,11 +888,11 @@ app.get('/profile/edit', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
-    const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture };
+    const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture, handle: row.handle };
     const passions = row.categories ? JSON.parse(row.categories) : [];
     const user = {
         displayName: row.full_name,
-        handle: row.email.split('@')[0],
+        handle: row.handle || row.email.split('@')[0],
         bio: row.bio || '',
         passions,
         skills: row.skills || '',
@@ -1078,6 +1209,7 @@ app.get('/settings', (req, res) => {
     const user = { 
         email: row.email, 
         fullName: row.full_name,
+        handle: row.handle || '',
         emailNotifications: row.email_notifications === 1,
         pushNotifications: row.push_notifications === 1,
         messageNotifications: row.message_notifications === 1
@@ -1110,11 +1242,23 @@ app.get('/settings', (req, res) => {
 // Update account settings
 app.post('/settings/account', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
-    const { displayName, email } = req.body;
+    const { displayName, email, handle } = req.body;
     const fullName = displayName;
     
-    if (!fullName || !email) {
+    if (!fullName || !email || !handle) {
         return res.redirect('/settings?error=All fields required');
+    }
+    
+    // Validate handle format
+    const cleanHandle = handle.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,20}$/.test(cleanHandle)) {
+        return res.redirect('/settings?error=Handle must be 3-20 characters and contain only lowercase letters, numbers, and underscores');
+    }
+    
+    // Check for handle collision (excluding current user)
+    const existingHandle = getUserByHandle(cleanHandle);
+    if (existingHandle && existingHandle.id !== req.session.userId) {
+        return res.redirect('/settings?error=Handle is already taken. Please choose another one');
     }
     
     try {
@@ -1124,6 +1268,10 @@ app.post('/settings/account', (req, res) => {
             bio: getUserById(req.session.userId).bio || '',
             location: getUserById(req.session.userId).location || '',
             skills: getUserById(req.session.userId).skills || ''
+        });
+        updateUserHandle({
+            userId: req.session.userId,
+            handle: cleanHandle
         });
         res.redirect('/settings?success=Account updated successfully');
     } catch (e) {
