@@ -22,10 +22,13 @@
           <% }); %>
         </ul>
         <div class="tier-actions">
-          <button onclick="openCheckout('<%= t.id %>', '<%= t.name %>', '<%= t.price %>')" class="tier-btn <%= t.highlight ? 'primary' : 'outline' %>">
-            <%= t.id === 'free' ? 'Get Started' : 'Select Plan' %>
+          <button onclick="openCheckout('<%= t.id %>', '<%= t.name %>', '<%= t.price %>', <%= JSON.stringify(t.features) %>, '<%= t.tagline %>')" class="tier-btn <%= t.highlight ? 'primary' : 'outline' %>">
+            <%= t.id === 'free' ? 'Get Started' : (t.id === 'enterprise' ? 'Contact Sales' : 'Select Plan') %>
           </button>
         </div>
+        <% if (t.note) { %>
+          <p class="tier-note"><%= t.note %></p>
+        <% } %>
       </div>
     <% }); %>
   </div>
@@ -61,7 +64,12 @@
         <h3>Selected Plan</h3>
         <div class="plan-details">
           <div class="plan-name" id="selectedPlanName"></div>
+          <div class="plan-tagline" id="selectedPlanTagline"></div>
           <div class="plan-price" id="selectedPlanPrice"></div>
+        </div>
+        <div class="plan-benefits">
+          <h4>What's included:</h4>
+          <ul id="selectedPlanFeatures"></ul>
         </div>
         <p class="plan-note">Billed monthly. Cancel anytime.</p>
       </div>
@@ -324,9 +332,53 @@
   margin-bottom: 8px;
 }
 
+.plan-tagline {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
 .plan-price {
   font-size: 2.5rem;
   font-weight: 800;
+}
+
+.plan-benefits {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.plan-benefits h4 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  opacity: 0.9;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plan-benefits ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plan-benefits li {
+  font-size: 0.9rem;
+  padding: 6px 0;
+  padding-left: 24px;
+  position: relative;
+  opacity: 0.95;
+}
+
+.plan-benefits li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+  color: #10b981;
 }
 
 .plan-note {
@@ -491,6 +543,14 @@
   }
 }
 
+.tier-note {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 12px;
+  font-style: italic;
+  text-align: center;
+}
+
 .success-message h3 {
   margin: 0 0 12px;
   font-size: 1.75rem;
@@ -540,12 +600,22 @@ let currentStep = 1;
 let selectedTier = '';
 let selectedName = '';
 let selectedPrice = '';
+let selectedFeatures = [];
+let selectedTagline = '';
 
-function openCheckout(tierId, tierName, tierPrice) {
+function openCheckout(tierId, tierName, tierPrice, features, tagline) {
   <% if (typeof authUser !== 'undefined' && authUser) { %>
     selectedTier = tierId;
     selectedName = tierName;
     selectedPrice = tierPrice;
+    selectedFeatures = features || [];
+    selectedTagline = tagline || '';
+    
+    // If selecting enterprise tier, redirect to contact
+    if (tierId === 'enterprise') {
+      window.location.href = '/contact';
+      return;
+    }
     
     // If selecting free tier, just redirect to settings
     if (tierId === 'free') {
@@ -565,8 +635,20 @@ function openCheckout(tierId, tierName, tierPrice) {
       return;
     }
     
+    // Update modal content
     document.getElementById('selectedPlanName').textContent = tierName;
+    document.getElementById('selectedPlanTagline').textContent = tagline;
     document.getElementById('selectedPlanPrice').textContent = tierPrice;
+    
+    // Update features list
+    const featuresList = document.getElementById('selectedPlanFeatures');
+    featuresList.innerHTML = '';
+    selectedFeatures.forEach(feature => {
+      const li = document.createElement('li');
+      li.textContent = feature;
+      featuresList.appendChild(li);
+    });
+    
     document.getElementById('checkoutModal').classList.add('active');
     currentStep = 1;
     updateStepDisplay();
