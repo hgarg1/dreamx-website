@@ -37,7 +37,11 @@ const {
     // Notifications
     createNotification, getUserNotifications, getUnreadNotificationCount,
     markNotificationAsRead, markAllNotificationsAsRead, deleteNotification,
-    savePushSubscription, getPushSubscriptions, deletePushSubscription
+    savePushSubscription, getPushSubscriptions, deletePushSubscription,
+    // Subscriptions
+    getUserSubscription, createOrUpdateSubscription, cancelSubscription,
+    addPaymentMethod, getPaymentMethods, deletePaymentMethod, setDefaultPaymentMethod,
+    createInvoice, getInvoices
  } = require('./db');
 let fetch;
 try {
@@ -1083,12 +1087,21 @@ app.get('/settings', (req, res) => {
         const accounts = getLinkedAccountsForUser(req.session.userId) || [];
         accounts.forEach(a => { if (a.provider && linked.hasOwnProperty(a.provider)) linked[a.provider] = true; });
     } catch (e) {}
+    
+    // Get subscription and billing data
+    const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
+    const paymentMethods = getPaymentMethods(req.session.userId) || [];
+    const invoices = getInvoices(req.session.userId) || [];
+    
     res.render('settings', {
         title: 'Settings - Dream X',
         currentPage: 'settings',
         user,
         linked,
         getUserById,
+        subscription,
+        paymentMethods,
+        invoices,
         success: req.query.success,
         error: req.query.error
     });
@@ -1198,6 +1211,154 @@ app.post('/settings/connections/unlink', (req, res) => {
     } catch (e) {
         console.error('Unlink error:', e);
         return res.redirect('/settings?error=Failed+to+disconnect+provider');
+    }
+});
+
+// Billing: Add payment method
+app.post('/settings/billing/payment-methods/add', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const { cardType, lastFour, expiryMonth, expiryYear, isDefault } = req.body;
+    
+    if (!cardType || !lastFour || !expiryMonth || !expiryYear) {
+        return res.redirect('/settings?error=All payment method fields required');
+    }
+    
+    try {
+        addPaymentMethod({
+            userId: req.session.userId,
+            cardType,
+            lastFour,
+            expiryMonth: parseInt(expiryMonth),
+            expiryYear: parseInt(expiryYear),
+            isDefault: isDefault === 'on' ? 1 : 0
+        });
+        res.redirect('/settings?success=Payment method added');
+    } catch (e) {
+        console.error('Add payment method error:', e);
+        res.redirect('/settings?error=Failed to add payment method');
+    }
+});
+
+// Billing: Delete payment method
+app.post('/settings/billing/payment-methods/:id/delete', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    try {
+        deletePaymentMethod(parseInt(req.params.id));
+        res.redirect('/settings?success=Payment method removed');
+    } catch (e) {
+        console.error('Delete payment method error:', e);
+        res.redirect('/settings?error=Failed to remove payment method');
+    }
+});
+
+// Billing: Set default payment method
+app.post('/settings/billing/payment-methods/:id/set-default', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    try {
+        setDefaultPaymentMethod(parseInt(req.params.id), req.session.userId);
+        res.redirect('/settings?success=Default payment method updated');
+    } catch (e) {
+        console.error('Set default payment method error:', e);
+        res.redirect('/settings?error=Failed to update default payment method');
+    }
+});
+
+// Billing: Cancel subscription
+app.post('/settings/billing/subscription/cancel', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    try {
+        cancelSubscription(req.session.userId);
+        res.redirect('/settings?success=Subscription cancelled');
+    } catch (e) {
+        console.error('Cancel subscription error:', e);
+        res.redirect('/settings?error=Failed to cancel subscription');
+    }
+});
+
+// Checkout: Process subscription purchase
+app.post('/api/checkout/subscribe', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const { tier, cardType, cardNumber, expiryMonth, expiryYear, cvv, saveCard } = req.body;
+    
+    // Validate tier
+    const validTiers = ['free', 'pro-buyer', 'pro-seller', 'elite-seller'];
+    if (!validTiers.includes(tier)) {
+        return res.status(400).json({ error: 'Invalid tier selected' });
+    }
+    
+    // For free tier, no payment needed
+    if (tier === 'free') {
+        try {
+            createOrUpdateSubscription({
+                userId: req.session.userId,
+                tier: 'free',
+                status: 'active'
+            });
+            return res.json({ success: true, message: 'Downgraded to free tier' });
+        } catch (e) {
+            console.error('Subscription update error:', e);
+            return res.status(500).json({ error: 'Failed to update subscription' });
+        }
+    }
+    
+    // Validate payment info for paid tiers
+    if (!cardType || !cardNumber || !expiryMonth || !expiryYear || !cvv) {
+        return res.status(400).json({ error: 'All payment fields required' });
+    }
+    
+    // Mock payment processing - in production, integrate with Stripe/PayPal
+    try {
+        // Simulate payment processing delay
+        const lastFour = cardNumber.slice(-4);
+        
+        // Calculate amount based on tier
+        const amounts = {
+            'pro-buyer': 5.99,
+            'pro-seller': 9.99,
+            'elite-seller': 29.99
+        };
+        const amount = amounts[tier] || 0;
+        
+        // Save payment method if requested
+        if (saveCard) {
+            addPaymentMethod({
+                userId: req.session.userId,
+                cardType,
+                lastFour,
+                expiryMonth: parseInt(expiryMonth),
+                expiryYear: parseInt(expiryYear),
+                isDefault: 1
+            });
+        }
+        
+        // Create subscription
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        createOrUpdateSubscription({
+            userId: req.session.userId,
+            tier,
+            status: 'active',
+            endsAt: nextMonth.toISOString()
+        });
+        
+        // Create invoice
+        createInvoice({
+            userId: req.session.userId,
+            amount,
+            tier,
+            status: 'paid'
+        });
+        
+        res.json({ 
+            success: true, 
+            message: 'Subscription activated successfully',
+            tier,
+            amount
+        });
+    } catch (e) {
+        console.error('Checkout error:', e);
+        res.status(500).json({ error: 'Payment processing failed. Please try again.' });
     }
 });
 
