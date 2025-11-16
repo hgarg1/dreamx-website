@@ -1,0 +1,309 @@
+<%- include('partials/header') %>
+
+<section class="billing-hero">
+  <div class="billing-hero-inner">
+    <h1 class="billing-title">Billing & Subscription</h1>
+    <p class="billing-subtitle">Manage your Dream X plan, payment methods, and billing history.</p>
+  </div>
+</section>
+
+<section class="billing-container">
+  
+  <!-- SECTION 1: CURRENT PLAN OVERVIEW -->
+  <div class="billing-card billing-card-featured">
+    <h2 class="billing-card-title">Current Plan</h2>
+    <% 
+      const tierDetails = {
+        free: { name: 'Free User', desc: 'your social home for productive passions.', price: '$0', badge: 'neutral', badgeColor: '#6b7280' },
+        pro_buyer: { name: 'Pro Buyer', desc: 'power user of the social side.', price: '$5.99', badge: 'blue', badgeColor: '#3b82f6' },
+        pro_seller: { name: 'Pro Seller', desc: 'turn your craft into a brand.', price: '$9.99', badge: 'pink', badgeColor: '#ff4fa3' },
+        elite_seller: { name: 'Elite Seller', desc: 'build a full microbrand.', price: '$29.99', badge: 'purple', badgeColor: '#a855f7' },
+        enterprise: { name: 'Enterprise Creator', desc: 'social and learning hub for your community.', price: '$99.99', badge: 'teal', badgeColor: '#14b8a6' }
+      };
+      const currentTier = tierDetails[userTier] || tierDetails.free;
+    %>
+    <p class="billing-plan-subheading">
+      <%= currentTier.name %> — <%= currentTier.desc %>
+    </p>
+    <div class="billing-plan-details">
+      <div class="billing-plan-info">
+        <div class="billing-info-row">
+          <span class="billing-info-label">Plan:</span>
+          <span class="billing-info-value">
+            <%= currentTier.name %>
+            <span class="billing-badge billing-badge-<%= currentTier.badge %>" style="background-color: <%= currentTier.badgeColor %>15; color: <%= currentTier.badgeColor %>; border: 1px solid <%= currentTier.badgeColor %>40;">
+              <%= currentTier.name.toUpperCase() %>
+            </span>
+          </span>
+        </div>
+        <div class="billing-info-row">
+          <span class="billing-info-label">Monthly Price:</span>
+          <span class="billing-info-value billing-price"><%= currentTier.price %>/mo</span>
+        </div>
+        <% if (userTier !== 'free') { %>
+        <div class="billing-info-row">
+          <span class="billing-info-label">Next Billing Date:</span>
+          <span class="billing-info-value">January 15, 2026</span>
+        </div>
+        <% } %>
+      </div>
+    </div>
+    <div class="billing-actions">
+      <a href="/pricing" class="billing-btn billing-btn-primary">Change Plan</a>
+      <% if (userTier !== 'free') { %>
+        <button class="billing-btn billing-btn-secondary">Cancel Subscription</button>
+      <% } %>
+    </div>
+    <p class="billing-note">
+      Upgrades apply immediately. Downgrades take effect at the next billing cycle.
+    </p>
+  </div>
+
+  <!-- SECTION 2: PAYMENT METHODS -->
+  <div class="billing-card">
+    <h2 class="billing-card-title">Payment Methods</h2>
+    <p class="billing-card-desc">Manage your cards used for Dream X subscriptions.</p>
+    <div class="payment-methods-list">
+      <div class="payment-method">
+        <div class="payment-method-info">
+          <div class="payment-method-icon">💳</div>
+          <div class="payment-method-details">
+            <div class="payment-method-brand">Visa •••• 4242</div>
+            <div class="payment-method-expiry">Expires 12/2026</div>
+          </div>
+        </div>
+        <div class="payment-method-actions">
+          <span class="payment-default-label">Default</span>
+        </div>
+      </div>
+      <div class="payment-method">
+        <div class="payment-method-info">
+          <div class="payment-method-icon">💳</div>
+          <div class="payment-method-details">
+            <div class="payment-method-brand">Mastercard •••• 8888</div>
+            <div class="payment-method-expiry">Expires 08/2025</div>
+          </div>
+        </div>
+        <div class="payment-method-actions">
+          <button class="payment-action-link">Set as default</button>
+        </div>
+      </div>
+    </div>
+    <div class="billing-actions" style="margin-top: 1.5rem;">
+      <button class="billing-btn billing-btn-outline">+ Add new payment method</button>
+    </div>
+  </div>
+
+  <!-- SECTION 3: BILLING HISTORY -->
+  <div class="billing-card">
+    <h2 class="billing-card-title">Billing History</h2>
+    <div class="billing-table-wrapper">
+      <table class="billing-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Invoice</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dec 15, 2024</td>
+            <td>Pro Seller — monthly subscription</td>
+            <td>$9.99</td>
+            <td><span class="billing-status billing-status-paid">Paid</span></td>
+            <td><a href="#" class="billing-invoice-link">View invoice</a></td>
+          </tr>
+          <tr>
+            <td>Nov 15, 2024</td>
+            <td>Pro Seller — monthly subscription</td>
+            <td>$9.99</td>
+            <td><span class="billing-status billing-status-paid">Paid</span></td>
+            <td><a href="#" class="billing-invoice-link">View invoice</a></td>
+          </tr>
+          <tr>
+            <td>Oct 15, 2024</td>
+            <td>Pro Buyer — monthly subscription</td>
+            <td>$5.99</td>
+            <td><span class="billing-status billing-status-paid">Paid</span></td>
+            <td><a href="#" class="billing-invoice-link">View invoice</a></td>
+          </tr>
+          <tr>
+            <td>Jan 15, 2026</td>
+            <td>Pro Seller — monthly subscription</td>
+            <td>$9.99</td>
+            <td><span class="billing-status billing-status-upcoming">Upcoming</span></td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SECTION 4: PLAN COMPARISON MINI-GRID -->
+  <div class="billing-card">
+    <h2 class="billing-card-title">All Plans</h2>
+    <p class="billing-card-desc">Compare all Dream X subscription tiers and switch anytime.</p>
+    
+    <div class="billing-tiers-grid">
+      
+      <!-- Free User -->
+      <div class="tier-card <%= userTier === 'free' ? 'tier-card-current' : '' %>">
+        <h3 class="tier-card-name">Free User</h3>
+        <p class="tier-card-tagline">Social home for productive passions.</p>
+        <div class="tier-card-price">$0<span>/mo</span></div>
+        <ul class="tier-card-features">
+          <li>Post photos, videos, project updates</li>
+          <li>Follow creators, mentors, students, professionals</li>
+          <li>Rich profiles (skills, passions, portfolio, achievements)</li>
+          <li>Up to 10 Project Collections</li>
+          <li>Book sessions, basic messaging, post analytics (views + likes)</li>
+          <li>Ads from Fortune 100 brands only</li>
+        </ul>
+        <div class="tier-card-action">
+          <% if (userTier === 'free') { %>
+            <button class="tier-btn tier-btn-current" disabled>Current plan</button>
+          <% } else { %>
+            <button class="tier-btn tier-btn-outline">Switch to Free</button>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Pro Buyer -->
+      <div class="tier-card <%= userTier === 'pro_buyer' ? 'tier-card-current' : '' %>">
+        <h3 class="tier-card-name">Pro Buyer</h3>
+        <p class="tier-card-tagline">Power user of the social side.</p>
+        <div class="tier-card-price">$5.99<span>/mo</span></div>
+        <ul class="tier-card-features">
+          <li>Ad-free experience</li>
+          <li>Enhanced discovery filters (top rising creators, people near you, people who match interests)</li>
+          <li>Unlimited Project Collections</li>
+          <li>Priority messaging</li>
+          <li>Post up to 3 one-time request listings per month</li>
+          <li>Early access to premium sellers</li>
+          <li>Basic AI mentor/creator recommendations</li>
+        </ul>
+        <div class="tier-card-action">
+          <% if (userTier === 'pro_buyer') { %>
+            <button class="tier-btn tier-btn-current" disabled>Current plan</button>
+          <% } else { %>
+            <button class="tier-btn tier-btn-outline">Switch to Pro Buyer</button>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Pro Seller -->
+      <div class="tier-card <%= userTier === 'pro_seller' ? 'tier-card-current' : '' %>">
+        <h3 class="tier-card-name">Pro Seller</h3>
+        <p class="tier-card-tagline">Turn your craft into a brand.</p>
+        <div class="tier-card-price">$9.99<span>/mo</span></div>
+        <ul class="tier-card-features">
+          <li>Pro badge + priority in discovery</li>
+          <li>Pin 3 posts to profile</li>
+          <li>Weekly insights (reach, audience interests, followers by profession/skill)</li>
+          <li>Custom profile banner & theme</li>
+          <li>5 service listings, unlimited messaging</li>
+          <li>Payment tools, basic CRM</li>
+          <li>Scheduling, reminders, custom availability</li>
+          <li>Coupons, discounts, basic buyer analytics</li>
+        </ul>
+        <div class="tier-card-action">
+          <% if (userTier === 'pro_seller') { %>
+            <button class="tier-btn tier-btn-current" disabled>Current plan</button>
+          <% } else { %>
+            <button class="tier-btn tier-btn-primary">Switch to Pro Seller</button>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Elite Seller -->
+      <div class="tier-card <%= userTier === 'elite_seller' ? 'tier-card-current' : '' %>">
+        <h3 class="tier-card-name">Elite Seller</h3>
+        <p class="tier-card-tagline">You're a top creator — build a full microbrand.</p>
+        <div class="tier-card-price">$29.99<span>/mo</span></div>
+        <ul class="tier-card-features">
+          <li>Verified status, full portfolio builder, video banners</li>
+          <li>In-depth analytics (peak times, demographics, top-performing categories)</li>
+          <li>Cross-platform link hub, featured on Discover when trending</li>
+          <li>Unlimited listings, recurring subscriptions</li>
+          <li>Advanced analytics & automation</li>
+          <li>CRM + workflow automation</li>
+          <li>Custom storefront page, tax reports</li>
+          <li>Integrations, auto-responses, Smart rebooking AI</li>
+        </ul>
+        <div class="tier-card-action">
+          <% if (userTier === 'elite_seller') { %>
+            <button class="tier-btn tier-btn-current" disabled>Current plan</button>
+          <% } else { %>
+            <button class="tier-btn tier-btn-outline">Switch to Elite Seller</button>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Enterprise Creator -->
+      <div class="tier-card <%= userTier === 'enterprise' ? 'tier-card-current' : '' %>">
+        <h3 class="tier-card-name">Enterprise Creator</h3>
+        <p class="tier-card-tagline">Dream X is your community's social + learning hub.</p>
+        <div class="tier-card-price">$99.99<span>/mo</span></div>
+        <ul class="tier-card-features">
+          <li>Multi-user team posting</li>
+          <li>Event pages, showcase collections</li>
+          <li>Custom homepage blocks, co-branded community page</li>
+          <li>Invite followers to events, livestreams, seminars</li>
+          <li>Multi-instructor scheduling, team-wide analytics</li>
+          <li>Bulk payouts, shared CRM</li>
+          <li>Dedicated account manager</li>
+          <li>Featured category placement, sponsored creator onboarding</li>
+        </ul>
+        <div class="tier-card-action">
+          <% if (userTier === 'enterprise') { %>
+            <button class="tier-btn tier-btn-current" disabled>Current plan</button>
+          <% } else { %>
+            <button class="tier-btn tier-btn-outline">Contact sales</button>
+          <% } %>
+        </div>
+        <p class="tier-card-note">Best for tutoring companies, mentorship orgs, clubs, and studios.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SECTION 5: UPCOMING CHARGES -->
+  <% if (userTier !== 'free') { %>
+  <div class="billing-card billing-card-compact">
+    <h2 class="billing-card-title">Upcoming Charges</h2>
+    <div class="upcoming-charge-details">
+      <div class="upcoming-charge-row">
+        <span class="upcoming-charge-label">Next Payment:</span>
+        <span class="upcoming-charge-value"><%= currentTier.price %> on January 15, 2026</span>
+      </div>
+      <div class="upcoming-charge-row">
+        <span class="upcoming-charge-label">Plan:</span>
+        <span class="upcoming-charge-value"><%= currentTier.name %></span>
+      </div>
+    </div>
+    <p class="billing-note" style="margin-top: 1rem;">
+      Upgrading now will be prorated. You'll only pay the difference for this cycle.
+    </p>
+  </div>
+  <% } %>
+
+  <!-- SECTION 6: BILLING SUPPORT -->
+  <div class="billing-card billing-card-support">
+    <h2 class="billing-card-title">Need help with billing?</h2>
+    <p class="billing-card-desc">
+      If you have questions about charges, refunds, or plan changes, we're here to help.
+    </p>
+    <div class="billing-actions">
+      <a href="/contact" class="billing-btn billing-btn-primary">Contact Billing Support</a>
+    </div>
+    <p class="billing-support-email">
+      Email us at <a href="mailto:support@dreamx.app">support@dreamx.app</a>
+    </p>
+  </div>
+
+</section>
+
+<%- include('partials/footer') %>
