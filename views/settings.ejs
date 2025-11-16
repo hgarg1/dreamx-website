@@ -276,13 +276,168 @@
   <!-- Billing Section -->
   <div class="settings-card">
     <h2 class="settings-card-title">Billing</h2>
-    <p class="settings-note" style="color:#6b7280;margin-bottom:20px;">Manage subscription and payment methods (placeholder).</p>
+    <p class="settings-note" style="color:#6b7280;margin-bottom:20px;">Manage your subscription and payment methods.</p>
+    
+    <!-- Current Subscription -->
+    <div style="background:#f9fafb;padding:20px;border-radius:12px;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <h3 style="font-size:1.1rem;font-weight:700;margin:0;text-transform:capitalize;"><%= subscription.tier.replace('-', ' ') %> Plan</h3>
+          <p style="color:#6b7280;font-size:0.9rem;margin:4px 0 0;">
+            Status: <span style="color:<%= subscription.status === 'active' ? '#10b981' : '#ef4444' %>;font-weight:600;text-transform:capitalize;"><%= subscription.status %></span>
+          </p>
+        </div>
+        <button onclick="document.getElementById('subscriptionModal').style.display='flex'" class="settings-btn primary">Manage Subscription</button>
+      </div>
+      <% if (subscription.ends_at) { %>
+        <p style="color:#6b7280;font-size:0.85rem;margin:8px 0 0;">
+          <%= subscription.auto_renew ? 'Renews' : 'Ends' %> on: <%= new Date(subscription.ends_at).toLocaleDateString() %>
+        </p>
+      <% } %>
+    </div>
+    
     <div style="display:flex;gap:16px;flex-wrap:wrap;">
-      <a href="#" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">Manage subscription →</a>
-      <a href="#" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">Payment methods →</a>
-      <a href="#" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">View invoices →</a>
+      <button onclick="document.getElementById('paymentMethodsModal').style.display='flex'" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;">Payment methods →</button>
+      <button onclick="document.getElementById('invoicesModal').style.display='flex'" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;">View invoices →</button>
     </div>
   </div>
+
+  <!-- Subscription Management Modal -->
+  <div id="subscriptionModal" style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+    <div style="background:white;padding:32px;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 20px;font-size:1.5rem;font-weight:700;">Manage Subscription</h3>
+      
+      <div style="background:#f9fafb;padding:20px;border-radius:12px;margin-bottom:20px;">
+        <p style="font-weight:600;margin:0 0 8px;">Current Plan: <span style="text-transform:capitalize;"><%= subscription.tier.replace('-', ' ') %></span></p>
+        <p style="color:#6b7280;font-size:0.9rem;margin:0;">Want to change your plan? Visit the <a href="/pricing" style="color:#7C3AED;">pricing page</a> to upgrade or downgrade.</p>
+      </div>
+      
+      <% if (subscription.tier !== 'free' && subscription.status === 'active') { %>
+        <form action="/settings/billing/subscription/cancel" method="POST" onsubmit="return confirm('Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your billing period.');">
+          <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;width:100%;margin-bottom:12px;">Cancel Subscription</button>
+        </form>
+      <% } %>
+      
+      <button type="button" onclick="document.getElementById('subscriptionModal').style.display='none'" class="settings-btn" style="background:#eee;width:100%;">Close</button>
+    </div>
+  </div>
+
+  <!-- Payment Methods Modal -->
+  <div id="paymentMethodsModal" style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+    <div style="background:white;padding:32px;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 20px;font-size:1.5rem;font-weight:700;">Payment Methods</h3>
+      
+      <% if (paymentMethods.length > 0) { %>
+        <div style="margin-bottom:24px;">
+          <% paymentMethods.forEach(function(pm) { %>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;background:#f9fafb;border-radius:8px;margin-bottom:12px;">
+              <div>
+                <p style="margin:0;font-weight:600;text-transform:capitalize;"><%= pm.card_type %> •••• <%= pm.last_four %></p>
+                <p style="margin:4px 0 0;font-size:0.85rem;color:#6b7280;">Expires <%= pm.expiry_month %>/<%= pm.expiry_year %></p>
+                <% if (pm.is_default) { %>
+                  <span style="display:inline-block;margin-top:4px;padding:2px 8px;background:#dbeafe;color:#1e40af;font-size:0.75rem;border-radius:4px;font-weight:600;">Default</span>
+                <% } %>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <% if (!pm.is_default) { %>
+                  <form action="/settings/billing/payment-methods/<%= pm.id %>/set-default" method="POST" style="display:inline;">
+                    <button type="submit" class="settings-btn" style="font-size:0.85rem;padding:6px 12px;">Set Default</button>
+                  </form>
+                <% } %>
+                <form action="/settings/billing/payment-methods/<%= pm.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Remove this payment method?');">
+                  <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;font-size:0.85rem;padding:6px 12px;">Remove</button>
+                </form>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <p style="color:#6b7280;margin-bottom:24px;">No payment methods saved yet.</p>
+      <% } %>
+      
+      <button type="button" onclick="document.getElementById('addPaymentMethodForm').style.display='block';this.style.display='none'" class="settings-btn primary" style="width:100%;margin-bottom:12px;">+ Add Payment Method</button>
+      
+      <form id="addPaymentMethodForm" action="/settings/billing/payment-methods/add" method="POST" style="display:none;margin-bottom:12px;">
+        <div class="settings-field-group">
+          <label class="settings-label">Card Type</label>
+          <select name="cardType" class="settings-input" required>
+            <option value="visa">Visa</option>
+            <option value="mastercard">Mastercard</option>
+            <option value="amex">American Express</option>
+            <option value="discover">Discover</option>
+          </select>
+        </div>
+        <div class="settings-field-group">
+          <label class="settings-label">Card Number (last 4 digits)</label>
+          <input name="lastFour" type="text" class="settings-input" pattern="[0-9]{4}" maxlength="4" placeholder="1234" required />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="settings-field-group">
+            <label class="settings-label">Expiry Month</label>
+            <input name="expiryMonth" type="number" class="settings-input" min="1" max="12" placeholder="12" required />
+          </div>
+          <div class="settings-field-group">
+            <label class="settings-label">Expiry Year</label>
+            <input name="expiryYear" type="number" class="settings-input" min="2025" max="2050" placeholder="2025" required />
+          </div>
+        </div>
+        <label class="toggle-row" style="margin-bottom:16px;">
+          <input type="checkbox" name="isDefault" />
+          <span>Set as default payment method</span>
+        </label>
+        <button type="submit" class="settings-btn primary" style="width:100%;">Save Payment Method</button>
+      </form>
+      
+      <button type="button" onclick="document.getElementById('paymentMethodsModal').style.display='none'" class="settings-btn" style="background:#eee;width:100%;">Close</button>
+    </div>
+  </div>
+
+  <!-- Invoices Modal -->
+  <div id="invoicesModal" style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+    <div style="background:white;padding:32px;border-radius:16px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 20px;font-size:1.5rem;font-weight:700;">Billing History</h3>
+      
+      <% if (invoices.length > 0) { %>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f9fafb;">
+                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;">Date</th>
+                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;">Plan</th>
+                <th style="padding:12px;text-align:right;border-bottom:2px solid #e5e7eb;font-weight:600;">Amount</th>
+                <th style="padding:12px;text-align:center;border-bottom:2px solid #e5e7eb;font-weight:600;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% invoices.forEach(function(inv) { %>
+                <tr>
+                  <td style="padding:12px;border-bottom:1px solid #e5e7eb;"><%= new Date(inv.invoice_date).toLocaleDateString() %></td>
+                  <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-transform:capitalize;"><%= inv.tier.replace('-', ' ') %></td>
+                  <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">$<%= inv.amount.toFixed(2) %></td>
+                  <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:center;">
+                    <span style="display:inline-block;padding:4px 12px;background:<%= inv.status === 'paid' ? '#d1fae5' : '#fee2e2' %>;color:<%= inv.status === 'paid' ? '#065f46' : '#991b1b' %>;font-size:0.85rem;border-radius:12px;font-weight:600;text-transform:capitalize;"><%= inv.status %></span>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p style="color:#6b7280;">No invoices yet.</p>
+      <% } %>
+      
+      <button type="button" onclick="document.getElementById('invoicesModal').style.display='none'" class="settings-btn" style="background:#eee;width:100%;margin-top:20px;">Close</button>
+    </div>
+  </div>
+
+  <style>
+    #subscriptionModal, #paymentMethodsModal, #invoicesModal { display: none; }
+    #subscriptionModal[style*="display:flex"], #subscriptionModal[style*="display: flex"],
+    #paymentMethodsModal[style*="display:flex"], #paymentMethodsModal[style*="display: flex"],
+    #invoicesModal[style*="display:flex"], #invoicesModal[style*="display: flex"] { 
+      display: flex !important; 
+    }
+  </style>
 
   <!-- Privacy Section -->
   <div class="settings-card">
