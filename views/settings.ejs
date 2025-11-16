@@ -1,0 +1,301 @@
+<%- include('partials/header') %>
+
+<section class="settings-wrapper">
+  <h1 class="settings-title">Settings</h1>
+
+  <% if (typeof success !== 'undefined' && success) { %>
+    <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:20px;border:1px solid #c3e6cb;">
+      <%= success %>
+    </div>
+  <% } %>
+  
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div style="background:#f8d7da;color:#721c24;padding:12px;border-radius:8px;margin-bottom:20px;border:1px solid #f5c6cb;">
+      <%= error %>
+    </div>
+  <% } %>
+
+  <!-- Account Section -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">Account</h2>
+    <form action="/settings/account" method="POST">
+      <div class="settings-field-group">
+        <label class="settings-label" for="accountEmail">Email</label>
+        <input id="accountEmail" name="email" type="email" class="settings-input" value="<%= authUser.email %>" required />
+      </div>
+      <div class="settings-field-group">
+        <label class="settings-label" for="accountDisplayName">Display Name</label>
+        <input id="accountDisplayName" name="displayName" type="text" class="settings-input" value="<%= authUser.displayName %>" required />
+      </div>
+      <div class="settings-actions-inline">
+        <button type="submit" class="settings-btn primary">Update Account</button>
+      </div>
+    </form>
+    <div class="settings-actions-inline" style="margin-top:16px;border-top:1px solid #eee;padding-top:16px;">
+      <button onclick="document.getElementById('passwordModal').style.display='block'" class="settings-link" style="background:none;border:none;cursor:pointer;color:#7C3AED;text-decoration:underline;">Change password →</button>
+    </div>
+  </div>
+
+  <!-- Password Change Modal -->
+  <div id="passwordModal" style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+    <div style="background:white;padding:32px;border-radius:16px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 20px;font-size:1.5rem;font-weight:700;">Change Password</h3>
+      <form action="/settings/password" method="POST">
+        <div class="settings-field-group">
+          <label class="settings-label" for="currentPassword">Current Password</label>
+          <input id="currentPassword" name="currentPassword" type="password" class="settings-input" required />
+        </div>
+        <div class="settings-field-group">
+          <label class="settings-label" for="newPassword">New Password</label>
+          <input id="newPassword" name="newPassword" type="password" class="settings-input" required />
+          <div id="pwdStrength" style="margin-top:8px;display:none;">
+            <div style="display:flex;gap:4px;margin-bottom:6px;">
+              <div class="strength-bar" data-level="1"></div>
+              <div class="strength-bar" data-level="2"></div>
+              <div class="strength-bar" data-level="3"></div>
+              <div class="strength-bar" data-level="4"></div>
+              <div class="strength-bar" data-level="5"></div>
+            </div>
+            <div id="pwdStrengthText" style="font-size:0.85rem;"></div>
+            <ul id="pwdChecklist" style="font-size:0.8rem;color:#666;margin:6px 0 0 0;padding:0 0 0 18px;list-style:none;">
+              <li id="pwd-length"><span style="color:#ccc;">✗</span> At least 8 characters</li>
+              <li id="pwd-upper"><span style="color:#ccc;">✗</span> One uppercase letter</li>
+              <li id="pwd-lower"><span style="color:#ccc;">✗</span> One lowercase letter</li>
+              <li id="pwd-number"><span style="color:#ccc;">✗</span> One number</li>
+              <li id="pwd-special"><span style="color:#ccc;">✗</span> One special character</li>
+            </ul>
+          </div>
+        </div>
+        <div class="settings-field-group">
+          <label class="settings-label" for="confirmPassword">Confirm New Password</label>
+          <input id="confirmPassword" name="confirmPassword" type="password" class="settings-input" required />
+        </div>
+        <div style="display:flex;gap:12px;margin-top:24px;">
+          <button type="submit" class="settings-btn primary">Change Password</button>
+          <button type="button" onclick="document.getElementById('passwordModal').style.display='none'" class="settings-btn" style="background:#eee;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    #passwordModal { display: none; }
+    #passwordModal[style*="display:flex"], #passwordModal[style*="display: flex"] { display: flex !important; }
+    .strength-bar {
+      height: 6px;
+      flex: 1;
+      background: #e0e0e0;
+      border-radius: 3px;
+      transition: background-color 0.3s;
+    }
+    .strength-bar.active-weak { background: #ef4444; }
+    .strength-bar.active-fair { background: #f97316; }
+    .strength-bar.active-good { background: #eab308; }
+    .strength-bar.active-strong { background: #22c55e; }
+    .strength-bar.active-excellent { background: #10b981; }
+  </style>
+
+  <script>
+    const pwdInput = document.getElementById('newPassword');
+    const pwdStrengthDiv = document.getElementById('pwdStrength');
+    const pwdStrengthText = document.getElementById('pwdStrengthText');
+    const pwdBars = document.querySelectorAll('.strength-bar');
+    
+    const pwdChecks = {
+      length: { el: document.getElementById('pwd-length'), test: (p) => p.length >= 8 },
+      upper: { el: document.getElementById('pwd-upper'), test: (p) => /[A-Z]/.test(p) },
+      lower: { el: document.getElementById('pwd-lower'), test: (p) => /[a-z]/.test(p) },
+      number: { el: document.getElementById('pwd-number'), test: (p) => /[0-9]/.test(p) },
+      special: { el: document.getElementById('pwd-special'), test: (p) => /[^A-Za-z0-9]/.test(p) }
+    };
+
+    pwdInput.addEventListener('input', function() {
+      const pwd = this.value;
+      if (!pwd) {
+        pwdStrengthDiv.style.display = 'none';
+        return;
+      }
+      pwdStrengthDiv.style.display = 'block';
+      
+      let score = 0;
+      Object.values(pwdChecks).forEach(c => {
+        if (c.test(pwd)) score++;
+      });
+
+      pwdBars.forEach((bar, i) => {
+        bar.className = 'strength-bar';
+        if (i < score) {
+          if (score === 1) bar.classList.add('active-weak');
+          else if (score === 2) bar.classList.add('active-fair');
+          else if (score === 3) bar.classList.add('active-good');
+          else if (score === 4) bar.classList.add('active-strong');
+          else bar.classList.add('active-excellent');
+        }
+      });
+
+      const labels = ['Weak', 'Fair', 'Good', 'Strong', 'Excellent'];
+      const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981'];
+      pwdStrengthText.textContent = labels[score - 1] || '';
+      pwdStrengthText.style.color = colors[score - 1] || '#666';
+
+      Object.keys(pwdChecks).forEach(key => {
+        const check = pwdChecks[key];
+        const icon = check.el.querySelector('span');
+        if (check.test(pwd)) {
+          icon.style.color = '#22c55e';
+          icon.textContent = '✓';
+        } else {
+          icon.style.color = '#ccc';
+          icon.textContent = '✗';
+        }
+      });
+    });
+
+    document.querySelector('[onclick*="passwordModal"]').addEventListener('click', function() {
+      document.getElementById('passwordModal').style.display = 'flex';
+    });
+  </script>
+
+  <!-- Notifications Section -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">Notifications</h2>
+    <form action="/settings/notifications" method="POST" class="settings-form">
+      <label class="toggle-row">
+        <input type="checkbox" name="email_notifications" <%= authUser.email_notifications ? 'checked' : '' %> />
+        <span>Email notifications</span>
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" name="push_notifications" <%= authUser.push_notifications ? 'checked' : '' %> />
+        <span>Push notifications</span>
+      </label>
+      <label class="toggle-row">
+        <input type="checkbox" name="message_notifications" <%= authUser.message_notifications ? 'checked' : '' %> />
+        <span>New message notifications</span>
+      </label>
+      <div class="settings-actions-inline">
+        <button type="submit" class="settings-btn primary">Save Notification Preferences</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Connected Accounts -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">Connected Accounts</h2>
+    <p class="settings-note">Link your social accounts for faster sign-in.</p>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">
+        <div>Google</div>
+        <div>
+          <% if (linked && linked.google) { %>
+            <form action="/settings/connections/unlink" method="POST" style="display:inline;">
+              <input type="hidden" name="provider" value="google" />
+              <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">Disconnect</button>
+            </form>
+          <% } else { %>
+            <a href="/auth/google?mode=link" class="btn btn-google" style="text-decoration:none;">Connect</a>
+          <% } %>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">
+        <div>Microsoft</div>
+        <div>
+          <% if (linked && linked.microsoft) { %>
+            <form action="/settings/connections/unlink" method="POST" style="display:inline;">
+              <input type="hidden" name="provider" value="microsoft" />
+              <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">Disconnect</button>
+            </form>
+          <% } else { %>
+            <a href="/auth/microsoft?mode=link" class="btn btn-primary" style="background:#2F2F2F;border-color:#2F2F2F;text-decoration:none;">Connect</a>
+          <% } %>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">
+        <div>Apple</div>
+        <div>
+          <% if (linked && linked.apple) { %>
+            <form action="/settings/connections/unlink" method="POST" style="display:inline;">
+              <input type="hidden" name="provider" value="apple" />
+              <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">Disconnect</button>
+            </form>
+          <% } else { %>
+            <a href="/auth/apple?mode=link" class="btn btn-primary" style="background:#000;text-decoration:none;">Connect</a>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Passkeys (WebAuthn) -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">Passkeys</h2>
+    <p class="settings-note">Create a passkey to sign in with Face ID, Touch ID, or your device’s screen lock.</p>
+    <div class="settings-actions-inline">
+      <button id="btn-create-passkey" class="settings-btn primary" type="button">Create a Passkey</button>
+    </div>
+    <script>
+      (function(){
+        const btn = document.getElementById('btn-create-passkey');
+        if (!btn || !window.SimpleWebAuthnBrowser) return;
+        btn.addEventListener('click', async () => {
+          try {
+            const optsRes = await fetch('/webauthn/registration/options');
+            const opts = await optsRes.json();
+            const attResp = await SimpleWebAuthnBrowser.startRegistration(opts);
+            const verifyRes = await fetch('/webauthn/registration/verify', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attResp)
+            });
+            const out = await verifyRes.json();
+            if (out.verified) {
+              alert('Passkey saved to this device!');
+            } else {
+              alert('Could not save passkey on this device.');
+            }
+          } catch (e) {
+            console.error(e);
+            alert('Passkey setup is not available on this browser or origin.');
+          }
+        });
+      })();
+    </script>
+  </div>
+
+  <!-- Billing Section -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">Billing</h2>
+    <p class="settings-note" style="color:#6b7280;margin-bottom:20px;">Manage subscription and payment methods (placeholder).</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <a href="#" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">Manage subscription →</a>
+      <a href="#" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">Payment methods →</a>
+      <a href="#" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">View invoices →</a>
+    </div>
+  </div>
+
+  <!-- Privacy Section -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">Privacy</h2>
+    <p class="settings-note" style="color:#6b7280;">Privacy settings coming soon.</p>
+  </div>
+
+  <!-- Your Passions Section -->
+  <div class="settings-card">
+    <h2 class="settings-card-title" style="text-transform:uppercase;font-size:0.875rem;font-weight:700;letter-spacing:0.05em;color:#374151;margin-bottom:16px;">YOUR PASSIONS</h2>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+      <% 
+        const row = getUserById ? (typeof getUserById === 'function' ? getUserById(authUser.id) : null) : null;
+        const userPassions = row && row.categories ? JSON.parse(row.categories) : [];
+        if (userPassions.length > 0) {
+          userPassions.forEach(function(passion) {
+      %>
+        <span style="padding:8px 20px;border-radius:24px;background:white;border:2px solid #e5e7eb;color:#374151;font-weight:600;font-size:0.9rem;"><%= passion %></span>
+      <% 
+          });
+        } else {
+      %>
+        <span style="color:#6b7280;font-size:0.9rem;">No passions selected yet</span>
+      <% } %>
+    </div>
+    <a href="/profile/edit" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">Manage passions →</a>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

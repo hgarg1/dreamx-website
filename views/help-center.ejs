@@ -1,0 +1,61 @@
+<%- include('partials/header') %>
+
+<section class="help-hero">
+  <div class="help-hero-inner">
+    <h1 class="help-title">Help Center</h1>
+    <p class="help-subtitle">We’re here to help you build, not get stuck.</p>
+  </div>
+</section>
+
+<section class="help-search-section">
+  <form action="#" method="GET" class="help-search-form" onsubmit="event.preventDefault();">
+    <input type="text" class="help-search-input" placeholder="Search for help topics…" aria-label="Search help center" />
+    <button type="submit" class="help-search-btn">Search</button>
+  </form>
+</section>
+
+<section class="help-faq-section">
+  <div class="faq-list" role="list">
+    <% faqs.forEach(function(item, idx){ %>
+      <div class="faq-item" data-faq>
+        <button class="faq-question" type="button" aria-expanded="false" aria-controls="faq-answer-<%= idx %>">
+          <span class="faq-question-text"><%= item.q %></span>
+          <span class="faq-toggle">+</span>
+        </button>
+        <div id="faq-answer-<%= idx %>" class="faq-answer" hidden>
+          <p><%= item.a %></p>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+</section>
+
+<section class="help-contact-section">
+  <div class="help-contact-card">
+    <h2 class="contact-heading">Still need help?</h2>
+    <p class="contact-text">Email us at <strong>support@dreamx.app</strong> and we’ll get back within 24 hours.</p>
+    <a href="#" class="contact-btn">Contact Support</a>
+  </div>
+</section>
+
+<script>
+  // Simple accordion behavior
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.faq-question').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const expanded = btn.getAttribute('aria-expanded') === 'true';
+        const answer = document.getElementById(btn.getAttribute('aria-controls'));
+        btn.setAttribute('aria-expanded', !expanded);
+        if(expanded){
+          answer.hidden = true;
+          btn.querySelector('.faq-toggle').textContent = '+';
+        } else {
+          answer.hidden = false;
+          btn.querySelector('.faq-toggle').textContent = '−';
+        }
+      });
+    });
+  });
+</script>
+
+<%- include('partials/footer') %>

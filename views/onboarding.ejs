@@ -1,0 +1,98 @@
+<%- include('partials/header') %>
+
+<div class="onboarding-wrapper">
+  <!-- Progress Bar -->
+  <div class="onboarding-progress">
+    <div class="progress-step active">Step 1</div>
+    <div class="progress-step active">Step 2</div>
+    <div class="progress-step active">Step 3</div>
+  </div>
+
+  <header class="onboarding-header">
+    <h1 class="onboarding-title">Start with your passions</h1>
+    <p class="onboarding-subtitle">Pick what you care about so Dream X can focus your feed.</p>
+  </header>
+
+  <form class="onboarding-form" action="/onboarding" method="POST">
+    <!-- Step 1 -->
+    <section class="onboarding-section">
+      <h2 class="section-title">1) Choose your main passion categories</h2>
+      <div class="category-grid">
+        <% const categories = ["Coding","Design","Music","Fitness","Writing","Academics","Entrepreneurship","Art","Photography","Public Speaking","Languages"]; %>
+        <% categories.forEach(function(cat){ %>
+          <label class="category-card">
+            <input type="checkbox" name="categories" value="<%= cat %>">
+            <span class="card-label"><%= cat %></span>
+          </label>
+        <% }); %>
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="onboarding-section">
+      <h2 class="section-title">2) What are your goals?</h2>
+      <div class="goals-grid">
+        <% const goals = ["Learn a new skill","Get better at my craft","Build a portfolio","Find mentors","Start teaching others"]; %>
+        <% goals.forEach(function(goal){ %>
+          <label class="goal-card">
+            <input type="checkbox" name="goals" value="<%= goal %>">
+            <span class="card-label"><%= goal %></span>
+          </label>
+        <% }); %>
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="onboarding-section">
+      <h2 class="section-title">3) How experienced are you?</h2>
+      <div class="experience-grid">
+        <% const experiences = ["Beginner","Intermediate","Advanced","Expert"]; %>
+        <% experiences.forEach(function(level){ %>
+          <label class="experience-card">
+            <input type="radio" name="experience" value="<%= level %>">
+            <span class="card-label"><%= level %></span>
+          </label>
+        <% }); %>
+      </div>
+    </section>
+
+    <div class="onboarding-actions">
+      <a href="/logout" class="onboarding-back">&larr; Cancel & Logout</a>
+      <button type="submit" class="onboarding-submit">Save and Continue to Profile</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    // Toggle selected class for checkbox/radio cards
+    function bindSelectable(selector, inputType){
+      document.querySelectorAll(selector).forEach(function(card){
+        card.addEventListener('click', function(e){
+          const input = card.querySelector('input');
+          if(inputType === 'checkbox'){
+            input.checked = !input.checked;
+            card.classList.toggle('selected', input.checked);
+          } else if(inputType === 'radio') {
+            document.querySelectorAll(selector).forEach(c => c.classList.remove('selected'));
+            input.checked = true;
+            card.classList.add('selected');
+          }
+        });
+        // Keyboard accessibility
+        card.addEventListener('keydown', function(e){
+          if(e.key === 'Enter' || e.key === ' '){
+            e.preventDefault();
+            card.click();
+          }
+        });
+        card.setAttribute('tabindex','0');
+      });
+    }
+    bindSelectable('.category-card','checkbox');
+    bindSelectable('.goal-card','checkbox');
+    bindSelectable('.experience-card','radio');
+  });
+</script>
+
+<%- include('partials/footer') %>

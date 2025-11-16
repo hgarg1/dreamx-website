@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="admin">
+    <%- include('partials/header') %>
+    <main class="admin-dashboard-container">
+        <header class="admin-dashboard-header">
+            <h1>Platform Overview</h1>
+            <p>Operational snapshot and moderation queue.</p>
+        </header>
+
+        <!-- Metrics Grid -->
+        <section class="admin-metrics-grid">
+            <div class="admin-metric-card">
+                <h3>Total Users</h3>
+                <p class="metric-value"><%= metrics.totalUsers %></p>
+                <span class="metric-sub">All registered accounts</span>
+            </div>
+            <div class="admin-metric-card">
+                <h3>Active Today</h3>
+                <p class="metric-value"><%= metrics.activeToday %></p>
+                <span class="metric-sub">Unique logins</span>
+            </div>
+            <div class="admin-metric-card">
+                <h3>Services Listed</h3>
+                <p class="metric-value"><%= metrics.servicesListed %></p>
+                <span class="metric-sub">Public offerings</span>
+            </div>
+            <div class="admin-metric-card">
+                <h3>Sessions Booked</h3>
+                <p class="metric-value"><%= metrics.sessionsBooked %></p>
+                <span class="metric-sub">Lifetime total</span>
+            </div>
+        </section>
+
+        <div class="admin-two-column">
+            <!-- Recent Signups -->
+            <section class="admin-panel">
+                <div class="panel-head">
+                    <h2>Recent Signups</h2>
+                    <button class="mini-btn">Export</button>
+                </div>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% recentSignups.forEach(u => { %>
+                            <tr>
+                                <td><%= u.name %></td>
+                                <td><%= u.email %></td>
+                                <td><%= u.date %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Flagged Content -->
+            <section class="admin-panel">
+                <div class="panel-head">
+                    <h2>Flagged Content</h2>
+                    <button class="mini-btn danger">Bulk Review</button>
+                </div>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Reason</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% flaggedContent.forEach(f => { %>
+                            <tr>
+                                <td><%= f.user %></td>
+                                <td><%= f.reason %></td>
+                                <td><%= f.date %></td>
+                                <td><span class="status-chip <%= f.status.toLowerCase() %>"><%= f.status %></span></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+
+        <!-- Admin Actions -->
+        <section class="admin-actions">
+            <h2>Quick Actions</h2>
+            <div class="actions-grid">
+                <button class="action-btn">Send Broadcast Message</button>
+                <button class="action-btn">Force Password Reset</button>
+                <button class="action-btn">Enable Maintenance Mode</button>
+                <button class="action-btn danger">Suspend User</button>
+            </div>
+            <form class="broadcast-form" method="POST" action="#" onsubmit="event.preventDefault(); alert('Placeholder only');">
+                <label>Broadcast Announcement</label>
+                <textarea placeholder="Write announcement..." rows="4"></textarea>
+                <button class="submit-announce" type="submit">Queue Announcement</button>
+            </form>
+        </section>
+    </main>
+
+    <%- include('partials/footer') %>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<%- include('partials/header') %>
+
+<section class="messages-layout">
+  <!-- Conversations Column -->
+  <aside class="conversations-column">
+    <h2 class="conversations-title">Conversations</h2>
+    <div class="conversation-search">
+      <input type="text" class="conversation-search-input" placeholder="Search" aria-label="Search conversations" />
+    </div>
+    <ul class="conversation-list" role="list">
+      <% if(conversations && conversations.length > 0) { %>
+        <% conversations.forEach(function(conv){ %>
+          <li class="conversation-item <%= currentConversation && currentConversation.id === conv.id ? 'active' : '' %>" data-conversation-id="<%= conv.id %>" onclick="switchConversation(<%= conv.id %>)">
+            <% if (conv.other_user_picture) { %>
+              <img src="/uploads/<%= conv.other_user_picture %>" alt="<%= conv.other_user_name %>" class="conversation-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;">
+            <% } else { %>
+              <div class="conversation-avatar"><%= (conv.other_user_name || 'U').charAt(0) %></div>
+            <% } %>
+            <div class="conversation-meta">
+              <span class="conversation-name"><%= conv.other_user_name %></span>
+              <% if (conv.last_message) { %>
+                <span class="conversation-last"><%= conv.last_message %></span>
+              <% } else { %>
+                <span class="conversation-last empty">No messages yet</span>
+              <% } %>
+            </div>
+            <div class="conversation-time"><%= conv.last_message_time || '' %></div>
+            <% if(conv.unread_count > 0){ %>
+              <span class="conversation-unread"><%= conv.unread_count %></span>
+            <% } %>
+          </li>
+        <% }); %>
+      <% } else { %>
+        <li class="conversation-item empty-state">
+          <span class="empty-title">No conversations yet</span>
+          <span class="empty-subtitle">Start by messaging someone from their profile.</span>
+        </li>
+      <% } %>
+    </ul>
+  </aside>
+
+  <!-- Chat Column -->
+  <div class="chat-column">
+    <% if(currentConversation) { %>
+      <header class="chat-header">
+        <div class="chat-header-left">
+          <% if (currentConversation.other_user_picture) { %>
+            <img src="/uploads/<%= currentConversation.other_user_picture %>" alt="<%= currentConversation.other_user_name %>" class="chat-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;">
+          <% } else { %>
+            <div class="chat-avatar"><%= (currentConversation.other_user_name || 'U').charAt(0) %></div>
+          <% } %>
+          <div class="chat-partner-info">
+            <span class="chat-partner-name"><%= currentConversation.other_user_name %></span>
+            <span class="chat-partner-passion">DreamX Member</span>
+          </div>
+        </div>
+        <div class="chat-header-actions">
+          <a href="/profile/<%= currentConversation.other_user_id %>" class="chat-view-profile">View Profile →</a>
+        </div>
+      </header>
+
+      <div class="chat-history" id="chatHistory" aria-live="polite">
+        <% if(messages && messages.length > 0) { %>
+          <% messages.forEach(function(msg){ %>
+            <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>">
+              <div class="chat-bubble">
+                <p class="chat-text"><%= msg.content %></p>
+                <span class="chat-time"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %></span>
+              </div>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <div class="chat-empty">
+            <p class="chat-empty-title">No messages yet</p>
+            <p class="chat-empty-sub">Say hello to start the conversation.</p>
+            <% if(currentConversation && currentConversation.other_user_id){ %>
+              <a class="chat-start" href="/profile/<%= currentConversation.other_user_id %>">View profile →</a>
+            <% } %>
+          </div>
+        <% } %>
+      </div>
+
+      <form id="messageForm" class="chat-input-row">
+        <textarea id="messageInput" class="chat-input" rows="1" placeholder="Type a message..." aria-label="Message input" required></textarea>
+        <button type="submit" class="chat-send-btn">Send</button>
+      </form>
+    <% } else { %>
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;">
+        Select a conversation to start messaging
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const currentConversationId = <%= currentConversation ? currentConversation.id : 'null' %>;
+  const authUserId = <%= authUser ? authUser.id : 'null' %>;
+
+  // Join current conversation room
+  if (currentConversationId) {
+    socket.emit('join-conversation', currentConversationId);
+  }
+
+  // Listen for new messages
+  socket.on('new-message', (message) => {
+    if (message.conversation_id === currentConversationId) {
+      appendMessage(message);
+      scrollToBottom();
+      
+      // Mark as read
+      fetch(`/api/messages/${currentConversationId}/read`, { method: 'POST' })
+        .catch(err => console.error('Failed to mark as read:', err));
+    }
+  });
+
+  // Send message form handler
+  document.getElementById('messageForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const input = document.getElementById('messageInput');
+    const content = input.value.trim();
+    
+    if (!content || !currentConversationId) return;
+    
+    try {
+      const response = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: currentConversationId,
+          content: content
+        })
+      });
+      
+      if (response.ok) {
+        input.value = '';
+        input.style.height = 'auto';
+      } else {
+        alert('Failed to send message');
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+      alert('Error sending message');
+    }
+  });
+
+  // Helper: Append message to chat history
+  function appendMessage(msg) {
+    const chatHistory = document.getElementById('chatHistory');
+    const isOutgoing = msg.sender_id === authUserId;
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = `chat-message-wrapper ${isOutgoing ? 'outgoing' : 'incoming'}`;
+    wrapper.setAttribute('data-message-id', msg.id);
+    
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    
+    const text = document.createElement('p');
+    text.className = 'chat-text';
+    text.textContent = msg.content;
+    
+    const time = document.createElement('span');
+    time.className = 'chat-time';
+    time.textContent = new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    
+    bubble.appendChild(text);
+    bubble.appendChild(time);
+    wrapper.appendChild(bubble);
+    chatHistory.appendChild(wrapper);
+  }
+
+  // Helper: Scroll to bottom
+  function scrollToBottom() {
+    const chatHistory = document.getElementById('chatHistory');
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+  }
+
+  // Switch conversation function
+  function switchConversation(conversationId) {
+    window.location.href = `/messages?conversation=${conversationId}`;
+  }
+
+  // Auto-resize textarea
+  const messageInput = document.getElementById('messageInput');
+  messageInput?.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+  });
+
+  // Scroll to bottom on load
+  if (currentConversationId) {
+    scrollToBottom();
+  }
+</script>
+
+<%- include('partials/footer') %>

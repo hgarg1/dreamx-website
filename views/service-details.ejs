@@ -1,0 +1,99 @@
+<%- include('partials/header') %>
+
+<section class="service-details-header">
+  <div class="service-details-container">
+    <h1 class="service-title"><%= service.name %></h1>
+    <div class="provider-info-row">
+      <div class="provider-avatar-lg"><%= service.provider.name.charAt(0) %></div>
+      <div class="provider-info-meta">
+        <span class="provider-name-lg"><%= service.provider.name %></span>
+        <span class="provider-passion-tag"><%= service.provider.passion %></span>
+        <a href="/profile" class="view-profile-link">View Profile →</a>
+      </div>
+      <div class="provider-rating-block">
+        <div class="stars" aria-label="Average rating <%= service.rating %>">★★★★★</div>
+        <span class="rating-text"><%= service.rating %> (<%= service.reviewsCount %> reviews)</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="service-details-body">
+  <div class="service-details-container two-column">
+    <!-- Left Column -->
+    <div class="service-left">
+      <div class="service-section">
+        <h2 class="section-heading">About this service</h2>
+        <p class="section-paragraph"><%= service.about %></p>
+      </div>
+      <div class="service-section">
+        <h3 class="sub-heading">What’s included</h3>
+        <ul class="included-list">
+          <% service.included.forEach(function(item){ %>
+            <li><%= item %></li>
+          <% }); %>
+        </ul>
+      </div>
+      <div class="service-section">
+        <h3 class="sub-heading">Ideal for</h3>
+        <ul class="ideal-list">
+          <% service.idealFor.forEach(function(item){ %>
+            <li><%= item %></li>
+          <% }); %>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Right Column -->
+    <aside class="service-right">
+      <div class="booking-card">
+        <div class="price-line">
+          <span class="price-amount">$<%= service.pricePerSession %></span>
+          <span class="price-unit">/ session</span>
+        </div>
+        <form action="#" method="POST" class="booking-form" onsubmit="event.preventDefault();">
+          <div class="form-row">
+            <label for="sessionLength" class="form-label">Session Length</label>
+            <select id="sessionLength" name="sessionLength" class="booking-select">
+              <option value="60">60 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="30">30 minutes</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="sessionDate" class="form-label">Preferred Date</label>
+            <input id="sessionDate" name="sessionDate" type="date" class="booking-input" />
+          </div>
+          <div class="form-row">
+            <label for="sessionTime" class="form-label">Preferred Time</label>
+            <input id="sessionTime" name="sessionTime" type="time" class="booking-input" />
+          </div>
+          <button type="submit" class="book-now-btn">Book Now</button>
+        </form>
+        <p class="booking-note">Secure payment & scheduling coming soon.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="service-reviews-section">
+  <div class="service-details-container">
+    <h2 class="section-heading">Reviews</h2>
+    <div class="reviews-list">
+      <% reviews.forEach(function(r){ %>
+        <div class="review-item">
+          <div class="review-header">
+            <div class="review-avatar"><%= r.user.charAt(0) %></div>
+            <div class="review-meta">
+              <span class="review-user"><%= r.user %></span>
+              <span class="review-stars" aria-label="Rating <%= r.rating %>">★★★★★</span>
+            </div>
+          </div>
+          <p class="review-comment"><%= r.comment %></p>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

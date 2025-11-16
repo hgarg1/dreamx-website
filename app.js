@@ -1,0 +1,1178 @@
+// Import required modules
+const express = require('express');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const MicrosoftStrategy = require('passport-microsoft').Strategy;
+const AppleStrategy = require('passport-apple');
+require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
+const multer = require('multer');
+const http = require('http');
+const {
+    generateRegistrationOptions,
+    verifyRegistrationResponse,
+    generateAuthenticationOptions,
+    verifyAuthenticationResponse
+} = require('@simplewebauthn/server');
+const socketIo = require('socket.io');
+const { 
+    db, getUserById, getUserByEmail, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
+    updateProfilePicture, updateBannerImage, updatePassword, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
+    getOrCreateConversation, getUserConversations, getConversationMessages,
+    createMessage, markMessagesAsRead, getUnreadMessageCount,
+    updateUserRole, getAllUsers, getStats,
+    // New admin helpers
+    getUsersPaged, getUsersCount,
+    // Audit logs
+    addAuditLog, getAuditLogsPaged, getAuditLogCount,
+    // Posts
+    createPost, getFeedPosts, getUserPosts,
+    // WebAuthn
+    addWebAuthnCredential, getCredentialsForUser, getCredentialById, updateCredentialCounter
+ } = require('./db');
+let fetch;
+try {
+    fetch = require('node-fetch');
+} catch (e) {
+    // Node 18+ has global fetch; fallback
+    fetch = global.fetch;
+}
+
+// Initialize Express app
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
+const PORT = 3000;
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, 'public', 'uploads'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files allowed'));
+    }
+  }
+});
+
+// Set EJS as the view engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Serve static files from the public folder
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Parse URL-encoded bodies (for form submissions)
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// Session configuration (MemoryStore fine for local dev)
+app.use(session({
+    secret: 'dev-secret-key-change-me',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { httpOnly: true }
+}));
+app.use(passport.initialize());
+// If you want Passport-managed sessions, also enable the next line and add serialize/deserialize below
+// app.use(passport.session());
+
+// Minimal serialize/deserialize (not strictly used since we set req.session.userId)
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser((id, done) => {
+    try {
+        const user = getUserById(id);
+        done(null, user || null);
+    } catch (e) {
+        done(e);
+    }
+});
+
+// Password complexity validator
+function validatePasswordComplexity(password) {
+    const errors = [];
+    if (password.length < 8) errors.push('at least 8 characters');
+    if (!/[A-Z]/.test(password)) errors.push('one uppercase letter');
+    if (!/[a-z]/.test(password)) errors.push('one lowercase letter');
+    if (!/[0-9]/.test(password)) errors.push('one number');
+    if (!/[^A-Za-z0-9]/.test(password)) errors.push('one special character');
+    return { valid: errors.length === 0, errors };
+}
+
+// Helper to find or create a user from OAuth profile
+async function findOrCreateOAuthUser({ provider, providerId, displayName, email }) {
+    let user = getUserByProvider(provider, providerId);
+    if (user) return user;
+    if (email) {
+        const byEmail = getUserByEmail(email);
+        if (byEmail) {
+            updateUserProvider({ userId: byEmail.id, provider, providerId });
+            return getUserById(byEmail.id);
+        }
+    }
+    const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
+    const userId = createUser({ fullName: displayName || (email || 'User'), email: email || `${providerId}@${provider}.oauth.local`, passwordHash: dummyHash });
+    updateUserProvider({ userId, provider, providerId });
+    return getUserById(userId);
+}
+
+async function importProfilePhotoIfNeeded(user, photoUrl) {
+    try {
+        if (!photoUrl || !user || user.profile_picture) return;
+        const res = await fetch(photoUrl);
+        if (!res || !res.ok) return;
+        const arrayBuffer = await res.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const uploadsDir = path.join(__dirname, 'public', 'uploads');
+        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        const ext = (photoUrl.split('?')[0].split('.').pop() || 'jpg').toLowerCase();
+        const safeExt = ext.length <= 5 ? ext : 'jpg';
+        const filename = `profile-oauth-${user.id}-${Date.now()}.${safeExt}`;
+        fs.writeFileSync(path.join(uploadsDir, filename), buffer);
+        updateProfilePicture({ userId: user.id, filename });
+    } catch (e) {
+        console.warn('Profile photo import failed:', e.message);
+    }
+}
+
+async function importBinaryPhotoIfNeeded(user, buffer, extHint) {
+    try {
+        if (!buffer || !user || user.profile_picture) return;
+        const uploadsDir = path.join(__dirname, 'public', 'uploads');
+        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        const safeExt = (extHint && extHint.length <= 5 ? extHint : 'jpg') || 'jpg';
+        const filename = `profile-oauth-${user.id}-${Date.now()}.${safeExt}`;
+        fs.writeFileSync(path.join(uploadsDir, filename), buffer);
+        updateProfilePicture({ userId: user.id, filename });
+    } catch (e) {
+        console.warn('Binary photo import failed:', e.message);
+    }
+}
+
+// Google OAuth
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(new GoogleStrategy({
+        passReqToCallback: true,
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
+    }, async (req, accessToken, refreshToken, profile, done) => {
+        try {
+            const email = Array.isArray(profile.emails) && profile.emails[0] ? profile.emails[0].value : null;
+            const photoUrl = Array.isArray(profile.photos) && profile.photos[0] ? profile.photos[0].value : null;
+            const user = await findOrCreateOAuthUser({ provider: 'google', providerId: profile.id, displayName: profile.displayName, email });
+            await importProfilePhotoIfNeeded(user, photoUrl);
+            done(null, user, { provider: 'google', providerId: profile.id, photoUrl });
+        } catch (e) { done(e); }
+    }));
+} else {
+    console.warn('Google OAuth not configured');
+}
+
+// Microsoft OAuth
+if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
+    passport.use(new MicrosoftStrategy({
+        passReqToCallback: true,
+        clientID: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        callbackURL: process.env.MICROSOFT_CALLBACK_URL || '/auth/microsoft/callback',
+        scope: ['openid', 'profile', 'email', 'User.Read']
+    }, async (req, accessToken, refreshToken, profile, done) => {
+        try {
+            const email = Array.isArray(profile.emails) && profile.emails[0] ? profile.emails[0].value : (profile._json && (profile._json.mail || profile._json.userPrincipalName)) || null;
+            const name = profile.displayName || (profile.name && ((profile.name.givenName || '') + ' ' + (profile.name.familyName || '')).trim()) || email;
+            const user = await findOrCreateOAuthUser({ provider: 'microsoft', providerId: profile.id, displayName: name, email });
+            // Try to fetch Graph profile photo (binary)
+            try {
+                if (accessToken && !user.profile_picture) {
+                    const resp = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', { headers: { Authorization: `Bearer ${accessToken}` } });
+                    if (resp && resp.ok) {
+                        const arrayBuffer = await resp.arrayBuffer();
+                        await importBinaryPhotoIfNeeded(user, Buffer.from(arrayBuffer), 'jpg');
+                    }
+                }
+            } catch (e) { /* ignore photo errors */ }
+            done(null, user, { provider: 'microsoft', providerId: profile.id, photoUrl: null });
+        } catch (e) { done(e); }
+    }));
+} else {
+    console.warn('Microsoft OAuth not configured');
+}
+
+// Apple Sign-In
+if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY) {
+    passport.use(new AppleStrategy({
+        passReqToCallback: true,
+        clientID: process.env.APPLE_CLIENT_ID,
+        teamID: process.env.APPLE_TEAM_ID,
+        keyID: process.env.APPLE_KEY_ID,
+        callbackURL: process.env.APPLE_CALLBACK_URL || '/auth/apple/callback',
+        privateKeyString: (process.env.APPLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+        scope: ['name', 'email']
+    }, async (req, accessToken, refreshToken, idToken, profile, done) => {
+        try {
+            const email = profile && profile.email ? profile.email : null;
+            const name = profile && profile.name ? `${profile.name.firstName || ''} ${profile.name.lastName || ''}`.trim() : email;
+            const user = await findOrCreateOAuthUser({ provider: 'apple', providerId: profile.id, displayName: name, email });
+            done(null, user, { provider: 'apple', providerId: profile.id, photoUrl: null });
+        } catch (e) { done(e); }
+    }));
+} else {
+    console.warn('Apple Sign-In not configured');
+}
+
+// Seed a default super admin if missing
+(async () => {
+    try {
+        const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@dreamx.local';
+        const adminPass = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin!123';
+        const existing = getUserByEmail(adminEmail);
+        if (!existing) {
+            const hash = await bcrypt.hash(adminPass, 10);
+            const id = createUser({ fullName: 'Super Admin', email: adminEmail, passwordHash: hash });
+            updateUserRole({ userId: id, role: 'super_admin' });
+            console.log(`Seeded super admin: ${adminEmail} / ${adminPass}`);
+        }
+    } catch (e) {
+        console.warn('Admin seed failed:', e.message);
+    }
+})();
+
+// Attach auth context to templates
+app.use((req, res, next) => {
+    let user = null;
+    let unreadCount = 0;
+    if (req.session.userId) {
+        const row = getUserById(req.session.userId);
+        if (row) {
+            user = {
+                ...row,
+                displayName: row.full_name
+            };
+            unreadCount = getUnreadMessageCount(req.session.userId);
+        }
+    }
+    res.locals.authUser = user;
+    res.locals.unreadMessageCount = unreadCount;
+    next();
+});
+
+// RBAC helpers
+const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin');
+const isSuperAdmin = (user) => user && user.role === 'super_admin';
+const requireAdmin = (req, res, next) => {
+    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!isAdmin(user)) return res.redirect('/');
+    next();
+};
+const requireSuperAdmin = (req, res, next) => {
+    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!isSuperAdmin(user)) return res.redirect('/admin?error=Insufficient+permissions');
+    next();
+};
+
+// ===== ROUTES =====
+
+// ---------- WebAuthn (Passkeys) ----------
+function rpIDFromReq(req){
+    try {
+        const host = (req.headers.host || '').split(':')[0];
+        return host || 'localhost';
+    } catch { return 'localhost'; }
+}
+
+// Begin Registration (user must be logged in or provide email via body)
+app.get('/webauthn/registration/options', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Login required to create a passkey' });
+    const user = getUserById(req.session.userId);
+    const rpID = rpIDFromReq(req);
+    const existingCreds = getCredentialsForUser(user.id);
+    const options = generateRegistrationOptions({
+        rpName: 'Dream X',
+        rpID,
+        userID: String(user.id),
+        userName: user.email,
+        userDisplayName: user.full_name,
+        attestationType: 'none',
+        authenticatorSelection: {
+            residentKey: 'preferred',
+            userVerification: 'preferred',
+            requireResidentKey: false,
+        },
+        excludeCredentials: existingCreds.map(c => ({
+            id: Buffer.from(c.credential_id, 'base64url'),
+            type: 'public-key',
+        })),
+    });
+    req.session.webauthnChallenge = options.challenge;
+    req.session.webauthnUserId = user.id;
+    res.json(options);
+});
+
+app.post('/webauthn/registration/verify', async (req, res) => {
+    if (!req.session.userId || !req.session.webauthnChallenge) return res.status(400).json({ error: 'No registration in progress' });
+    const expectedChallenge = req.session.webauthnChallenge;
+    const rpID = rpIDFromReq(req);
+    try {
+        const verification = await verifyRegistrationResponse({
+            response: req.body,
+            expectedChallenge,
+            expectedOrigin: [
+                `https://${rpID}`,
+                `http://${rpID}`,
+                'http://localhost:3000',
+                'http://127.0.0.1:3000'
+            ],
+            expectedRPID: rpID,
+        });
+        const { verified, registrationInfo } = verification;
+        if (verified && registrationInfo) {
+            const { credentialPublicKey, credentialID, counter, credentialDeviceType, credentialBackedUp } = registrationInfo;
+            addWebAuthnCredential({
+                userId: req.session.webauthnUserId,
+                credentialId: Buffer.from(credentialID).toString('base64url'),
+                publicKey: Buffer.from(credentialPublicKey).toString('base64url'),
+                counter: counter || 0,
+                transports: (req.body.response && req.body.response.transports) ? JSON.stringify(req.body.response.transports) : null,
+            });
+            req.session.webauthnChallenge = null;
+            return res.json({ verified: true });
+        }
+        return res.status(400).json({ verified: false });
+    } catch (e) {
+        console.error('WebAuthn registration verify error', e);
+        return res.status(400).json({ error: 'Verification failed' });
+    }
+});
+
+// Begin Authentication (username-less)
+app.get('/webauthn/authentication/options', (req, res) => {
+    const rpID = rpIDFromReq(req);
+    const options = generateAuthenticationOptions({
+        rpID,
+        userVerification: 'preferred',
+    });
+    req.session.webauthnChallenge = options.challenge;
+    res.json(options);
+});
+
+app.post('/webauthn/authentication/verify', async (req, res) => {
+    const expectedChallenge = req.session.webauthnChallenge;
+    const rpID = rpIDFromReq(req);
+    if (!expectedChallenge) return res.status(400).json({ error: 'No auth in progress' });
+    try {
+        const body = req.body;
+        const credIdB64 = body.id;
+        const stored = getCredentialById(credIdB64);
+        const authenticator = stored ? {
+            credentialID: Buffer.from(stored.credential_id, 'base64url'),
+            credentialPublicKey: Buffer.from(stored.public_key, 'base64url'),
+            counter: stored.counter || 0,
+        } : null;
+        const verification = await verifyAuthenticationResponse({
+            response: body,
+            expectedChallenge,
+            expectedOrigin: [
+                `https://${rpID}`,
+                `http://${rpID}`,
+                'http://localhost:3000',
+                'http://127.0.0.1:3000'
+            ],
+            expectedRPID: rpID,
+            authenticator,
+        });
+        const { verified, authenticationInfo } = verification;
+        if (verified && stored) {
+            updateCredentialCounter({ credentialId: stored.credential_id, counter: authenticationInfo.newCounter || stored.counter });
+            // Log user in
+            req.session.userId = stored.user_id;
+            return res.json({ verified: true });
+        }
+        return res.status(400).json({ verified: false });
+    } catch (e) {
+        console.error('WebAuthn authentication verify error', e);
+        return res.status(400).json({ error: 'Verification failed' });
+    }
+});
+
+// OAuth routes (Google)
+app.get('/auth/google', (req, res, next) => {
+    if (!passport._strategy('google')) return res.status(503).send('Google OAuth not configured');
+    const mode = req.query.mode === 'link' ? 'link' : 'login';
+    const options = { scope: ['profile', 'email'], state: mode };
+    passport.authenticate('google', options)(req, res, next);
+});
+app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), async (req, res) => {
+    const mode = req.query.state;
+    if (mode === 'link' && req.session.userId && req.authInfo) {
+        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
+        if (req.authInfo.photoUrl) {
+            const user = getUserById(req.session.userId);
+            await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
+        }
+        return res.redirect('/settings?success=Google connected');
+    }
+    if (req.user && req.user.id) req.session.userId = req.user.id;
+    res.redirect('/feed');
+});
+
+// OAuth routes (Microsoft)
+app.get('/auth/microsoft', (req, res, next) => {
+    if (!passport._strategy('microsoft')) return res.status(503).send('Microsoft OAuth not configured');
+    const mode = req.query.mode === 'link' ? 'link' : 'login';
+    passport.authenticate('microsoft', { state: mode })(req, res, next);
+});
+app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), async (req, res) => {
+    const mode = req.query.state;
+    if (mode === 'link' && req.session.userId && req.authInfo) {
+        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
+        return res.redirect('/settings?success=Microsoft connected');
+    }
+    if (req.user && req.user.id) req.session.userId = req.user.id;
+    res.redirect('/feed');
+});
+
+// OAuth routes (Apple)
+app.get('/auth/apple', (req, res, next) => {
+    if (!passport._strategy('apple')) return res.status(503).send('Apple Sign-In not configured');
+    if (!process.env.APPLE_CALLBACK_URL || !process.env.APPLE_CALLBACK_URL.startsWith('https://')) {
+        return res.status(503).send('Apple Sign-In requires HTTPS callback. Configure APPLE_CALLBACK_URL to an HTTPS URL (try ngrok for local).');
+    }
+    const mode = req.query.mode === 'link' ? 'link' : 'login';
+    passport.authenticate('apple', { state: mode })(req, res, next);
+});
+app.post('/auth/apple/callback', passport.authenticate('apple', { failureRedirect: '/login' }), async (req, res) => {
+    const mode = req.query.state;
+    if (mode === 'link' && req.session.userId && req.authInfo) {
+        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
+        return res.redirect('/settings?success=Apple connected');
+    }
+    if (req.user && req.user.id) req.session.userId = req.user.id;
+    res.redirect('/feed');
+});
+
+// Home page
+app.get('/', (req, res) => {
+    res.render('index', {
+        title: 'Home - Dream X',
+        currentPage: 'home'
+    });
+});
+
+// Admin dashboard with pagination and audit logs
+app.get('/admin', requireAdmin, (req, res) => {
+    const stats = getStats();
+    const pageSize = 20;
+    const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
+    const q = (req.query.q || '').trim();
+    const total = getUsersCount({ search: q || null });
+    const offset = (page - 1) * pageSize;
+    const users = getUsersPaged({ limit: pageSize, offset, search: q || null });
+
+    // Super admins can see recent audit logs
+    const me = req.session.userId ? getUserById(req.session.userId) : null;
+    const logs = (me && me.role === 'super_admin') ? getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
+
+    res.render('admin', {
+        title: 'Admin Dashboard - Dream X',
+        currentPage: 'admin',
+        stats,
+        users,
+        page,
+        pageSize,
+        total,
+        q,
+        logs,
+        error: req.query.error,
+        success: req.query.success
+    });
+});
+
+// Update user role (super admin only)
+app.post('/admin/users/:id/role', requireSuperAdmin, (req, res) => {
+    const id = parseInt(req.params.id);
+    const role = (req.body.role || 'user').toLowerCase();
+    if (!['user','admin','super_admin'].includes(role)) {
+        return res.redirect('/admin?error=Invalid+role');
+    }
+    // Prevent demoting self from super_admin accidentally
+    const me = getUserById(req.session.userId);
+    if (me && me.id === id && me.role === 'super_admin' && role !== 'super_admin') {
+        return res.redirect('/admin?error=Cannot+demote+yourself');
+    }
+    // Ensure at least one super_admin remains
+    const all = getAllUsers();
+    const superAdmins = all.filter(u => u.role === 'super_admin');
+    if (superAdmins.length === 1 && superAdmins[0].id === id && role !== 'super_admin') {
+        return res.redirect('/admin?error=At+least+one+super+admin+required');
+    }
+    updateUserRole({ userId: id, role });
+    try {
+        addAuditLog({ userId: me ? me.id : null, action: 'role_change', details: JSON.stringify({ targetUserId: id, newRole: role }) });
+    } catch (e) {}
+    res.redirect('/admin?success=Role+updated');
+});
+
+// CSV Exports
+app.get('/admin/export/users.csv', requireAdmin, (req, res) => {
+    try { addAuditLog({ userId: req.session.userId, action: 'export_users', details: null }); } catch (e) {}
+    const rows = getAllUsers();
+    const header = 'id,full_name,email,role,created_at\n';
+    const csv = header + rows.map(r => `${r.id},"${(r.full_name||'').replace(/"/g,'""')}",${r.email},${r.role},${r.created_at}`).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+    res.send(csv);
+});
+
+app.get('/admin/export/messages.csv', requireAdmin, (req, res) => {
+    try { addAuditLog({ userId: req.session.userId, action: 'export_messages', details: null }); } catch (e) {}
+    const rows = db.prepare(`SELECT m.id, m.conversation_id, m.sender_id, u.email as sender_email, m.content, m.read, m.created_at
+                             FROM messages m JOIN users u ON u.id = m.sender_id
+                             ORDER BY m.created_at DESC`).all();
+    const header = 'id,conversation_id,sender_id,sender_email,content,read,created_at\n';
+    const csv = header + rows.map(r => `${r.id},${r.conversation_id},${r.sender_id},${r.sender_email},"${(r.content||'').replace(/"/g,'""')}",${r.read},${r.created_at}`).join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="messages.csv"');
+    res.send(csv);
+});
+
+// Registration page
+app.get('/register', (req, res) => {
+    if (req.session.userId) return res.redirect('/onboarding');
+    res.render('register', {
+        title: 'Register - Dream X',
+        currentPage: 'register',
+        error: null
+    });
+});
+
+// Handle registration
+app.post('/register', async (req, res) => {
+    const { fullName, email, password, confirmPassword } = req.body;
+    if (!fullName || !email || !password || !confirmPassword) {
+        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'All fields are required.' });
+    }
+    if (password !== confirmPassword) {
+        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Passwords do not match.' });
+    }
+    const complexityCheck = validatePasswordComplexity(password);
+    if (!complexityCheck.valid) {
+        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: `Password must contain ${complexityCheck.errors.join(', ')}.` });
+    }
+    const existing = getUserByEmail(email.trim().toLowerCase());
+    if (existing) {
+        return res.status(400).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Email already in use.' });
+    }
+    try {
+        const hash = await bcrypt.hash(password, 10);
+        const userId = createUser({ fullName, email: email.trim().toLowerCase(), passwordHash: hash });
+        req.session.userId = userId;
+        return res.redirect('/onboarding');
+    } catch (e) {
+        console.error('Registration error', e);
+        return res.status(500).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Server error. Try again.' });
+    }
+});
+
+// Login page
+app.get('/login', (req, res) => {
+    if (req.session.userId) return res.redirect('/feed');
+    const googleEnabled = !!passport._strategy('google');
+    const microsoftEnabled = !!passport._strategy('microsoft');
+    const appleEnabled = !!passport._strategy('apple') && !!process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://');
+    res.render('login', {
+        title: 'Login - Dream X',
+        currentPage: 'login',
+        error: null,
+        providers: { googleEnabled, microsoftEnabled, appleEnabled }
+    });
+});
+
+// Handle login
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+    const user = getUserByEmail((email || '').trim().toLowerCase());
+    if (!user) {
+        return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.' });
+    }
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) {
+        return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.' });
+    }
+    req.session.userId = user.id;
+    if (user.role === 'admin' || user.role === 'super_admin') {
+        return res.redirect('/admin');
+    }
+    res.redirect('/feed');
+});
+
+// Logout
+app.get('/logout', (req, res) => {
+    req.session.destroy(() => {
+        res.redirect('/');
+    });
+});
+
+// Feed page (main social feed)
+app.get('/feed', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const posts = getFeedPosts({ limit: 50, offset: 0 });
+    const suggestions = [
+        { user: 'Nora Fields', passion: 'Writing' },
+        { user: 'Ethan Brooks', passion: 'Entrepreneurship' },
+        { user: 'Clara Dawson', passion: 'Photography' },
+        { user: 'Jun Park', passion: 'Design' }
+    ];
+    res.render('feed', {
+        title: 'Your Feed - Dream X',
+        currentPage: 'feed',
+        posts,
+        suggestions
+    });
+});
+
+// Create post
+app.post('/feed/post', upload.single('media'), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { contentType, textContent, activityLabel } = req.body;
+    const mediaUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    createPost({
+        userId: req.session.userId,
+        contentType: contentType || 'text',
+        textContent,
+        mediaUrl,
+        activityLabel
+    });
+    res.redirect('/feed');
+});
+
+// Profile page (public user profile placeholder)
+app.get('/profile', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const row = getUserById(req.session.userId);
+    if (!row) return res.redirect('/login');
+    // Build view model
+    const passions = row.categories ? JSON.parse(row.categories) : [];
+    const goals = row.goals ? JSON.parse(row.goals) : [];
+    const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
+    const userPosts = getUserPosts(req.session.userId);
+    const user = {
+        displayName: row.full_name,
+        handle: row.email.split('@')[0],
+        bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
+        passions,
+        skills: skillsList,
+        stats: { posts: userPosts.length, followers: 0, following: 0, sessions: 0 },
+        isSeller: false,
+        bannerImage: row.banner_image
+    };
+    const projects = [];
+    const services = [];
+    res.render('profile', {
+        title: `${user.displayName} - Profile - Dream X`,
+        currentPage: 'profile',
+        user,
+        projects,
+        services
+    });
+});
+
+// Edit Profile form (placeholder values pulled from same user object shape)
+app.get('/profile/edit', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const row = getUserById(req.session.userId);
+    if (!row) return res.redirect('/login');
+    const passions = row.categories ? JSON.parse(row.categories) : [];
+    const user = {
+        displayName: row.full_name,
+        handle: row.email.split('@')[0],
+        bio: row.bio || '',
+        passions,
+        skills: row.skills || '',
+        location: row.location || ''
+    };
+    const allPassions = ['Coding','Design','Music','Fitness','Writing','Academics','Entrepreneurship','Art','Photography','Public Speaking','Languages'];
+    res.render('edit-profile', {
+        title: 'Edit Profile - Dream X',
+        currentPage: 'profile',
+        user,
+        allPassions
+    });
+});
+
+// Handle edit profile submission with banner support
+app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }, { name: 'bannerImage', maxCount: 1 }]), (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const { displayName, bio, passions, skills, location } = req.body;
+    const selectedPassions = Array.isArray(passions) ? passions : (passions ? [passions] : []);
+    
+    // Update profile data
+    updateUserProfile({
+        userId: req.session.userId,
+        fullName: displayName,
+        bio,
+        location,
+        skills
+    });
+    
+    // Update passions
+    updateOnboarding({
+        userId: req.session.userId,
+        categories: selectedPassions,
+        goals: [],
+        experience: null
+    });
+    
+    // Update profile picture if uploaded
+    if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
+        updateProfilePicture({
+            userId: req.session.userId,
+            filename: req.files.profilePicture[0].filename
+        });
+    }
+    
+    // Update banner image if uploaded
+    if (req.files && req.files.bannerImage && req.files.bannerImage[0]) {
+        updateBannerImage({
+            userId: req.session.userId,
+            filename: req.files.bannerImage[0].filename
+        });
+    }
+    
+    console.log('🛠️ Profile update submitted:', {
+        displayName,
+        bio,
+        passions: selectedPassions,
+        skills,
+        location,
+        picture: req.files && req.files.profilePicture ? req.files.profilePicture[0].filename : 'no change',
+        banner: req.files && req.files.bannerImage ? req.files.bannerImage[0].filename : 'no change'
+    });
+    res.redirect('/profile');
+});
+
+// Services marketplace page
+app.get('/services', (req, res) => {
+    const categories = ['Tutoring','Mentorship','Coaching','Workshops','Other'];
+    const services = [
+        { id: 123, user: 'Nora Fields', passion: 'Writing', desc: 'Story structure & clarity coaching session', rating: 4.8, price: 30 },
+        { id: 124, user: 'Ethan Brooks', passion: 'Entrepreneurship', desc: 'Idea validation & lean MVP strategy', rating: 4.9, price: 45 },
+        { id: 125, user: 'Clara Dawson', passion: 'Photography', desc: 'Portrait lighting fundamentals workshop', rating: 4.7, price: 35 },
+        { id: 126, user: 'Jun Park', passion: 'Design', desc: 'UX audit + actionable redesign guidance', rating: 4.6, price: 40 },
+        { id: 127, user: 'Marcus Lee', passion: 'Art', desc: 'Gesture and anatomy critique session', rating: 4.8, price: 32 },
+    ];
+    res.render('services', {
+        title: 'Services Marketplace - Dream X',
+        currentPage: 'services',
+        categories,
+        services
+    });
+});
+
+// Service details page (single service placeholder)
+app.get('/services/:id', (req, res) => {
+    const { id } = req.params;
+    // Placeholder service and reviews data
+    const service = {
+        id,
+        name: '1:1 Coding Mentorship',
+        provider: { name: 'Ava Chen', passion: 'Coding' },
+        rating: 4.8,
+        reviewsCount: 37,
+        pricePerSession: 40,
+        about: 'A focused one‑on‑one session designed to accelerate your learning loop. We will review current blockers, walk through code clarity improvements, and map a sustainable progression path.',
+        included: [
+            '60‑minute live session',
+            'Personalized feedback & refactor suggestions',
+            'Actionable next steps roadmap',
+            'Follow‑up summary notes'
+        ],
+        idealFor: [
+            'Self‑taught developers seeking structure',
+            'Junior engineers preparing for interviews',
+            'Makers refining MVP architecture'
+        ]
+    };
+    const reviews = [
+        { user: 'Leo Martinez', rating: 5, comment: 'Actionable feedback and clear improvement steps. Immediately leveled up my project structure.' },
+        { user: 'Sofia Patel', rating: 5, comment: 'Great mentorship energy—supportive and direct. Loved the follow‑up notes.' },
+        { user: 'Marcus Lee', rating: 4, comment: 'Helpful session. Would have liked a bit more time on testing strategy, but overall excellent.' }
+    ];
+    res.render('service-details', {
+        title: `${service.name} - Service - Dream X`,
+        currentPage: 'services',
+        service,
+        reviews
+    });
+});
+
+// Messages page - Real messaging with database
+app.get('/messages', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    
+    const conversations = getUserConversations(req.session.userId);
+    let currentConversation = null;
+    let messages = [];
+
+    if (conversations.length > 0) {
+        const requestedId = parseInt(req.query.conversation || '', 10);
+        if (!isNaN(requestedId)) {
+            currentConversation = conversations.find(c => c.id === requestedId) || conversations[0];
+        } else {
+            currentConversation = conversations[0];
+        }
+        messages = getConversationMessages(currentConversation.id);
+        // Mark messages as read
+        markMessagesAsRead({ conversationId: currentConversation.id, userId: req.session.userId });
+    }
+    
+    res.render('messages', {
+        title: 'Messages - Dream X',
+        currentPage: 'messages',
+        conversations,
+        currentConversation,
+        messages,
+        currentUserId: req.session.userId
+    });
+});
+
+// Get conversation messages API (for switching conversations)
+app.get('/api/messages/:conversationId', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const { conversationId } = req.params;
+    const messages = getConversationMessages(conversationId);
+    markMessagesAsRead({ conversationId, userId: req.session.userId });
+    
+    res.json({ messages, userId: req.session.userId });
+});
+
+// Send message API
+app.post('/api/messages/send', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const { conversationId, content } = req.body;
+    if (!content || !content.trim()) {
+        return res.status(400).json({ error: 'Message content required' });
+    }
+    
+    const messageId = createMessage({
+        conversationId,
+        senderId: req.session.userId,
+        content: content.trim()
+    });
+    
+    // Emit to socket for real-time delivery
+    io.to(`conversation-${conversationId}`).emit('new-message', {
+        id: messageId,
+        conversation_id: conversationId,
+        sender_id: req.session.userId,
+        content: content.trim(),
+        created_at: new Date().toISOString()
+    });
+    
+    res.json({ success: true, messageId });
+});
+
+// Mark messages as read
+app.post('/api/messages/:conversationId/read', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const conversationId = parseInt(req.params.conversationId);
+    markMessagesAsRead({ conversationId, userId: req.session.userId });
+    
+    res.json({ success: true });
+});
+
+// Settings page with full functionality
+app.get('/settings', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const row = getUserById(req.session.userId);
+    if (!row) return res.redirect('/login');
+    const user = { 
+        email: row.email, 
+        fullName: row.full_name,
+        emailNotifications: row.email_notifications === 1,
+        pushNotifications: row.push_notifications === 1,
+        messageNotifications: row.message_notifications === 1
+    };
+    const linked = { google: false, microsoft: false, apple: false };
+    try {
+        const accounts = getLinkedAccountsForUser(req.session.userId) || [];
+        accounts.forEach(a => { if (a.provider && linked.hasOwnProperty(a.provider)) linked[a.provider] = true; });
+    } catch (e) {}
+    res.render('settings', {
+        title: 'Settings - Dream X',
+        currentPage: 'settings',
+        user,
+        linked,
+        getUserById,
+        success: req.query.success,
+        error: req.query.error
+    });
+});
+
+// Update account settings
+app.post('/settings/account', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const { displayName, email } = req.body;
+    const fullName = displayName;
+    
+    if (!fullName || !email) {
+        return res.redirect('/settings?error=All fields required');
+    }
+    
+    try {
+        updateUserProfile({
+            userId: req.session.userId,
+            fullName,
+            bio: getUserById(req.session.userId).bio || '',
+            location: getUserById(req.session.userId).location || '',
+            skills: getUserById(req.session.userId).skills || ''
+        });
+        res.redirect('/settings?success=Account updated successfully');
+    } catch (e) {
+        console.error('Account update error:', e);
+        res.redirect('/settings?error=Failed to update account');
+    }
+});
+
+// Change password
+app.post('/settings/password', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        return res.redirect('/settings?error=All password fields required');
+    }
+    
+    if (newPassword !== confirmPassword) {
+        return res.redirect('/settings?error=New passwords do not match');
+    }
+    
+    const complexityCheck = validatePasswordComplexity(newPassword);
+    if (!complexityCheck.valid) {
+        return res.redirect(`/settings?error=Password must contain ${complexityCheck.errors.join(', ')}.`);
+    }
+    
+    const user = getUserById(req.session.userId);
+    const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
+    
+    if (!validPassword) {
+        return res.redirect('/settings?error=Current password incorrect');
+    }
+    
+    try {
+        const hash = await bcrypt.hash(newPassword, 10);
+        updatePassword({ userId: req.session.userId, passwordHash: hash });
+        res.redirect('/settings?success=Password changed successfully');
+    } catch (e) {
+        console.error('Password change error:', e);
+        res.redirect('/settings?error=Failed to change password');
+    }
+});
+
+// Update notification settings
+app.post('/settings/notifications', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    
+    // Support both camelCase and snake_case form names
+    const emailNotifications = (req.body.email_notifications || req.body.emailNotifications) === 'on';
+    const pushNotifications = (req.body.push_notifications || req.body.pushNotifications) === 'on';
+    const messageNotifications = (req.body.message_notifications || req.body.messageNotifications) === 'on';
+    
+    try {
+        updateNotificationSettings({
+            userId: req.session.userId,
+            emailNotifications,
+            pushNotifications,
+            messageNotifications
+        });
+        res.redirect('/settings?success=Notification preferences updated');
+    } catch (e) {
+        console.error('Notification update error:', e);
+        res.redirect('/settings?error=Failed to update notifications');
+    }
+});
+
+// Unlink connected provider with safety guard (must have password or another provider)
+app.post('/settings/connections/unlink', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const provider = (req.body.provider || '').toLowerCase();
+    if (!['google','microsoft','apple'].includes(provider)) {
+        return res.redirect('/settings?error=Unknown provider');
+    }
+    try {
+        const user = getUserById(req.session.userId);
+        const accounts = getLinkedAccountsForUser(req.session.userId) || [];
+        const remaining = accounts.filter(a => (a.provider || '').toLowerCase() !== provider);
+        const isLastLinked = accounts.length <= 1 || remaining.length === 0;
+        const hasPassword = !!(user && user.password_hash);
+        if (isLastLinked && !hasPassword) {
+            return res.redirect('/settings?error=Set+a+password+before+disconnecting+your+last+sign-in+method');
+        }
+        unlinkProvider({ userId: req.session.userId, provider });
+        return res.redirect(`/settings?success=${provider.charAt(0).toUpperCase()+provider.slice(1)}+disconnected`);
+    } catch (e) {
+        console.error('Unlink error:', e);
+        return res.redirect('/settings?error=Failed+to+disconnect+provider');
+    }
+});
+
+// Pricing page (tiers)
+app.get('/pricing', (req, res) => {
+    const tiers = [
+        { id: 'free', name: 'Free', price: '$0/mo', tagline: 'Start building & connecting', features: [
+            'Social feed + basic posting', 'Follow creators', 'Book services'
+        ]},
+        { id: 'pro-buyer', name: 'Pro Buyer', price: '$5.99/mo', tagline: 'Enhanced discovery power', features: [
+            'Ad-free experience', 'Enhanced discovery', 'Limited one-time request listings'
+        ]},
+        { id: 'pro-seller', name: 'Pro Seller', price: '$9.99/mo', tagline: 'Launch your service offerings', highlight: true, features: [
+            'Offer services', 'Basic analytics & scheduling', 'Priority in search'
+        ]},
+        { id: 'elite-seller', name: 'Elite Seller', price: '$29.99/mo', tagline: 'Scale with advanced tools', features: [
+            'Full business suite', 'Advanced analytics', 'Brand-level customization'
+        ]}
+    ];
+    res.render('pricing', {
+        title: 'Pricing - Dream X',
+        currentPage: 'pricing',
+        tiers
+    });
+});
+
+// Help Center (FAQ / Support)
+app.get('/help-center', (req, res) => {
+    const faqs = [
+        { q: 'What is Dream X?', a: 'Dream X is a social platform focused on productive passions—helping you share progress, discover new niches, and grow consistently.' },
+        { q: 'How does the Reverse Algorithm work?', a: 'You begin with ultra-specific passion inputs. Over time the feed broadens intelligently, exposing adjacent skills and creators once you establish depth in your core interests.' },
+        { q: 'How do I start offering services?', a: 'Upgrade to a seller tier, create service listings, set availability, and start accepting bookings through your public profile.' },
+        { q: 'How do I upgrade my plan?', a: 'Visit the Pricing page, choose a tier, and follow the upgrade flow (coming soon). Your features unlock instantly after confirmation.' },
+        { q: 'How do I report a problem or a user?', a: 'Use the in-app report option on posts or profiles, or contact support directly for urgent issues.' }
+    ];
+    res.render('help-center', {
+        title: 'Help Center - Dream X',
+        currentPage: 'help-center',
+        faqs
+    });
+});
+
+// Admin dashboard (internal-only placeholder)
+app.get('/admin', (req, res) => {
+    const metrics = {
+        totalUsers: 4821,
+        activeToday: 763,
+        servicesListed: 188,
+        sessionsBooked: 942
+    };
+    const recentSignups = [
+        { name: 'Ava Chen', email: 'ava@example.com', date: '2025-11-14' },
+        { name: 'Leo Martinez', email: 'leo@example.com', date: '2025-11-14' },
+        { name: 'Sofia Patel', email: 'sofia@example.com', date: '2025-11-13' },
+        { name: 'Marcus Lee', email: 'marcus@example.com', date: '2025-11-13' },
+    ];
+    const flaggedContent = [
+        { user: 'Clara Dawson', reason: 'Inappropriate language', date: '2025-11-14', status: 'Pending' },
+        { user: 'Jun Park', reason: 'Spam links', date: '2025-11-13', status: 'Reviewed' },
+        { user: 'Nora Fields', reason: 'Off-topic promotion', date: '2025-11-12', status: 'Resolved' },
+    ];
+    res.render('admin-dashboard', {
+        title: 'Admin Dashboard - Dream X',
+        currentPage: null, // intentionally no nav highlight
+        metrics,
+        recentSignups,
+        flaggedContent
+    });
+});
+
+// About page
+app.get('/about', (req, res) => {
+    res.render('about', { 
+        title: 'About - Dream X',
+        currentPage: 'about'
+    });
+});
+
+// Features page
+app.get('/features', (req, res) => {
+    res.render('features', { 
+        title: 'Features - Dream X',
+        currentPage: 'features'
+    });
+});
+
+// Contact page
+app.get('/contact', (req, res) => {
+    res.render('contact', { 
+        title: 'Contact - Dream X',
+        currentPage: 'contact'
+    });
+});
+
+// Login page
+// (Original login route replaced by new auth-aware version above)
+
+// Onboarding page (collect user passions/interests for Reverse Algorithm)
+app.get('/onboarding', (req, res) => {
+    if (!req.session.userId) return res.redirect('/register');
+    res.render('onboarding', {
+        title: 'Start with your passions',
+        currentPage: 'onboarding'
+    });
+});
+
+// Handle onboarding form submission
+app.post('/onboarding', (req, res) => {
+    if (!req.session.userId) return res.redirect('/register');
+    const { categories, goals, experience } = req.body;
+    const selectedCategories = Array.isArray(categories) ? categories : (categories ? [categories] : []);
+    const selectedGoals = Array.isArray(goals) ? goals : (goals ? [goals] : []);
+    const experienceLevel = experience || null;
+    updateOnboarding({ userId: req.session.userId, categories: selectedCategories, goals: selectedGoals, experience: experienceLevel });
+    console.log('📝 Onboarding saved for user', req.session.userId);
+    res.redirect('/profile');
+});
+
+// 404 handler - must be last route
+app.use((req, res) => {
+    res.status(404).send('<h1>404 - Page Not Found</h1>');
+});
+
+// Socket.IO for real-time messaging
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+    
+    socket.on('join-conversation', (conversationId) => {
+        socket.join(`conversation-${conversationId}`);
+        console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
+    });
+    
+    socket.on('leave-conversation', (conversationId) => {
+        socket.leave(`conversation-${conversationId}`);
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
+// Start the server
+server.listen(PORT, () => {
+    console.log(`✨ Dream X server running on http://localhost:${PORT}`);
+    console.log(`Press Ctrl+C to stop the server`);
+});

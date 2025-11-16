@@ -1,0 +1,126 @@
+<%- include('partials/header') %>
+
+<section class="admin-wrapper">
+  <h1 class="settings-title">Admin Dashboard</h1>
+
+  <% if (typeof success !== 'undefined' && success) { %>
+    <div style="background:#d4edda;color:#155724;padding:12px;border-radius:8px;margin-bottom:20px;border:1px solid #c3e6cb;">
+      <%= success %>
+    </div>
+  <% } %>
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div style="background:#f8d7da;color:#721c24;padding:12px;border-radius:8px;margin-bottom:20px;border:1px solid #f5c6cb;">
+      <%= error %>
+    </div>
+  <% } %>
+
+  <div class="admin-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">
+    <div class="settings-card"><h3>Users</h3><div style="font-size:28px;font-weight:700;"><%= stats.users %></div></div>
+    <div class="settings-card"><h3>Conversations</h3><div style="font-size:28px;font-weight:700;"><%= stats.conversations %></div></div>
+    <div class="settings-card"><h3>Messages</h3><div style="font-size:28px;font-weight:700;"><%= stats.messages %></div></div>
+  </div>
+
+  <div class="settings-card" style="margin-bottom:24px;display:flex;gap:12px;">
+    <a class="settings-btn" href="/admin/export/users.csv">Export Users CSV</a>
+    <a class="settings-btn" href="/admin/export/messages.csv">Export Messages CSV</a>
+  </div>
+
+  <div class="settings-card">
+    <h2 class="settings-card-title">Users</h2>
+    <form action="/admin" method="GET" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+      <input type="text" name="q" value="<%= typeof q !== 'undefined' ? q : '' %>" placeholder="Search name or email" class="settings-input" style="max-width:280px;">
+      <input type="hidden" name="page" value="1" />
+      <button type="submit" class="settings-btn">Search</button>
+      <% if (q) { %>
+        <a href="/admin" class="settings-btn" style="background:#eee;color:#333;border:1px solid #ccc;">Clear</a>
+      <% } %>
+    </form>
+    <div style="overflow:auto;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid #eee;">
+            <th style="padding:8px;">ID</th>
+            <th style="padding:8px;">Name</th>
+            <th style="padding:8px;">Email</th>
+            <th style="padding:8px;">Role</th>
+            <th style="padding:8px;">Created</th>
+            <th style="padding:8px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% users.forEach(u => { %>
+            <tr style="border-bottom:1px solid #f1f1f1;">
+              <td style="padding:8px;"><%= u.id %></td>
+              <td style="padding:8px;"><%= u.full_name %></td>
+              <td style="padding:8px;"><%= u.email %></td>
+              <td style="padding:8px;"><span style="padding:2px 6px;border-radius:6px;background:#eef;"><%= u.role %></span></td>
+              <td style="padding:8px;"><%= new Date(u.created_at).toLocaleString() %></td>
+              <td style="padding:8px;">
+                <form action="/admin/users/<%= u.id %>/role" method="POST" style="display:flex;gap:6px;align-items:center;">
+                  <select name="role" class="settings-select">
+                    <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
+                    <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                    <option value="super_admin" <%= u.role === 'super_admin' ? 'selected' : '' %>>Super Admin</option>
+                  </select>
+                  <button type="submit" class="settings-btn">Update</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (typeof total !== 'undefined' && typeof page !== 'undefined' && typeof pageSize !== 'undefined') { %>
+      <% const totalPages = Math.max(Math.ceil(total / pageSize), 1); %>
+      <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;">
+        <div style="color:#666;">Page <%= page %> of <%= totalPages %></div>
+        <div style="display:flex;gap:6px;">
+          <% const qp = q ? `&q=${encodeURIComponent(q)}` : '' %>
+          <% if (page > 1) { %>
+            <a class="settings-btn" href="/admin?page=<%= page - 1 %><%= qp %>">Prev</a>
+          <% } else { %>
+            <button class="settings-btn" disabled>Prev</button>
+          <% } %>
+          <% if (page < totalPages) { %>
+            <a class="settings-btn" href="/admin?page=<%= page + 1 %><%= qp %>">Next</a>
+          <% } else { %>
+            <button class="settings-btn" disabled>Next</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  </div>
+
+  <% if (authUser && authUser.role === 'super_admin') { %>
+    <div class="settings-card" style="margin-top:24px;">
+      <h2 class="settings-card-title">Audit Logs (latest 50)</h2>
+      <div style="overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="text-align:left;border-bottom:1px solid #eee;">
+              <th style="padding:8px;">Time</th>
+              <th style="padding:8px;">User ID</th>
+              <th style="padding:8px;">Action</th>
+              <th style="padding:8px;">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (logs || []).forEach(l => { %>
+              <tr style="border-bottom:1px solid #f1f1f1;">
+                <td style="padding:8px;"><%= new Date(l.created_at).toLocaleString() %></td>
+                <td style="padding:8px;"><%= l.user_id || '-' %></td>
+                <td style="padding:8px;"><code><%= l.action %></code></td>
+                <td style="padding:8px;"><pre style="margin:0;white-space:pre-wrap;word-break:break-word;"><%= l.details || '' %></pre></td>
+              </tr>
+            <% }) %>
+            <% if (!logs || !logs.length) { %>
+              <tr><td colspan="4" style="padding:12px;color:#666;">No logs recorded yet.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% } %>
+</section>
+
+<%- include('partials/footer') %>

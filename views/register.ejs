@@ -1,0 +1,171 @@
+<%- include('partials/header') %>
+
+<!-- Register Page -->
+<section class="auth-page">
+    <div class="container">
+        <div class="auth-card">
+            <!-- Header -->
+            <div class="auth-header">
+                <h1>Create your Dream X account</h1>
+                <p class="auth-subtitle">Start by telling us who you are.</p>
+            </div>
+
+                        <!-- Registration Form -->
+                        <% if(typeof error !== 'undefined' && error){ %>
+                            <div style="background:#ffe6ef;color:#c30055;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.85rem;font-weight:600;">
+                                <%= error %>
+                            </div>
+                        <% } %>
+                        <form class="auth-form" action="/register" method="POST" novalidate>
+                <!-- Full Name -->
+                <div class="form-group">
+                    <label for="fullName">Full Name</label>
+                    <input 
+                        type="text" 
+                        id="fullName" 
+                        name="fullName" 
+                        required 
+                        placeholder="Jane Doe" 
+                        autocomplete="name"
+                    >
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        required 
+                        placeholder="you@example.com" 
+                        autocomplete="email"
+                    >
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        placeholder="Create a secure password" 
+                        autocomplete="new-password"
+                    >
+                    <div id="passwordStrength" style="margin-top:8px;display:none;">
+                        <div style="display:flex;gap:4px;margin-bottom:6px;">
+                            <div class="strength-bar" data-level="1"></div>
+                            <div class="strength-bar" data-level="2"></div>
+                            <div class="strength-bar" data-level="3"></div>
+                            <div class="strength-bar" data-level="4"></div>
+                            <div class="strength-bar" data-level="5"></div>
+                        </div>
+                        <div id="strengthText" style="font-size:0.85rem;color:#666;"></div>
+                        <ul id="strengthChecklist" style="font-size:0.8rem;color:#666;margin:6px 0 0 0;padding:0 0 0 18px;list-style:none;">
+                            <li id="check-length"><span style="color:#ccc;">✗</span> At least 8 characters</li>
+                            <li id="check-upper"><span style="color:#ccc;">✗</span> One uppercase letter</li>
+                            <li id="check-lower"><span style="color:#ccc;">✗</span> One lowercase letter</li>
+                            <li id="check-number"><span style="color:#ccc;">✗</span> One number</li>
+                            <li id="check-special"><span style="color:#ccc;">✗</span> One special character</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <style>
+                    .strength-bar {
+                        height: 6px;
+                        flex: 1;
+                        background: #e0e0e0;
+                        border-radius: 3px;
+                        transition: background-color 0.3s;
+                    }
+                    .strength-bar.active-weak { background: #ef4444; }
+                    .strength-bar.active-fair { background: #f97316; }
+                    .strength-bar.active-good { background: #eab308; }
+                    .strength-bar.active-strong { background: #22c55e; }
+                    .strength-bar.active-excellent { background: #10b981; }
+                </style>
+
+                <script>
+                    const passwordInput = document.getElementById('password');
+                    const strengthDiv = document.getElementById('passwordStrength');
+                    const strengthText = document.getElementById('strengthText');
+                    const bars = document.querySelectorAll('.strength-bar');
+                    
+                    const checks = {
+                        length: { el: document.getElementById('check-length'), test: (p) => p.length >= 8 },
+                        upper: { el: document.getElementById('check-upper'), test: (p) => /[A-Z]/.test(p) },
+                        lower: { el: document.getElementById('check-lower'), test: (p) => /[a-z]/.test(p) },
+                        number: { el: document.getElementById('check-number'), test: (p) => /[0-9]/.test(p) },
+                        special: { el: document.getElementById('check-special'), test: (p) => /[^A-Za-z0-9]/.test(p) }
+                    };
+
+                    passwordInput.addEventListener('input', function() {
+                        const pwd = this.value;
+                        if (!pwd) {
+                            strengthDiv.style.display = 'none';
+                            return;
+                        }
+                        strengthDiv.style.display = 'block';
+                        
+                        let score = 0;
+                        Object.values(checks).forEach(c => {
+                            if (c.test(pwd)) score++;
+                        });
+
+                        bars.forEach((bar, i) => {
+                            bar.className = 'strength-bar';
+                            if (i < score) {
+                                if (score === 1) bar.classList.add('active-weak');
+                                else if (score === 2) bar.classList.add('active-fair');
+                                else if (score === 3) bar.classList.add('active-good');
+                                else if (score === 4) bar.classList.add('active-strong');
+                                else bar.classList.add('active-excellent');
+                            }
+                        });
+
+                        const labels = ['Weak', 'Fair', 'Good', 'Strong', 'Excellent'];
+                        const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981'];
+                        strengthText.textContent = labels[score - 1] || '';
+                        strengthText.style.color = colors[score - 1] || '#666';
+
+                        Object.keys(checks).forEach(key => {
+                            const check = checks[key];
+                            const icon = check.el.querySelector('span');
+                            if (check.test(pwd)) {
+                                icon.style.color = '#22c55e';
+                                icon.textContent = '✓';
+                            } else {
+                                icon.style.color = '#ccc';
+                                icon.textContent = '✗';
+                            }
+                        });
+                    });
+                </script>
+
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword" 
+                        required 
+                        placeholder="Re-enter your password" 
+                        autocomplete="new-password"
+                    >
+                </div>
+                            <button type="submit" class="btn btn-primary btn-full">Create Account & Continue</button>
+                        </form>
+
+            <!-- Footer Links -->
+            <div class="auth-footer">
+                <p>Already have an account? <a href="/login" class="auth-link">Log in</a></p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<%- include('partials/footer') %>

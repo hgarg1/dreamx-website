@@ -1,0 +1,84 @@
+<%- include('partials/header') %>
+
+<section class="services-hero">
+  <div class="services-hero-inner">
+    <h1 class="services-title">Services Marketplace</h1>
+    <p class="services-subtitle">Book tutors, mentors, and coaches who live their passions.</p>
+  </div>
+</section>
+
+<section class="services-filters">
+  <form action="/services" method="GET" class="filters-form" onsubmit="event.preventDefault();">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label for="category" class="filter-label">Category</label>
+        <select id="category" name="category" class="filter-select">
+          <option value="">All</option>
+          <% categories.forEach(function(c){ %>
+            <option value="<%= c %>"><%= c %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="priceRange" class="filter-label">Price Range</label>
+        <select id="priceRange" name="priceRange" class="filter-select">
+          <option value="">Any</option>
+          <option value="under-25">Under $25/hr</option>
+          <option value="25-50">$25–$50/hr</option>
+          <option value="50-75">$50–$75/hr</option>
+          <option value="75plus">$75+/hr</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="experience" class="filter-label">Experience Level</label>
+        <select id="experience" name="experience" class="filter-select">
+          <option value="">Any</option>
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+          <option value="expert">Expert</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="format" class="filter-label">Format</label>
+        <select id="format" name="format" class="filter-select">
+          <option value="">Any</option>
+          <option value="online">Online</option>
+          <option value="in-person">In-person</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="filters-apply-btn">Apply</button>
+      </div>
+    </div>
+  </form>
+</section>
+
+<section class="services-grid-section">
+  <div class="services-grid">
+    <% services.forEach(function(s){ %>
+      <div class="service-provider-card">
+        <div class="provider-header">
+          <div class="provider-avatar"><%= s.user.charAt(0) %></div>
+          <div class="provider-meta">
+            <h3 class="provider-name"><%= s.user %></h3>
+            <span class="provider-passion"><%= s.passion %></span>
+          </div>
+        </div>
+        <p class="provider-desc"><%= s.desc %></p>
+        <div class="provider-rating-price">
+          <div class="rating-stars" aria-label="Rating <%= s.rating %>">★★★★★</div>
+          <span class="provider-price">From $<%= s.price %>/hr</span>
+        </div>
+        <a href="/services/<%= s.id %>" class="provider-details-btn">View Details</a>
+      </div>
+    <% }); %>
+  </div>
+</section>
+
+<section class="services-note-section">
+  <p class="services-note">Offering your own services? Upgrade to a seller tier to list here.</p>
+</section>
+
+<%- include('partials/footer') %>

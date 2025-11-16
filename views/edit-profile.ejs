@@ -1,0 +1,132 @@
+<%- include('partials/header') %>
+
+<section class="edit-profile-layout">
+  <!-- Left Column: Preview -->
+  <div class="edit-profile-preview">
+    <div class="cover-preview" style="position:relative;height:200px;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:12px;overflow:hidden;">
+      <% if (authUser && authUser.banner_image) { %>
+        <img id="bannerPreview" src="/uploads/<%= authUser.banner_image %>" alt="Banner" style="width:100%;height:100%;object-fit:cover;">
+      <% } else { %>
+        <div id="bannerPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-size:1.1rem;">Banner Image</div>
+      <% } %>
+      <div class="avatar-preview-wrapper" style="position:absolute;bottom:-60px;left:50%;transform:translateX(-50%);">
+        <% if (authUser && authUser.profile_picture) { %>
+          <img id="avatarPreview" src="/uploads/<%= authUser.profile_picture %>" alt="Profile" class="avatar-preview" style="object-fit:cover;border-radius:50%;width:120px;height:120px;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+        <% } else { %>
+          <div id="avatarPreview" class="avatar-preview" style="width:120px;height:120px;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.2);"><%= user.displayName.charAt(0) %></div>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="upload-group" style="margin-top:60px;">
+      <label class="file-field">
+        <span class="file-label">Banner Image</span>
+        <input type="file" id="bannerInput" name="bannerImage" accept="image/*" form="editProfileForm" />
+        <small class="hint">Max 5MB. JPG, PNG, GIF. Recommended: 1500x500px</small>
+      </label>
+      <label class="file-field" style="margin-top:16px;">
+        <span class="file-label">Profile Picture</span>
+        <input type="file" id="profileInput" name="profilePicture" accept="image/*" form="editProfileForm" />
+        <small class="hint">Max 5MB. JPG, PNG, GIF</small>
+      </label>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('bannerInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          const preview = document.getElementById('bannerPreview');
+          preview.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = ev.target.result;
+          img.style.width = '100%';
+          img.style.height = '100%';
+          img.style.objectFit = 'cover';
+          preview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById('profileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          const preview = document.getElementById('avatarPreview');
+          if (preview.tagName === 'IMG') {
+            preview.src = ev.target.result;
+          } else {
+            preview.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = ev.target.result;
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '50%';
+            img.style.width = '120px';
+            img.style.height = '120px';
+            img.style.border = '4px solid white';
+            img.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+            preview.parentElement.replaceChild(img, preview);
+            img.id = 'avatarPreview';
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  </script>
+
+  <!-- Right Column: Form -->
+  <div class="edit-profile-form-wrapper">
+    <h1 class="page-title">Edit Profile</h1>
+    <form id="editProfileForm" action="/profile/edit" method="POST" class="edit-profile-form" enctype="multipart/form-data">
+      <!-- Display Name -->
+      <div class="form-row">
+        <label for="displayName" class="form-label">Display Name</label>
+        <input id="displayName" name="displayName" type="text" class="form-input" value="<%= user.displayName %>" required />
+      </div>
+      <!-- Handle -->
+      <div class="form-row">
+        <label for="handle" class="form-label">Username / Handle</label>
+        <input id="handle" name="handle" type="text" class="form-input" value="<%= user.handle %>" required />
+      </div>
+      <!-- Bio -->
+      <div class="form-row">
+        <label for="bio" class="form-label">Bio</label>
+        <textarea id="bio" name="bio" rows="5" class="form-textarea" placeholder="Share what you build, practice, and teach..." required><%= user.bio %></textarea>
+      </div>
+      <!-- Location -->
+      <div class="form-row">
+        <label for="location" class="form-label">Location (optional)</label>
+        <input id="location" name="location" type="text" class="form-input" value="<%= user.location %>" placeholder="City, Remote, etc." />
+      </div>
+      <!-- Passions -->
+      <div class="form-row">
+        <span class="form-label">Primary Passions</span>
+        <div class="checkbox-grid">
+          <% allPassions.forEach(function(p){ %>
+            <label class="checkbox-pill">
+              <input type="checkbox" name="passions" value="<%= p %>" <%= user.passions.includes(p) ? 'checked' : '' %> />
+              <span><%= p %></span>
+            </label>
+          <% }); %>
+        </div>
+      </div>
+      <!-- Skills -->
+      <div class="form-row">
+        <label for="skills" class="form-label">Skills (comma separated)</label>
+        <textarea id="skills" name="skills" rows="3" class="form-textarea" placeholder="e.g. JavaScript, Piano, Sketching"><%= user.skills %></textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <a href="/profile" class="btn-secondary">Cancel</a>
+        <button type="submit" class="btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

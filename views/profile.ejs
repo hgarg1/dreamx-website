@@ -1,0 +1,119 @@
+<%- include('partials/header') %>
+
+<div style="position:relative;width:100%;">
+  <div style="position:relative;height:240px;background:linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);overflow:hidden;border-radius:16px;">
+    <% if (user.bannerImage) { %>
+      <img src="/uploads/<%= user.bannerImage %>" alt="Banner" style="width:100%;height:100%;object-fit:cover;">
+    <% } %>
+  </div>
+  <div style="position:absolute;bottom:-80px;left:50%;transform:translateX(-50%);z-index:100;">
+    <% if (authUser && authUser.profile_picture) { %>
+      <img src="/uploads/<%= authUser.profile_picture %>" alt="<%= user.displayName %>" style="object-fit:cover;border-radius:50%;width:160px;height:160px;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+    <% } else { %>
+      <div style="width:160px;height:160px;border-radius:50%;background:#8b5cf6;color:white;display:flex;align-items:center;justify-content:center;font-size:4rem;font-weight:700;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);"><%= user.displayName.charAt(0) %></div>
+    <% } %>
+  </div>
+</div>
+
+<section class="profile-header-section" style="margin-top:120px;text-align:center;padding:0 20px;">
+  <div style="margin-bottom:20px;">
+    <h1 style="font-size:2.5rem;font-weight:800;margin:0 0 8px 0;color:#1f2937;"><%= user.displayName %></h1>
+    <span style="color:#6b7280;font-size:1.1rem;font-weight:500;">@<%= user.handle %></span>
+  </div>
+  <div class="profile-tags">
+    <% user.passions.forEach(function(p){ %>
+      <span class="passion-tag"><%= p %></span>
+    <% }); %>
+  </div>
+  <p class="profile-bio"><%= user.bio %></p>
+  <div class="profile-stats">
+    <div class="stat"><span class="stat-number"><%= user.stats.posts %></span><span class="stat-label">Posts</span></div>
+    <div class="stat"><span class="stat-number"><%= user.stats.followers %></span><span class="stat-label">Followers</span></div>
+    <div class="stat"><span class="stat-number"><%= user.stats.following %></span><span class="stat-label">Following</span></div>
+    <div class="stat"><span class="stat-number"><%= user.isSeller ? user.stats.sessions : '—' %></span><span class="stat-label">Sessions Offered</span></div>
+  </div>
+  <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;">
+    <a href="/profile/edit" style="padding:10px 24px;background:#ec4899;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Edit Profile</a>
+    <a href="/messages" style="padding:10px 24px;background:#ec4899;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Message</a>
+  </div>
+</section>
+
+<div class="profile-tabs-wrapper">
+  <nav class="profile-tabs" aria-label="Profile sections">
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="projects">Projects</button>
+    <button class="tab-btn" data-tab="services">Services</button>
+  </nav>
+
+  <div class="tab-panels">
+    <!-- Overview Panel -->
+    <div class="tab-panel active" id="overview">
+      <div class="card card-spacious">
+        <h2 class="panel-title">About</h2>
+        <p class="panel-text">Learning loop oriented builder focused on sustainable velocity, clarity of architecture, and community impact. I ship small, iterate fast, and document as I go.</p>
+      </div>
+      <div class="card">
+        <h2 class="panel-title">Skills & Passions</h2>
+        <ul class="skills-list">
+          <% user.skills.forEach(function(s){ %>
+            <li class="skill-item"><%= s %></li>
+          <% }); %>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Projects Panel -->
+    <div class="tab-panel" id="projects">
+      <div class="projects-grid">
+        <% projects.forEach(function(pr){ %>
+          <div class="project-card">
+            <div class="project-card-header">
+              <h3 class="project-title"><%= pr.title %></h3>
+              <span class="project-tag"><%= pr.tag %></span>
+            </div>
+            <p class="project-desc"><%= pr.desc %></p>
+            <a href="#" class="project-link">View project →</a>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+
+    <!-- Services Panel -->
+    <div class="tab-panel" id="services">
+      <% if(user.isSeller){ %>
+        <div class="services-grid">
+          <% services.forEach(function(sv){ %>
+            <div class="service-card">
+              <div class="service-header">
+                <h3 class="service-title"><%= sv.name %></h3>
+              </div>
+              <p class="service-desc"><%= sv.desc %></p>
+              <a href="/services/<%= sv.id %>" class="service-btn">View details</a>
+            </div>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <p class="panel-text">This creator does not offer services currently.</p>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Simple tab switch logic
+  document.addEventListener('DOMContentLoaded', function(){
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.tab-panel');
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabButtons.forEach(b => b.classList.remove('active'));
+        panels.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.getAttribute('data-tab');
+        document.getElementById(target).classList.add('active');
+      });
+    });
+  });
+</script>
+
+<%- include('partials/footer') %>
