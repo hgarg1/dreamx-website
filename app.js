@@ -1580,18 +1580,85 @@ app.post('/api/checkout/subscribe', (req, res) => {
 // Pricing page (tiers)
 app.get('/pricing', (req, res) => {
     const tiers = [
-        { id: 'free', name: 'Free', price: '$0/mo', tagline: 'Start building & connecting', features: [
-            'Social feed + basic posting', 'Follow creators', 'Book services'
-        ]},
-        { id: 'pro-buyer', name: 'Pro Buyer', price: '$5.99/mo', tagline: 'Enhanced discovery power', features: [
-            'Ad-free experience', 'Enhanced discovery', 'Limited one-time request listings'
-        ]},
-        { id: 'pro-seller', name: 'Pro Seller', price: '$9.99/mo', tagline: 'Launch your service offerings', highlight: true, features: [
-            'Offer services', 'Basic analytics & scheduling', 'Priority in search'
-        ]},
-        { id: 'elite-seller', name: 'Elite Seller', price: '$29.99/mo', tagline: 'Scale with advanced tools', features: [
-            'Full business suite', 'Advanced analytics', 'Brand-level customization'
-        ]}
+        { 
+            id: 'free', 
+            name: 'Free User', 
+            price: '$0/mo', 
+            tagline: 'Social home for productive passions.', 
+            features: [
+                'Post photos, videos, project updates',
+                'Follow creators, mentors, students, professionals',
+                'Rich profiles (skills, passions, portfolio, achievements)',
+                'Up to 10 Project Collections',
+                'Book sessions, basic messaging, post analytics (views + likes)',
+                'Ads from Fortune 100 brands only'
+            ]
+        },
+        { 
+            id: 'pro-buyer', 
+            name: 'Pro Buyer', 
+            price: '$5.99/mo', 
+            tagline: 'Power user of the social side.', 
+            features: [
+                'Ad-free experience',
+                'Enhanced discovery filters (top rising creators, people near you, people who match interests)',
+                'Unlimited Project Collections',
+                'Priority messaging',
+                'Post up to 3 one-time request listings per month',
+                'Early access to premium sellers',
+                'Basic AI mentor/creator recommendations'
+            ]
+        },
+        { 
+            id: 'pro-seller', 
+            name: 'Pro Seller', 
+            price: '$9.99/mo', 
+            tagline: 'Turn your craft into a brand.', 
+            highlight: true, 
+            features: [
+                'Pro badge + priority in discovery',
+                'Pin 3 posts to profile',
+                'Weekly insights (reach, audience interests, followers by profession/skill)',
+                'Custom profile banner & theme',
+                '5 service listings, unlimited messaging',
+                'Payment tools, basic CRM',
+                'Scheduling, reminders, custom availability',
+                'Coupons, discounts, basic buyer analytics'
+            ]
+        },
+        { 
+            id: 'elite-seller', 
+            name: 'Elite Seller', 
+            price: '$29.99/mo', 
+            tagline: 'You\'re a top creator — build a full microbrand.', 
+            features: [
+                'Verified status, full portfolio builder, video banners',
+                'In-depth analytics (peak times, demographics, top-performing categories)',
+                'Cross-platform link hub, featured on Discover when trending',
+                'Unlimited listings, recurring subscriptions',
+                'Advanced analytics & automation',
+                'CRM + workflow automation',
+                'Custom storefront page, tax reports',
+                'Integrations, auto-responses, Smart rebooking AI'
+            ]
+        },
+        { 
+            id: 'enterprise', 
+            name: 'Enterprise Creator', 
+            price: '$99.99/mo', 
+            tagline: 'Dream X is your community\'s social + learning hub.', 
+            features: [
+                'Multi-user team posting',
+                'Event pages, showcase collections',
+                'Custom homepage blocks, co-branded community page',
+                'Invite followers to events, livestreams, seminars',
+                'Multi-instructor scheduling, team-wide analytics',
+                'Bulk payouts, shared CRM',
+                'Dedicated account manager',
+                'Featured category placement, sponsored creator onboarding'
+            ],
+            note: 'Best for tutoring companies, mentorship orgs, clubs, and studios.'
+        }
     ];
     res.render('pricing', {
         title: 'Pricing - Dream X',

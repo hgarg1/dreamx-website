@@ -22,10 +22,13 @@
           <% }); %>
         </ul>
         <div class="tier-actions">
-          <button onclick="openCheckout('<%= t.id %>', '<%= t.name %>', '<%= t.price %>')" class="tier-btn <%= t.highlight ? 'primary' : 'outline' %>">
-            <%= t.id === 'free' ? 'Get Started' : 'Select Plan' %>
+          <button onclick="openCheckout('<%= t.id %>', '<%= t.name %>', '<%= t.price %>', <%= JSON.stringify(t.features) %>, '<%= t.tagline %>')" class="tier-btn <%= t.highlight ? 'primary' : 'outline' %>">
+            <%= t.id === 'free' ? 'Get Started' : (t.id === 'enterprise' ? 'Contact Sales' : 'Select Plan') %>
           </button>
         </div>
+        <% if (t.note) { %>
+          <p class="tier-note"><%= t.note %></p>
+        <% } %>
       </div>
     <% }); %>
   </div>
@@ -61,7 +64,12 @@
         <h3>Selected Plan</h3>
         <div class="plan-details">
           <div class="plan-name" id="selectedPlanName"></div>
+          <div class="plan-tagline" id="selectedPlanTagline"></div>
           <div class="plan-price" id="selectedPlanPrice"></div>
+        </div>
+        <div class="plan-benefits">
+          <h4>What's included:</h4>
+          <ul id="selectedPlanFeatures"></ul>
         </div>
         <p class="plan-note">Billed monthly. Cancel anytime.</p>
       </div>
