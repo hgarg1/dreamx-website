@@ -193,11 +193,17 @@ try {
 try {
   db.exec(`ALTER TABLE conversations ADD COLUMN group_name TEXT;`);
 } catch (e) {}
-// Handle column migration
+// Handle column migration (can't add UNIQUE directly in ALTER TABLE)
 try {
-  db.exec(`ALTER TABLE users ADD COLUMN handle TEXT UNIQUE;`);
+  db.exec(`ALTER TABLE users ADD COLUMN handle TEXT;`);
 } catch (e) {
   // Column already exists, ignore
+}
+// Create unique index for handle if it doesn't exist
+try {
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users(handle);`);
+} catch (e) {
+  // Index already exists, ignore
 }
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS conversation_participants (
