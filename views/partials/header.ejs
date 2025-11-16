@@ -6,8 +6,10 @@
     <meta name="description" content="Dream X - The Social Network for Productive People">
     <title><%= title %></title>
     
-    <!-- CSS Stylesheet -->
+    <!-- CSS Stylesheets -->
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/toast.css">
+    <link rel="stylesheet" href="/css/enhanced-animations.css">
     
     <% if(authUser){ %>
     <!-- Socket.IO for real-time notifications -->
@@ -37,6 +39,7 @@
                                     <li><a href="/feed" class="<%= currentPage === 'feed' ? 'active' : '' %>">Feed</a></li>
                                     <li><a href="/services" class="<%= currentPage === 'services' ? 'active' : '' %>">Services</a></li>
                                     <li><a href="/pricing" class="<%= currentPage === 'pricing' ? 'active' : '' %>">Pricing</a></li>
+                                    <li><a href="/billing" class="<%= currentPage === 'billing' ? 'active' : '' %>">Billing</a></li>
                                     <li><a href="/messages" class="<%= currentPage === 'messages' ? 'active' : '' %>">Messages <% if(unreadMessageCount > 0){ %><span style="background:#ef4444;color:white;padding:2px 6px;border-radius:10px;font-size:11px;margin-left:4px;"><%= unreadMessageCount %></span><% } %></a></li>
                                     <li><a href="#" id="notificationBell" style="position:relative;">🔔 <span id="notificationBadge" style="display:none;position:absolute;top:-4px;right:-8px;background:#ef4444;color:white;padding:2px 6px;border-radius:10px;font-size:11px;min-width:18px;text-align:center;"></span></a></li>
                                     

@@ -1,9 +1,12 @@
 <%- include('partials/header') %>
 
-<section class="pricing-hero">
+<section class="pricing-hero particle-bg">
   <div class="pricing-hero-inner">
-    <h1 class="pricing-title">Choose your Dream X experience</h1>
-    <p class="pricing-subtitle">Start free. Upgrade when you're ready to grow.</p>
+    <h1 class="pricing-title slide-in-up">Choose your Dream X experience</h1>
+    <p class="pricing-subtitle slide-in-up">Start free. Upgrade when you're ready to grow.</p>
+    <% if(typeof authUser !== 'undefined' && authUser){ %>
+    <p style="margin-top: 1.5rem;"><a href="/billing" style="color:white;font-weight:600;text-decoration:underline;">View your billing & subscription details →</a></p>
+    <% } %>
   </div>
 </section>
 
