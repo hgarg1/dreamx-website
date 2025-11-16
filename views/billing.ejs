@@ -20,7 +20,9 @@
         elite_seller: { name: 'Elite Seller', desc: 'build a full microbrand.', price: '$29.99', badge: 'purple', badgeColor: '#a855f7' },
         enterprise: { name: 'Enterprise Creator', desc: 'social and learning hub for your community.', price: '$99.99', badge: 'teal', badgeColor: '#14b8a6' }
       };
-      const currentTier = tierDetails[userTier] || tierDetails.free;
+      const rawTier = (typeof userTier !== 'undefined' && userTier) ? String(userTier).toLowerCase() : 'free';
+      const normalized = rawTier.replace(/-/g, '_');
+      const currentTier = tierDetails[normalized] || tierDetails.free;
     %>
     <p class="billing-plan-subheading">
       <%= currentTier.name %> — <%= currentTier.desc %>
@@ -31,9 +33,7 @@
           <span class="billing-info-label">Plan:</span>
           <span class="billing-info-value">
             <%= currentTier.name %>
-            <span class="billing-badge billing-badge-<%= currentTier.badge %>" style="background-color: <%= currentTier.badgeColor %>15; color: <%= currentTier.badgeColor %>; border: 1px solid <%= currentTier.badgeColor %>40;">
-              <%= currentTier.name.toUpperCase() %>
-            </span>
+            <span class="billing-badge billing-badge-<%= currentTier.badge %>"><%= currentTier.name.toUpperCase() %></span>
           </span>
         </div>
         <div class="billing-info-row">
@@ -50,8 +50,10 @@
     </div>
     <div class="billing-actions">
       <a href="/pricing" class="billing-btn billing-btn-primary">Change Plan</a>
-      <% if (userTier !== 'free') { %>
-        <button class="billing-btn billing-btn-secondary">Cancel Subscription</button>
+      <% if (normalized !== 'free') { %>
+        <form action="/settings/billing/subscription/cancel" method="POST" style="display:inline;">
+          <button type="submit" class="billing-btn billing-btn-secondary">Cancel Subscription</button>
+        </form>
       <% } %>
     </div>
     <p class="billing-note">
@@ -150,7 +152,7 @@
     <div class="billing-tiers-grid">
       
       <!-- Free User -->
-      <div class="tier-card <%= userTier === 'free' ? 'tier-card-current' : '' %>">
+      <div class="tier-card <%= normalized === 'free' ? 'tier-card-current' : '' %>">
         <h3 class="tier-card-name">Free User</h3>
         <p class="tier-card-tagline">Social home for productive passions.</p>
         <div class="tier-card-price">$0<span>/mo</span></div>
@@ -163,16 +165,16 @@
           <li>Ads from Fortune 100 brands only</li>
         </ul>
         <div class="tier-card-action">
-          <% if (userTier === 'free') { %>
+          <% if (normalized === 'free') { %>
             <button class="tier-btn tier-btn-current" disabled>Current plan</button>
           <% } else { %>
-            <button class="tier-btn tier-btn-outline">Switch to Free</button>
+            <button class="tier-btn tier-btn-outline js-switch-tier" data-tier="free">Switch to Free</button>
           <% } %>
         </div>
       </div>
 
       <!-- Pro Buyer -->
-      <div class="tier-card <%= userTier === 'pro_buyer' ? 'tier-card-current' : '' %>">
+      <div class="tier-card <%= normalized === 'pro_buyer' ? 'tier-card-current' : '' %>">
         <h3 class="tier-card-name">Pro Buyer</h3>
         <p class="tier-card-tagline">Power user of the social side.</p>
         <div class="tier-card-price">$5.99<span>/mo</span></div>
@@ -186,16 +188,16 @@
           <li>Basic AI mentor/creator recommendations</li>
         </ul>
         <div class="tier-card-action">
-          <% if (userTier === 'pro_buyer') { %>
+          <% if (normalized === 'pro_buyer') { %>
             <button class="tier-btn tier-btn-current" disabled>Current plan</button>
           <% } else { %>
-            <button class="tier-btn tier-btn-outline">Switch to Pro Buyer</button>
+            <button class="tier-btn tier-btn-outline js-switch-tier" data-tier="pro-buyer">Switch to Pro Buyer</button>
           <% } %>
         </div>
       </div>
 
       <!-- Pro Seller -->
-      <div class="tier-card <%= userTier === 'pro_seller' ? 'tier-card-current' : '' %>">
+      <div class="tier-card <%= normalized === 'pro_seller' ? 'tier-card-current' : '' %>">
         <h3 class="tier-card-name">Pro Seller</h3>
         <p class="tier-card-tagline">Turn your craft into a brand.</p>
         <div class="tier-card-price">$9.99<span>/mo</span></div>
@@ -210,16 +212,16 @@
           <li>Coupons, discounts, basic buyer analytics</li>
         </ul>
         <div class="tier-card-action">
-          <% if (userTier === 'pro_seller') { %>
+          <% if (normalized === 'pro_seller') { %>
             <button class="tier-btn tier-btn-current" disabled>Current plan</button>
           <% } else { %>
-            <button class="tier-btn tier-btn-primary">Switch to Pro Seller</button>
+            <button class="tier-btn tier-btn-primary js-switch-tier" data-tier="pro-seller">Switch to Pro Seller</button>
           <% } %>
         </div>
       </div>
 
       <!-- Elite Seller -->
-      <div class="tier-card <%= userTier === 'elite_seller' ? 'tier-card-current' : '' %>">
+      <div class="tier-card <%= normalized === 'elite_seller' ? 'tier-card-current' : '' %>">
         <h3 class="tier-card-name">Elite Seller</h3>
         <p class="tier-card-tagline">You're a top creator — build a full microbrand.</p>
         <div class="tier-card-price">$29.99<span>/mo</span></div>
@@ -234,16 +236,16 @@
           <li>Integrations, auto-responses, Smart rebooking AI</li>
         </ul>
         <div class="tier-card-action">
-          <% if (userTier === 'elite_seller') { %>
+          <% if (normalized === 'elite_seller') { %>
             <button class="tier-btn tier-btn-current" disabled>Current plan</button>
           <% } else { %>
-            <button class="tier-btn tier-btn-outline">Switch to Elite Seller</button>
+            <button class="tier-btn tier-btn-outline js-switch-tier" data-tier="elite-seller">Switch to Elite Seller</button>
           <% } %>
         </div>
       </div>
 
       <!-- Enterprise Creator -->
-      <div class="tier-card <%= userTier === 'enterprise' ? 'tier-card-current' : '' %>">
+      <div class="tier-card <%= normalized === 'enterprise' ? 'tier-card-current' : '' %>">
         <h3 class="tier-card-name">Enterprise Creator</h3>
         <p class="tier-card-tagline">Dream X is your community's social + learning hub.</p>
         <div class="tier-card-price">$99.99<span>/mo</span></div>
@@ -258,7 +260,7 @@
           <li>Featured category placement, sponsored creator onboarding</li>
         </ul>
         <div class="tier-card-action">
-          <% if (userTier === 'enterprise') { %>
+          <% if (normalized === 'enterprise') { %>
             <button class="tier-btn tier-btn-current" disabled>Current plan</button>
           <% } else { %>
             <button class="tier-btn tier-btn-outline">Contact sales</button>
@@ -271,7 +273,7 @@
   </div>
 
   <!-- SECTION 5: UPCOMING CHARGES -->
-  <% if (userTier !== 'free') { %>
+  <% if (normalized !== 'free') { %>
   <div class="billing-card billing-card-compact">
     <h2 class="billing-card-title">Upcoming Charges</h2>
     <div class="upcoming-charge-details">
@@ -307,3 +309,124 @@
 </section>
 
 <%- include('partials/footer') %>
+
+<script>
+  (function(){
+    const paidTiers = new Set(['pro-buyer','pro-seller','elite-seller']);
+    const buttons = document.querySelectorAll('.js-switch-tier');
+
+    // Build modal lazily
+    function ensureModal(){
+      if (document.getElementById('checkoutModal')) return;
+      const modal = document.createElement('div');
+      modal.id = 'checkoutModal';
+      modal.style.cssText = 'display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;';
+      modal.innerHTML = `
+        <div style="background:white;padding:24px;border-radius:12px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+          <h3 style="margin:0 0 12px;font-size:1.25rem;font-weight:700;">Subscribe to <span id="cm-plan-name"></span></h3>
+          <p style="color:#6b7280;margin:0 0 12px;">Enter payment details to start your subscription. This is a mock checkout.</p>
+          <form id="checkoutForm">
+            <input type="hidden" name="tier" id="cm-tier" />
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div>
+                <label style="display:block;font-weight:600;margin-bottom:4px;">Card Type</label>
+                <select name="cardType" class="settings-input" required>
+                  <option value="visa">Visa</option>
+                  <option value="mastercard">Mastercard</option>
+                  <option value="amex">American Express</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-weight:600;margin-bottom:4px;">Card Number</label>
+                <input name="cardNumber" class="settings-input" placeholder="4242424242424242" required />
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;">
+              <div>
+                <label style="display:block;font-weight:600;margin-bottom:4px;">Expiry Month</label>
+                <input name="expiryMonth" type="number" min="1" max="12" class="settings-input" placeholder="12" required />
+              </div>
+              <div>
+                <label style="display:block;font-weight:600;margin-bottom:4px;">Expiry Year</label>
+                <input name="expiryYear" type="number" min="2025" max="2050" class="settings-input" placeholder="2026" required />
+              </div>
+              <div>
+                <label style="display:block;font-weight:600;margin-bottom:4px;">CVV</label>
+                <input name="cvv" class="settings-input" placeholder="123" required />
+              </div>
+            </div>
+            <label class="toggle-row" style="margin:12px 0;">
+              <input type="checkbox" name="saveCard" checked />
+              <span>Save this card as default</span>
+            </label>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button type="button" id="cm-cancel" class="settings-btn" style="background:#eee;">Cancel</button>
+              <button type="submit" class="settings-btn primary">Confirm</button>
+            </div>
+          </form>
+        </div>`;
+      document.body.appendChild(modal);
+      document.getElementById('cm-cancel').addEventListener('click', () => modal.style.display = 'none');
+      document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        body.saveCard = !!body.saveCard; // checkbox -> boolean
+        try {
+          const res = await fetch('/api/checkout/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          const out = await res.json();
+          if (res.ok && out.success) {
+            alert('Subscription updated successfully');
+            window.location.reload();
+          } else {
+            alert(out.error || 'Failed to update subscription');
+          }
+        } catch (err) {
+          alert('Network error. Please try again.');
+        }
+      });
+    }
+
+    function openModalForTier(tier){
+      ensureModal();
+      const modal = document.getElementById('checkoutModal');
+      document.getElementById('cm-tier').value = tier;
+      const pretty = tier.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
+      document.getElementById('cm-plan-name').textContent = pretty;
+      modal.style.display = 'flex';
+    }
+
+    async function submitFree(){
+      try {
+        const res = await fetch('/api/checkout/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tier: 'free' })
+        });
+        const out = await res.json();
+        if (res.ok && out.success) {
+          alert('Switched to Free plan');
+          window.location.reload();
+        } else {
+          alert(out.error || 'Failed to switch plan');
+        }
+      } catch (e) {
+        alert('Network error. Please try again.');
+      }
+    }
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tier = btn.getAttribute('data-tier');
+        if (!tier) return;
+        if (tier === 'free') return submitFree();
+        if (paidTiers.has(tier)) return openModalForTier(tier);
+      });
+    });
+  })();
+</script>

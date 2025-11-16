@@ -41,7 +41,8 @@ const {
     // Subscriptions
     getUserSubscription, createOrUpdateSubscription, cancelSubscription,
     addPaymentMethod, getPaymentMethods, deletePaymentMethod, setDefaultPaymentMethod,
-    createInvoice, getInvoices
+    createInvoice, getInvoices,
+    updatePrivacySettings
  } = require('./db');
 let fetch;
 try {
@@ -1090,6 +1091,11 @@ app.get('/messages/start/:userId', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const otherId = parseInt(req.params.userId, 10);
     if (!otherId || isNaN(otherId) || otherId === req.session.userId) return res.redirect('/messages');
+    // Respect recipient privacy: allow_messages_from
+    const target = getUserById(otherId);
+    if (target && (target.allow_messages_from || 'everyone') === 'no_one') {
+        return res.redirect('/messages?error=User+is+not+accepting+messages');
+    }
     const conv = getOrCreateConversation({ user1Id: req.session.userId, user2Id: otherId });
     res.redirect(`/messages?conversation=${conv.id}`);
 });
@@ -1128,7 +1134,18 @@ app.post('/api/messages/send', chatUpload.single('file'), (req, res) => {
     const attachmentUrl = file ? `/uploads/${file.filename}` : null;
     const attachmentMime = file ? file.mimetype : null;
 
-    const messageId = createMessage({
+        // If direct conversation, enforce recipient privacy setting
+        const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+        if (!conv.is_group) {
+            const otherId = (conv.user1_id === req.session.userId) ? conv.user2_id : conv.user1_id;
+            const other = getUserById(otherId);
+            if (other && (other.allow_messages_from || 'everyone') === 'no_one' && otherId !== req.session.userId) {
+                return res.status(403).json({ error: 'Recipient is not accepting messages' });
+            }
+        }
+
+        const messageId = createMessage({
         conversationId,
         senderId: req.session.userId,
         content: content || '',
@@ -1136,8 +1153,7 @@ app.post('/api/messages/send', chatUpload.single('file'), (req, res) => {
         attachmentMime
     });
 
-    // Get conversation details and participants to send notifications
-    const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+        // Get conversation details and participants to send notifications
     const participants = getConversationParticipants(conversationId);
     const sender = getUserById(req.session.userId);
     
@@ -1357,6 +1373,35 @@ app.post('/settings/notifications', (req, res) => {
     } catch (e) {
         console.error('Notification update error:', e);
         res.redirect('/settings?error=Failed to update notifications');
+    }
+});
+
+// Update privacy settings
+app.post('/settings/privacy', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const profileVisibility = (req.body.profile_visibility || 'public').toLowerCase();
+    const allowMessagesFrom = (req.body.allow_messages_from || 'everyone').toLowerCase();
+    const discoverableByEmail = (req.body.discoverable_by_email === 'on');
+    const showOnlineStatus = (req.body.show_online_status === 'on');
+    const readReceipts = (req.body.read_receipts === 'on');
+
+    const validVis = ['public','members','private'];
+    const validDM = ['everyone','no_one'];
+    const vis = validVis.includes(profileVisibility) ? profileVisibility : 'public';
+    const dm = validDM.includes(allowMessagesFrom) ? allowMessagesFrom : 'everyone';
+    try {
+        updatePrivacySettings({
+            userId: req.session.userId,
+            profileVisibility: vis,
+            allowMessagesFrom: dm,
+            discoverableByEmail,
+            showOnlineStatus,
+            readReceipts
+        });
+        res.redirect('/settings?success=Privacy+settings+updated');
+    } catch (e) {
+        console.error('Privacy update error:', e);
+        res.redirect('/settings?error=Failed+to+update+privacy+settings');
     }
 });
 

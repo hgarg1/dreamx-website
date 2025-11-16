@@ -442,7 +442,45 @@
   <!-- Privacy Section -->
   <div class="settings-card">
     <h2 class="settings-card-title">Privacy</h2>
-    <p class="settings-note" style="color:#6b7280;">Privacy settings coming soon.</p>
+    <form action="/settings/privacy" method="POST" class="settings-form">
+      <div class="settings-field-group">
+        <label class="settings-label" for="profile_visibility">Profile visibility</label>
+        <select id="profile_visibility" name="profile_visibility" class="settings-input" required>
+          <option value="public" <%= (authUser.profile_visibility || 'public') === 'public' ? 'selected' : '' %>>Public – visible to anyone</option>
+          <option value="members" <%= (authUser.profile_visibility || 'public') === 'members' ? 'selected' : '' %>>Members – only logged‑in users</option>
+          <option value="private" <%= (authUser.profile_visibility || 'public') === 'private' ? 'selected' : '' %>>Private – only you</option>
+        </select>
+        <small style="color:#6b7280;font-size:0.85rem;">Controls who can view your profile details.</small>
+      </div>
+
+      <div class="settings-field-group">
+        <label class="settings-label" for="allow_messages_from">Direct messages</label>
+        <select id="allow_messages_from" name="allow_messages_from" class="settings-input" required>
+          <option value="everyone" <%= (authUser.allow_messages_from || 'everyone') === 'everyone' ? 'selected' : '' %>>Allow messages from everyone</option>
+          <option value="no_one" <%= (authUser.allow_messages_from || 'everyone') === 'no_one' ? 'selected' : '' %>>Block new messages</option>
+        </select>
+        <small style="color:#6b7280;font-size:0.85rem;">When blocked, others cannot start new chats with you.</small>
+      </div>
+
+      <label class="toggle-row">
+        <input type="checkbox" name="discoverable_by_email" <%= authUser.discoverable_by_email ? 'checked' : '' %> />
+        <span>Allow people to find me by my email</span>
+      </label>
+
+      <label class="toggle-row">
+        <input type="checkbox" name="show_online_status" <%= authUser.show_online_status ? 'checked' : '' %> />
+        <span>Show my online status</span>
+      </label>
+
+      <label class="toggle-row">
+        <input type="checkbox" name="read_receipts" <%= authUser.read_receipts ? 'checked' : '' %> />
+        <span>Send read receipts</span>
+      </label>
+
+      <div class="settings-actions-inline">
+        <button type="submit" class="settings-btn primary">Save Privacy Settings</button>
+      </div>
+    </form>
   </div>
 
   <!-- Your Passions Section -->

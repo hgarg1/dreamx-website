@@ -208,6 +208,12 @@ try {
 } catch (e) {
   // Column already exists, ignore
 }
+// Privacy settings migrations (idempotent)
+try { db.exec(`ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public';`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'everyone';`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN discoverable_by_email INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN show_online_status INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN read_receipts INTEGER DEFAULT 1;`); } catch (e) {}
 // Messages attachments migration (idempotent)
 try {
   db.exec(`ALTER TABLE messages ADD COLUMN attachment_url TEXT;`);
@@ -331,7 +337,7 @@ module.exports = {
       return db.prepare(`
         SELECT id, full_name, email, profile_picture, bio, location
         FROM users
-        WHERE id != ? AND (LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?)
+        WHERE id != ? AND (LOWER(full_name) LIKE ? OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?))
         ORDER BY full_name ASC
         LIMIT ?
       `).all(excludeUserId, s, s, limit);
@@ -339,7 +345,7 @@ module.exports = {
     return db.prepare(`
       SELECT id, full_name, email, profile_picture, bio, location
       FROM users
-      WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?
+      WHERE LOWER(full_name) LIKE ? OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?)
       ORDER BY full_name ASC
       LIMIT ?
     `).all(s, s, limit);
@@ -386,6 +392,24 @@ module.exports = {
       emailNotifications ? 1 : 0,
       pushNotifications ? 1 : 0,
       messageNotifications ? 1 : 0,
+      userId
+    );
+  },
+  updatePrivacySettings: ({ userId, profileVisibility, allowMessagesFrom, discoverableByEmail, showOnlineStatus, readReceipts }) => {
+    db.prepare(`
+      UPDATE users 
+      SET profile_visibility = ?, 
+          allow_messages_from = ?, 
+          discoverable_by_email = ?, 
+          show_online_status = ?, 
+          read_receipts = ?
+      WHERE id = ?
+    `).run(
+      (profileVisibility || 'public'),
+      (allowMessagesFrom || 'everyone'),
+      discoverableByEmail ? 1 : 0,
+      showOnlineStatus ? 1 : 0,
+      readReceipts ? 1 : 0,
       userId
     );
   },
