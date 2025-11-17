@@ -23,6 +23,48 @@
         </ul>
     </div>
 
+    <div class="content-block highlight-block">
+        <h2>🌟 The 25% Time Philosophy</h2>
+        <p>At Dream X, we practice what we preach. Just as our platform encourages users to pursue their passions and grow continuously, we extend the same principle to our team.</p>
+        
+        <div class="time-philosophy">
+            <div class="time-stat">
+                <div class="stat-number">25%</div>
+                <div class="stat-label">Free Time</div>
+            </div>
+            <div class="time-description">
+                <h3>Invest in Yourself, On Company Time</h3>
+                <p>Every week, you'll have <strong>25% of your work time (roughly one full day)</strong> dedicated to personal and professional development. This isn't vacation or break time—it's intentional growth time built into your role.</p>
+                
+                <h4>What can you do with your 25% time?</h4>
+                <ul>
+                    <li><strong>Learn New Skills:</strong> Take online courses, attend workshops, or practice a new programming language</li>
+                    <li><strong>Side Projects:</strong> Build something you're passionate about, experiment with new technologies</li>
+                    <li><strong>Creative Pursuits:</strong> Work on music, art, writing, or any creative hobby that fuels your inspiration</li>
+                    <li><strong>Physical & Mental Health:</strong> Exercise, meditate, take a long walk, or pursue fitness goals</li>
+                    <li><strong>Community Contribution:</strong> Contribute to open source, mentor others, or teach a skill</li>
+                    <li><strong>Innovation Time:</strong> Experiment with ideas that could benefit Dream X or solve problems you've noticed</li>
+                    <li><strong>Reading & Research:</strong> Deep dive into topics that interest you, stay current with industry trends</li>
+                </ul>
+
+                <h4>Why we do this:</h4>
+                <p>We believe that the best employees aren't just skilled workers—they're well-rounded humans with diverse interests and continuous curiosity. By investing in your growth, we create:</p>
+                <ul>
+                    <li>🧠 <strong>Better Coworkers:</strong> Learning new skills makes you more creative, empathetic, and collaborative</li>
+                    <li>💡 <strong>Innovation:</strong> Many of our best features have come from 25% time experiments</li>
+                    <li>🎯 <strong>Reduced Burnout:</strong> Regular breaks for passion projects keep you energized and engaged</li>
+                    <li>🚀 <strong>Career Growth:</strong> Continuous learning accelerates your professional development</li>
+                    <li>🤝 <strong>Cultural Alignment:</strong> You experience firsthand what our users experience on Dream X</li>
+                </ul>
+
+                <div class="philosophy-quote">
+                    <p>"We don't just build a platform for growth—we live it. Your 25% time is protected, encouraged, and celebrated. It's not a perk; it's a core part of how we work."</p>
+                    <cite>— Dream X Leadership Team</cite>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="content-block">
         <h2>Open Positions</h2>
         
@@ -286,6 +328,116 @@
     border-radius: var(--radius-lg);
 }
 
+/* 25% Time Philosophy Styles */
+.highlight-block {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(255, 79, 163, 0.08));
+    border: 2px solid rgba(255, 79, 163, 0.2);
+    border-radius: var(--radius-lg);
+    padding: 3rem;
+    margin: 3rem 0;
+}
+
+.highlight-block h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+    text-align: center;
+}
+
+.time-philosophy {
+    display: flex;
+    gap: 3rem;
+    margin-top: 2rem;
+    align-items: flex-start;
+}
+
+.time-stat {
+    flex-shrink: 0;
+    text-align: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    min-width: 180px;
+}
+
+.stat-number {
+    font-size: 4rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.time-description {
+    flex: 1;
+}
+
+.time-description h3 {
+    font-size: 1.6rem;
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+}
+
+.time-description h4 {
+    font-size: 1.2rem;
+    margin: 2rem 0 1rem;
+    color: var(--text-dark);
+    font-weight: 700;
+}
+
+.time-description p {
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    color: var(--text-light);
+}
+
+.time-description ul {
+    margin: 1rem 0 1.5rem 1.5rem;
+    line-height: 1.8;
+}
+
+.time-description li {
+    margin-bottom: 0.75rem;
+    color: var(--text-light);
+}
+
+.time-description strong {
+    color: var(--text-dark);
+    font-weight: 700;
+}
+
+.philosophy-quote {
+    background: white;
+    border-left: 4px solid var(--primary-color);
+    padding: 1.5rem 2rem;
+    margin: 2rem 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.philosophy-quote p {
+    font-size: 1.1rem;
+    font-style: italic;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+    line-height: 1.7;
+}
+
+.philosophy-quote cite {
+    color: var(--primary-color);
+    font-style: normal;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
 /* Modal Styles */
 .modal {
     position: fixed;
@@ -383,6 +535,19 @@
     
     .modal-content {
         padding: 1.5rem;
+    }
+    
+    .time-philosophy {
+        flex-direction: column;
+        gap: 2rem;
+    }
+    
+    .time-stat {
+        width: 100%;
+    }
+    
+    .highlight-block {
+        padding: 2rem 1.5rem;
     }
 }
 </style>
