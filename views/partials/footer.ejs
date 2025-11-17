@@ -10,6 +10,27 @@
         </div>
     </footer>
 
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var dropdownToggle = document.querySelector('.dropdown-toggle');
+        var dropdown = document.querySelector('.nav-user.dropdown');
+        if (dropdownToggle && dropdown) {
+          dropdownToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+            var expanded = dropdownToggle.getAttribute('aria-expanded') === 'true';
+            dropdownToggle.setAttribute('aria-expanded', !expanded);
+          });
+          document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target)) {
+              dropdown.classList.remove('open');
+              dropdownToggle.setAttribute('aria-expanded', 'false');
+            }
+          });
+        }
+      });
+    </script>
+
     <!-- JavaScript -->
     <!-- SimpleWebAuthn Browser UMD bundle for passkeys -->
     <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>

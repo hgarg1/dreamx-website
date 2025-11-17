@@ -78,28 +78,3 @@
     <!-- Main Content Area -->
     <main>
         <!-- Your main content goes here -->
-    </main>
-
-    <!-- JavaScript Scripts -->
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        var dropdownToggle = document.querySelector('.dropdown-toggle');
-        var dropdown = document.querySelector('.nav-user.dropdown');
-        if (dropdownToggle && dropdown) {
-          dropdownToggle.addEventListener('click', function(e) {
-            e.stopPropagation();
-            dropdown.classList.toggle('open');
-            var expanded = dropdownToggle.getAttribute('aria-expanded') === 'true';
-            dropdownToggle.setAttribute('aria-expanded', !expanded);
-          });
-          document.addEventListener('click', function(e) {
-            if (!dropdown.contains(e.target)) {
-              dropdown.classList.remove('open');
-              dropdownToggle.setAttribute('aria-expanded', 'false');
-            }
-          });
-        }
-      });
-    </script>
-</body>
-</html>
