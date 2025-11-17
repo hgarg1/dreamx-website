@@ -175,9 +175,46 @@
       </div>
 
       <div class="form-group">
-        <label for="availability">Availability</label>
-        <textarea id="availability" name="availability" class="form-control" rows="3" placeholder="e.g., Weekdays 6-8 PM EST, Weekends flexible"></textarea>
-        <small>When are you typically available?</small>
+        <label>Availability & Time Slots</label>
+        <div id="availabilityBuilder" style="background:linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08));border:2px solid #e5e7eb;border-radius:12px;padding:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">Date</label>
+              <input type="date" id="abDate" class="form-control" />
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">Time</label>
+              <select id="abTime" class="form-control">
+                <option value="">Select time</option>
+                <option>08:00</option><option>08:30</option>
+                <option>09:00</option><option>09:30</option>
+                <option>10:00</option><option>10:30</option>
+                <option>11:00</option><option>11:30</option>
+                <option>12:00</option><option>12:30</option>
+                <option>13:00</option><option>13:30</option>
+                <option>14:00</option><option>14:30</option>
+                <option>15:00</option><option>15:30</option>
+                <option>16:00</option><option>16:30</option>
+                <option>17:00</option><option>17:30</option>
+                <option>18:00</option><option>18:30</option>
+                <option>19:00</option><option>19:30</option>
+                <option>20:00</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">Quick Add</label>
+              <select id="abQuick" class="form-control">
+                <option value="">— Common windows —</option>
+                <option value="weekday_evenings">Weekday evenings (Mon-Fri 18:00, 19:00)</option>
+                <option value="weekend_mornings">Weekend mornings (Sat/Sun 10:00, 11:00)</option>
+              </select>
+            </div>
+            <button type="button" id="abAdd" class="btn-primary" style="height:48px;">+ Add Slot</button>
+          </div>
+          <div id="abChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
+          <input type="hidden" id="availability" name="availability" value="" />
+          <small>Only these dates/times will be available to book. You can update slots later by editing your service.</small>
+        </div>
       </div>
 
       <div class="form-group">
@@ -717,7 +754,18 @@ function updateReview() {
   
   document.getElementById('reviewDescription').textContent = document.getElementById('description').value;
   document.getElementById('reviewLocation').textContent = document.getElementById('location').value || 'Not specified';
-  document.getElementById('reviewAvailability').textContent = document.getElementById('availability').value || 'Flexible';
+  
+  // Format availability for display
+  const avField = document.getElementById('availability');
+  let avDisplay = 'Flexible';
+  try {
+    const av = JSON.parse(avField.value || '{}');
+    if (av.dates && av.dates.length > 0) {
+      const count = av.dates.reduce((sum, d) => sum + (d.times?.length || 0), 0);
+      avDisplay = `${av.dates.length} date${av.dates.length > 1 ? 's' : ''} with ${count} time slot${count > 1 ? 's' : ''}`;
+    }
+  } catch(e) { /* use default */ }
+  document.getElementById('reviewAvailability').textContent = avDisplay;
   
   const duration = document.getElementById('durationMinutes').value;
   document.getElementById('reviewDurationFinal').textContent = `${duration} minutes`;
@@ -786,6 +834,67 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
+
+// Availability builder logic
+(function(){
+  const abDate = document.getElementById('abDate');
+  const abTime = document.getElementById('abTime');
+  const abAdd = document.getElementById('abAdd');
+  const abChips = document.getElementById('abChips');
+  const abQuick = document.getElementById('abQuick');
+  const hidden = document.getElementById('availability');
+  const slots = {}; // { 'YYYY-MM-DD': ['HH:MM', ...] }
+
+  function render(){
+    abChips.innerHTML = '';
+    const dates = Object.keys(slots).sort();
+    dates.forEach(d => {
+      const group = document.createElement('div');
+      group.style.cssText = 'display:flex;align-items:center;gap:8px;background:white;border:1px solid #e5e7eb;border-radius:999px;padding:6px 10px;';
+      const title = document.createElement('span');
+      title.textContent = new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
+      title.style.cssText = 'font-weight:700;color:#374151';
+      group.appendChild(title);
+      (slots[d] || []).sort().forEach(t => {
+        const chip = document.createElement('span');
+        chip.textContent = t;
+        chip.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:999px;padding:4px 10px;font-weight:600;';
+        chip.title = 'Click to remove';
+        chip.style.cursor = 'pointer';
+        chip.addEventListener('click', ()=>{ removeSlot(d,t); });
+        group.appendChild(chip);
+      });
+      abChips.appendChild(group);
+    });
+    const payload = { dates: Object.keys(slots).map(d => ({ date: d, times: (slots[d]||[]).slice().sort() })) };
+    hidden.value = JSON.stringify(payload);
+  }
+
+  function addSlot(date, time){
+    if (!date || !time) return;
+    if (!slots[date]) slots[date] = [];
+    if (!slots[date].includes(time)) slots[date].push(time);
+    render();
+  }
+  function removeSlot(date, time){
+    if (!slots[date]) return; slots[date] = slots[date].filter(x => x !== time); if (slots[date].length===0) delete slots[date]; render();
+  }
+
+  abAdd.addEventListener('click', () => addSlot(abDate.value, abTime.value));
+  abQuick.addEventListener('change', () => {
+    const v = abQuick.value; if (!v) return;
+    const now = new Date();
+    // next 21 days helper
+    for (let i=0;i<21;i++){
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i);
+      const iso = d.toISOString().slice(0,10);
+      const day = d.getDay(); // 0 Sun ... 6 Sat
+      if (v==='weekday_evenings' && day>=1 && day<=5) { addSlot(iso,'18:00'); addSlot(iso,'19:00'); }
+      if (v==='weekend_mornings' && (day===0 || day===6)) { addSlot(iso,'10:00'); addSlot(iso,'11:00'); }
+    }
+    abQuick.value='';
+  });
+})();
 </script>
 
 </div>

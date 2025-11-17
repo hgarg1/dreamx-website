@@ -92,7 +92,8 @@ self.addEventListener('fetch', (event) => {
       url.pathname === '/pricing' ||
       url.pathname === '/help' ||
       url.pathname === '/hr' ||
-      url.pathname.startsWith('/post/')) {
+      url.pathname.startsWith('/post/') ||
+      url.pathname.startsWith('/admin')) {
     return;
   }
 

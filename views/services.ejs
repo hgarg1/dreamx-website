@@ -85,7 +85,34 @@
             </div>
             <span class="provider-price">$<%= (s.price_per_hour * (s.duration_minutes / 60)).toFixed(2) %></span>
           </div>
-          <a href="/services/<%= s.id %>" class="provider-details-btn">View Details</a>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <a href="/services/<%= s.id %>" class="provider-details-btn" style="flex:1;">View Details</a>
+            <% if (typeof authUser !== 'undefined' && authUser && (authUser.role === 'admin' || authUser.role === 'super_admin' || authUser.role === 'global_admin' || Number(s.user_id) === Number(authUser.id))) { %>
+              <div class="service-actions-menu" style="position:relative;">
+                <button class="service-actions-btn" onclick="toggleServiceMenu(<%= s.id %>)" style="width:36px;height:36px;border-radius:8px;border:2px solid #e5e7eb;background:white;color:#6b7280;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" title="Actions">
+                  ⋮
+                </button>
+                <div id="service-menu-<%= s.id %>" class="service-actions-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border:2px solid #e5e7eb;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.15);min-width:180px;z-index:1000;">
+                  <% if (Number(s.user_id) === Number(authUser.id)) { %>
+                    <a href="/services/<%= s.id %>/edit" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:#374151;text-decoration:none;border-bottom:1px solid #f3f4f6;transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      Edit Service
+                    </a>
+                  <% } %>
+                  <% if (authUser.role === 'admin' || authUser.role === 'super_admin' || authUser.role === 'global_admin') { %>
+                    <a href="/admin/services?highlight=<%= s.id %>" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:#374151;text-decoration:none;border-bottom:1px solid #f3f4f6;transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                      Moderate
+                    </a>
+                  <% } %>
+                  <a href="/services/<%= s.id %>" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:#374151;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    View Details
+                  </a>
+                </div>
+              </div>
+            <% } %>
+          </div>
         </div>
       <% }); %>
     <% } else { %>
@@ -109,5 +136,40 @@
     <p class="services-note">Offering your own services? Upgrade to a seller tier to list here.</p>
   </section>
 <% } %>
+
+<script>
+function toggleServiceMenu(serviceId) {
+  const menu = document.getElementById('service-menu-' + serviceId);
+  const allMenus = document.querySelectorAll('.service-actions-dropdown');
+  
+  // Close all other menus
+  allMenus.forEach(m => {
+    if (m.id !== 'service-menu-' + serviceId) {
+      m.style.display = 'none';
+    }
+  });
+  
+  // Toggle current menu
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close menus when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.service-actions-menu')) {
+    document.querySelectorAll('.service-actions-dropdown').forEach(m => {
+      m.style.display = 'none';
+    });
+  }
+});
+
+// Prevent menu button click from propagating
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.service-actions-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  });
+});
+</script>
 
 <%- include('partials/footer') %>

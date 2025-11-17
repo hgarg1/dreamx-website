@@ -1,114 +1,237 @@
 <%- include('partials/header') %>
+<link rel="stylesheet" href="/css/admin.css">
 
-<section class="admin-section">
-  <div class="service-wizard-container">
-    <div class="wizard-header">
-      <h1>Services Moderation</h1>
-      <p>Review, hide, delete, or edit posted services</p>
+<main class="admin-dashboard-container">
+  <header class="admin-dashboard-header">
+    <div class="header-content">
+      <div class="header-text">
+        <h1>Services Moderation</h1>
+        <p>Review, hide, delete, or edit posted services</p>
+      </div>
+      <div class="header-actions">
+        <a href="/admin" class="admin-header-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          Back to Dashboard
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <section class="admin-panel">
+    <div class="panel-head">
+      <h2>All Services</h2>
+      <form method="GET" action="/admin/services" class="panel-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0;">
+        <div class="search-input-wrapper" style="min-width:220px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input type="text" name="q" placeholder="Search title or owner" value="<%= q || '' %>" class="admin-search-input">
+        </div>
+        <select name="status" class="role-select" style="min-width:150px;">
+          <option value="" <%= !status ? 'selected' : '' %>>All statuses</option>
+          <option value="active" <%= status==='active' ? 'selected' : '' %>>Active</option>
+          <option value="hidden" <%= status==='hidden' ? 'selected' : '' %>>Hidden</option>
+          <option value="deleted" <%= status==='deleted' ? 'selected' : '' %>>Deleted</option>
+        </select>
+        <button class="admin-search-btn" type="submit">Filter</button>
+      </form>
+    </div>
     </div>
 
-    <form method="GET" action="/admin/services" style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="text" name="q" placeholder="Search title or owner" value="<%= q || '' %>" class="form-control" style="max-width:280px;">
-      <select name="status" class="form-control" style="max-width:200px;">
-        <option value="" <%= !status ? 'selected' : '' %>>All statuses</option>
-        <option value="active" <%= status==='active' ? 'selected' : '' %>>Active</option>
-        <option value="hidden" <%= status==='hidden' ? 'selected' : '' %>>Hidden</option>
-        <option value="deleted" <%= status==='deleted' ? 'selected' : '' %>>Deleted</option>
-      </select>
-      <button class="btn-primary" type="submit" style="flex:0 0 auto;">Filter</button>
-    </form>
+    <% if (typeof success !== 'undefined' && success) { %>
+      <div class="admin-alert admin-alert-success" style="margin-bottom:20px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <%= success %>
+      </div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="admin-alert admin-alert-error" style="margin-bottom:20px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="15" y1="9" x2="9" y2="15"></line>
+          <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>
+        <%= error %>
+      </div>
+    <% } %>
 
-    <div class="wizard-content active" style="display:block">
+    <div class="table-responsive">
       <% if (services && services.length) { %>
-        <div style="overflow:auto;">
-          <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
-                <th style="padding:10px;">ID</th>
-                <th style="padding:10px;">Title</th>
-                <th style="padding:10px;">Owner</th>
-                <th style="padding:10px;">Status</th>
-                <th style="padding:10px;">Price</th>
-                <th style="padding:10px;">Actions</th>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Owner</th>
+              <th>Status</th>
+              <th>Price</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% services.forEach(function(s){ %>
+              <tr>
+                <td><span class="user-id">#<%= s.id %></span></td>
+                <td style="max-width:400px;">
+                  <a href="/services/<%= s.id %>" target="_blank" style="font-weight:700;color:#111827;text-decoration:none;"><%= s.title %></a>
+                  <div style="color:#6b7280;font-size:0.85rem;margin-top:4px;line-height:1.4;"><%= (s.description||'').slice(0,120) %><%= (s.description||'').length>120?'…':'' %></div>
+                </td>
+                <td>
+                  <div style="font-weight:600;color:#111827;"><%= s.full_name %></div>
+                  <div style="color:#6b7280;font-size:0.85rem;"><%= s.email %></div>
+                </td>
+                <td><span class="role-badge role-<%= s.status || 'active' %>"><%= s.status || 'active' %></span></td>
+                <td style="font-weight:600;color:#111827;">$<%= s.price_per_hour %>/hr</td>
+                <td>
+                  <div class="admin-user-actions" style="position:relative;">
+                    <button class="admin-actions-btn" onclick="toggleServiceActions(<%= s.id %>)" style="padding:8px 12px;">⋮</button>
+                    <div class="admin-actions-menu" id="service-actions-<%= s.id %>" style="display:none;min-width:320px;">
+                      <form method="POST" action="/admin/services/<%= s.id %>/hide" style="padding:12px 16px;border-bottom:1px solid #f3f4f6;">
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                          <label style="font-size:0.85rem;font-weight:600;color:#374151;display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" name="notifyInApp" checked style="width:16px;height:16px;"> In-app notification
+                          </label>
+                          <label style="font-size:0.85rem;font-weight:600;color:#374151;display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" name="notifyEmail" style="width:16px;height:16px;"> Email notification
+                          </label>
+                          <button class="btn-update" <%= s.status==='hidden'?'disabled':'' %> type="submit" style="margin-top:4px;background:#f59e0b;border-color:#f59e0b;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M1 1l22 22M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
+                            </svg>
+                            Hide Service
+                          </button>
+                        </div>
+                      </form>
+                      <form method="POST" action="/admin/services/<%= s.id %>/unhide" style="padding:12px 16px;border-bottom:1px solid #f3f4f6;">
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                          <label style="font-size:0.85rem;font-weight:600;color:#374151;display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" name="notifyInApp" checked style="width:16px;height:16px;"> In-app notification
+                          </label>
+                          <label style="font-size:0.85rem;font-weight:600;color:#374151;display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" name="notifyEmail" style="width:16px;height:16px;"> Email notification
+                          </label>
+                          <button class="btn-update" <%= s.status==='active'?'disabled':'' %> type="submit" style="margin-top:4px;background:#10b981;border-color:#10b981;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                              <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            Unhide Service
+                          </button>
+                        </div>
+                      </form>
+                      <form method="POST" action="/admin/services/<%= s.id %>/delete" style="padding:12px 16px;border-bottom:1px solid #f3f4f6;" onsubmit="return confirm('Delete this service permanently?');">
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                          <label style="font-size:0.85rem;font-weight:600;color:#374151;display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" name="notifyInApp" checked style="width:16px;height:16px;"> In-app notification
+                          </label>
+                          <label style="font-size:0.85rem;font-weight:600;color:#374151;display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" name="notifyEmail" style="width:16px;height:16px;"> Email notification
+                          </label>
+                          <input type="text" name="reason" placeholder="Reason for deletion" class="admin-search-input" style="margin-top:4px;width:100%;" />
+                          <button class="btn-update" type="submit" style="margin-top:4px;background:#ef4444;border-color:#ef4444;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Delete Service
+                          </button>
+                        </div>
+                      </form>
+                      <% if (authUser && (authUser.role==='super_admin' || authUser.role==='global_admin')) { %>
+                        <div style="padding:12px 16px;">
+                          <button onclick="showEditForm(<%= s.id %>)" class="btn-update" style="width:100%;background:#667eea;border-color:#667eea;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            Edit Service Content
+                          </button>
+                          <form id="edit-form-<%= s.id %>" method="POST" action="/admin/services/<%= s.id %>/edit" style="display:none;margin-top:12px;background:#f9fafb;padding:12px;border-radius:8px;">
+                            <input class="admin-search-input" name="title" placeholder="Title" value="<%= s.title %>" style="margin-bottom:8px;width:100%;" />
+                            <textarea class="admin-search-input" name="description" placeholder="Description" rows="3" style="margin-bottom:8px;width:100%;resize:vertical;"><%= s.description %></textarea>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                              <input class="admin-search-input" name="price_per_hour" type="number" step="1" min="0" placeholder="Price/hr" value="<%= s.price_per_hour %>">
+                              <input class="admin-search-input" name="duration_minutes" type="number" step="15" min="15" placeholder="Duration (min)" value="<%= s.duration_minutes %>">
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                              <input class="admin-search-input" name="category" placeholder="Category" value="<%= s.category %>">
+                              <input class="admin-search-input" name="format" placeholder="Format" value="<%= s.format %>">
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                              <input class="admin-search-input" name="location" placeholder="Location" value="<%= s.location || '' %>">
+                              <input class="admin-search-input" name="tags" placeholder="Tags" value="<%= s.tags || '' %>">
+                            </div>
+                            <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                              <input type="checkbox" name="notifyInApp" checked style="width:16px;height:16px;"> Notify owner in-app
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                              <input type="checkbox" name="notifyEmail" style="width:16px;height:16px;"> Notify owner by email
+                            </label>
+                            <button class="btn-update" type="submit" style="width:100%;background:#10b981;border-color:#10b981;">Save Changes</button>
+                          </form>
+                        </div>
+                      <% } %>
+                      <a href="/services/<%= s.id %>" target="_blank" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:#374151;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                          <polyline points="15 3 21 3 21 9"></polyline>
+                          <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                        View Service Page
+                      </a>
+                    </div>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              <% services.forEach(function(s){ %>
-                <tr style="border-bottom:1px solid #f3f4f6;">
-                  <td style="padding:10px;">#<%= s.id %></td>
-                  <td style="padding:10px;max-width:360px;">
-                    <a href="/services/<%= s.id %>" target="_blank" style="font-weight:700;color:#111827;text-decoration:none;"><%= s.title %></a>
-                    <div style="color:#6b7280;font-size:12px;margin-top:4px;"><%= (s.description||'').slice(0,100) %><%= (s.description||'').length>100?'…':'' %></div>
-                  </td>
-                  <td style="padding:10px;"><%= s.full_name %> <br><span style="color:#6b7280;font-size:12px;"><%= s.email %></span></td>
-                  <td style="padding:10px;"><span class="review-badge"><%= s.status %></span></td>
-                  <td style="padding:10px;">$<%= s.price_per_hour %>/hr</td>
-                  <td style="padding:10px;white-space:nowrap;">
-                    <form method="POST" action="/admin/services/<%= s.id %>/hide" style="display:inline-block;vertical-align:top;">
-                      <label style="font-size:12px;color:#6b7280;display:block;">
-                        <input type="checkbox" name="notifyInApp" checked> In‑app
-                      </label>
-                      <label style="font-size:12px;color:#6b7280;display:block;">
-                        <input type="checkbox" name="notifyEmail"> Email
-                      </label>
-                      <button class="btn-secondary" <%= s.status==='hidden'?'disabled':'' %> title="Hide" style="margin-top:4px;">Hide</button>
-                    </form>
-                    <form method="POST" action="/admin/services/<%= s.id %>/unhide" style="display:inline-block;vertical-align:top;margin-left:6px;">
-                      <label style="font-size:12px;color:#6b7280;display:block;">
-                        <input type="checkbox" name="notifyInApp" checked> In‑app
-                      </label>
-                      <label style="font-size:12px;color:#6b7280;display:block;">
-                        <input type="checkbox" name="notifyEmail"> Email
-                      </label>
-                      <button class="btn-secondary" <%= s.status==='active'?'disabled':'' %> title="Unhide" style="margin-top:4px;">Unhide</button>
-                    </form>
-                    <form method="POST" action="/admin/services/<%= s.id %>/delete" style="display:inline-block;vertical-align:top;margin-left:6px;" onsubmit="return confirm('Delete this service?');">
-                      <label style="font-size:12px;color:#6b7280;display:block;">
-                        <input type="checkbox" name="notifyInApp" checked> In‑app
-                      </label>
-                      <label style="font-size:12px;color:#6b7280;display:block;">
-                        <input type="checkbox" name="notifyEmail"> Email
-                      </label>
-                      <input class="form-control" name="reason" placeholder="Reason" style="margin-top:4px;max-width:220px;" />
-                      <button class="btn-secondary" title="Delete" style="margin-top:4px;">Delete</button>
-                    </form>
-                    <% if (authUser && (authUser.role==='super_admin' || authUser.role==='global_admin')) { %>
-                      <details style="display:inline-block;margin-left:8px;">
-                        <summary class="btn-primary" style="display:inline-block;padding:8px 12px;border-radius:8px;color:#fff;cursor:pointer;">Edit</summary>
-                        <form method="POST" action="/admin/services/<%= s.id %>/edit" style="background:#f9fafb;padding:12px;border-radius:8px;margin-top:8px;min-width:360px;">
-                          <input class="form-control" name="title" placeholder="Title" value="<%= s.title %>" style="margin-bottom:6px;" />
-                          <textarea class="form-control" name="description" placeholder="Description" rows="2" style="margin-bottom:6px;"><%= s.description %></textarea>
-                          <div style="display:flex;gap:6px;">
-                            <input class="form-control" name="price_per_hour" type="number" step="1" min="0" placeholder="Price/hr" value="<%= s.price_per_hour %>">
-                            <input class="form-control" name="duration_minutes" type="number" step="15" min="15" placeholder="Duration (min)" value="<%= s.duration_minutes %>">
-                          </div>
-                          <div style="display:flex;gap:6px;margin-top:6px;">
-                            <input class="form-control" name="category" placeholder="Category" value="<%= s.category %>">
-                            <input class="form-control" name="format" placeholder="Format" value="<%= s.format %>">
-                          </div>
-                          <div style="display:flex;gap:6px;margin-top:6px;">
-                            <input class="form-control" name="location" placeholder="Location" value="<%= s.location || '' %>">
-                            <input class="form-control" name="tags" placeholder="Tags" value="<%= s.tags || '' %>">
-                          </div>
-                          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="checkbox" name="notifyInApp" checked> Notify in app</label>
-                          <label style="display:flex;align-items:center;gap:6px;margin-top:4px;"><input type="checkbox" name="notifyEmail"> Notify by email</label>
-                          <div class="wizard-nav" style="border-top:0;margin-top:8px;">
-                            <button class="btn-success" type="submit">Save</button>
-                          </div>
-                        </form>
-                      </details>
-                    <% } %>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
+            <% }); %>
+          </tbody>
+        </table>
       <% } else { %>
-        <div class="wizard-content" style="display:block;text-align:center;">No services found.</div>
+        <div style="text-align:center;padding:60px 20px;color:#6b7280;">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 20px;opacity:0.3;">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
+          </svg>
+          <h3 style="font-size:1.5rem;margin-bottom:8px;color:#374151;">No services found</h3>
+          <p style="color:#9ca3af;">Try adjusting your search or filter criteria.</p>
+        </div>
       <% } %>
     </div>
-  </div>
-</section>
+  </section>
+</main>
+
+<script>
+function toggleServiceActions(id) {
+  const menu = document.getElementById('service-actions-' + id);
+  const allMenus = document.querySelectorAll('.admin-actions-menu');
+  allMenus.forEach(m => {
+    if (m.id !== 'service-actions-' + id) {
+      m.style.display = 'none';
+    }
+  });
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+function showEditForm(id) {
+  const form = document.getElementById('edit-form-' + id);
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close menus when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.admin-user-actions')) {
+    document.querySelectorAll('.admin-actions-menu').forEach(m => {
+      m.style.display = 'none';
+    });
+  }
+});
+</script>
 
 <%- include('partials/footer') %>

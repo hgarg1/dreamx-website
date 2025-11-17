@@ -4866,4 +4866,19 @@ form[action*="notifications"] .toggle-row:nth-child(3) input:checked ~ span::aft
         align-items: flex-start !important;
         gap: 8px !important;
     }
+
+    /* Algorithm Timeline mobile collapse */
+    .algorithm-timeline {
+        flex-direction: column;
+        gap: var(--spacing-lg);
+    }
+
+    .timeline-connector {
+        display: none;
+    }
+
+    .timeline-step {
+        width: 100%;
+        max-width: 400px;
+    }
 }

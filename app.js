@@ -66,7 +66,9 @@ const {
     // Comment parent info
     getCommentWithParent,
     // Services
-    createService, getUserServices, getAllServices, getService, getService, getServiceCount, updateService, deleteService
+    createService, getUserServices, getAllServices, getService, getServiceCount, updateService, deleteService,
+    getServiceReviews, addOrUpdateServiceReview, isVerifiedPurchaser, getServiceRatingsSummary,
+    hideServiceReview, deleteServiceReview, restoreServiceReview
  } = require('./db');
 let fetch;
 try {
@@ -2290,7 +2292,10 @@ app.get('/services/:id', (req, res) => {
     // Load latest reviews
     let reviews = [];
     try {
-        reviews = db.getServiceReviews({ serviceId: id, limit: 20, offset: 0 }).map(r => ({
+        const authUserId = req.session.userId || null;
+        const authUser = authUserId ? getUserById(authUserId) : null;
+        const isAdmin = authUser && ['admin', 'super_admin', 'global_admin'].includes(authUser.role);
+        reviews = db.getServiceReviews({ serviceId: id, limit: 20, offset: 0, isAdmin }).map(r => ({
             id: r.id,
             user: r.full_name,
             rating: r.rating,
@@ -2384,8 +2389,11 @@ app.get('/api/services/:id/reviews', (req, res) => {
     const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
     const offset = parseInt(req.query.offset || '0', 10);
     try {
-        const reviews = db.getServiceReviews({ serviceId, limit, offset });
-        const summary = db.getServiceRatingsSummary(serviceId);
+        const authUserId = req.session.userId || null;
+        const authUser = authUserId ? getUserById(authUserId) : null;
+        const isAdmin = authUser && ['admin', 'super_admin', 'global_admin'].includes(authUser.role);
+        const reviews = getServiceReviews({ serviceId, limit, offset, isAdmin });
+        const summary = getServiceRatingsSummary(serviceId);
         res.json({ success: true, reviews, summary });
     } catch (e) {
         console.error('list service reviews error', e);
@@ -2403,10 +2411,10 @@ app.post('/api/services/:id/reviews', ensureAuthenticated, async (req, res) => {
         const service = getService(serviceId);
         if (!service) return res.status(404).json({ success: false, error: 'Service not found' });
         if (Number(service.user_id) === Number(userId)) return res.status(403).json({ success: false, error: 'Owners cannot review their own service' });
-        const verified = require('./db').isVerifiedPurchaser({ serviceId, userId });
+        const verified = isVerifiedPurchaser({ serviceId, userId });
         if (!verified) return res.status(403).json({ success: false, error: 'Only verified purchasers can review' });
 
-        const reviewId = require('./db').addOrUpdateServiceReview({ serviceId, userId, rating: r, comment: (comment || '').trim() });
+        const reviewId = addOrUpdateServiceReview({ serviceId, userId, rating: r, comment: (comment || '').trim() });
 
         // Notify service owner
         try {
@@ -2432,11 +2440,40 @@ app.post('/api/services/:id/reviews', ensureAuthenticated, async (req, res) => {
             }
         } catch (e) { /* noop */ }
 
-        const summary = db.getServiceRatingsSummary(serviceId);
+        const summary = getServiceRatingsSummary(serviceId);
         res.json({ success: true, reviewId, summary });
     } catch (e) {
         console.error('add service review error', e);
         res.status(500).json({ success: false, error: 'Failed to submit review' });
+    }
+});
+
+// Moderate service review (admin only)
+app.post('/api/reviews/:id/moderate', ensureAuthenticated, (req, res) => {
+    const reviewId = parseInt(req.params.id, 10);
+    const { action } = req.body;
+    const moderatorId = req.session.userId;
+    
+    try {
+        const moderator = getUserById(moderatorId);
+        if (!moderator || !['admin', 'super_admin', 'global_admin'].includes(moderator.role)) {
+            return res.status(403).json({ success: false, error: 'Admin access required' });
+        }
+
+        if (action === 'hide') {
+            hideServiceReview({ reviewId, moderatorId });
+        } else if (action === 'delete') {
+            deleteServiceReview({ reviewId, moderatorId });
+        } else if (action === 'restore') {
+            restoreServiceReview({ reviewId, moderatorId });
+        } else {
+            return res.status(400).json({ success: false, error: 'Invalid action' });
+        }
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error('moderate service review error', e);
+        res.status(500).json({ success: false, error: 'Failed to moderate review' });
     }
 });
 
@@ -2458,9 +2495,30 @@ app.post('/services/:id/book', ensureAuthenticated, (req, res) => {
         if (!s) return res.status(404).json({ success: false, error: 'Service not found' });
         if (Number(s.user_id) === Number(userId)) return res.status(400).json({ success: false, error: 'Cannot book your own service' });
 
-        // In a future iteration, create a payment session here.
+        // Ensure payment method exists (default card or bank info)
+        const methods = getPaymentMethods(userId) || [];
+        const hasCard = methods.length > 0;
+        const user = getUserById(userId);
+        const hasBank = !!(user && user.bank_account_number && user.bank_routing_number);
+        if (!hasCard && !hasBank) {
+            return res.status(402).json({
+                success: false,
+                requirePayment: true,
+                error: 'Payment method required to complete booking.'
+            });
+        }
+
+        // Compute amount based on selected session length (minutes)
+        const sessionLength = parseInt((req.body.sessionLength || s.duration_minutes), 10);
+        const hours = Math.max(0.5, (sessionLength || 60) / 60);
+        const amount = Math.round((s.price_per_hour * hours) * 100) / 100; // 2 decimals
+
+        // Mock charge and record order
         const orderId = require('./db').addServiceOrder({ serviceId, buyerId: userId, status: 'completed' });
-        return res.json({ success: true, orderId });
+        try {
+            createInvoice({ userId, amount, tier: 'service-booking', status: 'paid' });
+        } catch (e) { /* non-blocking */ }
+        return res.json({ success: true, orderId, amount });
     } catch (e) {
         console.error('book service error', e);
         return res.status(500).json({ success: false, error: 'Booking failed' });
@@ -3294,6 +3352,45 @@ app.post('/api/subscription/cancel', (req, res) => {
     } catch (error) {
         console.error('Cancel subscription error:', error);
         res.status(500).json({ error: 'Failed to cancel subscription' });
+    }
+});
+
+// API: Add payment method (JSON)
+app.post('/api/payment-methods/add', ensureAuthenticated, (req, res) => {
+    try {
+        const { cardType, cardNumber, expiryMonth, expiryYear, setDefault } = req.body || {};
+        if (!cardType || !cardNumber || !expiryMonth || !expiryYear) {
+            return res.status(400).json({ success: false, error: 'All card fields required' });
+        }
+        const lastFour = String(cardNumber).slice(-4);
+        addPaymentMethod({
+            userId: req.session.userId,
+            cardType,
+            lastFour,
+            expiryMonth: parseInt(expiryMonth, 10),
+            expiryYear: parseInt(expiryYear, 10),
+            isDefault: setDefault ? 1 : 0
+        });
+        return res.json({ success: true });
+    } catch (e) {
+        console.error('API add payment method error:', e);
+        return res.status(500).json({ success: false, error: 'Failed to save payment method' });
+    }
+});
+
+// API: Save bank info (JSON)
+app.post('/api/banking/save', ensureAuthenticated, (req, res) => {
+    try {
+        const { bankCountry, bankAccount, routingNumber } = req.body || {};
+        if (!bankCountry || !bankAccount || !routingNumber) {
+            return res.status(400).json({ success: false, error: 'All bank fields required' });
+        }
+        db.prepare('UPDATE users SET bank_account_country = ?, bank_account_number = ?, bank_routing_number = ? WHERE id = ?')
+          .run(bankCountry, bankAccount, routingNumber, req.session.userId);
+        return res.json({ success: true });
+    } catch (e) {
+        console.error('API banking save error:', e);
+        return res.status(500).json({ success: false, error: 'Failed to save bank info' });
     }
 });
 

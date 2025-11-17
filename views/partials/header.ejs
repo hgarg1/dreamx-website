@@ -187,6 +187,20 @@
         </div>
     </nav>
 
+    <script>
+    // Mobile menu toggle
+    (function() {
+      const toggle = document.querySelector('.mobile-menu-toggle');
+      const navLinks = document.querySelector('.nav-links');
+      if (toggle && navLinks) {
+        toggle.addEventListener('click', function() {
+          toggle.classList.toggle('active');
+          navLinks.classList.toggle('active');
+        });
+      }
+    })();
+    </script>
+
     <!-- Main Content Area -->
     <main>
         <!-- Your main content goes here -->

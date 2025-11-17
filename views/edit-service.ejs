@@ -38,7 +38,13 @@
       </div>
       <div class="dx-field">
         <label class="dx-label" for="category">Category *</label>
-        <input class="dx-input" type="text" id="category" name="category" required value="<%= service.category %>">
+        <select class="dx-input" id="category" name="category" required>
+          <% const __cats = ['Tutoring','Mentorship','Coaching','Workshops','Consulting','Design Services','Development','Writing & Content','Marketing & SEO','Video & Photography','Audio & Music','Business Strategy','Legal Services','Financial Planning','Health & Wellness','Language Learning','Career Services','Data & Analytics','Virtual Assistance','Project Management','Other']; %>
+          <option value="">Select a category</option>
+          <% __cats.forEach(c => { %>
+            <option value="<%- c %>" <%= (service.category||'') === c ? 'selected' : '' %>><%- c %></option>
+          <% }) %>
+        </select>
       </div>
       <div class="dx-field">
         <label class="dx-label" for="description">Description *</label>
@@ -48,19 +54,67 @@
       <div class="dx-section"><h3>Session & Availability</h3></div>
       <div class="dx-field">
         <label class="dx-label" for="experienceLevel">Experience Level</label>
-        <input class="dx-input" type="text" id="experienceLevel" name="experienceLevel" value="<%= service.experience_level || '' %>">
+        <select class="dx-input" id="experienceLevel" name="experienceLevel">
+          <% const __levels = ['', 'beginner','intermediate','advanced','expert']; const __levelLabels = { '':'Any level', beginner:'Beginner', intermediate:'Intermediate', advanced:'Advanced', expert:'Expert' }; %>
+          <% __levels.forEach(l => { %>
+            <option value="<%- l %>" <%= (service.experience_level||'') === l ? 'selected' : '' %>><%- __levelLabels[l] %></option>
+          <% }) %>
+        </select>
       </div>
       <div class="dx-field">
         <label class="dx-label" for="format">Format *</label>
-        <input class="dx-input" type="text" id="format" name="format" required value="<%= service.format %>">
+        <select class="dx-input" id="format" name="format" required>
+          <% const __formats = ['', 'online','in-person','hybrid']; const __fLabels = { '':'Select format', 'online':'Online', 'in-person':'In-person', 'hybrid':'Hybrid' }; %>
+          <% __formats.forEach(f => { %>
+            <option value="<%- f %>" <%= (service.format||'') === f ? 'selected' : '' %>><%- __fLabels[f] %></option>
+          <% }) %>
+        </select>
       </div>
       <div class="dx-field">
         <label class="dx-label" for="location">Location</label>
         <input class="dx-input" type="text" id="location" name="location" value="<%= service.location || '' %>">
       </div>
       <div class="dx-field">
-        <label class="dx-label" for="availability">Availability</label>
-        <textarea class="dx-textarea" id="availability" name="availability" rows="3"><%= service.availability || '' %></textarea>
+        <label class="dx-label">Availability & Time Slots</label>
+        <div id="availabilityBuilder" style="background:linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08));border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
+            <div>
+              <label class="dx-label" style="margin:0 0 6px">Date</label>
+              <input type="date" id="abDate" class="dx-input" />
+            </div>
+            <div>
+              <label class="dx-label" style="margin:0 0 6px">Time</label>
+              <select id="abTime" class="dx-input">
+                <option value="">Select time</option>
+                <option>08:00</option><option>08:30</option>
+                <option>09:00</option><option>09:30</option>
+                <option>10:00</option><option>10:30</option>
+                <option>11:00</option><option>11:30</option>
+                <option>12:00</option><option>12:30</option>
+                <option>13:00</option><option>13:30</option>
+                <option>14:00</option><option>14:30</option>
+                <option>15:00</option><option>15:30</option>
+                <option>16:00</option><option>16:30</option>
+                <option>17:00</option><option>17:30</option>
+                <option>18:00</option><option>18:30</option>
+                <option>19:00</option><option>19:30</option>
+                <option>20:00</option>
+              </select>
+            </div>
+            <div>
+              <label class="dx-label" style="margin:0 0 6px">Quick Add</label>
+              <select id="abQuick" class="dx-input">
+                <option value="">— Common windows —</option>
+                <option value="weekday_evenings">Weekday evenings (Mon-Fri 18:00, 19:00)</option>
+                <option value="weekend_mornings">Weekend mornings (Sat/Sun 10:00, 11:00)</option>
+              </select>
+            </div>
+            <button type="button" id="abAdd" class="dx-btn dx-btn-primary" style="height:48px;">+ Add Slot</button>
+          </div>
+          <div id="abChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
+          <input type="hidden" id="availability" name="availability" value="" />
+          <small class="hint">Only these dates/times will be available to book.</small>
+        </div>
       </div>
 
       <div class="dx-section"><h3>Price & Metadata</h3></div>
@@ -90,5 +144,79 @@
     </aside>
   </div>
 </div>
+
+<script type="application/json" id="existingAvailability"><%- typeof service.availability === 'string' ? service.availability : JSON.stringify(service.availability || null) %></script>
+<script>
+// Availability builder + hydrate from existing
+(function(){
+  const abDate = document.getElementById('abDate');
+  const abTime = document.getElementById('abTime');
+  const abAdd = document.getElementById('abAdd');
+  const abChips = document.getElementById('abChips');
+  const abQuick = document.getElementById('abQuick');
+  const hidden = document.getElementById('availability');
+  const slots = {}; // { 'YYYY-MM-DD': ['HH:MM', ...] }
+
+  function render(){
+    abChips.innerHTML = '';
+    const dates = Object.keys(slots).sort();
+    dates.forEach(d => {
+      const group = document.createElement('div');
+      group.style.cssText = 'display:flex;align-items:center;gap:8px;background:#0b1020;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 10px;';
+      const title = document.createElement('span');
+      title.textContent = new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
+      title.style.cssText = 'font-weight:700;color:#e5e7eb';
+      group.appendChild(title);
+      (slots[d] || []).sort().forEach(t => {
+        const chip = document.createElement('span');
+        chip.textContent = t;
+        chip.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:999px;padding:4px 10px;font-weight:600;';
+        chip.title = 'Click to remove';
+        chip.style.cursor = 'pointer';
+        chip.addEventListener('click', ()=>{ removeSlot(d,t); });
+        group.appendChild(chip);
+      });
+      abChips.appendChild(group);
+    });
+    const payload = { dates: Object.keys(slots).map(d => ({ date: d, times: (slots[d]||[]).slice().sort() })) };
+    hidden.value = JSON.stringify(payload);
+  }
+
+  function addSlot(date, time){ if(!date || !time) return; if(!slots[date]) slots[date] = []; if(!slots[date].includes(time)) slots[date].push(time); render(); }
+  function removeSlot(date, time){ if(!slots[date]) return; slots[date] = slots[date].filter(x => x !== time); if(slots[date].length===0) delete slots[date]; render(); }
+
+  abAdd.addEventListener('click', () => addSlot(abDate.value, abTime.value));
+  abQuick.addEventListener('change', () => {
+    const v = abQuick.value; if (!v) return; const now = new Date();
+    for (let i=0;i<21;i++){
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i);
+      const iso = d.toISOString().slice(0,10); const day = d.getDay();
+      if (v==='weekday_evenings' && day>=1 && day<=5) { addSlot(iso,'18:00'); addSlot(iso,'19:00'); }
+      if (v==='weekend_mornings' && (day===0 || day===6)) { addSlot(iso,'10:00'); addSlot(iso,'11:00'); }
+    }
+    abQuick.value='';
+  });
+
+  // Hydrate existing availability (string or object)
+  try {
+    let avRaw = (document.getElementById('existingAvailability')?.textContent || '').trim();
+    let av = null;
+    if (avRaw) { try { av = JSON.parse(avRaw); } catch(e) { av = null; } }
+    if (av && av.dates && Array.isArray(av.dates)) {
+      av.dates.forEach(d => { const date = d.date; const arr = Array.isArray(d.times) ? d.times : []; if (date && arr.length){ slots[date] = Array.from(new Set(arr)); } });
+    }
+    render();
+  } catch(e){ render(); }
+})();
+
+// Save button UX
+(function(){
+  const form = document.querySelector('form[action^="/services/"]');
+  const btn = document.querySelector('.dx-btn-primary[type="submit"]');
+  if (!form || !btn) return;
+  let saving = false;
+  form.addEventListener('submit', () => { if (saving) return; saving = true; btn.textContent='Saving…'; btn.style.opacity='.8'; });
+})();
+</script>
 
 <%- include('partials/footer') %>

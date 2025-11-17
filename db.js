@@ -567,6 +567,14 @@ db.exec(`CREATE TABLE IF NOT EXISTS account_appeals (
   FOREIGN KEY (reviewer_id) REFERENCES users(id)
 );`);
 
+// Add moderation columns to service_reviews if they don't exist
+try {
+  db.exec(`ALTER TABLE service_reviews ADD COLUMN is_hidden INTEGER DEFAULT 0`);
+} catch(e) { /* Column already exists */ }
+try {
+  db.exec(`ALTER TABLE service_reviews ADD COLUMN is_deleted INTEGER DEFAULT 0`);
+} catch(e) { /* Column already exists */ }
+
 module.exports = {
   db,
   getUserById: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
@@ -1609,12 +1617,16 @@ module.exports = {
     const info = db.prepare(`INSERT INTO service_reviews (service_id, user_id, rating, comment) VALUES (?,?,?,?)`).run(serviceId, userId, rating, comment || null);
     return info.lastInsertRowid;
   },
-  getServiceReviews: ({ serviceId, limit = 20, offset = 0 }) => {
+  getServiceReviews: ({ serviceId, limit = 20, offset = 0, isAdmin = false }) => {
+    const whereClause = isAdmin 
+      ? 'WHERE r.service_id = ?' 
+      : 'WHERE r.service_id = ? AND r.is_hidden = 0 AND r.is_deleted = 0';
+    
     return db.prepare(`
       SELECT r.*, u.full_name, u.profile_picture
       FROM service_reviews r
       JOIN users u ON u.id = r.user_id
-      WHERE r.service_id = ?
+      ${whereClause}
       ORDER BY r.created_at DESC
       LIMIT ? OFFSET ?
     `).all(serviceId, limit, offset);
@@ -1663,5 +1675,31 @@ module.exports = {
     sql += ` ORDER BY s.created_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
     return db.prepare(sql).all(...params);
+  },
+
+  // Service review moderation
+  hideServiceReview: ({ reviewId, moderatorId }) => {
+    db.prepare(`UPDATE service_reviews SET is_hidden = 1 WHERE id = ?`).run(reviewId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      moderatorId,
+      'hide_service_review',
+      JSON.stringify({ reviewId })
+    );
+  },
+  deleteServiceReview: ({ reviewId, moderatorId }) => {
+    db.prepare(`UPDATE service_reviews SET is_deleted = 1 WHERE id = ?`).run(reviewId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      moderatorId,
+      'delete_service_review',
+      JSON.stringify({ reviewId })
+    );
+  },
+  restoreServiceReview: ({ reviewId, moderatorId }) => {
+    db.prepare(`UPDATE service_reviews SET is_hidden = 0, is_deleted = 0 WHERE id = ?`).run(reviewId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      moderatorId,
+      'restore_service_review',
+      JSON.stringify({ reviewId })
+    );
   }
 };
