@@ -110,6 +110,51 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
+        // Mobile menu toggle
+        const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
+        const navLinks = document.querySelector('.nav-links');
+        
+        if (mobileMenuToggle && navLinks) {
+          mobileMenuToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            mobileMenuToggle.classList.toggle('active');
+            navLinks.classList.toggle('active');
+            
+            // Update aria-expanded
+            const expanded = mobileMenuToggle.getAttribute('aria-expanded') === 'true';
+            mobileMenuToggle.setAttribute('aria-expanded', !expanded);
+            
+            // Prevent body scroll when menu is open
+            if (navLinks.classList.contains('active')) {
+              document.body.style.overflow = 'hidden';
+            } else {
+              document.body.style.overflow = '';
+            }
+          });
+          
+          // Close menu when clicking outside
+          document.addEventListener('click', function(e) {
+            if (!navLinks.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+              mobileMenuToggle.classList.remove('active');
+              navLinks.classList.remove('active');
+              mobileMenuToggle.setAttribute('aria-expanded', 'false');
+              document.body.style.overflow = '';
+            }
+          });
+          
+          // Close menu when clicking a link
+          const navItems = navLinks.querySelectorAll('a');
+          navItems.forEach(item => {
+            item.addEventListener('click', function() {
+              mobileMenuToggle.classList.remove('active');
+              navLinks.classList.remove('active');
+              mobileMenuToggle.setAttribute('aria-expanded', 'false');
+              document.body.style.overflow = '';
+            });
+          });
+        }
+        
+        // User dropdown toggle
         var dropdownToggle = document.querySelector('.dropdown-toggle');
         var dropdown = document.querySelector('.nav-user.dropdown');
         if (dropdownToggle && dropdown) {
