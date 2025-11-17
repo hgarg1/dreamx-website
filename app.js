@@ -8,6 +8,7 @@ require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
 const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const http = require('http');
@@ -112,12 +113,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Session configuration (MemoryStore fine for local dev)
+// Session configuration (SQLiteStore for production safety)
 app.use(session({
-    secret: 'dev-secret-key-change-me',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { httpOnly: true }
+  store: new SQLiteStore({ db: 'sessions.sqlite3' }),
+  secret: process.env.SESSION_SECRET || 'your secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } // 1 week
 }));
 app.use(passport.initialize());
 // If you want Passport-managed sessions, also enable the next line and add serialize/deserialize below
@@ -1362,7 +1364,7 @@ app.post('/settings/password', async (req, res) => {
         updatePassword({ userId: req.session.userId, passwordHash: hash });
         res.redirect('/settings?success=Password changed successfully');
     } catch (e) {
-        console.error('Password change error:', e);
+        console.error('Password change error', e);
         res.redirect('/settings?error=Failed to change password');
     }
 });
@@ -1735,6 +1737,7 @@ app.get('/about', (req, res) => {
 
 // Features page
 app.get('/features', (req, res) => {
+
     res.render('features', { 
         title: 'Features - Dream X',
         currentPage: 'features'
