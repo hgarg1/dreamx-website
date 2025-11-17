@@ -588,9 +588,10 @@ app.get('/admin', requireAdmin, (req, res) => {
     const me = req.session.userId ? getUserById(req.session.userId) : null;
     const logs = (me && me.role === 'super_admin') ? getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
 
-    res.render('admin', {
+    res.render('admin-consolidated', {
         title: 'Admin Dashboard - Dream X',
         currentPage: 'admin',
+        authUser: me,
         stats,
         users,
         page,
@@ -1740,33 +1741,7 @@ app.get('/help-center', (req, res) => {
     });
 });
 
-// Admin dashboard (internal-only placeholder)
-app.get('/admin', (req, res) => {
-    const metrics = {
-        totalUsers: 4821,
-        activeToday: 763,
-        servicesListed: 188,
-        sessionsBooked: 942
-    };
-    const recentSignups = [
-        { name: 'Ava Chen', email: 'ava@example.com', date: '2025-11-14' },
-        { name: 'Leo Martinez', email: 'leo@example.com', date: '2025-11-14' },
-        { name: 'Sofia Patel', email: 'sofia@example.com', date: '2025-11-13' },
-        { name: 'Marcus Lee', email: 'marcus@example.com', date: '2025-11-13' },
-    ];
-    const flaggedContent = [
-        { user: 'Clara Dawson', reason: 'Inappropriate language', date: '2025-11-14', status: 'Pending' },
-        { user: 'Jun Park', reason: 'Spam links', date: '2025-11-13', status: 'Reviewed' },
-        { user: 'Nora Fields', reason: 'Off-topic promotion', date: '2025-11-12', status: 'Resolved' },
-    ];
-    res.render('admin-dashboard', {
-        title: 'Admin Dashboard - Dream X',
-        currentPage: null, // intentionally no nav highlight
-        metrics,
-        recentSignups,
-        flaggedContent
-    });
-});
+
 
 // About page
 app.get('/about', (req, res) => {
@@ -1951,6 +1926,42 @@ app.post('/api/push/unsubscribe', express.json(), (req, res) => {
 });
 
 // === APPEAL ROUTES ===
+// Submit content appeal
+// Submit career application
+app.post('/api/careers/apply', (req, res) => {
+    try {
+        const { position, name, email, phone, coverLetter, resume, portfolio } = req.body;
+        
+        // Validate required fields
+        if (!position || !name || !email || !coverLetter) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // In a real implementation, save to database
+        console.log('💼 Career application received:', {
+            position,
+            name,
+            email,
+            phone,
+            timestamp: new Date().toISOString()
+        });
+
+        // TODO: Save to applications table in database
+        // TODO: Send confirmation email to applicant
+        // TODO: Notify HR team
+        // TODO: Store resume/portfolio files
+
+        res.json({ 
+            success: true, 
+            message: 'Your application has been submitted successfully. We will review it and get back to you soon.',
+            applicationId: 'JOB-' + Date.now()
+        });
+    } catch (error) {
+        console.error('Error processing career application:', error);
+        res.status(500).json({ error: 'Failed to submit application' });
+    }
+});
+
 // Submit content appeal
 app.post('/api/appeals/content', (req, res) => {
     try {
