@@ -3,7 +3,7 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_VERSION = 'dreamx-v1.0.1';
+const CACHE_VERSION = 'dreamx-v1.0.2';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
@@ -11,9 +11,6 @@ const CACHE_IMAGES = `${CACHE_VERSION}-images`;
 // Files to cache immediately on install
 const STATIC_ASSETS = [
   '/',
-  '/login',
-  '/register',
-  '/feed',
   '/services',
   '/pricing',
   '/css/style.css',
@@ -71,6 +68,14 @@ self.addEventListener('fetch', (event) => {
 
   // Skip cross-origin requests
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Skip OAuth and authentication routes
+  if (url.pathname.startsWith('/auth/') ||
+      url.pathname === '/login' ||
+      url.pathname === '/register' ||
+      url.pathname === '/logout') {
     return;
   }
 
