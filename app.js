@@ -952,7 +952,7 @@ app.get('/profile/edit', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
-    const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture, handle: row.handle };
+    const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture, banner_image: row.banner_image, handle: row.handle };
     const passions = row.categories ? JSON.parse(row.categories) : [];
     const user = {
         displayName: row.full_name,
