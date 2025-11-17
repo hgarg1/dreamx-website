@@ -1,53 +1,590 @@
 <%- include('partials/header') %>
-  <section class="pricing-hero particle-bg">
-    <div class="pricing-hero-inner">
-    font-weight: 500;
-  }
 
-  .checkbox-label input {
-    width: auto;
+<!-- Pricing Hero Section -->
+<section class="pricing-hero">
+    <div class="container">
+        <h1 class="pricing-title">Choose Your Dream X Plan</h1>
+        <p class="pricing-subtitle">From creators to communities — we've got a tier for every ambition.</p>
+    </div>
+</section>
+
+<!-- Pricing Cards Section -->
+<section class="pricing-section">
+    <div class="container">
+        <div class="pricing-grid">
+            <% tiers.forEach(function(tier) { %>
+                <div class="pricing-card <%= tier.highlight ? 'pricing-card-highlight' : '' %>">
+                    <% if (tier.highlight) { %>
+                        <div class="pricing-badge">Most Popular</div>
+                    <% } %>
+                    <div class="pricing-card-header">
+                        <h3 class="pricing-card-name"><%= tier.name %></h3>
+                        <p class="pricing-card-tagline"><%= tier.tagline %></p>
+                        <div class="pricing-card-price"><%= tier.price %></div>
+                    </div>
+                    <div class="pricing-card-body">
+                        <ul class="pricing-features">
+                            <% tier.features.forEach(function(feature) { %>
+                                <li><span class="feature-icon">✓</span> <%= feature %></li>
+                            <% }); %>
+                        </ul>
+                    </div>
+                    <div class="pricing-card-footer">
+                        <% if (tier.id === 'enterprise') { %>
+                            <a href="/contact" class="pricing-btn pricing-btn-secondary">Contact Sales</a>
+                        <% } else if (tier.id === 'free') { %>
+                            <% if (typeof authUser !== 'undefined' && authUser) { %>
+                                <button onclick="openCheckout('<%= tier.id %>', '<%= tier.name %>', '<%= tier.price %>', <%= JSON.stringify(tier.features) %>, '<%= tier.tagline %>')" class="pricing-btn">Current Plan</button>
+                            <% } else { %>
+                                <a href="/register" class="pricing-btn">Get Started</a>
+                            <% } %>
+                        <% } else { %>
+                            <button onclick="openCheckout('<%= tier.id %>', '<%= tier.name %>', '<%= tier.price %>', <%= JSON.stringify(tier.features) %>, '<%= tier.tagline %>')" class="pricing-btn <%= tier.highlight ? 'pricing-btn-primary' : '' %>">Choose Plan</button>
+                        <% } %>
+                    </div>
+                    <% if (tier.note) { %>
+                        <p class="tier-note"><%= tier.note %></p>
+                    <% } %>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+</section>
+
+<!-- Checkout Modal -->
+<div id="checkoutModal" class="checkout-modal">
+    <div class="checkout-modal-overlay" onclick="closeCheckout()"></div>
+    <div class="checkout-modal-content">
+        <button class="checkout-close" onclick="closeCheckout()" aria-label="Close">&times;</button>
+        
+        <!-- Progress Steps -->
+        <div class="checkout-steps">
+            <div class="checkout-step active">
+                <div class="step-number">1</div>
+                <span class="step-label">Review</span>
+            </div>
+            <div class="checkout-step">
+                <div class="step-number">2</div>
+                <span class="step-label">Payment</span>
+            </div>
+            <div class="checkout-step">
+                <div class="step-number">3</div>
+                <span class="step-label">Confirm</span>
+            </div>
+        </div>
+
+        <!-- Step 1: Plan Review -->
+        <div class="checkout-step-content" id="step1">
+            <h2>Review Your Plan</h2>
+            <div class="plan-summary">
+                <h3 id="selectedPlanName"></h3>
+                <p id="selectedPlanTagline"></p>
+                <div class="plan-price" id="selectedPlanPrice"></div>
+                <ul class="plan-features" id="selectedPlanFeatures"></ul>
+            </div>
+            <div class="checkout-actions">
+                <button onclick="closeCheckout()" class="checkout-btn outline">Cancel</button>
+                <button onclick="nextStep()" class="checkout-btn primary">Continue to Payment</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Payment Information -->
+        <div class="checkout-step-content" id="step2" style="display: none;">
+            <h2>Payment Information</h2>
+            <form id="paymentForm">
+                <div class="form-group">
+                    <label for="cardType">Card Type</label>
+                    <select id="cardType" class="form-control" required>
+                        <option value="">Select card type</option>
+                        <option value="visa">Visa</option>
+                        <option value="mastercard">Mastercard</option>
+                        <option value="amex">American Express</option>
+                        <option value="discover">Discover</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cardNumber">Card Number</label>
+                    <input type="text" id="cardNumber" class="form-control" placeholder="1234 5678 9012 3456" maxlength="19" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="expiryMonth">Expiry Month</label>
+                        <select id="expiryMonth" class="form-control" required>
+                            <option value="">MM</option>
+                            <% for(let i = 1; i <= 12; i++) { %>
+                                <option value="<%= i.toString().padStart(2, '0') %>"><%= i.toString().padStart(2, '0') %></option>
+                            <% } %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="expiryYear">Expiry Year</label>
+                        <select id="expiryYear" class="form-control" required>
+                            <option value="">YYYY</option>
+                            <% const currentYear = new Date().getFullYear(); %>
+                            <% for(let i = 0; i < 10; i++) { %>
+                                <option value="<%= currentYear + i %>"><%= currentYear + i %></option>
+                            <% } %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cvv">CVV</label>
+                        <input type="text" id="cvv" class="form-control" placeholder="123" maxlength="4" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="saveCard">
+                        Save card for future purchases
+                    </label>
+                </div>
+            </form>
+            <div class="checkout-actions">
+                <button onclick="prevStep()" class="checkout-btn outline">Back</button>
+                <button onclick="nextStep()" class="checkout-btn primary">Review Order</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Confirmation -->
+        <div class="checkout-step-content" id="step3" style="display: none;">
+            <h2>Confirm Your Purchase</h2>
+            <div class="order-summary">
+                <h3>Order Summary</h3>
+                <div class="summary-item">
+                    <span>Plan:</span>
+                    <span id="confirmPlanName"></span>
+                </div>
+                <div class="summary-item">
+                    <span>Payment Method:</span>
+                    <span id="confirmCardInfo"></span>
+                </div>
+                <div class="summary-item total">
+                    <span>Total:</span>
+                    <span id="confirmPlanPrice"></span>
+                </div>
+            </div>
+            <div class="checkout-actions">
+                <button onclick="prevStep()" class="checkout-btn outline">Back</button>
+                <button onclick="processPayment()" class="checkout-btn primary" id="confirmBtn">
+                    <span class="btn-text">Complete Purchase</span>
+                    <span class="btn-loader" style="display: none;">Processing...</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 4: Success -->
+        <div class="checkout-step-content" id="step4" style="display: none;">
+            <div class="success-message">
+                <div class="success-icon">✓</div>
+                <h3>Welcome to <span id="successPlanName"></span>!</h3>
+                <p>Your subscription is now active. Enjoy your new features!</p>
+                <button onclick="window.location.href='/settings'" class="checkout-btn primary">Go to Settings</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Pricing Hero */
+.pricing-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.pricing-title {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-bottom: 16px;
+}
+
+.pricing-subtitle {
+    font-size: 1.25rem;
+    opacity: 0.95;
+}
+
+/* Pricing Section */
+.pricing-section {
+    padding: 80px 20px;
+    background: var(--bg-light);
+}
+
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.pricing-card {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.pricing-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.pricing-card-highlight {
+    border: 3px solid var(--primary-color);
+}
+
+.pricing-badge {
+    position: absolute;
+    top: -12px;
+    right: 32px;
+    background: var(--primary-color);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.pricing-card-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.pricing-card-name {
+    font-size: 1.75rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    color: var(--text-dark);
+}
+
+.pricing-card-tagline {
+    font-size: 0.95rem;
+    color: var(--text-light);
+    margin-bottom: 16px;
+}
+
+.pricing-card-price {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--primary-color);
+}
+
+.pricing-card-body {
+    flex: 1;
+    margin-bottom: 24px;
+}
+
+.pricing-features {
+    list-style: none;
+    padding: 0;
+}
+
+.pricing-features li {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.pricing-features li:last-child {
+    border-bottom: none;
+}
+
+.feature-icon {
+    color: var(--primary-color);
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.pricing-card-footer {
+    margin-top: auto;
+}
+
+.pricing-btn {
+    width: 100%;
+    padding: 14px 24px;
+    border: 2px solid var(--primary-color);
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
     cursor: pointer;
-  }
+    transition: all 0.3s;
+    background: white;
+    color: var(--primary-color);
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
 
-  .order-summary {
-    background: #f9fafb;
+.pricing-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.pricing-btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.pricing-btn-primary:hover {
+    background: var(--primary-hover);
+}
+
+.pricing-btn-secondary {
+    border-color: var(--text-light);
+    color: var(--text-light);
+}
+
+.pricing-btn-secondary:hover {
+    background: var(--text-light);
+    color: white;
+}
+
+.tier-note {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-top: 16px;
+    font-style: italic;
+    text-align: center;
+}
+
+/* Checkout Modal */
+.checkout-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+}
+
+.checkout-modal.active {
+    display: block;
+}
+
+.checkout-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.checkout-modal-content {
+    position: relative;
+    background: white;
+    max-width: 600px;
+    margin: 50px auto;
+    border-radius: 16px;
+    padding: 40px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.checkout-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-light);
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+}
+
+.checkout-close:hover {
+    color: var(--text-dark);
+}
+
+.checkout-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    position: relative;
+}
+
+.checkout-steps::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: var(--border-color);
+    z-index: 0;
+}
+
+.checkout-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--border-color);
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    transition: all 0.3s;
+}
+
+.checkout-step.active .step-number {
+    background: var(--primary-color);
+    color: white;
+}
+
+.checkout-step.completed .step-number {
+    background: #10b981;
+    color: white;
+}
+
+.step-label {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.checkout-step.active .step-label {
+    color: var(--primary-color);
+}
+
+.plan-summary {
+    background: var(--bg-light);
     padding: 24px;
     border-radius: 12px;
     margin-bottom: 30px;
-  }
+}
 
-  .order-summary h3 {
+.plan-summary h3 {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+}
+
+.plan-summary p {
+    color: var(--text-light);
+    margin-bottom: 16px;
+}
+
+.plan-price {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--primary-color);
+    margin: 16px 0;
+}
+
+.plan-features {
+    list-style: none;
+    padding: 0;
+}
+
+.plan-features li {
+    padding: 8px 0;
+    color: var(--text-dark);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.checkbox-label input {
+    width: auto;
+    cursor: pointer;
+}
+
+.order-summary {
+    background: var(--bg-light);
+    padding: 24px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.order-summary h3 {
     margin: 0 0 20px;
     font-size: 1.25rem;
     font-weight: 700;
-  }
+}
 
-  .summary-item {
+.summary-item {
     display: flex;
     justify-content: space-between;
     padding: 12px 0;
-    border-bottom: 1px solid #e5e7eb;
-  }
+    border-bottom: 1px solid var(--border-color);
+}
 
-  .summary-item:last-child {
+.summary-item:last-child {
     border-bottom: none;
-  }
+}
 
-  .summary-item.total {
+.summary-item.total {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #7C3AED;
+    color: var(--primary-color);
     margin-top: 8px;
     padding-top: 16px;
-    border-top: 2px solid #e5e7eb;
-  }
+    border-top: 2px solid var(--border-color);
+}
 
-  .checkout-actions {
+.checkout-actions {
     display: flex;
     gap: 12px;
-  }
+}
 
-  .checkout-btn {
+.checkout-btn {
     flex: 1;
     padding: 14px 24px;
     border: none;
@@ -57,41 +594,41 @@
     cursor: pointer;
     transition: all 0.3s;
     position: relative;
-  }
+}
 
-  .checkout-btn.primary {
+.checkout-btn.primary {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
-  }
+}
 
-  .checkout-btn.primary:hover {
+.checkout-btn.primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
-  }
+}
 
-  .checkout-btn.primary:disabled {
+.checkout-btn.primary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
-  }
+}
 
-  .checkout-btn.outline {
+.checkout-btn.outline {
     background: white;
-    color: #7C3AED;
-    border: 2px solid #7C3AED;
-  }
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+}
 
-  .checkout-btn.outline:hover {
-    background: #f5f3ff;
-  }
+.checkout-btn.outline:hover {
+    background: var(--bg-light);
+}
 
-  .success-message {
+.success-message {
     text-align: center;
     padding: 40px 20px;
-  }
+}
 
-  .success-icon {
+.success-icon {
     width: 80px;
     height: 80px;
     border-radius: 50%;
@@ -103,189 +640,192 @@
     justify-content: center;
     margin: 0 auto 24px;
     animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  }
+}
 
-  @keyframes scaleIn {
+@keyframes scaleIn {
     from { 
-      transform: scale(0);
-      opacity: 0;
+        transform: scale(0);
+        opacity: 0;
     }
     to { 
-      transform: scale(1);
-      opacity: 1;
+        transform: scale(1);
+        opacity: 1;
     }
-  }
+}
 
-  .tier-note {
-    font-size: 0.85rem;
-    color: #6b7280;
-    margin-top: 12px;
-    font-style: italic;
-    text-align: center;
-  }
-
-  .success-message h3 {
+.success-message h3 {
     margin: 0 0 12px;
     font-size: 1.75rem;
     font-weight: 700;
-    color: #111827;
-  }
+    color: var(--text-dark);
+}
 
-  .success-message p {
-    color: #6b7280;
+.success-message p {
+    color: var(--text-light);
     margin-bottom: 30px;
     font-size: 1.1rem;
-  }
+}
 
-  .btn-loader {
+.btn-loader {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-  }
+}
 
-  /* Card number formatting */
-  #cardNumber {
+/* Card number formatting */
+#cardNumber {
     letter-spacing: 2px;
     font-family: 'Courier New', monospace;
-  }
+}
 
-  @media (max-width: 640px) {
+@media (max-width: 640px) {
     .checkout-modal-content {
-      padding: 24px;
+        padding: 24px;
+        margin: 20px;
     }
     
     .form-row {
-      grid-template-columns: 1fr;
+        grid-template-columns: 1fr;
     }
     
     .checkout-steps {
-      margin-bottom: 30px;
+        margin-bottom: 30px;
     }
     
     .step-label {
-      font-size: 0.75rem;
+        font-size: 0.75rem;
     }
-  }
-  </style>
+    
+    .pricing-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
 
-  <script>
-  var isLoggedIn = "<%= (typeof authUser !== 'undefined' && authUser) ? 'true' : 'false' %>";
-  let currentStep = 1;
-  let selectedTier = '';
-  let selectedName = '';
-  let selectedPrice = '';
-  let selectedFeatures = [];
-  let selectedTagline = '';
+<script>
+var isLoggedIn = "<%= (typeof authUser !== 'undefined' && authUser) ? 'true' : 'false' %>";
+let currentStep = 1;
+let selectedTier = '';
+let selectedName = '';
+let selectedPrice = '';
+let selectedFeatures = [];
+let selectedTagline = '';
 
-  function openCheckout(tierId, tierName, tierPrice, features, tagline) {
-    if (isLoggedIn) {
-      selectedTier = tierId;
-      selectedName = tierName;
-      selectedPrice = tierPrice;
-      selectedFeatures = features || [];
-      selectedTagline = tagline || '';
-      // If selecting enterprise tier, redirect to contact
-      if (tierId === 'enterprise') {
+function openCheckout(tierId, tierName, tierPrice, features, tagline) {
+    if (isLoggedIn !== 'true') {
+        window.location.href = '/login';
+        return;
+    }
+    
+    selectedTier = tierId;
+    selectedName = tierName;
+    selectedPrice = tierPrice;
+    selectedFeatures = features || [];
+    selectedTagline = tagline || '';
+    
+    // If selecting enterprise tier, redirect to contact
+    if (tierId === 'enterprise') {
         window.location.href = '/contact';
         return;
-      }
-      // If selecting free tier, just redirect to settings
-      if (tierId === 'free') {
+    }
+    
+    // If selecting free tier, just redirect to settings
+    if (tierId === 'free') {
         if (confirm('Switch to free tier?')) {
-          fetch('/api/checkout/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tier: 'free' })
-          })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success) {
-              window.location.href = '/settings?success=Switched+to+free+tier';
-            }
-          });
+            fetch('/api/checkout/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tier: 'free' })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/settings?success=Switched+to+free+tier';
+                }
+            });
         }
         return;
-      }
-      // Update modal content
-      document.getElementById('selectedPlanName').textContent = tierName;
-      document.getElementById('selectedPlanTagline').textContent = tagline;
-      document.getElementById('selectedPlanPrice').textContent = tierPrice;
-      // Update features list
-      const featuresList = document.getElementById('selectedPlanFeatures');
-      featuresList.innerHTML = '';
-      selectedFeatures.forEach(feature => {
+    }
+    
+    // Update modal content
+    document.getElementById('selectedPlanName').textContent = tierName;
+    document.getElementById('selectedPlanTagline').textContent = tagline;
+    document.getElementById('selectedPlanPrice').textContent = tierPrice;
+    
+    // Update features list
+    const featuresList = document.getElementById('selectedPlanFeatures');
+    featuresList.innerHTML = '';
+    selectedFeatures.forEach(feature => {
         const li = document.createElement('li');
         li.textContent = feature;
         featuresList.appendChild(li);
-      });
-      document.getElementById('checkoutModal').classList.add('active');
-      currentStep = 1;
-      updateStepDisplay();
-    } else {
-      window.location.href = '/login';
-    }
-  }
+    });
+    
+    document.getElementById('checkoutModal').classList.add('active');
+    currentStep = 1;
+    updateStepDisplay();
+}
 
-  function closeCheckout() {
+function closeCheckout() {
     document.getElementById('checkoutModal').classList.remove('active');
     setTimeout(() => {
-      currentStep = 1;
-      updateStepDisplay();
-      document.getElementById('paymentForm').reset();
+        currentStep = 1;
+        updateStepDisplay();
+        document.getElementById('paymentForm').reset();
     }, 300);
-  }
+}
 
-  function nextStep() {
+function nextStep() {
     if (currentStep === 2) {
-      // Validate payment form
-      const form = document.getElementById('paymentForm');
-      if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-      }
-      
-      // Update confirmation
-      const cardType = document.getElementById('cardType').value;
-      const cardNumber = document.getElementById('cardNumber').value;
-      const lastFour = cardNumber.replace(/\s/g, '').slice(-4);
-      
-      document.getElementById('confirmPlanName').textContent = selectedName;
-      document.getElementById('confirmPlanPrice').textContent = selectedPrice;
-      document.getElementById('confirmCardInfo').textContent = 
-        cardType.charAt(0).toUpperCase() + cardType.slice(1) + ' •••• ' + lastFour;
+        // Validate payment form
+        const form = document.getElementById('paymentForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        // Update confirmation
+        const cardType = document.getElementById('cardType').value;
+        const cardNumber = document.getElementById('cardNumber').value;
+        const lastFour = cardNumber.replace(/\s/g, '').slice(-4);
+        
+        document.getElementById('confirmPlanName').textContent = selectedName;
+        document.getElementById('confirmPlanPrice').textContent = selectedPrice;
+        document.getElementById('confirmCardInfo').textContent = 
+            cardType.charAt(0).toUpperCase() + cardType.slice(1) + ' •••• ' + lastFour;
     }
     
     if (currentStep < 3) {
-      currentStep++;
-      updateStepDisplay();
+        currentStep++;
+        updateStepDisplay();
     }
-  }
+}
 
-  function prevStep() {
+function prevStep() {
     if (currentStep > 1) {
-      currentStep--;
-      updateStepDisplay();
+        currentStep--;
+        updateStepDisplay();
     }
-  }
+}
 
-  function updateStepDisplay() {
+function updateStepDisplay() {
     // Update step indicators
     document.querySelectorAll('.checkout-step').forEach((step, index) => {
-      step.classList.remove('active', 'completed');
-      if (index + 1 === currentStep) {
-        step.classList.add('active');
-      } else if (index + 1 < currentStep) {
-        step.classList.add('completed');
-      }
+        step.classList.remove('active', 'completed');
+        if (index + 1 === currentStep) {
+            step.classList.add('active');
+        } else if (index + 1 < currentStep) {
+            step.classList.add('completed');
+        }
     });
     
     // Update content visibility
     document.querySelectorAll('.checkout-step-content').forEach((content, index) => {
-      content.style.display = (index + 1 === currentStep) ? 'block' : 'none';
+        content.style.display = (index + 1 === currentStep) ? 'block' : 'none';
     });
-  }
+}
 
-  function processPayment() {
+function processPayment() {
     const confirmBtn = document.getElementById('confirmBtn');
     const btnText = confirmBtn.querySelector('.btn-text');
     const btnLoader = confirmBtn.querySelector('.btn-loader');
@@ -298,57 +838,57 @@
     // Gather form data
     const cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
     const paymentData = {
-      tier: selectedTier,
-      cardType: document.getElementById('cardType').value,
-      cardNumber: cardNumber,
-      expiryMonth: document.getElementById('expiryMonth').value,
-      expiryYear: document.getElementById('expiryYear').value,
-      cvv: document.getElementById('cvv').value,
-      saveCard: document.getElementById('saveCard').checked
+        tier: selectedTier,
+        cardType: document.getElementById('cardType').value,
+        cardNumber: cardNumber,
+        expiryMonth: document.getElementById('expiryMonth').value,
+        expiryYear: document.getElementById('expiryYear').value,
+        cvv: document.getElementById('cvv').value,
+        saveCard: document.getElementById('saveCard').checked
     };
     
     // Process payment
     fetch('/api/checkout/subscribe', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(paymentData)
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(paymentData)
     })
     .then(response => response.json())
     .then(data => {
-      if (data.success) {
-        // Show success message
-        document.getElementById('successPlanName').textContent = selectedName;
-        currentStep = 4;
-        updateStepDisplay();
-      } else {
-        alert(data.error || 'Payment failed. Please try again.');
+        if (data.success) {
+            // Show success message
+            document.getElementById('successPlanName').textContent = selectedName;
+            currentStep = 4;
+            updateStepDisplay();
+        } else {
+            alert(data.error || 'Payment failed. Please try again.');
+            confirmBtn.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoader.style.display = 'none';
+        }
+    })
+    .catch(error => {
+        console.error('Payment error:', error);
+        alert('An error occurred. Please try again.');
         confirmBtn.disabled = false;
         btnText.style.display = 'inline';
         btnLoader.style.display = 'none';
-      }
-    })
-    .catch(error => {
-      console.error('Payment error:', error);
-      alert('An error occurred. Please try again.');
-      confirmBtn.disabled = false;
-      btnText.style.display = 'inline';
-      btnLoader.style.display = 'none';
     });
-  }
+}
 
-  // Format card number with spaces
-  document.addEventListener('DOMContentLoaded', function() {
+// Format card number with spaces
+document.addEventListener('DOMContentLoaded', function() {
     const cardNumberInput = document.getElementById('cardNumber');
     if (cardNumberInput) {
-      cardNumberInput.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\s/g, '');
-        let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
-        e.target.value = formattedValue;
-      });
+        cardNumberInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\s/g, '');
+            let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+            e.target.value = formattedValue;
+        });
     }
-  });
-  </script>
+});
+</script>
 
 <%- include('partials/footer') %>
