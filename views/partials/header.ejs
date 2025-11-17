@@ -40,8 +40,8 @@
                                     <li><a href="/services" class="<%= currentPage === 'services' ? 'active' : '' %>">Services</a></li>
                                     <li><a href="/pricing" class="<%= currentPage === 'pricing' ? 'active' : '' %>">Pricing</a></li>
                                     <li><a href="/billing" class="<%= currentPage === 'billing' ? 'active' : '' %>">Billing</a></li>
-                                    <li><a href="/messages" class="<%= currentPage === 'messages' ? 'active' : '' %>">Messages <% if(unreadMessageCount > 0){ %><span style="background:#ef4444;color:white;padding:2px 6px;border-radius:10px;font-size:11px;margin-left:4px;"><%= unreadMessageCount %></span><% } %></a></li>
-                                    <li><a href="#" id="notificationBell" style="position:relative;">🔔 <span id="notificationBadge" style="display:none;position:absolute;top:-4px;right:-8px;background:#ef4444;color:white;padding:2px 6px;border-radius:10px;font-size:11px;min-width:18px;text-align:center;"></span></a></li>
+                                    <li style="position:relative;"><a href="/messages" class="<%= currentPage === 'messages' ? 'active' : '' %>">Messages</a><% if(unreadMessageCount > 0){ %><span style="position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);"><%= unreadMessageCount %></span><% } %></li>
+                                    <li style="position:relative;"><a href="#" id="notificationBell">🔔</a><span id="notificationBadge" style="display:none;position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);"></span></li>
                                     
                                     <!-- User Dropdown -->
                                     <li class="nav-user dropdown">
@@ -77,3 +77,29 @@
 
     <!-- Main Content Area -->
     <main>
+        <!-- Your main content goes here -->
+    </main>
+
+    <!-- JavaScript Scripts -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var dropdownToggle = document.querySelector('.dropdown-toggle');
+        var dropdown = document.querySelector('.nav-user.dropdown');
+        if (dropdownToggle && dropdown) {
+          dropdownToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+            var expanded = dropdownToggle.getAttribute('aria-expanded') === 'true';
+            dropdownToggle.setAttribute('aria-expanded', !expanded);
+          });
+          document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target)) {
+              dropdown.classList.remove('open');
+              dropdownToggle.setAttribute('aria-expanded', 'false');
+            }
+          });
+        }
+      });
+    </script>
+</body>
+</html>

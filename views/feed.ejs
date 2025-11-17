@@ -16,61 +16,74 @@
   <!-- Main Feed Column -->
   <main class="feed-main">
     <!-- Create Post Box -->
-    <section class="create-post-box" style="background:white;border-radius:16px;padding:24px;margin-bottom:24px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-      <div class="create-post-header" style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+    <section class="create-post-box" style="background:linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,1) 100%);border-radius:20px;padding:28px;margin-bottom:28px;box-shadow:0 8px 32px rgba(0,0,0,0.08);border:1px solid rgba(255,79,163,0.1);backdrop-filter:blur(10px);">
+      <div class="create-post-header" style="display:flex;gap:14px;align-items:center;margin-bottom:18px;">
         <% if (authUser && authUser.profile_picture) { %>
-          <img src="/uploads/<%= authUser.profile_picture %>" alt="You" class="avatar avatar-sm" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">
+          <img src="/uploads/<%= authUser.profile_picture %>" alt="You" class="avatar avatar-sm" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);">
         <% } else { %>
-          <div class="avatar avatar-sm" style="width:48px;height:48px;border-radius:50%;background:#7C3AED;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;"><%= (authUser.displayName || 'Y').charAt(0) %></div>
+          <div class="avatar avatar-sm" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);"><%= (authUser.displayName || 'Y').charAt(0) %></div>
         <% } %>
-        <button type="button" onclick="openPostComposer()" class="prompt" style="flex:1;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:24px;padding:12px 20px;text-align:left;color:#6b7280;cursor:pointer;font-size:1rem;">Share a productive update...</button>
+        <button type="button" onclick="openPostComposer()" class="prompt" style="flex:1;background:#f9fafb;border:2px solid #e5e7eb;border-radius:28px;padding:14px 24px;text-align:left;color:#9ca3af;cursor:pointer;font-size:1.05rem;font-weight:500;transition:all 0.3s ease;" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.03)';this.style.color='#6b7280'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb';this.style.color='#9ca3af'">Share a productive update...</button>
       </div>
-      <div style="display:flex;gap:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
-        <button type="button" onclick="openPostComposer('image')" style="flex:1;background:none;border:none;padding:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;color:#6b7280;font-weight:500;border-radius:8px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
-          <span style="font-size:1.25rem;">📸</span> Photo
+      <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid rgba(229,231,235,0.6);">
+        <button type="button" onclick="openPostComposer('image')" style="flex:1;background:linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05));border:1px solid rgba(255,79,163,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(255,79,163,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+          <span style="font-size:1.4rem;">📸</span> <span>Photo</span>
         </button>
-        <button type="button" onclick="openPostComposer('video')" style="flex:1;background:none;border:none;padding:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;color:#6b7280;font-weight:500;border-radius:8px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
-          <span style="font-size:1.25rem;">🎬</span> Reel
+        <button type="button" onclick="openPostComposer('video')" style="flex:1;background:linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05));border:1px solid rgba(102,126,234,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(102,126,234,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+          <span style="font-size:1.4rem;">🎬</span> <span>Reel</span>
         </button>
-        <button type="button" onclick="openPostComposer('text')" style="flex:1;background:none;border:none;padding:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;color:#6b7280;font-weight:500;border-radius:8px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
-          <span style="font-size:1.25rem;">✍️</span> Text
+        <button type="button" onclick="openPostComposer('text')" style="flex:1;background:linear-gradient(135deg, rgba(124,58,237,0.05), rgba(139,92,246,0.05));border:1px solid rgba(124,58,237,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(124,58,237,0.15), rgba(139,92,246,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(124,58,237,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(124,58,237,0.05), rgba(139,92,246,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+          <span style="font-size:1.4rem;">✍️</span> <span>Text</span>
         </button>
       </div>
     </section>
 
     <!-- Post Composer Modal -->
-    <div id="postComposerModal" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px;">
-      <div style="background:white;border-radius:20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div style="padding:24px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;font-size:1.5rem;font-weight:700;">Create Post</h3>
-          <button type="button" onclick="closePostComposer()" style="background:none;border:none;font-size:1.75rem;cursor:pointer;color:#6b7280;line-height:1;">&times;</button>
+    <div id="postComposerModal" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);animation:fadeIn 0.3s ease;">
+      <div style="background:white;border-radius:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.35);animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);">
+        <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg, rgba(255,79,163,0.05) 0%, rgba(118,75,162,0.05) 100%);">
+          <h3 style="margin:0;font-size:1.75rem;font-weight:800;background:linear-gradient(135deg, #ff4fa3, #764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Create Post</h3>
+          <button type="button" onclick="closePostComposer()" style="background:rgba(107,114,128,0.1);border:none;font-size:2rem;cursor:pointer;color:#6b7280;line-height:1;width:40px;height:40px;border-radius:50%;transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(239,68,68,0.1)';this.style.color='#ef4444';this.style.transform='rotate(90deg)'" onmouseout="this.style.background='rgba(107,114,128,0.1)';this.style.color='#6b7280';this.style.transform='rotate(0deg)'">&times;</button>
         </div>
-        <form id="postForm" action="/feed/post" method="POST" enctype="multipart/form-data" style="padding:24px;">
+        <form id="postForm" action="/feed/post" method="POST" enctype="multipart/form-data" style="padding:32px;">
           <input type="hidden" id="postContentType" name="contentType" value="text">
           
-          <div style="margin-bottom:16px;">
-            <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Activity Label (optional)</label>
-            <input type="text" name="activityLabel" placeholder="e.g., Built a project, Practiced piano, Workout session" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:8px;font-size:1rem;">
+          <div style="margin-bottom:20px;">
+            <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">🏷️ Activity Label <span style="color:#6b7280;font-weight:400;font-size:0.85rem;">(optional)</span></label>
+            <input type="text" name="activityLabel" placeholder="e.g., Built a project, Practiced piano, Morning workout" style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:1rem;transition:all 0.3s ease;" onfocus="this.style.borderColor='#ff4fa3';this.style.boxShadow='0 0 0 4px rgba(255,79,163,0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
           </div>
 
-          <div style="margin-bottom:16px;">
-            <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">What did you accomplish?</label>
-            <textarea name="textContent" rows="6" placeholder="Share your progress, learnings, or wins..." style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:8px;font-size:1rem;resize:vertical;" required></textarea>
+          <div style="margin-bottom:20px;">
+            <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">✨ What did you accomplish?</label>
+            <textarea name="textContent" rows="6" placeholder="Share your progress, learnings, wins, or insights with the community..." style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:1rem;resize:vertical;transition:all 0.3s ease;font-family:inherit;line-height:1.6;" onfocus="this.style.borderColor='#ff4fa3';this.style.boxShadow='0 0 0 4px rgba(255,79,163,0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" required></textarea>
           </div>
 
-          <div id="mediaUploadSection" style="margin-bottom:16px;display:none;">
-            <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Upload Media</label>
-            <input type="file" id="mediaInput" name="media" accept="image/*,video/*" style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:8px;">
-            <div id="mediaPreview" style="margin-top:12px;"></div>
+          <div id="mediaUploadSection" style="margin-bottom:20px;display:none;">
+            <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">📎 Upload Media</label>
+            <div style="position:relative;">
+              <input type="file" id="mediaInput" name="media" accept="image/*,video/*" style="width:100%;padding:14px 16px;border:2px dashed #e5e7eb;border-radius:12px;cursor:pointer;transition:all 0.3s ease;background:#f9fafb;" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.02)'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'">
+            </div>
+            <div id="mediaPreview" style="margin-top:16px;border-radius:12px;overflow:hidden;"></div>
           </div>
 
-          <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:16px;border-top:1px solid #e5e7eb;">
-            <button type="button" onclick="closePostComposer()" style="padding:10px 24px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-weight:600;cursor:pointer;">Cancel</button>
-            <button type="submit" style="padding:10px 24px;background:#7C3AED;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Post</button>
+          <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:20px;border-top:1px solid #e5e7eb;">
+            <button type="button" onclick="closePostComposer()" style="padding:12px 28px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;color:#374151;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
+            <button type="submit" style="padding:12px 32px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 16px rgba(255,79,163,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(255,79,163,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.3)'">✨ Publish Post</button>
           </div>
         </form>
       </div>
     </div>
+
+    <style>
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+    </style>
 
     <script>
       function openPostComposer(type = 'text') {
@@ -179,8 +192,39 @@
   <aside class="feed-sidebar right-sidebar">
     <h2 class="sidebar-title">Find People</h2>
     <div class="user-search-box" style="background:white;border-radius:12px;padding:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);margin-bottom:16px;">
-      <input id="userSearchInput" type="text" placeholder="Search by name or email" aria-label="Search users" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;">
+      <input id="userSearchInput" type="text" placeholder="Search by name, email, or passion" aria-label="Search users" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;">
       <ul id="userSearchResults" style="list-style:none;margin:12px 0 0 0;padding:0;max-height:260px;overflow:auto;display:none;"></ul>
+    </div>
+
+    <h2 class="sidebar-title">Trending Posts</h2>
+    <div class="trending-posts">
+      <% trendingPosts.forEach(function(tp){ %>
+        <div class="trending-post-card">
+          <div class="avatar avatar-sm"><%= tp.user.charAt(0) %></div>
+          <div class="trending-info">
+            <span class="trending-title"><%= tp.title %></span>
+            <span class="trending-user"><%= tp.user %></span>
+          </div>
+          <a href="/profile/<%= tp.userId %>" class="view-btn">View</a>
+        </div>
+      <% }); %>
+    </div>
+
+    <h2 class="sidebar-title">Recent Activity</h2>
+    <div class="recent-activity">
+      <% recentActivity.forEach(function(act){ %>
+        <div class="activity-card">
+          <span class="activity-desc"><%= act.desc %></span>
+          <span class="activity-time"><%= act.time %></span>
+        </div>
+      <% }); %>
+    </div>
+
+    <h2 class="sidebar-title">Top Passions</h2>
+    <div class="top-passions">
+      <% topPassions.forEach(function(p){ %>
+        <span class="passion-pill"><%= p %></span>
+      <% }); %>
     </div>
 
     <h2 class="sidebar-title">Suggested Creators to Follow</h2>

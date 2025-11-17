@@ -36,6 +36,43 @@
         })();
     </script>
     
+    <!-- Navbar scroll enhancement -->
+    <script>
+        (function() {
+            const navbar = document.querySelector('.navbar');
+            if (!navbar) return;
+            
+            let lastScroll = 0;
+            window.addEventListener('scroll', function() {
+                const currentScroll = window.pageYOffset;
+                
+                if (currentScroll > 50) {
+                    navbar.classList.add('scrolled');
+                } else {
+                    navbar.classList.remove('scrolled');
+                }
+                
+                lastScroll = currentScroll;
+            });
+            
+            // Dropdown toggle for user menu
+            const dropdown = document.querySelector('.nav-user');
+            if (dropdown) {
+                const toggle = dropdown.querySelector('.dropdown-toggle');
+                if (toggle) {
+                    toggle.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        dropdown.classList.toggle('open');
+                    });
+                    
+                    document.addEventListener('click', function() {
+                        dropdown.classList.remove('open');
+                    });
+                }
+            }
+        })();
+    </script>
+    
     <% if(typeof authUser !== 'undefined' && authUser){ %>
     <!-- Notification Panel HTML -->
     <div id="notificationPanel" style="display:none;position:fixed;top:60px;right:20px;width:360px;max-height:500px;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:9999;overflow:hidden;">

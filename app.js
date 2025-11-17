@@ -805,11 +805,25 @@ app.get('/feed', (req, res) => {
         { user: 'Clara Dawson', passion: 'Photography' },
         { user: 'Jun Park', passion: 'Design' }
     ];
+    const trendingPosts = [
+        { user: 'Nora Fields', userId: 1, title: 'How I wrote 10k words in a week' },
+        { user: 'Ethan Brooks', userId: 2, title: 'Startup launch tips' },
+        { user: 'Clara Dawson', userId: 3, title: 'Best nature photos of 2025' }
+    ];
+    const recentActivity = [
+        { desc: 'Nora Fields published a new post', time: '2m ago' },
+        { desc: 'Ethan Brooks commented on a post', time: '10m ago' },
+        { desc: 'Jun Park updated their profile', time: '1h ago' }
+    ];
+    const topPassions = ['Writing', 'Entrepreneurship', 'Photography', 'Design', 'Coding'];
     res.render('feed', {
         title: 'Your Feed - Dream X',
         currentPage: 'feed',
         posts,
-        suggestions
+        suggestions,
+        trendingPosts,
+        recentActivity,
+        topPassions
     });
 });
 
