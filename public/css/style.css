@@ -490,23 +490,68 @@ main {
 
 /* === HERO SECTION === */
 .hero {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, var(--primary-color) 100%);
+    background: linear-gradient(-45deg, #667eea, #764ba2, var(--primary-color), #f093fb);
+    background-size: 400% 400%;
+    animation: gradientFlow 15s ease infinite;
     color: white;
-    padding: var(--spacing-xl) var(--spacing-md);
+    padding: var(--spacing-2xl) var(--spacing-md);
     text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+@keyframes gradientFlow {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: floatPattern 20s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes floatPattern {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(50px, 50px); }
 }
 
 .hero-title {
-    font-size: 2.5rem;
-    font-weight: bold;
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800;
     margin-bottom: var(--spacing-sm);
     line-height: 1.2;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    letter-spacing: -0.02em;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .hero-subtitle {
-    font-size: 1.25rem;
-    margin-bottom: var(--spacing-md);
+    font-size: clamp(1rem, 3vw, 1.25rem);
+    margin-bottom: var(--spacing-lg);
     opacity: 0.95;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    animation: fadeInUp 1s ease-out 0.2s both;
 }
 
 .hero-buttons {
@@ -514,6 +559,7 @@ main {
     gap: var(--spacing-sm);
     justify-content: center;
     flex-wrap: wrap;
+    animation: fadeInUp 1.2s ease-out 0.4s both;
 }
 
 /* === BUTTONS === */
@@ -576,32 +622,66 @@ main {
 .features-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: var(--spacing-md);
-    margin-top: var(--spacing-lg);
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-2xl);
 }
 
 .feature-card {
-    background-color: var(--bg-light);
-    padding: var(--spacing-md);
-    border-radius: var(--radius-lg);
-    transition: var(--transition-smooth);
-    border: 2px solid transparent;
+    background: linear-gradient(135deg, var(--bg-white) 0%, var(--bg-light) 100%);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-xl);
+    transition: all var(--transition-smooth);
+    border: 2px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 79, 163, 0.08), transparent);
+    transition: left 0.6s ease;
+}
+
+.feature-card:hover::before {
+    left: 100%;
 }
 
 .feature-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(255, 79, 163, 0.15);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: var(--shadow-xl), 0 0 0 1px rgba(255, 79, 163, 0.2);
     border-color: var(--primary-color);
 }
 
+.feature-card:nth-child(1) {
+    animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+.feature-card:nth-child(2) {
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+.feature-card:nth-child(3) {
+    animation: fadeInUp 0.6s ease-out 0.3s both;
+}
+
 .feature-card h3 {
-    font-size: 1.25rem;
+    font-size: var(--font-size-xl);
     margin-bottom: var(--spacing-sm);
     color: var(--text-dark);
+    font-weight: 700;
 }
 
 .feature-card p {
-    color: var(--text-light);
+    color: var(--text-medium);
+    line-height: 1.8;
+    font-size: var(--font-size-base);
+}
     line-height: 1.7;
 }
 
