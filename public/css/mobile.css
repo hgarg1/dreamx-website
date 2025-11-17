@@ -1,8 +1,19 @@
 /* Mobile-First Responsive Styles for Dream X */
 
-/* Base Mobile Styles */
+/* =============================
+   RESPONSIVE BREAKPOINTS
+   ============================= */
+/* xs: < 480px */
+/* sm: 480px - 768px */
+/* md: 768px - 1024px */
+/* lg: 1024px - 1200px */
+/* xl: > 1200px */
+
+/* =============================
+   BASE MOBILE OPTIMIZATIONS
+   ============================= */
 @media (max-width: 768px) {
-  /* Typography */
+  /* Typography - Better readability on mobile */
   html {
     font-size: 14px;
   }
@@ -11,9 +22,24 @@
     overflow-x: hidden;
   }
 
-  /* Header */
+  /* Improved spacing for mobile */
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+
+  /* =============================
+     NAVIGATION
+     ============================= */
   header .logo {
     font-size: 1.2rem;
+  }
+
+  header .logo img {
+    height: 32px;
+  }
+
+  .navbar {
+    padding: 0.5rem 0;
   }
 
   .header-nav {
