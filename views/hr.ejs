@@ -1,0 +1,112 @@
+<%- include('partials/header') %>
+
+<link rel="stylesheet" href="/css/admin.css">
+<section class="admin-wrapper">
+  <header class="admin-header">
+    <h1>HR Review</h1>
+    <p>Review and manage career applications</p>
+  </header>
+
+  <% if (typeof success !== 'undefined' && success) { %>
+    <div class="admin-alert admin-alert-success"><%= success %></div>
+  <% } %>
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="admin-alert admin-alert-error"><%= error %></div>
+  <% } %>
+
+  <div class="admin-card">
+    <div class="panel-head"><h2>Applications</h2></div>
+    <div class="table-wrap">
+      <div style="margin:6px 0 10px; display:flex; gap:8px; align-items:center;">
+        <input type="text" id="filterHrCareers" placeholder="Filter by position, name, email..." class="admin-search-input" style="max-width:300px;">
+        <span class="muted">Click an ID to view details</span>
+      </div>
+      <table class="admin-table">
+        <thead>
+          <tr><th>ID</th><th>Position</th><th>Name</th><th>Email</th><th>Phone</th><th>Resume</th><th>Portfolio</th><th>Status</th><th>Submitted</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <% (careers || []).forEach(c => { %>
+            <tr class="row-career" data-position="<%= c.position %>" data-name="<%= c.name %>" data-email="<%= c.email %>" data-status="<%= c.status || 'new' %>">
+              <td><a href="#" class="career-view" data-id="<%= c.id %>" data-json='<%- JSON.stringify(c) %>'>#<%= c.id %></a></td>
+              <td><%= c.position %></td>
+              <td><%= c.name %></td>
+              <td><a href="mailto:<%= c.email %>"><%= c.email %></a></td>
+              <td><%= c.phone || '-' %></td>
+              <td><% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank">View</a><% } else { %>-<% } %></td>
+              <td><% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank">View</a><% } else { %>-<% } %></td>
+              <td><span class="chip <%= (c.status||'new') %>"><%= c.status || 'new' %></span></td>
+              <td><%= new Date(c.created_at).toLocaleString() %></td>
+              <td>
+                <form action="/admin/careers/<%= c.id %>/status" method="POST" class="inline-form">
+                  <select name="status">
+                    <option value="new" <%= (c.status||'new')==='new'?'selected':'' %>>New</option>
+                    <option value="under_review" <%= c.status==='under_review'?'selected':'' %>>Under Review</option>
+                    <option value="accepted" <%= c.status==='accepted'?'selected':'' %>>Accepted</option>
+                    <option value="rejected" <%= c.status==='rejected'?'selected':'' %>>Rejected</option>
+                  </select>
+                  <button class="btn" type="submit">Save</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!careers || !careers.length) { %>
+            <tr><td colspan="10" class="muted">No applications yet.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>
+
+<script>
+// Filter
+const f = document.getElementById('filterHrCareers');
+if (f){
+  f.addEventListener('input', () => {
+    const q = f.value.trim().toLowerCase();
+    document.querySelectorAll('.row-career').forEach(tr => {
+      const hay = ['position','name','email','status'].map(k => (tr.getAttribute('data-' + k) || '').toLowerCase()).join(' ');
+      tr.style.display = hay.includes(q) ? '' : 'none';
+    });
+  });
+}
+
+// Detail modal
+const careerModal = document.createElement('div');
+careerModal.className = 'modal';
+careerModal.style.display = 'none';
+careerModal.innerHTML = `
+  <div class="modal-content" style="max-width:700px;">
+    <span class="modal-close" id="cmClose">&times;</span>
+    <h3>Application Details</h3>
+    <div id="cmBody" class="pre-wrap"></div>
+  </div>`;
+document.body.appendChild(careerModal);
+document.getElementById('cmClose')?.addEventListener('click', () => careerModal.style.display='none');
+document.addEventListener('click', (e) => { if (e.target === careerModal) careerModal.style.display='none'; });
+document.querySelectorAll('.career-view').forEach(a => {
+  a.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    try {
+      const obj = JSON.parse(a.getAttribute('data-json'));
+      const html = `
+        <p><strong>Position:</strong> ${obj.position}</p>
+        <p><strong>Name:</strong> ${obj.name} &lt;${obj.email}&gt;</p>
+        <p><strong>Phone:</strong> ${obj.phone || '-'}</p>
+        <p><strong>Status:</strong> ${obj.status || 'new'}</p>
+        <p><strong>Submitted:</strong> ${new Date(obj.created_at).toLocaleString()}</p>
+        <p><strong>Cover Letter:</strong></p>
+        <div class="pre-wrap" style="border:1px solid var(--admin-border); padding:10px; border-radius:10px;">${(obj.cover_letter || '').replace(/</g,'&lt;')}</div>
+        <p style="margin-top:10px;">
+          ${obj.resume_file ? `<a href="${obj.resume_file}" target="_blank">Resume</a>` : ''}
+          ${obj.portfolio_file ? ` | <a href="${obj.portfolio_file}" target="_blank">Portfolio</a>` : ''}
+        </p>`;
+      document.getElementById('cmBody').innerHTML = html;
+      careerModal.style.display = 'flex';
+    } catch {}
+  });
+});
+</script>

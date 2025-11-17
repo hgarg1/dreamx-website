@@ -128,56 +128,67 @@
     </div>
 </div>
 
-<!-- Career Application Modal -->
+<!-- Career Application Modal (Wizard) -->
 <div id="careerModal" class="modal" style="display: none;">
     <div class="modal-content">
         <span class="modal-close" onclick="closeCareerForm()">&times;</span>
         <h2>Apply for <span id="positionTitle"></span></h2>
-        <form id="careerForm" class="career-application-form">
-            <input type="hidden" id="position" name="position" />
-            
-            <div class="form-row">
-                <label for="applicantName" class="form-label">Full Name *</label>
-                <input type="text" id="applicantName" name="name" class="form-input" required />
+        <div class="wizard">
+            <div class="wizard-steps">
+                <div class="wizard-step-indicator" data-step="1">1. Info</div>
+                <div class="wizard-step-indicator" data-step="2">2. Letter</div>
+                <div class="wizard-step-indicator" data-step="3">3. Upload</div>
             </div>
+            <form id="careerForm" class="career-application-form" enctype="multipart/form-data">
+                <input type="hidden" id="position" name="position" />
 
-            <div class="form-row">
-                <label for="applicantEmail" class="form-label">Email Address *</label>
-                <input type="email" id="applicantEmail" name="email" class="form-input" required />
-            </div>
+                <div class="wizard-pane" data-step="1">
+                    <div class="form-row">
+                        <label for="applicantName" class="form-label">Full Name *</label>
+                        <input type="text" id="applicantName" name="name" class="form-input" required />
+                    </div>
+                    <div class="form-row">
+                        <label for="applicantEmail" class="form-label">Email Address *</label>
+                        <input type="email" id="applicantEmail" name="email" class="form-input" required />
+                    </div>
+                    <div class="form-row">
+                        <label for="applicantPhone" class="form-label">Phone Number</label>
+                        <input type="tel" id="applicantPhone" name="phone" class="form-input" />
+                    </div>
+                </div>
 
-            <div class="form-row">
-                <label for="applicantPhone" class="form-label">Phone Number</label>
-                <input type="tel" id="applicantPhone" name="phone" class="form-input" />
-            </div>
+                <div class="wizard-pane" data-step="2" style="display:none;">
+                    <div class="form-row">
+                        <label for="coverLetter" class="form-label">Cover Letter / Why You? *</label>
+                        <textarea id="coverLetter" name="coverLetter" rows="8" class="form-textarea" placeholder="Tell us why you're a great fit for this role..." required></textarea>
+                        <small class="hint">Be specific. Reference past projects, relevant outcomes, and what excites you about Dream X.</small>
+                    </div>
+                </div>
 
-            <div class="form-row">
-                <label for="coverLetter" class="form-label">Cover Letter / Why You? *</label>
-                <textarea id="coverLetter" name="coverLetter" rows="6" class="form-textarea" 
-                    placeholder="Tell us why you're a great fit for this role..." required></textarea>
-            </div>
+                <div class="wizard-pane" data-step="3" style="display:none;">
+                    <div class="form-row">
+                        <label for="resumeFile" class="form-label">Resume/CV (PDF, DOC, DOCX)</label>
+                        <input type="file" id="resumeFile" name="resumeFile" accept=".pdf,.doc,.docx" class="form-input" />
+                        <small class="hint">PDF preferred. Max 15MB.</small>
+                    </div>
+                    <div class="form-row">
+                        <label for="portfolioFile" class="form-label">Portfolio (ZIP or Images)</label>
+                        <input type="file" id="portfolioFile" name="portfolioFile" accept=".zip,.png,.jpg,.jpeg,.webp" class="form-input" />
+                        <small class="hint">Optional. Upload a ZIP or a representative image.</small>
+                    </div>
+                </div>
 
-            <div class="form-row">
-                <label for="resume" class="form-label">Resume/CV Link</label>
-                <input type="url" id="resume" name="resume" class="form-input" 
-                    placeholder="https://..." />
-                <small class="hint">Link to your resume (Google Drive, Dropbox, etc.)</small>
-            </div>
-
-            <div class="form-row">
-                <label for="portfolio" class="form-label">Portfolio/Website</label>
-                <input type="url" id="portfolio" name="portfolio" class="form-input" 
-                    placeholder="https://..." />
-            </div>
-
-            <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="closeCareerForm()">Cancel</button>
-                <button type="submit" class="btn-primary">Submit Application</button>
-            </div>
-        </form>
-        <div id="careerFormMessage" style="display: none;"></div>
+                <div class="wizard-actions">
+                    <button type="button" class="btn-light" id="btnBack" onclick="prevStep()">Back</button>
+                    <div class="spacer"></div>
+                    <button type="button" class="btn-primary" id="btnNext" onclick="nextStep()">Next</button>
+                    <button type="submit" class="btn-primary" id="btnSubmit" style="display:none;">Submit Application</button>
+                </div>
+            </form>
+            <div id="careerFormMessage" style="display: none;"></div>
+        </div>
     </div>
-</div>
+    </div>
 
 <style>
 .job-listings {
@@ -328,6 +339,23 @@
     gap: 1.5rem;
 }
 
+/* Wizard UI */
+.wizard { margin-top: .5rem; }
+.wizard-steps { display:flex; gap:.5rem; margin: .25rem 0 1rem; }
+.wizard-step-indicator { flex:1; text-align:center; padding:.5rem; border:1px solid var(--border-color); border-radius: 10px; color: var(--text-light); font-weight:700; }
+.wizard-step-indicator.active { border-color: var(--primary-color); color: var(--primary-color); box-shadow: 0 0 0 2px rgba(255,79,163,.12); }
+.wizard-pane { animation: fadeIn .2s ease; }
+.wizard-actions { display:flex; align-items:center; gap:.5rem; margin-top:.5rem; }
+.wizard-actions .spacer { flex:1; }
+.btn-light { background: transparent; border:1px solid var(--border-color); color: var(--text-dark); padding:.6rem 1rem; border-radius:10px; cursor:pointer; }
+.btn-primary { background: linear-gradient(135deg, #ff4fa3, #7c5cff); color:#fff; border:none; padding:.6rem 1rem; border-radius:10px; cursor:pointer; font-weight:700; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px);} to { opacity:1; transform: translateY(0);} }
+
+/* Inline validation */
+.form-input.invalid, .form-textarea.invalid { border: 2px solid #ff4f4f; outline: none; }
+.field-hint { font-size:.85rem; color: var(--text-light); }
+
 #careerFormMessage {
     padding: 1rem;
     border-radius: var(--radius-md);
@@ -367,6 +395,7 @@ function openCareerForm(position) {
     document.getElementById('careerForm').reset();
     document.getElementById('position').value = position;
     document.getElementById('careerFormMessage').style.display = 'none';
+    setStep(1);
 }
 
 function closeCareerForm() {
@@ -381,53 +410,92 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// Handle form submission
-document.getElementById('careerForm').addEventListener('submit', async function(e) {
+// Wizard logic + submission
+let currentStep = 1;
+const totalSteps = 3;
+function setStep(step){
+    currentStep = Math.max(1, Math.min(step, totalSteps));
+    document.querySelectorAll('#careerForm .wizard-pane').forEach(p => {
+        const s = parseInt(p.getAttribute('data-step'));
+        p.style.display = (s === currentStep) ? '' : 'none';
+    });
+    document.querySelectorAll('.wizard-step-indicator').forEach(ind => {
+        const s = parseInt(ind.getAttribute('data-step'));
+        ind.classList.toggle('active', s === currentStep);
+    });
+    document.getElementById('btnBack').style.display = currentStep === 1 ? 'none' : '';
+    document.getElementById('btnNext').style.display = currentStep === totalSteps ? 'none' : '';
+    document.getElementById('btnSubmit').style.display = currentStep === totalSteps ? '' : 'none';
+}
+function nextStep(){
+    if (currentStep === 1){
+        const name = document.getElementById('applicantName').value.trim();
+        const email = document.getElementById('applicantEmail').value.trim();
+        const nameEl = document.getElementById('applicantName');
+        const emailEl = document.getElementById('applicantEmail');
+        nameEl.classList.toggle('invalid', !name);
+        emailEl.classList.toggle('invalid', !email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email));
+        if (!name || !email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+            showCareerMsg('Please provide name and email to proceed.', false);
+            return;
+        }
+    }
+    if (currentStep === 2){
+        const cl = document.getElementById('coverLetter').value.trim();
+        const clEl = document.getElementById('coverLetter');
+        clEl.classList.toggle('invalid', !cl);
+        if (!cl){
+            showCareerMsg('Please add a short cover letter.', false);
+            return;
+        }
+    }
+    setStep(currentStep + 1);
+}
+function prevStep(){ setStep(currentStep - 1); }
+function showCareerMsg(text, success){
+    const el = document.getElementById('careerFormMessage');
+    el.textContent = text;
+    el.className = success ? 'success' : 'error';
+    el.style.display = 'block';
+}
+document.getElementById('careerForm').addEventListener('submit', async function(e){
     e.preventDefault();
-    
-    const formData = new FormData(this);
-    const data = Object.fromEntries(formData.entries());
-    
-    const submitBtn = this.querySelector('button[type="submit"]');
+    const submitBtn = document.getElementById('btnSubmit');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = 'Submitting...';
     submitBtn.disabled = true;
-    
     try {
-        const response = await fetch('/api/careers/apply', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-        const messageDiv = document.getElementById('careerFormMessage');
-        
-        if (response.ok) {
-            messageDiv.textContent = result.message || 'Application submitted successfully!';
-            messageDiv.className = 'success';
-            messageDiv.style.display = 'block';
+        const fd = new FormData();
+        fd.append('position', document.getElementById('position').value);
+        fd.append('name', document.getElementById('applicantName').value.trim());
+        fd.append('email', document.getElementById('applicantEmail').value.trim());
+        fd.append('phone', document.getElementById('applicantPhone').value.trim());
+        fd.append('coverLetter', document.getElementById('coverLetter').value.trim());
+        const resume = document.getElementById('resumeFile').files[0];
+        const portfolio = document.getElementById('portfolioFile').files[0];
+        if (resume) fd.append('resumeFile', resume);
+        if (portfolio) fd.append('portfolioFile', portfolio);
+        const response = await fetch('/api/careers/apply', { method: 'POST', body: fd });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok){
+            showCareerMsg(result.message || 'Application submitted successfully!', true);
             this.reset();
-            
-            setTimeout(() => {
-                closeCareerForm();
-            }, 3000);
+            setTimeout(() => { closeCareerForm(); }, 2500);
         } else {
-            messageDiv.textContent = result.error || 'Failed to submit application. Please try again.';
-            messageDiv.className = 'error';
-            messageDiv.style.display = 'block';
+            showCareerMsg(result.error || 'Failed to submit application. Please try again.', false);
         }
-    } catch (error) {
-        const messageDiv = document.getElementById('careerFormMessage');
-        messageDiv.textContent = 'An error occurred. Please try again later.';
-        messageDiv.className = 'error';
-        messageDiv.style.display = 'block';
+    } catch (err){
+        showCareerMsg('An error occurred. Please try again later.', false);
     } finally {
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
     }
+});
+
+// Live remove invalid styles on input
+['applicantName','applicantEmail','coverLetter'].forEach(id => {
+    const el = document.getElementById(id);
+    el && el.addEventListener('input', () => el.classList.remove('invalid'));
 });
 </script>
 

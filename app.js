@@ -102,6 +102,34 @@ const chatUpload = multer({
   }
 });
 
+// Career application uploads (resume/portfolio)
+const careerStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, path.join(__dirname, 'public', 'uploads'));
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'career-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const careerUpload = multer({
+    storage: careerStorage,
+    limits: { fileSize: 15 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const m = (file.mimetype || '').toLowerCase();
+        const allowed = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/zip',
+            'application/x-zip-compressed',
+            'image/png','image/jpeg','image/jpg','image/webp'
+        ];
+        if (allowed.includes(m)) return cb(null, true);
+        cb(new Error('Unsupported file type for application'));
+    }
+});
+
 // Set EJS as the view engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -374,6 +402,7 @@ app.use((req, res, next) => {
 
 // RBAC helpers
 const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin');
+const isHR = (user) => user && user.role === 'hr';
 const isSuperAdmin = (user) => user && user.role === 'super_admin';
 const requireAdmin = (req, res, next) => {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
@@ -383,6 +412,11 @@ const requireAdmin = (req, res, next) => {
 const requireSuperAdmin = (req, res, next) => {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
     if (!isSuperAdmin(user)) return res.redirect('/admin?error=Insufficient+permissions');
+    next();
+};
+const requireHR = (req, res, next) => {
+    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!isHR(user)) return res.redirect('/');
     next();
 };
 
@@ -574,9 +608,10 @@ app.get('/', (req, res) => {
     });
 });
 
-// Admin dashboard with pagination and audit logs
+// Admin dashboard with pagination, audit logs, and queues
 app.get('/admin', requireAdmin, (req, res) => {
     const stats = getStats();
+    // Users tab pagination
     const pageSize = 20;
     const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
     const q = (req.query.q || '').trim();
@@ -587,6 +622,31 @@ app.get('/admin', requireAdmin, (req, res) => {
     // Super admins can see recent audit logs
     const me = req.session.userId ? getUserById(req.session.userId) : null;
     const logs = (me && me.role === 'super_admin') ? getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
+
+    // Queue pagination (server-side, hasMore style)
+    const qLimit = 20;
+    const cPage = Math.max(parseInt(req.query.cPage || '1', 10) || 1, 1);
+    const caPage = Math.max(parseInt(req.query.caPage || '1', 10) || 1, 1);
+    const aaPage = Math.max(parseInt(req.query.aaPage || '1', 10) || 1, 1);
+    const cStatus = (req.query.cStatus || '').toLowerCase() || undefined;
+    const caStatus = (req.query.caStatus || '').toLowerCase() || undefined;
+    const aaStatus = (req.query.aaStatus || '').toLowerCase() || undefined;
+
+    let careers = [], contentAppeals = [], accountAppeals = [];
+    let cHasMore = false, caHasMore = false, aaHasMore = false;
+    try {
+        const cOffset = (cPage - 1) * qLimit;
+        const caOffset = (caPage - 1) * qLimit;
+        const aaOffset = (aaPage - 1) * qLimit;
+        const dbm = require('./db');
+        careers = dbm.getCareerApplicationsPaged({ limit: qLimit + 1, offset: cOffset, status: cStatus });
+        contentAppeals = dbm.getContentAppealsPaged({ limit: qLimit + 1, offset: caOffset, status: caStatus });
+        accountAppeals = dbm.getAccountAppealsPaged({ limit: qLimit + 1, offset: aaOffset, status: aaStatus });
+        // hasMore detection
+        if (careers.length > qLimit) { cHasMore = true; careers = careers.slice(0, qLimit); }
+        if (contentAppeals.length > qLimit) { caHasMore = true; contentAppeals = contentAppeals.slice(0, qLimit); }
+        if (accountAppeals.length > qLimit) { aaHasMore = true; accountAppeals = accountAppeals.slice(0, qLimit); }
+    } catch(e) { console.warn('Queue fetch error:', e.message); }
 
     res.render('admin-consolidated', {
         title: 'Admin Dashboard - Dream X',
@@ -599,6 +659,12 @@ app.get('/admin', requireAdmin, (req, res) => {
         total,
         q,
         logs,
+        careers,
+        contentAppeals,
+        accountAppeals,
+        cPage, caPage, aaPage,
+        cHasMore, caHasMore, aaHasMore,
+        cStatus, caStatus, aaStatus,
         error: req.query.error,
         success: req.query.success
     });
@@ -650,6 +716,49 @@ app.get('/admin/export/messages.csv', requireAdmin, (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="messages.csv"');
     res.send(csv);
+});
+
+// HR review portal
+app.get('/hr', requireHR, (req, res) => {
+    const me = getUserById(req.session.userId);
+    const careers = require('./db').getCareerApplicationsPaged({ limit: 100, offset: 0 });
+    res.render('hr', {
+        title: 'HR Review - Dream X',
+        currentPage: 'hr',
+        authUser: me,
+        careers,
+        success: req.query.success,
+        error: req.query.error
+    });
+});
+
+// Status update endpoints
+app.post('/admin/careers/:id/status', requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const status = (req.body.status || '').toLowerCase();
+    const valid = ['new','under_review','accepted','rejected'];
+    if (!valid.includes(status)) return res.redirect('/admin?error=Invalid+status');
+    require('./db').updateCareerApplicationStatus({ id, status, reviewerId: req.session.userId });
+    try { addAuditLog({ userId: req.session.userId, action: 'career_status_update', details: JSON.stringify({ id, status }) }); } catch(e){}
+    res.redirect('/admin?success=Career+application+updated');
+});
+app.post('/admin/appeals/content/:id/status', requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const status = (req.body.status || '').toLowerCase();
+    const valid = ['open','under_review','approved','denied'];
+    if (!valid.includes(status)) return res.redirect('/admin?error=Invalid+status');
+    require('./db').updateContentAppealStatus({ id, status, reviewerId: req.session.userId });
+    try { addAuditLog({ userId: req.session.userId, action: 'content_appeal_status_update', details: JSON.stringify({ id, status }) }); } catch(e){}
+    res.redirect('/admin?success=Content+appeal+updated');
+});
+app.post('/admin/appeals/account/:id/status', requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const status = (req.body.status || '').toLowerCase();
+    const valid = ['open','under_review','approved','denied'];
+    if (!valid.includes(status)) return res.redirect('/admin?error=Invalid+status');
+    require('./db').updateAccountAppealStatus({ id, status, reviewerId: req.session.userId });
+    try { addAuditLog({ userId: req.session.userId, action: 'account_appeal_status_update', details: JSON.stringify({ id, status }) }); } catch(e){}
+    res.redirect('/admin?success=Account+appeal+updated');
 });
 
 // Registration page
@@ -787,6 +896,9 @@ app.post('/login', async (req, res) => {
     req.session.userId = user.id;
     if (user.role === 'admin' || user.role === 'super_admin') {
         return res.redirect('/admin');
+    }
+    if (user.role === 'hr') {
+        return res.redirect('/hr');
     }
     res.redirect('/feed');
 });
@@ -1926,36 +2038,18 @@ app.post('/api/push/unsubscribe', express.json(), (req, res) => {
 });
 
 // === APPEAL ROUTES ===
-// Submit content appeal
-// Submit career application
-app.post('/api/careers/apply', (req, res) => {
+// Submit career application (with file upload)
+app.post('/api/careers/apply', careerUpload.fields([{ name: 'resumeFile', maxCount: 1 }, { name: 'portfolioFile', maxCount: 1 }]), (req, res) => {
     try {
-        const { position, name, email, phone, coverLetter, resume, portfolio } = req.body;
-        
-        // Validate required fields
+        const { position, name, email, phone, coverLetter } = req.body;
         if (!position || !name || !email || !coverLetter) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-
-        // In a real implementation, save to database
-        console.log('💼 Career application received:', {
-            position,
-            name,
-            email,
-            phone,
-            timestamp: new Date().toISOString()
-        });
-
-        // TODO: Save to applications table in database
-        // TODO: Send confirmation email to applicant
-        // TODO: Notify HR team
-        // TODO: Store resume/portfolio files
-
-        res.json({ 
-            success: true, 
-            message: 'Your application has been submitted successfully. We will review it and get back to you soon.',
-            applicationId: 'JOB-' + Date.now()
-        });
+        const resumeFile = (req.files && req.files.resumeFile && req.files.resumeFile[0]) ? `/uploads/${req.files.resumeFile[0].filename}` : null;
+        const portfolioFile = (req.files && req.files.portfolioFile && req.files.portfolioFile[0]) ? `/uploads/${req.files.portfolioFile[0].filename}` : null;
+        const id = require('./db').createCareerApplication({ position, name, email, phone, coverLetter, resumeFile, portfolioFile });
+        try { addAuditLog({ userId: req.session.userId || null, action: 'career_application_submitted', details: JSON.stringify({ id, email, position }) }); } catch(e) {}
+        res.json({ success: true, message: 'Your application has been submitted successfully. We will review it and get back to you soon.', applicationId: `JOB-${id}` });
     } catch (error) {
         console.error('Error processing career application:', error);
         res.status(500).json({ error: 'Failed to submit application' });
@@ -1972,26 +2066,9 @@ app.post('/api/appeals/content', (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // In a real implementation, save to database
-        // For now, just log and send success response
-        console.log('📝 Content appeal received:', {
-            email,
-            contentType,
-            contentUrl,
-            removalReason,
-            appealReason: appealReason.substring(0, 100) + '...',
-            timestamp: new Date().toISOString()
-        });
-
-        // TODO: Save to appeals table in database
-        // TODO: Send confirmation email to user
-        // TODO: Notify moderation team
-
-        res.json({ 
-            success: true, 
-            message: 'Your appeal has been submitted. You will receive a response within 3-5 business days.',
-            caseNumber: 'CA-' + Date.now()
-        });
+        const id = require('./db').createContentAppeal({ email, contentType, contentUrl, removalReason, description, appealReason, additionalInfo });
+        try { addAuditLog({ userId: req.session.userId || null, action: 'content_appeal_submitted', details: JSON.stringify({ id, email }) }); } catch(e) {}
+        res.json({ success: true, message: 'Your appeal has been submitted. You will receive a response within 3-5 business days.', caseNumber: `CA-${id}` });
     } catch (error) {
         console.error('Error processing content appeal:', error);
         res.status(500).json({ error: 'Failed to submit appeal' });
@@ -2018,26 +2095,9 @@ app.post('/api/appeals/account', (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // In a real implementation, save to database
-        console.log('📝 Account appeal received:', {
-            email,
-            username,
-            accountAction,
-            violationReason,
-            appealReason: appealReason.substring(0, 100) + '...',
-            timestamp: new Date().toISOString()
-        });
-
-        // TODO: Save to appeals table in database
-        // TODO: Send confirmation email to user
-        // TODO: Notify moderation/security team
-        // TODO: Create review ticket
-
-        res.json({ 
-            success: true, 
-            message: 'Your account appeal has been submitted. You will receive a decision within 3-5 business days.',
-            caseNumber: 'AA-' + Date.now()
-        });
+        const id = require('./db').createAccountAppeal({ email, username, accountAction, actionDate, violationReason, appealReason, preventionPlan, additionalInfo, contactEmail });
+        try { addAuditLog({ userId: req.session.userId || null, action: 'account_appeal_submitted', details: JSON.stringify({ id, email }) }); } catch(e) {}
+        res.json({ success: true, message: 'Your account appeal has been submitted. You will receive a decision within 3-5 business days.', caseNumber: `AA-${id}` });
     } catch (error) {
         console.error('Error processing account appeal:', error);
         res.status(500).json({ error: 'Failed to submit appeal' });

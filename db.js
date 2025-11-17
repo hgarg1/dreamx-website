@@ -280,6 +280,56 @@ db.exec(`CREATE TABLE IF NOT EXISTS posts (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );`);
 
+// Careers applications table
+db.exec(`CREATE TABLE IF NOT EXISTS career_applications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  position TEXT NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  cover_letter TEXT NOT NULL,
+  resume_file TEXT,
+  portfolio_file TEXT,
+  status TEXT DEFAULT 'new',
+  reviewer_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id)
+);`);
+
+// Content appeals table
+db.exec(`CREATE TABLE IF NOT EXISTS content_appeals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  content_url TEXT,
+  removal_reason TEXT,
+  description TEXT,
+  appeal_reason TEXT NOT NULL,
+  additional_info TEXT,
+  status TEXT DEFAULT 'open',
+  reviewer_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id)
+);`);
+
+// Account appeals table
+db.exec(`CREATE TABLE IF NOT EXISTS account_appeals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  username TEXT NOT NULL,
+  account_action TEXT NOT NULL,
+  action_date TEXT,
+  violation_reason TEXT,
+  appeal_reason TEXT NOT NULL,
+  prevention_plan TEXT,
+  additional_info TEXT,
+  contact_email TEXT,
+  status TEXT DEFAULT 'open',
+  reviewer_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id)
+);`);
+
 module.exports = {
   db,
   getUserById: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
@@ -689,5 +739,60 @@ module.exports = {
   getInvoices: (userId) => {
     const stmt = db.prepare(`SELECT * FROM invoices WHERE user_id = ? ORDER BY invoice_date DESC`);
     return stmt.all(userId);
+  },
+  // Careers helpers
+  createCareerApplication: ({ position, name, email, phone, coverLetter, resumeFile, portfolioFile }) => {
+    const stmt = db.prepare(`
+      INSERT INTO career_applications (position, name, email, phone, cover_letter, resume_file, portfolio_file)
+      VALUES (?,?,?,?,?,?,?)
+    `);
+    const info = stmt.run(position, name, email, phone || null, coverLetter, resumeFile || null, portfolioFile || null);
+    return info.lastInsertRowid;
+  },
+  getCareerApplicationsPaged: ({ limit = 50, offset = 0, status }) => {
+    if (status) {
+      return db.prepare(`SELECT * FROM career_applications WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
+    }
+    return db.prepare(`SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+  },
+  updateCareerApplicationStatus: ({ id, status, reviewerId }) => {
+    db.prepare(`UPDATE career_applications SET status = ?, reviewer_id = ? WHERE id = ?`).run(status, reviewerId || null, id);
+  },
+  getCareerApplicationCounts: () => {
+    const all = db.prepare(`SELECT COUNT(*) as c FROM career_applications`).get().c;
+    const open = db.prepare(`SELECT COUNT(*) as c FROM career_applications WHERE status IN ('new','under_review')`).get().c;
+    return { all, open };
+  },
+  // Content appeals helpers
+  createContentAppeal: ({ email, contentType, contentUrl, removalReason, description, appealReason, additionalInfo }) => {
+    const stmt = db.prepare(`
+      INSERT INTO content_appeals (email, content_type, content_url, removal_reason, description, appeal_reason, additional_info)
+      VALUES (?,?,?,?,?,?,?)
+    `);
+    const info = stmt.run(email, contentType, contentUrl || null, removalReason || null, description || null, appealReason, additionalInfo || null);
+    return info.lastInsertRowid;
+  },
+  getContentAppealsPaged: ({ limit = 50, offset = 0, status }) => {
+    if (status) return db.prepare(`SELECT * FROM content_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
+    return db.prepare(`SELECT * FROM content_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+  },
+  updateContentAppealStatus: ({ id, status, reviewerId }) => {
+    db.prepare(`UPDATE content_appeals SET status = ?, reviewer_id = ? WHERE id = ?`).run(status, reviewerId || null, id);
+  },
+  // Account appeals helpers
+  createAccountAppeal: ({ email, username, accountAction, actionDate, violationReason, appealReason, preventionPlan, additionalInfo, contactEmail }) => {
+    const stmt = db.prepare(`
+      INSERT INTO account_appeals (email, username, account_action, action_date, violation_reason, appeal_reason, prevention_plan, additional_info, contact_email)
+      VALUES (?,?,?,?,?,?,?,?,?)
+    `);
+    const info = stmt.run(email, username, accountAction, actionDate || null, violationReason || null, appealReason, preventionPlan || null, additionalInfo || null, contactEmail || null);
+    return info.lastInsertRowid;
+  },
+  getAccountAppealsPaged: ({ limit = 50, offset = 0, status }) => {
+    if (status) return db.prepare(`SELECT * FROM account_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
+    return db.prepare(`SELECT * FROM account_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+  },
+  updateAccountAppealStatus: ({ id, status, reviewerId }) => {
+    db.prepare(`UPDATE account_appeals SET status = ?, reviewer_id = ? WHERE id = ?`).run(status, reviewerId || null, id);
   }
 };
