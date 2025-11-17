@@ -21,7 +21,7 @@ const {
 const socketIo = require('socket.io');
 
 // Import email service
-const emailService = require('./services/services/email');
+const emailService = require('./services/email');
 
 const { 
     db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
@@ -66,7 +66,7 @@ const {
     // Comment parent info
     getCommentWithParent,
     // Services
-    createService, getUserServices, getAllServices, getServiceCount, updateService, deleteService
+    createService, getUserServices, getAllServices, getService, getServiceCount, updateService, deleteService
  } = require('./db');
 let fetch;
 try {
@@ -236,11 +236,15 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'your secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } // 1 week
+  cookie: { 
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+    httpOnly: true,
+    secure: false, // Set to true in production with HTTPS
+    sameSite: 'lax'
+  }
 }));
 app.use(passport.initialize());
-// If you want Passport-managed sessions, also enable the next line and add serialize/deserialize below
-// app.use(passport.session());
+app.use(passport.session());
 
 // Minimal serialize/deserialize (not strictly used since we set req.session.userId)
 passport.serializeUser((user, done) => done(null, user.id));
@@ -472,6 +476,12 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
             const id = createUser({ fullName: 'Super Admin', email: adminEmail, passwordHash: hash });
             updateUserRole({ userId: id, role: 'super_admin' });
             console.log(`Seeded super admin: ${adminEmail} / ${adminPass}`);
+        } else if (String(process.env.DEFAULT_ADMIN_FORCE_RESET || '').toLowerCase() === 'true') {
+            // Optional: force reset password for existing default admin
+            const newPass = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin!123';
+            const hash = await bcrypt.hash(newPass, 10);
+            db.prepare(`UPDATE users SET password_hash = ? WHERE email = ?`).run(hash, adminEmail);
+            console.log(`Reset super admin password for ${adminEmail}`);
         }
     } catch (e) {
         console.warn('Admin seed failed:', e.message);
@@ -482,6 +492,16 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
 app.use((req, res, next) => {
     let user = null;
     let unreadCount = 0;
+    
+    // Debug logging for session status
+    const isServicesOrFeed = req.path === '/services' || req.path === '/feed';
+    if (isServicesOrFeed) {
+        console.log(`📍 ${req.path} - Session ID:`, req.sessionID);
+        console.log(`📍 ${req.path} - req.session.userId:`, req.session.userId);
+        console.log(`📍 ${req.path} - req.user:`, req.user ? req.user.id : 'none');
+        console.log(`📍 ${req.path} - Session cookie:`, req.headers.cookie);
+    }
+    
     if (req.session.userId) {
         const row = getUserById(req.session.userId);
         if (row) {
@@ -648,11 +668,23 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
         const { verified, authenticationInfo } = verification;
         if (verified && stored) {
             updateCredentialCounter({ credentialId: stored.credential_id, counter: authenticationInfo.newCounter || stored.counter });
-            // Log user in
-            req.session.userId = stored.user_id;
-            return res.json({ verified: true });
+            // Log user in using Passport
+            const user = getUserById(stored.user_id);
+            if (user) {
+                req.login(user, (err) => {
+                    if (err) {
+                        console.error('WebAuthn login error:', err);
+                        return res.status(500).json({ error: 'Login failed' });
+                    }
+                    req.session.userId = stored.user_id;
+                    return res.json({ verified: true });
+                });
+            } else {
+                return res.status(400).json({ verified: false, error: 'User not found' });
+            }
+        } else {
+            return res.status(400).json({ verified: false });
         }
-        return res.status(400).json({ verified: false });
     } catch (e) {
         console.error('WebAuthn authentication verify error', e);
         return res.status(400).json({ error: 'Verification failed' });
@@ -667,6 +699,9 @@ app.get('/auth/google', (req, res, next) => {
     passport.authenticate('google', options)(req, res, next);
 });
 app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), async (req, res) => {
+    console.log('🔵 Google OAuth callback - User authenticated:', req.user ? req.user.id : 'none');
+    console.log('🔵 Session ID before login:', req.sessionID);
+    
     const mode = req.query.state;
     if (mode === 'link' && req.session.userId && req.authInfo) {
         updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
@@ -676,8 +711,33 @@ app.get('/auth/google/callback', passport.authenticate('google', { failureRedire
         }
         return res.redirect('/settings?success=Google connected');
     }
-    if (req.user && req.user.id) req.session.userId = req.user.id;
-    res.redirect('/feed');
+    // Use req.login() to properly serialize user into session
+    if (req.user && req.user.id) {
+        console.log('🔵 Calling req.login() for user:', req.user.id);
+        req.login(req.user, (err) => {
+            if (err) {
+                console.error('❌ Google login error:', err);
+                return res.redirect('/login');
+            }
+            console.log('✅ req.login() successful');
+            console.log('🔵 Session before setting userId:', req.session);
+            req.session.userId = req.user.id;
+            console.log('🔵 Session after setting userId:', req.session.userId);
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    console.error('❌ Google session save error:', saveErr);
+                } else {
+                    console.log('✅ Session saved successfully');
+                    console.log('🔵 Final session ID:', req.sessionID);
+                    console.log('🔵 Cookie settings:', req.session.cookie);
+                }
+                return res.redirect('/feed');
+            });
+        });
+    } else {
+        console.log('❌ No user found in req.user, redirecting to feed anyway');
+        res.redirect('/feed');
+    }
 });
 
 // OAuth routes (Microsoft)
@@ -692,8 +752,22 @@ app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failure
         updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
         return res.redirect('/settings?success=Microsoft connected');
     }
-    if (req.user && req.user.id) req.session.userId = req.user.id;
-    res.redirect('/feed');
+    // Use req.login() to properly serialize user into session
+    if (req.user && req.user.id) {
+        req.login(req.user, (err) => {
+            if (err) {
+                console.error('Microsoft login error:', err);
+                return res.redirect('/login');
+            }
+            req.session.userId = req.user.id;
+            req.session.save((saveErr) => {
+                if (saveErr) console.error('Microsoft session save error:', saveErr);
+                return res.redirect('/feed');
+            });
+        });
+    } else {
+        res.redirect('/feed');
+    }
 });
 
 // OAuth routes (Apple)
@@ -711,8 +785,22 @@ app.post('/auth/apple/callback', passport.authenticate('apple', { failureRedirec
         updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
         return res.redirect('/settings?success=Apple connected');
     }
-    if (req.user && req.user.id) req.session.userId = req.user.id;
-    res.redirect('/feed');
+    // Use req.login() to properly serialize user into session
+    if (req.user && req.user.id) {
+        req.login(req.user, (err) => {
+            if (err) {
+                console.error('Apple login error:', err);
+                return res.redirect('/login');
+            }
+            req.session.userId = req.user.id;
+            req.session.save((saveErr) => {
+                if (saveErr) console.error('Apple session save error:', saveErr);
+                return res.redirect('/feed');
+            });
+        });
+    } else {
+        res.redirect('/feed');
+    }
 });
 
 // Home page
@@ -783,6 +871,141 @@ app.get('/admin', requireAdmin, (req, res) => {
         error: req.query.error,
         success: req.query.success
     });
+});
+
+// Admin: Services moderation portal
+app.get('/admin/services', requireAdmin, (req, res) => {
+    const status = (req.query.status || '').toLowerCase() || null; // active|hidden|deleted
+    const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
+    const pageSize = 25;
+    const offset = (page - 1) * pageSize;
+    const q = (req.query.q || '').trim();
+    const rows = require('./db').listAllServicesAdmin({ status, limit: pageSize, offset, q: q || null });
+    const me = req.session.userId ? getUserById(req.session.userId) : null;
+    res.render('admin-services', {
+        title: 'Services Moderation - Dream X',
+        currentPage: 'admin',
+        services: rows,
+        status,
+        page,
+        pageSize,
+        q,
+        authUser: me,
+        success: req.query.success,
+        error: req.query.error
+    });
+});
+
+app.post('/admin/services/:id/hide', requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const notifyEmail = !!req.body.notifyEmail;
+    const notifyInApp = !!req.body.notifyInApp;
+    try {
+        const ok = require('./db').adminSetServiceStatus({ serviceId: id, status: 'hidden' });
+        if (ok) {
+            const s = db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
+            if (s) {
+                if (notifyInApp) {
+                    createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service hidden', message: `Your service "${s.title}" was hidden by admins.`, link: `/services/${id}` });
+                }
+                if (notifyEmail) {
+                    const owner = getUserById(s.user_id);
+                    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                    await emailService.sendServiceModerationEmail(owner, s, 'hidden', null, baseUrl);
+                }
+            }
+        }
+        res.redirect('/admin/services?success=Service+hidden');
+    } catch (e) {
+        console.error('hide service error', e);
+        res.redirect('/admin/services?error=Failed+to+hide');
+    }
+});
+
+app.post('/admin/services/:id/unhide', requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const notifyEmail = !!req.body.notifyEmail;
+    const notifyInApp = !!req.body.notifyInApp;
+    try {
+        const ok = require('./db').adminSetServiceStatus({ serviceId: id, status: 'active' });
+        if (ok) {
+            const s = db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
+            if (s) {
+                if (notifyInApp) {
+                    createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service restored', message: `Your service "${s.title}" is visible again.`, link: `/services/${id}` });
+                }
+                if (notifyEmail) {
+                    const owner = getUserById(s.user_id);
+                    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                    await emailService.sendServiceModerationEmail(owner, s, 'restored', null, baseUrl);
+                }
+            }
+        }
+        res.redirect('/admin/services?success=Service+restored');
+    } catch (e) {
+        console.error('unhide service error', e);
+        res.redirect('/admin/services?error=Failed+to+restore');
+    }
+});
+
+app.post('/admin/services/:id/delete', requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const notifyEmail = !!req.body.notifyEmail;
+    const notifyInApp = !!req.body.notifyInApp;
+    const reason = (req.body.reason || '').trim() || null;
+    try {
+        const ok = require('./db').adminSetServiceStatus({ serviceId: id, status: 'deleted' });
+        if (ok) {
+            const s = db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
+            if (s) {
+                if (notifyInApp) {
+                    createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service deleted', message: `Your service "${s.title}" was removed by admins.`, link: `/profile` });
+                }
+                if (notifyEmail) {
+                    const owner = getUserById(s.user_id);
+                    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                    await emailService.sendServiceModerationEmail(owner, s, 'deleted', reason, baseUrl);
+                }
+            }
+        }
+        res.redirect('/admin/services?success=Service+deleted');
+    } catch (e) {
+        console.error('delete service error', e);
+        res.redirect('/admin/services?error=Failed+to+delete');
+    }
+});
+
+app.post('/admin/services/:id/edit', requireSuperAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+        const s = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
+        if (!s) return res.redirect('/admin/services?error=Service+not+found');
+        const fields = {};
+        const map = {
+            title: 'title', description: 'description', category: 'category', price_per_hour: 'price_per_hour', duration_minutes: 'duration_minutes',
+            experience_level: 'experience_level', format: 'format', availability: 'availability', location: 'location', tags: 'tags'
+        };
+        for (const k in map) {
+            if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+                fields[map[k]] = req.body[k];
+            }
+        }
+        const ok = require('./db').adminUpdateServiceContent({ serviceId: id, fields });
+        if (ok && (req.body.notifyEmail || req.body.notifyInApp)) {
+            const owner = getUserById(s.user_id);
+            if (req.body.notifyInApp) {
+                createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service edited by admin', message: `Your service "${s.title}" was edited for compliance.`, link: `/services/${id}` });
+            }
+            if (req.body.notifyEmail) {
+                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                await emailService.sendServiceEditedByAdminEmail(owner, { ...s, ...fields }, baseUrl);
+            }
+        }
+        res.redirect(ok ? '/admin/services?success=Service+updated' : '/admin/services?error=Update+failed');
+    } catch (e) {
+        console.error('admin edit service error', e);
+        res.redirect('/admin/services?error=Update+failed');
+    }
 });
 
 // Update user role (super admin only)
@@ -1236,8 +1459,22 @@ app.post('/register', async (req, res) => {
         } catch (subErr) {
             console.warn('Failed to initialize free subscription for user', userId, subErr.message);
         }
-        req.session.userId = userId;
-        return res.redirect('/onboarding');
+        // Log user in using Passport
+        const user = getUserById(userId);
+        req.login(user, (err) => {
+            if (err) {
+                console.error('Registration login error:', err);
+                req.session.userId = userId; // Fallback to manual session
+                return res.redirect('/onboarding');
+            }
+            req.session.userId = userId;
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    console.error('Session save error:', saveErr);
+                }
+                return res.redirect('/onboarding');
+            });
+        });
     } catch (e) {
         console.error('Registration error', e);
         return res.status(500).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Server error. Try again.' });
@@ -1284,20 +1521,46 @@ app.post('/login', async (req, res) => {
         return res.redirect(`/account-status?userId=${user.id}`);
     }
     
-    req.session.userId = user.id;
-    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
-        return res.redirect('/admin');
-    }
-    if (user.role === 'hr') {
-        return res.redirect('/hr');
-    }
-    res.redirect('/feed');
+    // Use req.login() to properly serialize user into session
+    req.login(user, (err) => {
+        if (err) {
+            console.error('Login error:', err);
+            return res.status(500).render('login', { 
+                title: 'Login - Dream X', 
+                currentPage: 'login', 
+                error: 'Login failed. Please try again.', 
+                providers 
+            });
+        }
+        req.session.userId = user.id;
+        req.session.save((saveErr) => {
+            if (saveErr) {
+                console.error('Session save error:', saveErr);
+            }
+            if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
+                return res.redirect('/admin');
+            }
+            if (user.role === 'hr') {
+                return res.redirect('/hr');
+            }
+            res.redirect('/feed');
+        });
+    });
 });
 
 // Logout
 app.get('/logout', (req, res) => {
-    req.session.destroy(() => {
-        res.redirect('/');
+    req.logout((err) => {
+        if (err) {
+            console.error('Logout error:', err);
+        }
+        req.session.destroy(() => {
+            // Clear cookies to ensure complete logout
+            res.clearCookie('connect.sid');
+            // Add cache control headers to prevent caching of authenticated pages
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            res.redirect('/');
+        });
     });
 });
 
@@ -1937,6 +2200,13 @@ app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }
 
 // Services marketplace page
 app.get('/services', (req, res) => {
+    console.log('🟢 SERVICES PAGE LOADED');
+    console.log('🟢 Session ID:', req.sessionID);
+    console.log('🟢 req.session.userId:', req.session.userId);
+    console.log('🟢 req.user:', req.user ? req.user.id : 'none');
+    console.log('🟢 Cookie header:', req.headers.cookie);
+    console.log('🟢 Full session object:', req.session);
+    
     const categories = [
         'Tutoring',
         'Mentorship',
@@ -1974,8 +2244,7 @@ app.get('/services', (req, res) => {
         title: 'Services Marketplace - Dream X',
         currentPage: 'services',
         categories,
-        services,
-        authUser: req.user
+        services
     });
 });
 
@@ -1987,24 +2256,23 @@ app.get('/services/new', ensureAuthenticated, (req, res) => {
     });
 });
 
-// Service details page (single service placeholder)
+// Service details page (real data + reviews)
 app.get('/services/:id', (req, res) => {
     const { id } = req.params;
-    const service = db.getService(id);
-    
+    const service = getService(id);
     if (!service) {
         return res.status(404).render('404', { title: 'Service Not Found' });
     }
-    
-    // Calculate session price
+
+    // Calculate session price and decorate object for template
     service.pricePerSession = (service.price_per_hour * (service.duration_minutes / 60)).toFixed(2);
     service.name = service.title;
     service.provider = {
         name: service.full_name,
         passion: service.category
     };
-    service.rating = 4.8;
-    service.reviewsCount = 0;
+    service.rating = service.rating_avg || 0;
+    service.reviewsCount = service.rating_count || 0;
     service.about = service.description;
     service.included = [
         `${service.duration_minutes}-minute live session`,
@@ -2017,18 +2285,185 @@ app.get('/services/:id', (req, res) => {
         'Junior engineers preparing for interviews',
         'Makers refining MVP architecture'
     ];
-    
-    const reviews = [
-        { user: 'Leo Martinez', rating: 5, comment: 'Actionable feedback and clear improvement steps. Immediately leveled up my project structure.' },
-        { user: 'Sofia Patel', rating: 5, comment: 'Great mentorship energy—supportive and direct. Loved the follow‑up notes.' },
-        { user: 'Marcus Lee', rating: 4, comment: 'Helpful session. Would have liked a bit more time on testing strategy, but overall excellent.' }
-    ];
+
+    // Load latest reviews
+    let reviews = [];
+    try {
+        reviews = db.getServiceReviews({ serviceId: id, limit: 20, offset: 0 }).map(r => ({
+            id: r.id,
+            user: r.full_name,
+            rating: r.rating,
+            comment: r.comment,
+            profile_picture: r.profile_picture
+        }));
+    } catch (e) { reviews = []; }
+
+    // Determine permissions
+    const authUserId = req.session.userId || null;
+    const isOwner = authUserId ? (Number(service.user_id) === Number(authUserId)) : false;
+    let canReview = false;
+    if (authUserId && !isOwner) {
+        try {
+            canReview = require('./db').isVerifiedPurchaser({ serviceId: Number(id), userId: authUserId });
+        } catch (e) { canReview = false; }
+    }
+
     res.render('service-details', {
         title: `${service.name} - Service - Dream X`,
         currentPage: 'services',
         service,
-        reviews
+        reviews,
+        canReview,
+        isOwner
     });
+});
+
+// Edit service (owner)
+app.get('/services/:id/edit', ensureAuthenticated, (req, res) => {
+    const { id } = req.params;
+    const service = getService(id);
+    if (!service) return res.status(404).render('404', { title: 'Service Not Found' });
+    if (Number(service.user_id) !== Number(req.session.userId) && !isAdmin(getUserById(req.session.userId))) {
+        return res.redirect(`/services/${id}`);
+    }
+    res.render('edit-service', { title: `Edit Service - ${service.title}`, currentPage: 'services', service });
+});
+
+app.post('/services/:id/edit', ensureAuthenticated, (req, res) => {
+    const { id } = req.params;
+    const service = getService(id);
+    if (!service) return res.redirect('/services');
+    const me = getUserById(req.session.userId);
+    const isOwner = Number(service.user_id) === Number(req.session.userId);
+    const canAdminEdit = isSuperAdmin(me) || isGlobalAdmin(me);
+    const allowed = ['title','description','category','pricePerHour','durationMinutes','experienceLevel','format','availability','location','tags'];
+    const payload = {};
+    for (const k of allowed) if (k in req.body) payload[k] = req.body[k];
+    if (isOwner) {
+        const ok = updateService({
+            serviceId: Number(id), userId: req.session.userId,
+            title: payload.title || service.title,
+            description: payload.description || service.description,
+            category: payload.category || service.category,
+            pricePerHour: payload.pricePerHour ? parseFloat(payload.pricePerHour) : service.price_per_hour,
+            durationMinutes: payload.durationMinutes ? parseInt(payload.durationMinutes) : service.duration_minutes,
+            experienceLevel: payload.experienceLevel ?? service.experience_level,
+            format: payload.format || service.format,
+            availability: payload.availability ?? service.availability,
+            location: payload.location ?? service.location,
+            tags: payload.tags ?? service.tags,
+            imageUrl: service.image_url || null
+        });
+        return res.redirect(ok ? `/services/${id}` : `/services/${id}/edit?error=Update+failed`);
+    }
+    if (canAdminEdit) {
+        const ok = require('./db').adminUpdateServiceContent({
+            serviceId: Number(id),
+            fields: {
+                title: payload.title || service.title,
+                description: payload.description || service.description,
+                category: payload.category || service.category,
+                price_per_hour: payload.pricePerHour ? parseFloat(payload.pricePerHour) : service.price_per_hour,
+                duration_minutes: payload.durationMinutes ? parseInt(payload.durationMinutes) : service.duration_minutes,
+                experience_level: payload.experienceLevel ?? service.experience_level,
+                format: payload.format || service.format,
+                availability: payload.availability ?? service.availability,
+                location: payload.location ?? service.location,
+                tags: payload.tags ?? service.tags
+            }
+        });
+        return res.redirect(ok ? `/services/${id}` : `/services/${id}/edit?error=Admin+update+failed`);
+    }
+    return res.redirect(`/services/${id}`);
+});
+
+// API: Service reviews
+app.get('/api/services/:id/reviews', (req, res) => {
+    const serviceId = parseInt(req.params.id, 10);
+    const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
+    const offset = parseInt(req.query.offset || '0', 10);
+    try {
+        const reviews = db.getServiceReviews({ serviceId, limit, offset });
+        const summary = db.getServiceRatingsSummary(serviceId);
+        res.json({ success: true, reviews, summary });
+    } catch (e) {
+        console.error('list service reviews error', e);
+        res.status(500).json({ success: false, error: 'Failed to load reviews' });
+    }
+});
+
+app.post('/api/services/:id/reviews', ensureAuthenticated, async (req, res) => {
+    const serviceId = parseInt(req.params.id, 10);
+    const userId = req.session.userId;
+    const { rating, comment } = req.body;
+    const r = parseInt(rating, 10);
+    if (!(r >= 1 && r <= 5)) return res.status(400).json({ success: false, error: 'Invalid rating' });
+    try {
+        const service = getService(serviceId);
+        if (!service) return res.status(404).json({ success: false, error: 'Service not found' });
+        if (Number(service.user_id) === Number(userId)) return res.status(403).json({ success: false, error: 'Owners cannot review their own service' });
+        const verified = require('./db').isVerifiedPurchaser({ serviceId, userId });
+        if (!verified) return res.status(403).json({ success: false, error: 'Only verified purchasers can review' });
+
+        const reviewId = require('./db').addOrUpdateServiceReview({ serviceId, userId, rating: r, comment: (comment || '').trim() });
+
+        // Notify service owner
+        try {
+            const owner = getUserById(service.user_id);
+            const reviewer = getUserById(userId);
+            createNotification({
+                userId: service.user_id,
+                type: 'service_review',
+                title: 'New service review',
+                message: `${reviewer.full_name} rated your service ${r}★`,
+                link: `/services/${serviceId}`
+            });
+            io.to(`user-${service.user_id}`).emit('notification', {
+                type: 'service_review',
+                title: 'New service review',
+                message: `${reviewer.full_name} rated your service ${r}★`,
+                link: `/services/${serviceId}`,
+                timestamp: new Date().toISOString()
+            });
+            if (owner && owner.email_notifications === 1) {
+                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                await emailService.sendServiceReviewEmail(owner, reviewer, service, r, (comment || ''), baseUrl);
+            }
+        } catch (e) { /* noop */ }
+
+        const summary = db.getServiceRatingsSummary(serviceId);
+        res.json({ success: true, reviewId, summary });
+    } catch (e) {
+        console.error('add service review error', e);
+        res.status(500).json({ success: false, error: 'Failed to submit review' });
+    }
+});
+
+// Start a chat with a user (create or open conversation) and redirect
+app.get('/messages/start/:userId', ensureAuthenticated, (req, res) => {
+    const otherId = parseInt(req.params.userId, 10);
+    if (isNaN(otherId) || otherId <= 0) return res.redirect('/messages');
+    if (otherId === req.session.userId) return res.redirect('/messages');
+    const conv = getOrCreateConversation({ user1Id: req.session.userId, user2Id: otherId });
+    return res.redirect(`/messages?conversation=${conv.id}`);
+});
+
+// Book a service (placeholder: creates a completed order; integrate Stripe later)
+app.post('/services/:id/book', ensureAuthenticated, (req, res) => {
+    const serviceId = parseInt(req.params.id, 10);
+    const userId = req.session.userId;
+    try {
+        const s = getService(serviceId);
+        if (!s) return res.status(404).json({ success: false, error: 'Service not found' });
+        if (Number(s.user_id) === Number(userId)) return res.status(400).json({ success: false, error: 'Cannot book your own service' });
+
+        // In a future iteration, create a payment session here.
+        const orderId = require('./db').addServiceOrder({ serviceId, buyerId: userId, status: 'completed' });
+        return res.json({ success: true, orderId });
+    } catch (e) {
+        console.error('book service error', e);
+        return res.status(500).json({ success: false, error: 'Booking failed' });
+    }
 });
 
 // Messages page - Real messaging with database
@@ -3341,16 +3776,71 @@ app.get('/onboarding', (req, res) => {
     });
 });
 
-// Handle onboarding form submission
-app.post('/onboarding', (req, res) => {
+// Handle onboarding form submission with file upload
+const onboardingUpload = upload.fields([
+    { name: 'profilePicture', maxCount: 1 }
+]);
+
+app.post('/onboarding', onboardingUpload, (req, res) => {
     if (!req.session.userId) return res.redirect('/register');
-    const { categories, goals, experience } = req.body;
+    
+    const {
+        categories, goals, experience,
+        daily_time_commitment, best_time, reminder_frequency,
+        accountability_style, progress_visibility,
+        content_preferences, content_format_preference,
+        open_to_mentoring,
+        first_goal, first_goal_date, first_goal_metric, first_goal_public,
+        notify_followers, notify_likes_comments, notify_milestones,
+        notify_inspiration, notify_community, notify_weekly_summary,
+        notify_method, bio
+    } = req.body;
+    
+    // Process arrays
     const selectedCategories = Array.isArray(categories) ? categories : (categories ? [categories] : []);
     const selectedGoals = Array.isArray(goals) ? goals : (goals ? [goals] : []);
-    const experienceLevel = experience || null;
-    updateOnboarding({ userId: req.session.userId, categories: selectedCategories, goals: selectedGoals, experience: experienceLevel });
-    console.log('📝 Onboarding saved for user', req.session.userId);
-    res.redirect('/profile');
+    const selectedAccountability = Array.isArray(accountability_style) ? accountability_style : (accountability_style ? [accountability_style] : []);
+    const selectedContentPrefs = Array.isArray(content_preferences) ? content_preferences : (content_preferences ? [content_preferences] : []);
+    
+    // Profile picture handling
+    let profilePicturePath = null;
+    if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
+        profilePicturePath = '/uploads/profiles/' + req.files.profilePicture[0].filename;
+    }
+    
+    // Update user with comprehensive onboarding data
+    const onboardingData = {
+        userId: req.session.userId,
+        categories: selectedCategories,
+        goals: selectedGoals,
+        experience: experience || null,
+        daily_time_commitment: daily_time_commitment || null,
+        best_time: best_time || null,
+        reminder_frequency: reminder_frequency || null,
+        accountability_style: selectedAccountability.length > 0 ? JSON.stringify(selectedAccountability) : null,
+        progress_visibility: progress_visibility || 'public',
+        content_preferences: selectedContentPrefs.length > 0 ? JSON.stringify(selectedContentPrefs) : null,
+        content_format_preference: content_format_preference || 'Mixed',
+        open_to_mentoring: open_to_mentoring || null,
+        first_goal: first_goal || null,
+        first_goal_date: first_goal_date || null,
+        first_goal_metric: first_goal_metric || null,
+        first_goal_public: first_goal_public ? 1 : 0,
+        notify_followers: notify_followers ? 1 : 0,
+        notify_likes_comments: notify_likes_comments ? 1 : 0,
+        notify_milestones: notify_milestones ? 1 : 0,
+        notify_inspiration: notify_inspiration ? 1 : 0,
+        notify_community: notify_community ? 1 : 0,
+        notify_weekly_summary: notify_weekly_summary ? 1 : 0,
+        notify_method: notify_method || 'both',
+        bio: bio || null,
+        profile_picture: profilePicturePath,
+        onboarding_completed: 1
+    };
+    
+    updateOnboarding(onboardingData);
+    console.log('📝 Complete onboarding saved for user', req.session.userId);
+    res.redirect('/feed');
 });
 
 // === NOTIFICATION API ROUTES ===

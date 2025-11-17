@@ -3686,8 +3686,7 @@ main {
 
 .help-search-section {
     padding: var(--spacing-lg) var(--spacing-md);
-    background: var(--bg-white);
-    border-bottom: 2px solid var(--border-color);
+    background: white;
 }
 
 .help-search-form {
@@ -3695,16 +3694,21 @@ main {
     margin: 0 auto;
     display: flex;
     gap: var(--spacing-sm);
+    background: white;
+    padding: 0.5rem;
+    border-radius: 50px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
 }
 
 .help-search-input {
     flex: 1;
     padding: 0.85rem 1.25rem;
-    border: 2px solid var(--border-color);
+    border: none;
     border-radius: 50px;
     font-family: var(--font-primary);
     font-size: 1rem;
-    transition: all 0.3s ease;
+    background: transparent;
+    outline: none;
 }
 
 .help-search-input:focus {

@@ -51,16 +51,71 @@
 
 <!-- Mission Section -->
 <section class="mission-section">
-    <div class="container">
-        <h2>Our Mission</h2>
+    <div class="mission-container">
+        <h2 class="mission-heading">Our Mission</h2>
         <blockquote class="mission-quote">
             "Get people addicted to being productive, not scrolling."
         </blockquote>
-        <p>
+        <p class="mission-text">
             We believe in building habits that matter. Dream X is your daily dose of inspiration, 
             accountability, and community — all focused on what truly moves you forward.
         </p>
     </div>
 </section>
+
+<style>
+.mission-section {
+  padding: 5rem 2rem;
+  background: #f9fafb;
+  text-align: center;
+}
+
+.mission-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.mission-heading {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #1f2937;
+  margin-bottom: 2rem;
+}
+
+.mission-quote {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin: 2rem auto;
+  line-height: 1.4;
+  font-style: italic;
+  text-align: center;
+  max-width: 800px;
+  padding: 0 1rem;
+}
+
+.mission-text {
+  font-size: 1.2rem;
+  color: #6b7280;
+  line-height: 1.8;
+  max-width: 700px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .mission-heading {
+    font-size: 2rem;
+  }
+  
+  .mission-quote {
+    font-size: 1.5rem;
+  }
+  
+  .mission-text {
+    font-size: 1rem;
+  }
+}
+</style>
 
 <%- include('partials/footer') %>

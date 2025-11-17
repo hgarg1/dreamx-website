@@ -1,0 +1,94 @@
+<%- include('partials/header') %>
+
+<style>
+  .dx-premium-hero {background:linear-gradient(135deg,#111827,#0b1020);padding:32px 0;color:#e5e7eb}
+  .dx-premium-hero h1{margin:0;font-size:28px;font-weight:800;letter-spacing:.2px}
+  .dx-premium-wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  .dx-card{background:#0f172a;border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  .dx-grid{display:grid;grid-template-columns:1fr 360px;gap:24px;margin:24px 0}
+  @media (max-width:900px){.dx-grid{grid-template-columns:1fr}}
+  .dx-section{padding:20px 20px 6px;border-bottom:1px solid rgba(255,255,255,.06)}
+  .dx-section h3{margin:0 0 8px;font-size:16px;color:#cbd5e1}
+  .dx-field{padding:16px 20px}
+  .dx-label{display:block;margin-bottom:8px;color:#94a3b8;font-size:13px}
+  .dx-input,.dx-textarea{width:100%;background:#0b1020;border:1px solid rgba(255,255,255,.1);border-radius:12px;color:#e5e7eb;padding:12px 14px;outline:none}
+  .dx-input:focus,.dx-textarea:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.25)}
+  .dx-actions{display:flex;justify-content:flex-end;gap:12px;padding:16px 20px}
+  .dx-btn{padding:12px 16px;border-radius:999px;border:0;font-weight:700;cursor:pointer}
+  .dx-btn-secondary{background:#1f2937;color:#e5e7eb}
+  .dx-btn-primary{background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff}
+  .dx-aside{padding:20px}
+  .dx-aside .hint{font-size:13px;color:#94a3b8;line-height:1.6}
+</style>
+
+<section class="dx-premium-hero">
+  <div class="dx-premium-wrap">
+    <h1>Edit “<%= service.title %>”</h1>
+    <p style="margin:6px 0 0;color:#9ca3af">Make high‑impact changes with confidence.</p>
+  </div>
+</section>
+
+<div class="dx-premium-wrap">
+  <div class="dx-grid">
+    <form method="POST" action="/services/<%= service.id %>/edit" class="dx-card" style="overflow:hidden">
+      <div class="dx-section"><h3>Core Details</h3></div>
+      <div class="dx-field">
+        <label class="dx-label" for="title">Service Title *</label>
+        <input class="dx-input" type="text" id="title" name="title" required maxlength="100" value="<%= service.title %>">
+      </div>
+      <div class="dx-field">
+        <label class="dx-label" for="category">Category *</label>
+        <input class="dx-input" type="text" id="category" name="category" required value="<%= service.category %>">
+      </div>
+      <div class="dx-field">
+        <label class="dx-label" for="description">Description *</label>
+        <textarea class="dx-textarea" id="description" name="description" rows="6" required><%= service.description %></textarea>
+      </div>
+
+      <div class="dx-section"><h3>Session & Availability</h3></div>
+      <div class="dx-field">
+        <label class="dx-label" for="experienceLevel">Experience Level</label>
+        <input class="dx-input" type="text" id="experienceLevel" name="experienceLevel" value="<%= service.experience_level || '' %>">
+      </div>
+      <div class="dx-field">
+        <label class="dx-label" for="format">Format *</label>
+        <input class="dx-input" type="text" id="format" name="format" required value="<%= service.format %>">
+      </div>
+      <div class="dx-field">
+        <label class="dx-label" for="location">Location</label>
+        <input class="dx-input" type="text" id="location" name="location" value="<%= service.location || '' %>">
+      </div>
+      <div class="dx-field">
+        <label class="dx-label" for="availability">Availability</label>
+        <textarea class="dx-textarea" id="availability" name="availability" rows="3"><%= service.availability || '' %></textarea>
+      </div>
+
+      <div class="dx-section"><h3>Price & Metadata</h3></div>
+      <div class="dx-field">
+        <label class="dx-label" for="tags">Tags (comma‑separated)</label>
+        <input class="dx-input" type="text" id="tags" name="tags" value="<%= service.tags || '' %>">
+      </div>
+      <div class="dx-field">
+        <label class="dx-label" for="pricePerHour">Price per Hour ($) *</label>
+        <input class="dx-input" type="number" id="pricePerHour" name="pricePerHour" min="5" max="500" step="5" required value="<%= service.price_per_hour %>">
+      </div>
+      <div class="dx-field">
+        <label class="dx-label" for="durationMinutes">Session Duration (minutes) *</label>
+        <input class="dx-input" type="number" id="durationMinutes" name="durationMinutes" min="15" step="15" required value="<%= service.duration_minutes %>">
+      </div>
+
+      <div class="dx-actions">
+        <a href="/services/<%= service.id %>" class="dx-btn dx-btn-secondary">Cancel</a>
+        <button type="submit" class="dx-btn dx-btn-primary">Save Changes</button>
+      </div>
+    </form>
+
+    <aside class="dx-card dx-aside">
+      <h3 style="margin:0 0 10px;color:#cbd5e1;font-size:16px">Editor Tips</h3>
+      <p class="hint">Use concise, outcome‑focused titles. Keep descriptions scannable with short paragraphs or bullets. Mention who it’s for and the expected result.</p>
+      <p class="hint">Pricing works best in round numbers. If you offer multiple durations, note that in the description.</p>
+    </aside>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

@@ -92,10 +92,8 @@
 .help-search-form {
   display: flex;
   gap: 1rem;
-  background: white;
   padding: 0.5rem;
   border-radius: 50px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
 }
 
 .help-search-input {
@@ -315,6 +313,54 @@
           btn.querySelector('.faq-toggle').textContent = '−';
         }
       });
+    });
+
+    // Search functionality
+    const searchInput = document.querySelector('.help-search-input');
+    const searchForm = document.querySelector('.help-search-form');
+    const faqItems = document.querySelectorAll('.faq-item');
+
+    function performSearch(query) {
+      const searchTerm = query.toLowerCase().trim();
+      let visibleCount = 0;
+
+      faqItems.forEach(item => {
+        const question = item.querySelector('.faq-question-text').textContent.toLowerCase();
+        const answer = item.querySelector('.faq-answer p').textContent.toLowerCase();
+        
+        if (searchTerm === '' || question.includes(searchTerm) || answer.includes(searchTerm)) {
+          item.style.display = '';
+          visibleCount++;
+        } else {
+          item.style.display = 'none';
+        }
+      });
+
+      // Show message if no results
+      let noResultsMsg = document.querySelector('.no-results-message');
+      if (visibleCount === 0 && searchTerm !== '') {
+        if (!noResultsMsg) {
+          noResultsMsg = document.createElement('p');
+          noResultsMsg.className = 'no-results-message';
+          noResultsMsg.style.textAlign = 'center';
+          noResultsMsg.style.color = '#666';
+          noResultsMsg.style.fontSize = '1.1rem';
+          noResultsMsg.style.marginTop = '2rem';
+          document.querySelector('.faq-list').appendChild(noResultsMsg);
+        }
+        noResultsMsg.textContent = `No results found for "${query}"`;
+      } else if (noResultsMsg) {
+        noResultsMsg.remove();
+      }
+    }
+
+    searchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      performSearch(searchInput.value);
+    });
+
+    searchInput.addEventListener('input', (e) => {
+      performSearch(e.target.value);
     });
   });
 </script>

@@ -107,10 +107,15 @@
             <% } %>
 
             <% if (mp) { %>
-            <button class="btn btn-full ms-login-btn">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="" />
-                <span>Sign in with Microsoft</span>
-            </button>
+            <a href="/auth/microsoft" class="btn btn-microsoft" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;background:#2F2F2F;border:2px solid #2F2F2F;color:#fff;padding:0.75rem 1.5rem;border-radius:8px;font-size:1rem;font-weight:600;">
+                <svg width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="10" height="10" fill="#F25022"/>
+                    <rect x="11" width="10" height="10" fill="#7FBA00"/>
+                    <rect y="11" width="10" height="10" fill="#00A4EF"/>
+                    <rect x="11" y="11" width="10" height="10" fill="#FFB900"/>
+                </svg>
+                Sign in with Microsoft
+            </a>
             <% } else { %>
             <button class="btn btn-full" disabled style="opacity:.6;cursor:not-allowed;background:#2F2F2F;border:2px solid #2F2F2F;color:#fff;padding:0.75rem 1.5rem;border-radius:8px;font-size:1rem;font-weight:600;">Microsoft not configured</button>
             <% } %>

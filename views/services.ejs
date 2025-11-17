@@ -74,7 +74,15 @@
           <h4 class="service-title-card"><%= s.title %></h4>
           <p class="provider-desc"><%= s.description.substring(0, 120) %><%= s.description.length > 120 ? '...' : '' %></p>
           <div class="provider-rating-price">
-            <div class="rating-stars" aria-label="Rating 4.8">★★★★★</div>
+            <div class="rating-stars" title="Average rating">
+              <% const avg = Number(s.rating_avg || 0); const fullStars = Math.floor(avg); const half = (avg - fullStars) >= 0.5; %>
+              <span>
+                <% for (let i=0;i<fullStars;i++){ %>★<% } %>
+                <% if (half) { %>☆<% } %>
+                <% for (let i=fullStars + (half?1:0); i<5; i++){ %>☆<% } %>
+              </span>
+              <span style="margin-left:6px;color:#6b7280;font-weight:600;"><%= (avg || 0).toFixed(1) %> (<%= s.rating_count || 0 %>)</span>
+            </div>
             <span class="provider-price">$<%= (s.price_per_hour * (s.duration_minutes / 60)).toFixed(2) %></span>
           </div>
           <a href="/services/<%= s.id %>" class="provider-details-btn">View Details</a>

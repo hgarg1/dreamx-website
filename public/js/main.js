@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initFormValidation();
     initMobileMenu();
     initDropdowns();
+    initLogoutHandler();
 });
 
 /**
@@ -186,13 +187,40 @@ function animateOnScroll() {
     elements.forEach(el => observer.observe(el));
 }
 
+/**
+ * Handle logout to clear service worker cache
+ */
+function initLogoutHandler() {
+    const logoutLink = document.getElementById('logout-link');
+    
+    if (logoutLink) {
+        logoutLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Clear service worker cache before logging out
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'CLEAR_CACHE'
+                });
+                console.log('🧹 Clearing service worker cache on logout');
+            }
+            
+            // Small delay to allow cache clearing before redirect
+            setTimeout(() => {
+                window.location.href = '/logout';
+            }, 100);
+        });
+    }
+}
+
 // Export functions for potential module use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         initSmoothScrolling,
         initFormValidation,
         initMobileMenu,
-            initDropdowns,
+        initDropdowns,
+        initLogoutHandler,
         highlightCurrentPage,
         animateOnScroll
     };

@@ -1,98 +1,1189 @@
-<%- include('partials/header') %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Dream X - Onboarding</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        :root {
+            --primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary-solid: #667eea;
+            --secondary: #f093fb;
+            --success: #4ade80;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,0.15);
+            --shadow-xl: 0 20px 40px rgba(0,0,0,0.2);
+        }
 
-  <div class="onboarding-wrapper">
-    <!-- Progress Bar -->
-    <div class="onboarding-progress">
-      <div class="progress-step active">Step 1</div>
-      <div class="progress-step active">Step 2</div>
-      <div class="progress-step active">Step 3</div>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+        }
+
+        .onboarding-container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* Progress Bar */
+        .progress-wrapper {
+            background: white;
+            border-radius: 50px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            animation: slideDown 0.6s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 50px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 50px;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .progress-text strong {
+            color: var(--primary-solid);
+            font-size: 1.1rem;
+        }
+
+        /* Main Card */
+        .onboarding-card {
+            background: white;
+            border-radius: 24px;
+            padding: 3rem;
+            box-shadow: var(--shadow-xl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .onboarding-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: var(--primary);
+        }
+
+        /* Step Sections */
+        .step-section {
+            display: none;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .step-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .step-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            line-height: 50px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .step-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .step-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            line-height: 1.6;
+        }
+
+        /* Option Grid */
+        .option-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .option-card {
+            position: relative;
+            padding: 1.5rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+            text-align: center;
+        }
+
+        .option-card:hover {
+            border-color: var(--primary-solid);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .option-card input[type="checkbox"],
+        .option-card input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+        }
+
+        .option-card.selected {
+            border-color: var(--primary-solid);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            box-shadow: var(--shadow-md);
+        }
+
+        .option-card.selected::before {
+            content: '✓';
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 24px;
+            height: 24px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .option-label {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            display: block;
+        }
+
+        .option-description {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 0.5rem;
+        }
+
+        /* Text Input Fields */
+        .input-group {
+            margin: 2rem 0;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.75rem;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary-solid);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea.input-field {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .input-hint {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 0.5rem;
+        }
+
+        /* Profile Upload */
+        .upload-section {
+            text-align: center;
+            padding: 2rem;
+            border: 2px dashed #e5e7eb;
+            border-radius: 16px;
+            margin: 2rem 0;
+            transition: all 0.3s;
+        }
+
+        .upload-section:hover {
+            border-color: var(--primary-solid);
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .upload-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            object-fit: cover;
+            border: 4px solid white;
+            box-shadow: var(--shadow-md);
+            display: none;
+        }
+
+        .upload-preview.visible {
+            display: block;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .upload-label {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            background: var(--primary);
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .upload-label:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 3rem;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-back {
+            background: transparent;
+            color: var(--text-light);
+            border: 2px solid #e5e7eb;
+        }
+
+        .btn-back:hover {
+            background: var(--bg-light);
+            border-color: var(--text-light);
+        }
+
+        .btn-next {
+            background: var(--primary);
+            color: white;
+            box-shadow: var(--shadow-md);
+            flex-grow: 1;
+            max-width: 300px;
+        }
+
+        .btn-next:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-skip {
+            background: transparent;
+            color: var(--text-light);
+            padding: 1rem 1.5rem;
+        }
+
+        .btn-skip:hover {
+            color: var(--text-dark);
+        }
+
+        /* Welcome Screen */
+        .welcome-screen {
+            display: none;
+            text-align: center;
+            padding: 3rem 2rem;
+        }
+
+        .welcome-screen.active {
+            display: block;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .celebration-icon {
+            font-size: 5rem;
+            margin-bottom: 2rem;
+            animation: bounce 1s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .welcome-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+
+        .welcome-message {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            margin-bottom: 3rem;
+            line-height: 1.8;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .quick-action-card {
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border-radius: 16px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .quick-action-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-solid);
+        }
+
+        .quick-action-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .quick-action-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .quick-action-desc {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+
+            .onboarding-card {
+                padding: 2rem 1.5rem;
+                border-radius: 16px;
+            }
+
+            .step-title {
+                font-size: 1.5rem;
+            }
+
+            .step-subtitle {
+                font-size: 1rem;
+            }
+
+            .option-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column-reverse;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .btn-next {
+                max-width: 100%;
+            }
+
+            .progress-wrapper {
+                padding: 1rem 1.5rem;
+            }
+        }
+
+        /* Animations for motivation */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, transparent 0%, rgba(102, 126, 234, 0.2) 50%, transparent 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="onboarding-container">
+        <!-- Progress Bar -->
+        <div class="progress-wrapper">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 10%"></div>
+            </div>
+            <div class="progress-text">
+                Step <strong><span id="currentStep">1</span></strong> of <strong>10</strong>
+            </div>
+        </div>
+
+        <!-- Main Onboarding Card -->
+        <div class="onboarding-card">
+            <form id="onboardingForm" action="/onboarding" method="POST" enctype="multipart/form-data">
+                
+                <!-- Step 1: Passions -->
+                <div class="step-section active" data-step="1">
+                    <div class="step-header">
+                        <div class="step-number">1</div>
+                        <h1 class="step-title">What are you passionate about?</h1>
+                        <p class="step-subtitle">Choose the areas that excite you most. We'll personalize your feed based on these.</p>
+                    </div>
+                    <div class="option-grid">
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Coding">
+                            <span class="option-label">💻 Coding</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Design">
+                            <span class="option-label">🎨 Design</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Music">
+                            <span class="option-label">🎵 Music</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Fitness">
+                            <span class="option-label">💪 Fitness</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Writing">
+                            <span class="option-label">✍️ Writing</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Academics">
+                            <span class="option-label">📚 Academics</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Entrepreneurship">
+                            <span class="option-label">🚀 Business</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Art">
+                            <span class="option-label">🖼️ Art</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Photography">
+                            <span class="option-label">📷 Photography</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Public Speaking">
+                            <span class="option-label">🎤 Speaking</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Languages">
+                            <span class="option-label">🌍 Languages</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="categories" value="Gaming">
+                            <span class="option-label">🎮 Gaming</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Step 2: Goals -->
+                <div class="step-section" data-step="2">
+                    <div class="step-header">
+                        <div class="step-number">2</div>
+                        <h1 class="step-title">What are your main goals?</h1>
+                        <p class="step-subtitle">Select all that apply. This helps us show you relevant content and opportunities.</p>
+                    </div>
+                    <div class="option-grid">
+                        <label class="option-card">
+                            <input type="checkbox" name="goals" value="Learn a new skill">
+                            <span class="option-label">Learn a new skill</span>
+                            <span class="option-description">Start from scratch</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="goals" value="Get better at my craft">
+                            <span class="option-label">Improve my craft</span>
+                            <span class="option-description">Level up existing skills</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="goals" value="Build a portfolio">
+                            <span class="option-label">Build a portfolio</span>
+                            <span class="option-description">Showcase my work</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="goals" value="Find mentors">
+                            <span class="option-label">Find mentors</span>
+                            <span class="option-description">Learn from experts</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="goals" value="Start teaching others">
+                            <span class="option-label">Teach others</span>
+                            <span class="option-description">Share my knowledge</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="goals" value="Stay accountable">
+                            <span class="option-label">Stay accountable</span>
+                            <span class="option-description">Build consistency</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Step 3: Experience Level -->
+                <div class="step-section" data-step="3">
+                    <div class="step-header">
+                        <div class="step-number">3</div>
+                        <h1 class="step-title">What's your experience level?</h1>
+                        <p class="step-subtitle">In your main passion area, where would you place yourself?</p>
+                    </div>
+                    <div class="option-grid">
+                        <label class="option-card">
+                            <input type="radio" name="experience" value="Beginner">
+                            <span class="option-label">🌱 Beginner</span>
+                            <span class="option-description">Just starting out</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="experience" value="Intermediate">
+                            <span class="option-label">🌿 Intermediate</span>
+                            <span class="option-description">Have some experience</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="experience" value="Advanced">
+                            <span class="option-label">🌳 Advanced</span>
+                            <span class="option-description">Highly skilled</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="experience" value="Expert">
+                            <span class="option-label">🏆 Expert</span>
+                            <span class="option-description">Master level</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Step 4: Time Commitment -->
+                <div class="step-section" data-step="4">
+                    <div class="step-header">
+                        <div class="step-number">4</div>
+                        <h1 class="step-title">How much time can you dedicate?</h1>
+                        <p class="step-subtitle">Be realistic - consistency beats perfection every time.</p>
+                    </div>
+                    <div class="option-grid">
+                        <label class="option-card">
+                            <input type="radio" name="daily_time_commitment" value="15-30 minutes">
+                            <span class="option-label">⏱️ 15-30 min</span>
+                            <span class="option-description">Short & focused</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="daily_time_commitment" value="30-60 minutes">
+                            <span class="option-label">⏰ 30-60 min</span>
+                            <span class="option-description">Daily practice</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="daily_time_commitment" value="1-2 hours">
+                            <span class="option-label">⌚ 1-2 hours</span>
+                            <span class="option-description">Serious commitment</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="radio" name="daily_time_commitment" value="2+ hours">
+                            <span class="option-label">🔥 2+ hours</span>
+                            <span class="option-description">All in</span>
+                        </label>
+                    </div>
+                    <div class="input-group" style="margin-top: 3rem;">
+                        <label class="input-label">When are you most productive?</label>
+                        <div class="option-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                            <label class="option-card">
+                                <input type="radio" name="best_time" value="Morning">
+                                <span class="option-label">🌅 Morning</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="best_time" value="Afternoon">
+                                <span class="option-label">☀️ Afternoon</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="best_time" value="Evening">
+                                <span class="option-label">🌆 Evening</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="best_time" value="Late Night">
+                                <span class="option-label">🌙 Night</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-top: 2rem;">
+                        <label class="input-label">How often should we remind you?</label>
+                        <div class="option-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                            <label class="option-card">
+                                <input type="radio" name="reminder_frequency" value="Daily">
+                                <span class="option-label">📅 Daily</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="reminder_frequency" value="3x per week">
+                                <span class="option-label">📆 3x/week</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="reminder_frequency" value="Weekly">
+                                <span class="option-label">📋 Weekly</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="reminder_frequency" value="None">
+                                <span class="option-label">🔕 None</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 5: Accountability Style -->
+                <div class="step-section" data-step="5">
+                    <div class="step-header">
+                        <div class="step-number">5</div>
+                        <h1 class="step-title">How do you stay accountable?</h1>
+                        <p class="step-subtitle">Choose the approach that motivates you most.</p>
+                    </div>
+                    <div class="option-grid">
+                        <label class="option-card">
+                            <input type="checkbox" name="accountability_style" value="Public progress sharing">
+                            <span class="option-label">📢 Public sharing</span>
+                            <span class="option-description">Share wins publicly</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="accountability_style" value="Private tracking">
+                            <span class="option-label">🔒 Private tracking</span>
+                            <span class="option-description">Keep it personal</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="accountability_style" value="Community challenges">
+                            <span class="option-label">🏅 Challenges</span>
+                            <span class="option-description">Compete with others</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="accountability_style" value="Accountability partner">
+                            <span class="option-label">🤝 Partner up</span>
+                            <span class="option-description">1-on-1 accountability</span>
+                        </label>
+                    </div>
+                    <div class="input-group" style="margin-top: 3rem;">
+                        <label class="input-label">Who can see your progress?</label>
+                        <div class="option-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                            <label class="option-card">
+                                <input type="radio" name="progress_visibility" value="Everyone">
+                                <span class="option-label">🌍 Everyone</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="progress_visibility" value="Followers only">
+                                <span class="option-label">👥 Followers</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="progress_visibility" value="Private">
+                                <span class="option-label">🔐 Private</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 6: Content Preferences -->
+                <div class="step-section" data-step="6">
+                    <div class="step-header">
+                        <div class="step-number">6</div>
+                        <h1 class="step-title">What motivates you?</h1>
+                        <p class="step-subtitle">We'll prioritize this type of content in your feed.</p>
+                    </div>
+                    <div class="option-grid">
+                        <label class="option-card">
+                            <input type="checkbox" name="content_preferences" value="Success stories">
+                            <span class="option-label">🌟 Success stories</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="content_preferences" value="How-to guides">
+                            <span class="option-label">📖 How-to guides</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="content_preferences" value="Daily challenges">
+                            <span class="option-label">🎯 Challenges</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="content_preferences" value="Inspiration">
+                            <span class="option-label">✨ Inspiration</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="content_preferences" value="Progress trackers">
+                            <span class="option-label">📊 Tracking</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="content_preferences" value="Discussions">
+                            <span class="option-label">💬 Discussions</span>
+                        </label>
+                    </div>
+                    <div class="input-group" style="margin-top: 3rem;">
+                        <label class="input-label">Preferred content format</label>
+                        <div class="option-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                            <label class="option-card">
+                                <input type="radio" name="content_format_preference" value="Text">
+                                <span class="option-label">📝 Text</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="content_format_preference" value="Images">
+                                <span class="option-label">🖼️ Images</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="content_format_preference" value="Videos">
+                                <span class="option-label">🎥 Videos</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="content_format_preference" value="Mixed">
+                                <span class="option-label">🎨 Mixed</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 7: Mentoring & Discovery -->
+                <div class="step-section" data-step="7">
+                    <div class="step-header">
+                        <div class="step-number">7</div>
+                        <h1 class="step-title">Ready to connect?</h1>
+                        <p class="step-subtitle">Help us understand how you want to engage with the community.</p>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Are you open to mentoring?</label>
+                        <div class="option-grid">
+                            <label class="option-card">
+                                <input type="radio" name="open_to_mentoring" value="Yes, I want to help others">
+                                <span class="option-label">🎓 Help others</span>
+                                <span class="option-description">Share my knowledge</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="open_to_mentoring" value="Yes, seeking mentors">
+                                <span class="option-label">🙋 Seeking mentors</span>
+                                <span class="option-description">Learn from experts</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="open_to_mentoring" value="Both">
+                                <span class="option-label">🤝 Both</span>
+                                <span class="option-description">Learn & teach</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="open_to_mentoring" value="No, just personal growth">
+                                <span class="option-label">🧘 Solo journey</span>
+                                <span class="option-description">Focus on myself</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 8: First Goal -->
+                <div class="step-section" data-step="8">
+                    <div class="step-header">
+                        <div class="step-number">8</div>
+                        <h1 class="step-title">Set your first 30-day goal</h1>
+                        <p class="step-subtitle">What's one thing you want to accomplish in the next month?</p>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Your goal</label>
+                        <input type="text" name="first_goal" class="input-field" placeholder="e.g., Build my first web app, Run 5K, Write 10 blog posts">
+                        <p class="input-hint">Be specific and measurable</p>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Target date (optional)</label>
+                        <input type="date" name="first_goal_date" class="input-field">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">How will you measure success?</label>
+                        <input type="text" name="first_goal_metric" class="input-field" placeholder="e.g., Deployed live site, Completed 5K without stopping">
+                    </div>
+                    <div class="input-group" style="text-align: center;">
+                        <label class="option-card" style="display: inline-block; max-width: 400px; text-align: center;">
+                            <input type="checkbox" name="first_goal_public" value="1">
+                            <span class="option-label">📢 Make this goal public</span>
+                            <span class="option-description">Share for accountability</span>
+                        </label>
+                    </div>
+                    <div style="text-align: center; margin-top: 2rem;">
+                        <button type="button" class="btn-skip" onclick="nextStep()">Skip this step →</button>
+                    </div>
+                </div>
+
+                <!-- Step 9: Notification Preferences -->
+                <div class="step-section" data-step="9">
+                    <div class="step-header">
+                        <div class="step-number">9</div>
+                        <h1 class="step-title">Notification preferences</h1>
+                        <p class="step-subtitle">Choose what you want to be notified about.</p>
+                    </div>
+                    <div class="option-grid">
+                        <label class="option-card">
+                            <input type="checkbox" name="notify_followers" value="1" checked>
+                            <span class="option-label">👥 New followers</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="notify_likes_comments" value="1" checked>
+                            <span class="option-label">💬 Likes & comments</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="notify_milestones" value="1" checked>
+                            <span class="option-label">🎯 Milestones</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="notify_inspiration" value="1" checked>
+                            <span class="option-label">✨ Daily inspiration</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="notify_community" value="1">
+                            <span class="option-label">🌍 Community activity</span>
+                        </label>
+                        <label class="option-card">
+                            <input type="checkbox" name="notify_weekly_summary" value="1" checked>
+                            <span class="option-label">📊 Weekly summary</span>
+                        </label>
+                    </div>
+                    <div class="input-group" style="margin-top: 3rem;">
+                        <label class="input-label">How should we notify you?</label>
+                        <div class="option-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                            <label class="option-card">
+                                <input type="radio" name="notify_method" value="email" checked>
+                                <span class="option-label">📧 Email</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="notify_method" value="in-app">
+                                <span class="option-label">🔔 In-app</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="notify_method" value="both">
+                                <span class="option-label">📱 Both</span>
+                            </label>
+                            <label class="option-card">
+                                <input type="radio" name="notify_method" value="none">
+                                <span class="option-label">🔕 None</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 10: Profile Setup -->
+                <div class="step-section" data-step="10">
+                    <div class="step-header">
+                        <div class="step-number">10</div>
+                        <h1 class="step-title">Complete your profile</h1>
+                        <p class="step-subtitle">Add a photo and bio to get 3x more engagement!</p>
+                    </div>
+                    <div class="upload-section">
+                        <img id="profilePreview" class="upload-preview" alt="Profile preview">
+                        <div class="upload-icon">📸</div>
+                        <label for="profilePicture" class="upload-label">Upload Profile Picture</label>
+                        <input type="file" id="profilePicture" name="profilePicture" accept="image/*">
+                        <p class="input-hint" style="margin-top: 1rem;">JPG or PNG, max 5MB</p>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Your bio (optional)</label>
+                        <textarea name="bio" class="input-field" placeholder="Tell the community what drives you..." maxlength="150"></textarea>
+                        <p class="input-hint">Max 150 characters</p>
+                    </div>
+                    <div style="text-align: center; margin-top: 2rem;">
+                        <button type="button" class="btn-skip" onclick="nextStep()">Skip for now →</button>
+                    </div>
+                </div>
+
+                <!-- Welcome Screen -->
+                <div class="welcome-screen" data-step="11">
+                    <div class="celebration-icon">🎉</div>
+                    <h1 class="welcome-title">Welcome to Dream X!</h1>
+                    <p class="welcome-message">
+                        You're all set! Your personalized feed is ready, and you're about to join a community<br>
+                        that's addicted to being productive, not scrolling.
+                    </p>
+                    <div class="quick-actions">
+                        <a href="/feed" class="quick-action-card">
+                            <div class="quick-action-icon">🏠</div>
+                            <div class="quick-action-title">Explore Feed</div>
+                            <div class="quick-action-desc">See what's trending</div>
+                        </a>
+                        <a href="/profile" class="quick-action-card">
+                            <div class="quick-action-icon">👤</div>
+                            <div class="quick-action-title">Your Profile</div>
+                            <div class="quick-action-desc">View your dashboard</div>
+                        </a>
+                        <a href="/services" class="quick-action-card">
+                            <div class="quick-action-icon">💼</div>
+                            <div class="quick-action-title">Browse Services</div>
+                            <div class="quick-action-desc">Find opportunities</div>
+                        </a>
+                        <a href="#" onclick="document.getElementById('onboardingForm').submit(); return false;" class="quick-action-card highlight">
+                            <div class="quick-action-icon">✍️</div>
+                            <div class="quick-action-title">Create First Post</div>
+                            <div class="quick-action-desc">Share your journey</div>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons -->
+                <div class="action-buttons" id="actionButtons">
+                    <button type="button" class="btn btn-back" id="backBtn" onclick="previousStep()">← Back</button>
+                    <button type="button" class="btn btn-next" id="nextBtn" onclick="nextStep()">Continue →</button>
+                </div>
+            </form>
+        </div>
     </div>
 
-    <header class="onboarding-header">
-      <h1 class="onboarding-title">Start with your passions</h1>
-      <p class="onboarding-subtitle">Pick what you care about so Dream X can focus your feed.</p>
-    </header>
+    <script>
+        let currentStep = 1;
+        const totalSteps = 10;
 
-    <form class="onboarding-form" action="/onboarding" method="POST">
-      <!-- Step 1 -->
-      <section class="onboarding-section">
-        <h2 class="section-title">1) Choose your main passion categories</h2>
-        <div class="category-grid">
-          <% const categories = ["Coding","Design","Music","Fitness","Writing","Academics","Entrepreneurship","Art","Photography","Public Speaking","Languages"]; %>
-          <% categories.forEach(function(cat){ %>
-            <label class="category-card">
-              <input type="checkbox" name="categories" value="<%= cat %>">
-              <span class="card-label"><%= cat %></span>
-            </label>
-          <% }); %>
-        </div>
-      </section>
-
-      <!-- Step 2 -->
-      <section class="onboarding-section">
-        <h2 class="section-title">2) What are your goals?</h2>
-        <div class="goals-grid">
-          <% const goals = ["Learn a new skill","Get better at my craft","Build a portfolio","Find mentors","Start teaching others"]; %>
-          <% goals.forEach(function(goal){ %>
-            <label class="goal-card">
-              <input type="checkbox" name="goals" value="<%= goal %>">
-              <span class="card-label"><%= goal %></span>
-            </label>
-          <% }); %>
-        </div>
-      </section>
-
-      <!-- Step 3 -->
-      <section class="onboarding-section">
-        <h2 class="section-title">3) How experienced are you?</h2>
-        <div class="experience-grid">
-          <% const experiences = ["Beginner","Intermediate","Advanced","Expert"]; %>
-          <% experiences.forEach(function(level){ %>
-            <label class="experience-card">
-              <input type="radio" name="experience" value="<%= level %>">
-              <span class="card-label"><%= level %></span>
-            </label>
-          <% }); %>
-        </div>
-      </section>
-
-      <div class="onboarding-actions">
-        <a href="/logout" class="onboarding-back">&larr; Cancel & Logout</a>
-        <button type="submit" class="onboarding-submit">Save and Continue to Profile</button>
-      </div>
-    </form>
-  </div>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function(){
-    // Toggle selected class for checkbox/radio cards
-    function bindSelectable(selector, inputType){
-      document.querySelectorAll(selector).forEach(function(card){
-        card.addEventListener('click', function(e){
-          const input = card.querySelector('input');
-          if(inputType === 'checkbox'){
-            input.checked = !input.checked;
-            card.classList.toggle('selected', input.checked);
-          } else if(inputType === 'radio') {
-            document.querySelectorAll(selector).forEach(c => c.classList.remove('selected'));
-            input.checked = true;
-            card.classList.add('selected');
-          }
+        // Initialize form interactions
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCardSelection();
+            initializeFileUpload();
+            updateNavigation();
         });
-        // Keyboard accessibility
-        card.addEventListener('keydown', function(e){
-          if(e.key === 'Enter' || e.key === ' '){
+
+        function initializeCardSelection() {
+            document.querySelectorAll('.option-card').forEach(card => {
+                const input = card.querySelector('input');
+                
+                if (!input) return;
+                
+                // Initial state
+                if (input.checked) {
+                    card.classList.add('selected');
+                }
+                
+                card.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    if (input.type === 'checkbox') {
+                        input.checked = !input.checked;
+                        card.classList.toggle('selected', input.checked);
+                    } else if (input.type === 'radio') {
+                        // Remove selected from all radio cards with same name
+                        document.querySelectorAll(`input[name="${input.name}"]`).forEach(radio => {
+                            radio.closest('.option-card').classList.remove('selected');
+                            radio.checked = false;
+                        });
+                        input.checked = true;
+                        card.classList.add('selected');
+                    }
+                });
+
+                // Prevent input click from bubbling
+                input.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+
+                // Keyboard support
+                card.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        card.click();
+                    }
+                });
+                
+                card.setAttribute('tabindex', '0');
+            });
+        }
+
+        function initializeFileUpload() {
+            const fileInput = document.getElementById('profilePicture');
+            const preview = document.getElementById('profilePreview');
+            
+            if (fileInput) {
+                fileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            preview.src = e.target.result;
+                            preview.classList.add('visible');
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) {
+                // Hide current step
+                document.querySelector(`[data-step="${currentStep}"]`).classList.remove('active');
+                
+                // Increment step
+                currentStep++;
+                
+                // Show next step
+                document.querySelector(`[data-step="${currentStep}"]`).classList.add('active');
+                
+                // Update progress
+                updateProgress();
+                updateNavigation();
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else if (currentStep === totalSteps) {
+                // Show welcome screen
+                document.querySelector(`[data-step="${currentStep}"]`).classList.remove('active');
+                currentStep++;
+                document.querySelector(`[data-step="${currentStep}"]`).classList.add('active');
+                document.getElementById('actionButtons').style.display = 'none';
+                updateProgress();
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 1 && currentStep <= totalSteps) {
+                // Hide current step
+                document.querySelector(`[data-step="${currentStep}"]`).classList.remove('active');
+                
+                // Decrement step
+                currentStep--;
+                
+                // Show previous step
+                document.querySelector(`[data-step="${currentStep}"]`).classList.add('active');
+                
+                // Update progress
+                updateProgress();
+                updateNavigation();
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function updateProgress() {
+            const progress = (currentStep / totalSteps) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('currentStep').textContent = currentStep;
+        }
+
+        function updateNavigation() {
+            const backBtn = document.getElementById('backBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            // Hide back button on first step
+            backBtn.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+            
+            // Change button text on last step
+            if (currentStep === totalSteps) {
+                nextBtn.textContent = 'Complete Setup 🎉';
+                nextBtn.style.animation = 'pulse 1.5s infinite';
+            } else {
+                nextBtn.textContent = 'Continue →';
+                nextBtn.style.animation = 'none';
+            }
+        }
+
+        // Form submission handler
+        document.getElementById('onboardingForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            card.click();
-          }
+            
+            // Show loading state
+            const submitBtn = document.getElementById('nextBtn');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Saving...';
+            submitBtn.disabled = true;
+            
+            // Submit form
+            this.submit();
         });
-        card.setAttribute('tabindex','0');
-      });
-    }
-    bindSelectable('.category-card','checkbox');
-    bindSelectable('.goal-card','checkbox');
-    bindSelectable('.experience-card','radio');
-  });
-</script>
-
-<%- include('partials/footer') %>
+    </script>
+</body>
+</html>

@@ -179,6 +179,40 @@ CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
 CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
 `);
 
+// --- Services: Orders and Reviews (for verified purchaser ratings) ---
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS service_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id INTEGER NOT NULL,
+    buyer_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'completed',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (service_id) REFERENCES services(id),
+    FOREIGN KEY (buyer_id) REFERENCES users(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_service_orders_service ON service_orders(service_id);
+  CREATE INDEX IF NOT EXISTS idx_service_orders_buyer ON service_orders(buyer_id);
+  CREATE INDEX IF NOT EXISTS idx_service_orders_status ON service_orders(status);
+  `);
+} catch (e) { /* table may already exist */ }
+
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS service_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(service_id, user_id),
+    FOREIGN KEY (service_id) REFERENCES services(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_service_reviews_service ON service_reviews(service_id);
+  CREATE INDEX IF NOT EXISTS idx_service_reviews_user ON service_reviews(user_id);
+  `);
+} catch (e) { /* table may already exist */ }
+
 // Migration: Add new columns if they don't exist
 try {
   db.exec(`ALTER TABLE users ADD COLUMN profile_picture TEXT;`);
@@ -379,6 +413,28 @@ try { db.exec(`CREATE INDEX IF NOT EXISTS idx_post_comments_parent ON post_comme
 // Comment moderation columns
 try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_hidden INTEGER DEFAULT 0;`); } catch (e) {}
 try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
+
+// Onboarding enhancements migration (idempotent)
+try { db.exec(`ALTER TABLE users ADD COLUMN daily_time_commitment TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN best_time TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN reminder_frequency TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN accountability_style TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN progress_visibility TEXT DEFAULT 'public';`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN content_preferences TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN content_format_preference TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN open_to_mentoring TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN first_goal TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_date TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_metric TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_public INTEGER DEFAULT 0;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_followers INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_likes_comments INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_milestones INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_inspiration INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_community INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_weekly_summary INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_method TEXT DEFAULT 'both';`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0;`); } catch (e) {}
 
 // Ensure audit logs table exists
 try {
@@ -602,11 +658,73 @@ module.exports = {
   unlinkProvider: ({ userId, provider }) => {
     db.prepare(`DELETE FROM oauth_accounts WHERE user_id = ? AND provider = ?`).run(userId, provider);
   },
-  updateOnboarding: ({ userId, categories, goals, experience }) => {
-    db.prepare(`UPDATE users SET categories = ?, goals = ?, experience = ? WHERE id = ?`).run(
-      JSON.stringify(categories),
-      JSON.stringify(goals),
+  updateOnboarding: ({
+    userId, categories, goals, experience,
+    daily_time_commitment, best_time, reminder_frequency,
+    accountability_style, progress_visibility,
+    content_preferences, content_format_preference,
+    open_to_mentoring,
+    first_goal, first_goal_date, first_goal_metric, first_goal_public,
+    notify_followers, notify_likes_comments, notify_milestones,
+    notify_inspiration, notify_community, notify_weekly_summary,
+    notify_method, bio, profile_picture, onboarding_completed
+  }) => {
+    const updateStmt = db.prepare(`
+      UPDATE users SET 
+        categories = ?,
+        goals = ?,
+        experience = ?,
+        daily_time_commitment = ?,
+        best_time = ?,
+        reminder_frequency = ?,
+        accountability_style = ?,
+        progress_visibility = ?,
+        content_preferences = ?,
+        content_format_preference = ?,
+        open_to_mentoring = ?,
+        first_goal = ?,
+        first_goal_date = ?,
+        first_goal_metric = ?,
+        first_goal_public = ?,
+        notify_followers = ?,
+        notify_likes_comments = ?,
+        notify_milestones = ?,
+        notify_inspiration = ?,
+        notify_community = ?,
+        notify_weekly_summary = ?,
+        notify_method = ?,
+        bio = COALESCE(?, bio),
+        profile_picture = COALESCE(?, profile_picture),
+        onboarding_completed = ?
+      WHERE id = ?
+    `);
+    
+    updateStmt.run(
+      JSON.stringify(categories || []),
+      JSON.stringify(goals || []),
       experience,
+      daily_time_commitment,
+      best_time,
+      reminder_frequency,
+      accountability_style,
+      progress_visibility,
+      content_preferences,
+      content_format_preference,
+      open_to_mentoring,
+      first_goal,
+      first_goal_date,
+      first_goal_metric,
+      first_goal_public || 0,
+      notify_followers || 0,
+      notify_likes_comments || 0,
+      notify_milestones || 0,
+      notify_inspiration || 0,
+      notify_community || 0,
+      notify_weekly_summary || 0,
+      notify_method,
+      bio,
+      profile_picture,
+      onboarding_completed || 1,
       userId
     );
   },
@@ -1390,7 +1508,15 @@ module.exports = {
 
   getAllServices: ({ category, priceRange, experienceLevel, format, limit = 100 }) => {
     let query = `
-      SELECT s.*, u.full_name, u.profile_picture, u.categories
+      SELECT 
+        s.*, 
+        u.full_name, u.profile_picture, u.categories,
+        (
+          SELECT ROUND(AVG(r.rating), 2) FROM service_reviews r WHERE r.service_id = s.id
+        ) AS rating_avg,
+        (
+          SELECT COUNT(*) FROM service_reviews r WHERE r.service_id = s.id
+        ) AS rating_count
       FROM services s
       JOIN users u ON u.id = s.user_id
       WHERE s.status = 'active'
@@ -1424,7 +1550,15 @@ module.exports = {
 
   getService: (serviceId) => {
     return db.prepare(`
-      SELECT s.*, u.full_name, u.profile_picture, u.email, u.bio, u.categories
+      SELECT 
+        s.*, 
+        u.full_name, u.profile_picture, u.email, u.bio, u.categories,
+        (
+          SELECT ROUND(AVG(r.rating), 2) FROM service_reviews r WHERE r.service_id = s.id
+        ) AS rating_avg,
+        (
+          SELECT COUNT(*) FROM service_reviews r WHERE r.service_id = s.id
+        ) AS rating_count
       FROM services s
       JOIN users u ON u.id = s.user_id
       WHERE s.id = ? AND s.status = 'active'
@@ -1452,5 +1586,82 @@ module.exports = {
   getServiceCount: (userId) => {
     const result = db.prepare(`SELECT COUNT(*) as count FROM services WHERE user_id = ? AND status = 'active'`).get(userId);
     return result.count;
+  },
+
+  // Service Orders (for purchase verification)
+  addServiceOrder: ({ serviceId, buyerId, status = 'completed' }) => {
+    const info = db.prepare(`INSERT INTO service_orders (service_id, buyer_id, status) VALUES (?,?,?)`).run(serviceId, buyerId, status);
+    return info.lastInsertRowid;
+  },
+  isVerifiedPurchaser: ({ serviceId, userId }) => {
+    const row = db.prepare(`SELECT 1 FROM service_orders WHERE service_id = ? AND buyer_id = ? AND status = 'completed' LIMIT 1`).get(serviceId, userId);
+    return !!row;
+  },
+
+  // Service Reviews
+  addOrUpdateServiceReview: ({ serviceId, userId, rating, comment }) => {
+    // Upsert: if review exists for (serviceId, userId), update; else insert
+    const existing = db.prepare(`SELECT id FROM service_reviews WHERE service_id = ? AND user_id = ?`).get(serviceId, userId);
+    if (existing) {
+      db.prepare(`UPDATE service_reviews SET rating = ?, comment = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?`).run(rating, comment || null, existing.id);
+      return existing.id;
+    }
+    const info = db.prepare(`INSERT INTO service_reviews (service_id, user_id, rating, comment) VALUES (?,?,?,?)`).run(serviceId, userId, rating, comment || null);
+    return info.lastInsertRowid;
+  },
+  getServiceReviews: ({ serviceId, limit = 20, offset = 0 }) => {
+    return db.prepare(`
+      SELECT r.*, u.full_name, u.profile_picture
+      FROM service_reviews r
+      JOIN users u ON u.id = r.user_id
+      WHERE r.service_id = ?
+      ORDER BY r.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(serviceId, limit, offset);
+  },
+  getServiceRatingsSummary: (serviceId) => {
+    const row = db.prepare(`SELECT ROUND(AVG(rating), 2) AS avg, COUNT(*) AS count FROM service_reviews WHERE service_id = ?`).get(serviceId);
+    return { average: row?.avg || 0, count: row?.count || 0 };
+  },
+
+  // Admin service moderation helpers
+  adminSetServiceStatus: ({ serviceId, status }) => {
+    const stmt = db.prepare(`UPDATE services SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`);
+    const result = stmt.run(status, serviceId);
+    return result.changes > 0;
+  },
+  adminUpdateServiceContent: ({ serviceId, fields }) => {
+    const allowed = ['title','description','category','price_per_hour','duration_minutes','experience_level','format','availability','location','tags','image_url'];
+    const sets = [];
+    const params = [];
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(fields, key)) {
+        sets.push(`${key} = ?`);
+        params.push(fields[key]);
+      }
+    }
+    if (sets.length === 0) return false;
+    params.push(serviceId);
+    const sql = `UPDATE services SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    const result = db.prepare(sql).run(...params);
+    return result.changes > 0;
+  },
+  listAllServicesAdmin: ({ status, limit = 100, offset = 0, q }) => {
+    let sql = `
+      SELECT s.*, u.full_name, u.email
+      FROM services s
+      JOIN users u ON u.id = s.user_id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (status) { sql += ` AND s.status = ?`; params.push(status); }
+    if (q) {
+      sql += ` AND (LOWER(s.title) LIKE ? OR LOWER(u.full_name) LIKE ? OR LOWER(u.email) LIKE ?)`;
+      const sLike = `%${q.toLowerCase()}%`;
+      params.push(sLike, sLike, sLike);
+    }
+    sql += ` ORDER BY s.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    return db.prepare(sql).all(...params);
   }
 };
