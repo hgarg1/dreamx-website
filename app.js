@@ -21,7 +21,7 @@ const {
 const socketIo = require('socket.io');
 
 // Import email service
-const emailService = require('./emailService');
+const emailService = require('./services/email');
 
 const { 
     db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
