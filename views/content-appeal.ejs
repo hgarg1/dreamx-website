@@ -357,4 +357,59 @@
 }
 </style>
 
+<script>
+document.querySelector('.appeal-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Submitting...';
+    submitBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/appeals/content', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Show success message
+            const successDiv = document.createElement('div');
+            successDiv.className = 'admin-alert admin-alert-success';
+            successDiv.textContent = result.message + ' Case #: ' + result.caseNumber;
+            this.parentElement.insertBefore(successDiv, this);
+            
+            // Reset form
+            this.reset();
+            
+            // Scroll to top to see message
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            // Show error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'admin-alert admin-alert-error';
+            errorDiv.textContent = result.error || 'Failed to submit appeal. Please try again.';
+            this.parentElement.insertBefore(errorDiv, this);
+        }
+    } catch (error) {
+        // Show error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'admin-alert admin-alert-error';
+        errorDiv.textContent = 'An error occurred. Please try again later.';
+        this.parentElement.insertBefore(errorDiv, this);
+    } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+});
+</script>
+
 <%- include('partials/footer') %>

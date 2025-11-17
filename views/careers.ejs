@@ -38,7 +38,7 @@
                     <span class="tag">Engineering</span>
                     <span class="tag">Senior</span>
                 </div>
-                <a href="mailto:careers@dreamx.com?subject=Application: Senior Full-Stack Engineer" class="btn btn-primary">Apply Now</a>
+                <a href="mailto:careers@dreamx.com?subject=Application: Senior Full-Stack Engineer" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('Senior Full-Stack Engineer')">Apply Now</a>
             </div>
 
             <div class="job-card">
@@ -52,7 +52,7 @@
                     <span class="tag">Design</span>
                     <span class="tag">Mid-Senior</span>
                 </div>
-                <a href="mailto:careers@dreamx.com?subject=Application: Product Designer" class="btn btn-primary">Apply Now</a>
+                <a href="mailto:careers@dreamx.com?subject=Application: Product Designer" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('Product Designer')">Apply Now</a>
             </div>
 
             <div class="job-card">
@@ -66,7 +66,7 @@
                     <span class="tag">Operations</span>
                     <span class="tag">Entry-Mid</span>
                 </div>
-                <a href="mailto:careers@dreamx.com?subject=Application: Content Moderator" class="btn btn-primary">Apply Now</a>
+                <a href="mailto:careers@dreamx.com?subject=Application: Content Moderator" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('Content Moderator')">Apply Now</a>
             </div>
 
             <div class="job-card">
@@ -80,7 +80,7 @@
                     <span class="tag">Marketing</span>
                     <span class="tag">Mid-Senior</span>
                 </div>
-                <a href="mailto:careers@dreamx.com?subject=Application: Marketing Manager" class="btn btn-primary">Apply Now</a>
+                <a href="mailto:careers@dreamx.com?subject=Application: Marketing Manager" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('Marketing Manager')">Apply Now</a>
             </div>
         </div>
     </div>
@@ -124,7 +124,58 @@
     <div class="content-block cta-block">
         <h2>Don't see the perfect role?</h2>
         <p>We're always looking for talented people who share our passion for growth. Send us your resume and tell us what you'd love to work on.</p>
-        <a href="mailto:careers@dreamx.com?subject=General Application" class="btn btn-primary">Send General Application</a>
+        <button class="btn btn-primary" onclick="openCareerForm('General Application')">Send General Application</button>
+    </div>
+</div>
+
+<!-- Career Application Modal -->
+<div id="careerModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeCareerForm()">&times;</span>
+        <h2>Apply for <span id="positionTitle"></span></h2>
+        <form id="careerForm" class="career-application-form">
+            <input type="hidden" id="position" name="position" />
+            
+            <div class="form-row">
+                <label for="applicantName" class="form-label">Full Name *</label>
+                <input type="text" id="applicantName" name="name" class="form-input" required />
+            </div>
+
+            <div class="form-row">
+                <label for="applicantEmail" class="form-label">Email Address *</label>
+                <input type="email" id="applicantEmail" name="email" class="form-input" required />
+            </div>
+
+            <div class="form-row">
+                <label for="applicantPhone" class="form-label">Phone Number</label>
+                <input type="tel" id="applicantPhone" name="phone" class="form-input" />
+            </div>
+
+            <div class="form-row">
+                <label for="coverLetter" class="form-label">Cover Letter / Why You? *</label>
+                <textarea id="coverLetter" name="coverLetter" rows="6" class="form-textarea" 
+                    placeholder="Tell us why you're a great fit for this role..." required></textarea>
+            </div>
+
+            <div class="form-row">
+                <label for="resume" class="form-label">Resume/CV Link</label>
+                <input type="url" id="resume" name="resume" class="form-input" 
+                    placeholder="https://..." />
+                <small class="hint">Link to your resume (Google Drive, Dropbox, etc.)</small>
+            </div>
+
+            <div class="form-row">
+                <label for="portfolio" class="form-label">Portfolio/Website</label>
+                <input type="url" id="portfolio" name="portfolio" class="form-input" 
+                    placeholder="https://..." />
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="closeCareerForm()">Cancel</button>
+                <button type="submit" class="btn-primary">Submit Application</button>
+            </div>
+        </form>
+        <div id="careerFormMessage" style="display: none;"></div>
     </div>
 </div>
 
@@ -224,12 +275,160 @@
     border-radius: var(--radius-lg);
 }
 
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal-content {
+    background: white;
+    border-radius: var(--radius-lg);
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 2rem;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-light);
+    line-height: 1;
+    transition: color 0.3s ease;
+}
+
+.modal-close:hover {
+    color: var(--primary-color);
+}
+
+.modal-content h2 {
+    margin: 0 0 1.5rem;
+    color: var(--text-dark);
+}
+
+.career-application-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+#careerFormMessage {
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    margin-top: 1rem;
+    font-weight: 600;
+}
+
+#careerFormMessage.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+#careerFormMessage.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
 @media (max-width: 768px) {
     .job-header {
         flex-direction: column;
         gap: 0.5rem;
     }
+    
+    .modal-content {
+        padding: 1.5rem;
+    }
 }
 </style>
+
+<script>
+function openCareerForm(position) {
+    document.getElementById('careerModal').style.display = 'flex';
+    document.getElementById('positionTitle').textContent = position;
+    document.getElementById('position').value = position;
+    document.getElementById('careerForm').reset();
+    document.getElementById('position').value = position;
+    document.getElementById('careerFormMessage').style.display = 'none';
+}
+
+function closeCareerForm() {
+    document.getElementById('careerModal').style.display = 'none';
+}
+
+// Close modal on outside click
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('careerModal');
+    if (event.target === modal) {
+        closeCareerForm();
+    }
+});
+
+// Handle form submission
+document.getElementById('careerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Submitting...';
+    submitBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/careers/apply', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        const messageDiv = document.getElementById('careerFormMessage');
+        
+        if (response.ok) {
+            messageDiv.textContent = result.message || 'Application submitted successfully!';
+            messageDiv.className = 'success';
+            messageDiv.style.display = 'block';
+            this.reset();
+            
+            setTimeout(() => {
+                closeCareerForm();
+            }, 3000);
+        } else {
+            messageDiv.textContent = result.error || 'Failed to submit application. Please try again.';
+            messageDiv.className = 'error';
+            messageDiv.style.display = 'block';
+        }
+    } catch (error) {
+        const messageDiv = document.getElementById('careerFormMessage');
+        messageDiv.textContent = 'An error occurred. Please try again later.';
+        messageDiv.className = 'error';
+        messageDiv.style.display = 'block';
+    } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+});
+</script>
 
 <%- include('partials/footer') %>

@@ -1,0 +1,188 @@
+<%- include('partials/header') %>
+
+<main class="admin-dashboard-container">
+  <header class="admin-dashboard-header">
+    <h1>Admin Dashboard</h1>
+    <p>Platform management and moderation center</p>
+  </header>
+
+  <% if (typeof success !== 'undefined' && success) { %>
+    <div class="admin-alert admin-alert-success">
+      <%= success %>
+    </div>
+  <% } %>
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="admin-alert admin-alert-error">
+      <%= error %>
+    </div>
+  <% } %>
+
+  <!-- Metrics Grid -->
+  <section class="admin-metrics-grid">
+    <div class="admin-metric-card">
+      <div class="metric-icon">👥</div>
+      <h3>Total Users</h3>
+      <p class="metric-value"><%= stats.users %></p>
+      <span class="metric-sub">Registered accounts</span>
+    </div>
+    <div class="admin-metric-card">
+      <div class="metric-icon">💬</div>
+      <h3>Conversations</h3>
+      <p class="metric-value"><%= stats.conversations %></p>
+      <span class="metric-sub">Active chats</span>
+    </div>
+    <div class="admin-metric-card">
+      <div class="metric-icon">📨</div>
+      <h3>Messages</h3>
+      <p class="metric-value"><%= stats.messages %></p>
+      <span class="metric-sub">Total sent</span>
+    </div>
+  </section>
+
+  <!-- Quick Actions -->
+  <section class="admin-panel admin-quick-actions">
+    <div class="panel-head">
+      <h2>Quick Actions</h2>
+    </div>
+    <div class="actions-grid">
+      <a href="/admin/export/users.csv" class="action-btn">
+        <span class="action-icon">📊</span>
+        Export Users CSV
+      </a>
+      <a href="/admin/export/messages.csv" class="action-btn">
+        <span class="action-icon">💾</span>
+        Export Messages CSV
+      </a>
+    </div>
+  </section>
+
+  <!-- User Management -->
+  <section class="admin-panel">
+    <div class="panel-head">
+      <h2>User Management</h2>
+      <form action="/admin" method="GET" class="admin-search-form">
+        <input 
+          type="text" 
+          name="q" 
+          value="<%= typeof q !== 'undefined' ? q : '' %>" 
+          placeholder="Search by name or email..." 
+          class="admin-search-input"
+        >
+        <input type="hidden" name="page" value="1" />
+        <button type="submit" class="admin-search-btn">Search</button>
+        <% if (q) { %>
+          <a href="/admin" class="admin-search-clear">Clear</a>
+        <% } %>
+      </form>
+    </div>
+    
+    <div class="table-responsive">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Joined</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% users.forEach(u => { %>
+            <tr>
+              <td><span class="user-id">#<%= u.id %></span></td>
+              <td>
+                <div class="user-info">
+                  <strong><%= u.full_name %></strong>
+                </div>
+              </td>
+              <td><%= u.email %></td>
+              <td>
+                <span class="role-badge role-<%= u.role %>"><%= u.role %></span>
+              </td>
+              <td><%= new Date(u.created_at).toLocaleDateString() %></td>
+              <td>
+                <form action="/admin/users/<%= u.id %>/role" method="POST" class="role-update-form">
+                  <select name="role" class="role-select">
+                    <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
+                    <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                    <option value="super_admin" <%= u.role === 'super_admin' ? 'selected' : '' %>>Super Admin</option>
+                  </select>
+                  <button type="submit" class="btn-update">Update</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (users.length === 0) { %>
+            <tr>
+              <td colspan="6" class="no-results">No users found</td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <% if (typeof total !== 'undefined' && typeof page !== 'undefined' && typeof pageSize !== 'undefined') { %>
+      <% const totalPages = Math.max(Math.ceil(total / pageSize), 1); %>
+      <div class="admin-pagination">
+        <div class="pagination-info">
+          Page <%= page %> of <%= totalPages %> (<%= total %> total users)
+        </div>
+        <div class="pagination-controls">
+          <% const qp = q ? `&q=${encodeURIComponent(q)}` : '' %>
+          <% if (page > 1) { %>
+            <a class="pagination-btn" href="/admin?page=<%= page - 1 %><%= qp %>">← Previous</a>
+          <% } else { %>
+            <button class="pagination-btn" disabled>← Previous</button>
+          <% } %>
+          <% if (page < totalPages) { %>
+            <a class="pagination-btn" href="/admin?page=<%= page + 1 %><%= qp %>">Next →</a>
+          <% } else { %>
+            <button class="pagination-btn" disabled>Next →</button>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  </section>
+
+  <!-- Audit Logs (Super Admin Only) -->
+  <% if (authUser && authUser.role === 'super_admin') { %>
+    <section class="admin-panel">
+      <div class="panel-head">
+        <h2>Audit Logs</h2>
+        <span class="badge">Latest 50</span>
+      </div>
+      <div class="table-responsive">
+        <table class="admin-table audit-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>User ID</th>
+              <th>Action</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (logs || []).forEach(l => { %>
+              <tr>
+                <td><%= new Date(l.created_at).toLocaleString() %></td>
+                <td><%= l.user_id || '-' %></td>
+                <td><code class="action-code"><%= l.action %></code></td>
+                <td><pre class="details-pre"><%= l.details || '' %></pre></td>
+              </tr>
+            <% }) %>
+            <% if (!logs || !logs.length) { %>
+              <tr>
+                <td colspan="4" class="no-results">No audit logs recorded yet.</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+</main>
+
+<%- include('partials/footer') %>
