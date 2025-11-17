@@ -19,6 +19,15 @@ const {
     verifyAuthenticationResponse
 } = require('@simplewebauthn/server');
 const socketIo = require('socket.io');
+
+// Simple email notification helper (logs to console in development)
+function sendEmailNotification(to, subject, body) {
+    // In production, integrate with SendGrid, AWS SES, or similar
+    console.log(`\n📧 EMAIL NOTIFICATION:\nTo: ${to}\nSubject: ${subject}\n\n${body}\n`);
+    // TODO: Implement actual email sending with a service like SendGrid
+    return true;
+}
+
 const { 
     db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
     updateProfilePicture, updateBannerImage, updatePassword, updateUserHandle, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
@@ -31,6 +40,9 @@ const {
     addAuditLog, getAuditLogsPaged, getAuditLogCount,
     // Posts
     createPost, getFeedPosts, getUserPosts,
+    // Post reactions & comments
+    setPostReaction, getPostReactionsSummary, getUserReactionForPost,
+    addPostComment, getPostComments, getCommentsCount, toggleCommentLike,
     // WebAuthn
     addWebAuthnCredential, getCredentialsForUser, getCredentialById, updateCredentialCounter,
     // Groups
@@ -43,7 +55,21 @@ const {
     getUserSubscription, createOrUpdateSubscription, cancelSubscription,
     addPaymentMethod, getPaymentMethods, deletePaymentMethod, setDefaultPaymentMethod,
     createInvoice, getInvoices,
-    updatePrivacySettings
+    updatePrivacySettings,
+    // Follow system
+    followUser, unfollowUser, isFollowing, getFollowerCount, getFollowingCount, getFollowers, getFollowing,
+    // Account moderation
+    banUser, suspendUser, unbanUser, checkAccountStatus,
+    // Recent activity
+    getRecentActivity,
+    // Comment moderation
+    hideComment, deleteComment, restoreComment,
+    // Suggested users
+    getSuggestedUsers,
+    // Message reactions
+    setMessageReaction, getMessageReactions, getUserReactionForMessage,
+    // Comment parent info
+    getCommentWithParent
  } = require('./db');
 let fetch;
 try {
@@ -100,6 +126,26 @@ const chatUpload = multer({
     }
     cb(new Error('Unsupported file type for chat'));
   }
+});
+
+// Posts/media uploads (supports images for image posts, videos/GIFs for reels)
+const postStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, path.join(__dirname, 'public', 'uploads'));
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'post-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const postUpload = multer({
+    storage: postStorage,
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const m = (file.mimetype || '').toLowerCase();
+        if (m.startsWith('image/') || m.startsWith('video/')) return cb(null, true);
+        cb(new Error('Unsupported media type for post'));
+    }
 });
 
 // Career application uploads (resume/portfolio)
@@ -388,6 +434,14 @@ app.use((req, res, next) => {
     if (req.session.userId) {
         const row = getUserById(req.session.userId);
         if (row) {
+            // Check account status - invalidate session if banned/suspended
+            const accountStatus = checkAccountStatus(row.id);
+            if (accountStatus.status === 'banned' || accountStatus.status === 'suspended') {
+                req.session.destroy(() => {
+                    return res.redirect(`/account-status?userId=${row.id}`);
+                });
+                return;
+            }
             user = {
                 ...row,
                 displayName: row.full_name
@@ -401,9 +455,10 @@ app.use((req, res, next) => {
 });
 
 // RBAC helpers
-const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin');
+const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin');
 const isHR = (user) => user && user.role === 'hr';
-const isSuperAdmin = (user) => user && user.role === 'super_admin';
+const isSuperAdmin = (user) => user && (user.role === 'super_admin' || user.role === 'global_admin');
+const isGlobalAdmin = (user) => user && user.role === 'global_admin';
 const requireAdmin = (req, res, next) => {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
     if (!isAdmin(user)) return res.redirect('/');
@@ -417,6 +472,11 @@ const requireSuperAdmin = (req, res, next) => {
 const requireHR = (req, res, next) => {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
     if (!isHR(user)) return res.redirect('/');
+    next();
+};
+const requireAdminOrHR = (req, res, next) => {
+    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!isAdmin(user) && !isHR(user)) return res.redirect('/');
     next();
 };
 
@@ -674,25 +734,96 @@ app.get('/admin', requireAdmin, (req, res) => {
 app.post('/admin/users/:id/role', requireSuperAdmin, (req, res) => {
     const id = parseInt(req.params.id);
     const role = (req.body.role || 'user').toLowerCase();
-    if (!['user','admin','super_admin'].includes(role)) {
+    const me = getUserById(req.session.userId);
+    
+    // Validate role
+    if (!['user','admin','super_admin','global_admin','hr'].includes(role)) {
         return res.redirect('/admin?error=Invalid+role');
     }
-    // Prevent demoting self from super_admin accidentally
-    const me = getUserById(req.session.userId);
-    if (me && me.id === id && me.role === 'super_admin' && role !== 'super_admin') {
+    
+    // Only global_admin can create other global_admins
+    if (role === 'global_admin' && (!me || me.role !== 'global_admin')) {
+        return res.redirect('/admin?error=Only+global+admins+can+promote+to+global+admin');
+    }
+    
+    // Prevent demoting self from global_admin or super_admin accidentally
+    if (me && me.id === id && me.role === 'global_admin' && role !== 'global_admin') {
+        return res.redirect('/admin?error=Cannot+demote+yourself+from+global+admin');
+    }
+    if (me && me.id === id && me.role === 'super_admin' && role !== 'super_admin' && role !== 'global_admin') {
         return res.redirect('/admin?error=Cannot+demote+yourself');
     }
-    // Ensure at least one super_admin remains
+    
+    // Ensure at least one global_admin remains (if any exist)
     const all = getAllUsers();
+    const globalAdmins = all.filter(u => u.role === 'global_admin');
+    if (globalAdmins.length === 1 && globalAdmins[0].id === id && role !== 'global_admin') {
+        return res.redirect('/admin?error=At+least+one+global+admin+required');
+    }
+    
+    // Ensure at least one super_admin remains (if no global_admins exist)
     const superAdmins = all.filter(u => u.role === 'super_admin');
-    if (superAdmins.length === 1 && superAdmins[0].id === id && role !== 'super_admin') {
+    if (globalAdmins.length === 0 && superAdmins.length === 1 && superAdmins[0].id === id && role !== 'super_admin') {
         return res.redirect('/admin?error=At+least+one+super+admin+required');
     }
+    
     updateUserRole({ userId: id, role });
     try {
         addAuditLog({ userId: me ? me.id : null, action: 'role_change', details: JSON.stringify({ targetUserId: id, newRole: role }) });
     } catch (e) {}
     res.redirect('/admin?success=Role+updated');
+});
+
+// User statistics page
+app.get('/admin/users/:id/stats', requireAdmin, async (req, res) => {
+    const userId = parseInt(req.params.id);
+    const user = getUserById(userId);
+    if (!user) {
+        return res.redirect('/admin?error=User+not+found');
+    }
+
+    // Get user stats
+    const postsCount = db.prepare('SELECT COUNT(*) as count FROM posts WHERE user_id = ?').get(userId)?.count || 0;
+    const commentsCount = db.prepare('SELECT COUNT(*) as count FROM post_comments WHERE user_id = ?').get(userId)?.count || 0;
+    const followersCount = getFollowerCount(userId);
+    const followingCount = getFollowingCount(userId);
+    const conversationsCount = db.prepare('SELECT COUNT(DISTINCT conversation_id) as count FROM conversation_participants WHERE user_id = ?').get(userId)?.count || 0;
+    const messagesCount = db.prepare('SELECT COUNT(*) as count FROM messages WHERE sender_id = ?').get(userId)?.count || 0;
+
+    // Get recent posts
+    const recentPosts = db.prepare(`
+        SELECT p.*, 
+               (SELECT COUNT(*) FROM post_reactions WHERE post_id = p.id) as reactions_count,
+               (SELECT COUNT(*) FROM post_comments WHERE post_id = p.id) as comments_count
+        FROM posts p
+        WHERE p.user_id = ?
+        ORDER BY p.created_at DESC
+        LIMIT 5
+    `).all(userId);
+
+    // Calculate account age
+    const accountAge = Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24));
+
+    // Get account status
+    const accountStatus = checkAccountStatus(userId);
+
+    res.render('admin-user-stats', {
+        title: `${user.full_name} - User Statistics - Dream X`,
+        currentPage: 'admin',
+        user: req.session.user,
+        targetUser: user,
+        stats: {
+            posts: postsCount,
+            comments: commentsCount,
+            followers: followersCount,
+            following: followingCount,
+            conversations: conversationsCount,
+            messages: messagesCount,
+            accountAge: accountAge
+        },
+        recentPosts: recentPosts,
+        accountStatus: accountStatus
+    });
 });
 
 // CSV Exports
@@ -722,24 +853,67 @@ app.get('/admin/export/messages.csv', requireAdmin, (req, res) => {
 app.get('/hr', requireHR, (req, res) => {
     const me = getUserById(req.session.userId);
     const careers = require('./db').getCareerApplicationsPaged({ limit: 100, offset: 0 });
+    
+    // Calculate counts for each status
+    const totalApps = careers.length;
+    const newApps = careers.filter(c => c.status === 'new' || !c.status).length;
+    const reviewApps = careers.filter(c => c.status === 'under_review').length;
+    const acceptedApps = careers.filter(c => c.status === 'accepted').length;
+    const rejectedApps = careers.filter(c => c.status === 'rejected').length;
+    
     res.render('hr', {
         title: 'HR Review - Dream X',
         currentPage: 'hr',
         authUser: me,
         careers,
+        totalApps,
+        newApps,
+        reviewApps,
+        acceptedApps,
+        rejectedApps,
         success: req.query.success,
         error: req.query.error
     });
 });
 
+// CSV export for career applications
+app.get('/admin/export/careers.csv', requireHR, (req, res) => {
+    const careers = require('./db').getCareerApplicationsPaged({ limit: 10000, offset: 0 });
+    
+    // CSV headers
+    let csv = 'ID,Name,Email,Phone,Position,Status,Applied Date,Cover Letter\n';
+    
+    // CSV rows
+    careers.forEach(c => {
+        const coverLetter = (c.cover_letter || '').replace(/"/g, '""').replace(/\n/g, ' ');
+        csv += `${c.id},"${c.name}","${c.email}","${c.phone || ''}","${c.position}","${c.status || 'new'}","${c.created_at}","${coverLetter}"\n`;
+    });
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=career_applications.csv');
+    res.send(csv);
+});
+
 // Status update endpoints
-app.post('/admin/careers/:id/status', requireAdmin, (req, res) => {
+app.post('/admin/careers/:id/status', requireAdminOrHR, (req, res) => {
     const id = parseInt(req.params.id, 10);
     const status = (req.body.status || '').toLowerCase();
     const valid = ['new','under_review','accepted','rejected'];
-    if (!valid.includes(status)) return res.redirect('/admin?error=Invalid+status');
+    const isJson = req.headers['content-type']?.includes('application/x-www-form-urlencoded') && req.headers['accept']?.includes('application/json');
+    
+    if (!valid.includes(status)) {
+        if (isJson || req.xhr) {
+            return res.status(400).json({ success: false, error: 'Invalid status' });
+        }
+        return res.redirect('/admin?error=Invalid+status');
+    }
+    
     require('./db').updateCareerApplicationStatus({ id, status, reviewerId: req.session.userId });
     try { addAuditLog({ userId: req.session.userId, action: 'career_status_update', details: JSON.stringify({ id, status }) }); } catch(e){}
+    
+    if (isJson || req.xhr) {
+        return res.json({ success: true });
+    }
     res.redirect('/admin?success=Career+application+updated');
 });
 app.post('/admin/appeals/content/:id/status', requireAdmin, (req, res) => {
@@ -747,8 +921,25 @@ app.post('/admin/appeals/content/:id/status', requireAdmin, (req, res) => {
     const status = (req.body.status || '').toLowerCase();
     const valid = ['open','under_review','approved','denied'];
     if (!valid.includes(status)) return res.redirect('/admin?error=Invalid+status');
+    
+    // Get appeal details before updating
+    const appeal = db.getContentAppealById(id);
+    
     require('./db').updateContentAppealStatus({ id, status, reviewerId: req.session.userId });
     try { addAuditLog({ userId: req.session.userId, action: 'content_appeal_status_update', details: JSON.stringify({ id, status }) }); } catch(e){}
+    
+    // Send email notification for approved/denied appeals
+    if (appeal && (status === 'approved' || status === 'denied')) {
+        const subject = status === 'approved' 
+            ? 'Your Content Appeal Has Been Approved'
+            : 'Your Content Appeal Has Been Denied';
+        const message = status === 'approved'
+            ? `Dear User,\n\nYour appeal for ${appeal.content_type} content has been approved. The content has been restored.\n\nContent Type: ${appeal.content_type}\nContent URL: ${appeal.content_url || 'N/A'}\n\nThank you for your patience.\n\nBest regards,\nDream X Team`
+            : `Dear User,\n\nYour appeal for ${appeal.content_type} content has been denied after careful review.\n\nContent Type: ${appeal.content_type}\nReason: ${appeal.removal_reason || 'Violation of community guidelines'}\n\nIf you have further questions, please contact support.\n\nBest regards,\nDream X Team`;
+        
+        sendEmailNotification(appeal.email, subject, message);
+    }
+    
     res.redirect('/admin?success=Content+appeal+updated');
 });
 app.post('/admin/appeals/account/:id/status', requireAdmin, (req, res) => {
@@ -756,8 +947,25 @@ app.post('/admin/appeals/account/:id/status', requireAdmin, (req, res) => {
     const status = (req.body.status || '').toLowerCase();
     const valid = ['open','under_review','approved','denied'];
     if (!valid.includes(status)) return res.redirect('/admin?error=Invalid+status');
+    
+    // Get appeal details before updating
+    const appeal = db.getAccountAppealById(id);
+    
     require('./db').updateAccountAppealStatus({ id, status, reviewerId: req.session.userId });
     try { addAuditLog({ userId: req.session.userId, action: 'account_appeal_status_update', details: JSON.stringify({ id, status }) }); } catch(e){}
+    
+    // Send email notification for approved/denied appeals
+    if (appeal && (status === 'approved' || status === 'denied')) {
+        const subject = status === 'approved' 
+            ? 'Your Account Appeal Has Been Approved'
+            : 'Your Account Appeal Has Been Denied';
+        const message = status === 'approved'
+            ? `Dear ${appeal.username || 'User'},\n\nYour account appeal has been approved. Your account restrictions have been lifted.\n\nAccount Action: ${appeal.account_action}\nYou can now access your account normally.\n\nThank you for your patience.\n\nBest regards,\nDream X Team`
+            : `Dear ${appeal.username || 'User'},\n\nYour account appeal has been denied after careful review.\n\nAccount Action: ${appeal.account_action}\nReason: ${appeal.violation_reason || 'Violation of community guidelines'}\n\nThe original decision stands. If you have further questions, please contact support.\n\nBest regards,\nDream X Team`;
+        
+        sendEmailNotification(appeal.email, subject, message);
+    }
+    
     res.redirect('/admin?success=Account+appeal+updated');
 });
 
@@ -813,6 +1021,62 @@ app.post('/register', async (req, res) => {
             suggestedHandles: null,
             formData: req.body
         });
+    }
+    
+    // Alt account detection - check for banned/suspended users with similar patterns
+    const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
+    const emailDomain = email.split('@')[1];
+    const emailUsername = email.split('@')[0];
+    
+    // Check for suspicious patterns
+    try {
+        const suspiciousUsers = db.prepare(`
+            SELECT u.id, u.email, u.full_name, u.account_status, u.created_at,
+                   am.ban_reason, am.suspended_until
+            FROM users u
+            LEFT JOIN account_moderation am ON am.user_id = u.id
+            WHERE (am.status IN ('banned', 'suspended') OR u.account_status IN ('banned', 'suspended'))
+                AND (
+                    u.email LIKE ? OR
+                    u.full_name LIKE ? OR
+                    u.email LIKE ?
+                )
+            ORDER BY u.created_at DESC
+            LIMIT 1
+        `).get(
+            `%${emailUsername}%@${emailDomain}`,
+            `%${fullName}%`,
+            `${emailUsername}%@%`
+        );
+        
+        if (suspiciousUsers) {
+            // Flag for admin review
+            console.warn(`[ALT ACCOUNT DETECTION] Potential alt account signup detected:`);
+            console.warn(`  New signup: ${email} (${fullName})`);
+            console.warn(`  Similar to banned/suspended user: ${suspiciousUsers.email} (ID: ${suspiciousUsers.id})`);
+            console.warn(`  IP: ${clientIp}`);
+            
+            // Log to audit (if available)
+            try {
+                addAuditLog({
+                    userId: null,
+                    action: 'suspicious_signup_detected',
+                    details: JSON.stringify({
+                        newEmail: email,
+                        newName: fullName,
+                        matchedUserId: suspiciousUsers.id,
+                        matchedEmail: suspiciousUsers.email,
+                        matchedStatus: suspiciousUsers.account_status,
+                        ip: clientIp
+                    })
+                });
+            } catch(e) {}
+            
+            // For now, allow registration but flag it
+            // In production, you might want to block or require additional verification
+        }
+    } catch(e) {
+        console.warn('Alt account detection failed:', e.message);
     }
     
     // Handle validation
@@ -893,8 +1157,18 @@ app.post('/login', async (req, res) => {
     if (!ok) {
         return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.', providers });
     }
+    
+    // Check account status before allowing login
+    const accountStatus = checkAccountStatus(user.id);
+    if (accountStatus.status === 'banned') {
+        return res.redirect(`/account-status?userId=${user.id}`);
+    }
+    if (accountStatus.status === 'suspended') {
+        return res.redirect(`/account-status?userId=${user.id}`);
+    }
+    
     req.session.userId = user.id;
-    if (user.role === 'admin' || user.role === 'super_admin') {
+    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
         return res.redirect('/admin');
     }
     if (user.role === 'hr') {
@@ -913,13 +1187,57 @@ app.get('/logout', (req, res) => {
 // Feed page (main social feed)
 app.get('/feed', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
-    const posts = getFeedPosts({ limit: 50, offset: 0 });
-    const suggestions = [
-        { user: 'Nora Fields', passion: 'Writing' },
-        { user: 'Ethan Brooks', passion: 'Entrepreneurship' },
-        { user: 'Clara Dawson', passion: 'Photography' },
-        { user: 'Jun Park', passion: 'Design' }
-    ];
+    const posts = getFeedPosts({ limit: 50, offset: 0 }).map(p => {
+        try {
+            p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+            // Ensure reactions object exists even if empty
+            p.reactions = p.reactions || {};
+        } catch(e) {}
+        return p;
+    });
+    
+    // Get real suggested users with fallback to dummy data
+    let suggestions = [];
+    try {
+        const suggestedUsers = getSuggestedUsers({ currentUserId: req.session.userId, limit: 4 });
+        suggestions = suggestedUsers.map(u => {
+            let passion = 'Community Member';
+            if (u.categories) {
+                try {
+                    const categories = JSON.parse(u.categories);
+                    if (Array.isArray(categories) && categories.length > 0) {
+                        passion = categories[0];
+                    }
+                } catch(e) {}
+            }
+            return {
+                id: u.id,
+                user: u.full_name,
+                email: u.email,
+                passion: passion,
+                profile_picture: u.profile_picture
+            };
+        });
+        
+        // Fallback to dummy data if no suggestions found
+        if (suggestions.length === 0) {
+            suggestions = [
+                { user: 'Nora Fields', passion: 'Writing' },
+                { user: 'Ethan Brooks', passion: 'Entrepreneurship' },
+                { user: 'Clara Dawson', passion: 'Photography' },
+                { user: 'Jun Park', passion: 'Design' }
+            ];
+        }
+    } catch (error) {
+        console.error('Error fetching suggested users:', error);
+        // Fallback to dummy data on error
+        suggestions = [
+            { user: 'Nora Fields', passion: 'Writing' },
+            { user: 'Ethan Brooks', passion: 'Entrepreneurship' },
+            { user: 'Clara Dawson', passion: 'Photography' },
+            { user: 'Jun Park', passion: 'Design' }
+        ];
+    }
     
     // Get real trending posts from database (most recent posts with activity)
     // TODO: Implement proper trending algorithm based on likes, comments, and recency
@@ -938,7 +1256,7 @@ app.get('/feed', (req, res) => {
                 0 as comments_count
             FROM posts p
             JOIN users u ON p.user_id = u.id
-            WHERE p.created_at >= datetime('now', '-7 days')
+            WHERE p.created_at >= datetime('now', '-7 days') AND p.is_reel = 0
             ORDER BY p.created_at DESC
             LIMIT 5
         `);
@@ -966,15 +1284,34 @@ app.get('/feed', (req, res) => {
         ];
     }
     
-    const recentActivity = [
-        { desc: 'Nora Fields published a new post', time: '2m ago' },
-        { desc: 'Ethan Brooks commented on a post', time: '10m ago' },
-        { desc: 'Jun Park updated their profile', time: '1h ago' }
-    ];
+    // Get recent activity from database with fallback to dummy data
+    let recentActivity;
+    try {
+        recentActivity = getRecentActivity(5);
+        // If no real activity, use dummy data
+        if (!recentActivity || recentActivity.length === 0) {
+            recentActivity = [
+                { desc: 'Nora Fields published a new post', time: '2m ago' },
+                { desc: 'Ethan Brooks commented on a post', time: '10m ago' },
+                { desc: 'Jun Park updated their profile', time: '1h ago' }
+            ];
+        }
+    } catch (error) {
+        console.error('Error fetching recent activity:', error);
+        // Fallback to dummy data on error
+        recentActivity = [
+            { desc: 'Nora Fields published a new post', time: '2m ago' },
+            { desc: 'Ethan Brooks commented on a post', time: '10m ago' },
+            { desc: 'Jun Park updated their profile', time: '1h ago' }
+        ];
+    }
+    
     const topPassions = ['Writing', 'Entrepreneurship', 'Photography', 'Design', 'Coding'];
+    const authUser = getUserById(req.session.userId);
     res.render('feed', {
         title: 'Your Feed - Dream X',
         currentPage: 'feed',
+        authUser,
         posts,
         suggestions,
         trendingPosts,
@@ -984,18 +1321,332 @@ app.get('/feed', (req, res) => {
 });
 
 // Create post
-app.post('/feed/post', upload.single('media'), (req, res) => {
+app.post('/feed/post', postUpload.single('media'), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const { contentType, textContent, activityLabel } = req.body;
     const mediaUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    // Server-side validation: no images in reels (allow GIF), enforce media type
+    const mime = (req.file && req.file.mimetype ? req.file.mimetype.toLowerCase() : null);
+    if (contentType === 'video') {
+        if (!mime || !(mime.startsWith('video/') || mime === 'image/gif')) {
+            return res.status(400).send('Reels require a video or GIF.');
+        }
+    }
+    if (contentType === 'image') {
+        if (!mime || !mime.startsWith('image/')) {
+            return res.status(400).send('Image posts require an image file.');
+        }
+    }
+    // Treat 'video' button as Reel; images stay images; text stays text
+    const isReel = contentType === 'video' ? 1 : 0;
     createPost({
         userId: req.session.userId,
         contentType: contentType || 'text',
         textContent,
         mediaUrl,
-        activityLabel
+        activityLabel,
+        isReel
     });
     res.redirect('/feed');
+});
+
+// API: get reels for a user, filtering 24h expiry based on client timezone offset
+app.get('/api/users/:id/reels', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const uid = parseInt(req.params.id, 10);
+    if (!uid) return res.status(400).json({ error: 'Invalid user id' });
+    const tzOffsetMin = parseInt(req.query.tzOffset || '0', 10); // minutes difference from UTC
+    try {
+        const rows = db.prepare(`
+            SELECT p.*, u.full_name, u.profile_picture
+            FROM posts p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.user_id = ? AND p.is_reel = 1
+            ORDER BY p.created_at DESC
+        `).all(uid);
+        // Apply 24h expiry based on user's local time (client-provided offset)
+        const now = new Date();
+        const nowLocalMs = now.getTime() - (tzOffsetMin * 60 * 1000);
+        const active = rows.filter(r => {
+            const createdUTC = new Date(r.created_at).getTime();
+            const createdLocal = createdUTC - (tzOffsetMin * 60 * 1000);
+            return (nowLocalMs - createdLocal) < (24 * 60 * 60 * 1000);
+        });
+        res.json({ reels: active });
+    } catch (e) {
+        console.error('list reels error', e);
+        res.status(500).json({ error: 'Failed to load reels' });
+    }
+});
+
+// API: count reels (active within 24h) for avatar dot and click behavior
+app.get('/api/users/:id/reels/count', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const uid = parseInt(req.params.id, 10);
+    if (!uid) return res.status(400).json({ error: 'Invalid user id' });
+    const tzOffsetMin = parseInt(req.query.tzOffset || '0', 10);
+    try {
+        const rows = db.prepare(`SELECT created_at FROM posts WHERE user_id = ? AND is_reel = 1 ORDER BY created_at DESC`).all(uid);
+        const now = new Date();
+        const nowLocalMs = now.getTime() - (tzOffsetMin * 60 * 1000);
+        const count = rows.filter(r => {
+            const createdUTC = new Date(r.created_at).getTime();
+            const createdLocal = createdUTC - (tzOffsetMin * 60 * 1000);
+            return (nowLocalMs - createdLocal) < (24 * 60 * 60 * 1000);
+        }).length;
+        res.json({ count });
+    } catch (e) {
+        res.json({ count: 0 });
+    }
+});
+
+    // View single post page
+    app.get('/post/:id', (req, res) => {
+        if (!req.session.userId) return res.redirect('/login');
+        const postId = parseInt(req.params.id, 10);
+        if (!postId) return res.redirect('/feed');
+        try {
+            const post = require('./db').getPostById(postId);
+            if (!post) return res.redirect('/feed');
+            // augment with current user's reaction
+            try { post.user_reaction = getUserReactionForPost({ postId, userId: req.session.userId }); } catch(e) {}
+            res.render('post-detail', {
+                title: 'Post - Dream X',
+                currentPage: 'feed',
+                post
+            });
+        } catch (e) {
+            console.error('get post error', e);
+            return res.redirect('/feed');
+        }
+    });
+
+// Get reactions summary for a post
+app.get('/api/posts/:postId/reactions', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const postId = parseInt(req.params.postId, 10);
+    const counts = getPostReactionsSummary(postId);
+    const userReaction = getUserReactionForPost({ postId, userId: req.session.userId });
+    res.json({ counts, userReaction });
+});
+
+// React to a post (toggle if same type)
+app.post('/api/posts/:postId/react', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const postId = parseInt(req.params.postId, 10);
+    const { type } = req.body;
+    const allowed = ['like','love','clap','fire','rocket','celebrate'];
+    if (!allowed.includes(type)) return res.status(400).json({ error: 'Invalid reaction' });
+    try {
+        const result = setPostReaction({ postId, userId: req.session.userId, reactionType: type });
+        
+        // Get post details for notification
+        const post = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
+        
+        // Send notification to post author (if not reacting to own post and reaction was set/updated)
+        if (post && post.user_id !== req.session.userId && result.status !== 'cleared') {
+            const reactor = getUserById(req.session.userId);
+            createNotification({
+                userId: post.user_id,
+                type: 'reaction',
+                title: 'New reaction',
+                message: `${reactor.full_name} reacted ${type} to your post`,
+                link: `/post/${postId}`
+            });
+            
+            io.to(`user-${post.user_id}`).emit('notification', {
+                type: 'reaction',
+                title: 'New reaction',
+                message: `${reactor.full_name} reacted ${type} to your post`,
+                link: `/post/${postId}`,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Send email notification if enabled
+            const author = getUserById(post.user_id);
+            if (author && author.email_notifications === 1) {
+                sendEmailNotification(
+                    author.email,
+                    'New reaction on your post - Dream X',
+                    `Hi ${author.full_name},\n\n${reactor.full_name} reacted ${type} to your post.\n\nView the post: ${process.env.BASE_URL || 'http://localhost:3000'}/post/${postId}\n\nBest regards,\nDream X Team`
+                );
+            }
+        }
+        
+        io.emit('post-reaction', { postId, userId: req.session.userId, type, status: result.status, counts: result.counts });
+        res.json({ success: true, status: result.status, counts: result.counts });
+    } catch (e) {
+        console.error('react error', e);
+        res.status(500).json({ error: 'Failed to react' });
+    }
+});
+
+// List comments for a post (paged)
+app.get('/api/posts/:postId/comments', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const postId = parseInt(req.params.postId, 10);
+    const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
+    const offset = parseInt(req.query.offset || '0', 10);
+    try {
+        const comments = getPostComments({ postId, limit, offset }).map(c => {
+            const liked = !!db.prepare('SELECT 1 FROM comment_likes WHERE comment_id = ? AND user_id = ?').get(c.id, req.session.userId);
+            return { ...c, user_starred: liked };
+        });
+        const total = getCommentsCount(postId);
+        res.json({ comments, total });
+    } catch (e) {
+        console.error('list comments error', e);
+        res.status(500).json({ error: 'Failed to load comments' });
+    }
+});
+
+// Add a comment to a post
+app.post('/api/posts/:postId/comments', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const postId = parseInt(req.params.postId, 10);
+    const content = (req.body.content || '').trim();
+    const parentId = req.body.parentId ? parseInt(req.body.parentId, 10) : null;
+    if (!content) return res.status(400).json({ error: 'Comment cannot be empty' });
+    try {
+        // Validate parent if provided
+        let parentAuthorId = null;
+        if (parentId) {
+            const parent = db.prepare('SELECT id, post_id, user_id FROM post_comments WHERE id = ?').get(parentId);
+            if (!parent || Number(parent.post_id) !== Number(postId)) {
+                return res.status(400).json({ error: 'Invalid parent comment' });
+            }
+            parentAuthorId = parent.user_id;
+        }
+        
+        const commentId = addPostComment({ postId, userId: req.session.userId, content, parentId: parentId || null });
+        const comment = db.prepare(`
+          SELECT c.*, u.full_name, u.profile_picture,
+            (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS star_count,
+            pc.user_id as parent_author_id,
+            pu.full_name as parent_author_name
+          FROM post_comments c
+          JOIN users u ON u.id = c.user_id
+          LEFT JOIN post_comments pc ON pc.id = c.parent_id
+          LEFT JOIN users pu ON pu.id = pc.user_id
+          WHERE c.id = ?
+        `).get(commentId);
+        
+        // Get post details for notification
+        const post = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
+        const commenter = getUserById(req.session.userId);
+        
+        // Send notification to post author (if not commenting on own post)
+        if (post && post.user_id !== req.session.userId && !parentId) {
+            createNotification({
+                userId: post.user_id,
+                type: 'comment',
+                title: 'New comment',
+                message: `${commenter.full_name} commented on your post`,
+                link: `/post/${postId}`
+            });
+            
+            io.to(`user-${post.user_id}`).emit('notification', {
+                type: 'comment',
+                title: 'New comment',
+                message: `${commenter.full_name} commented on your post`,
+                link: `/post/${postId}`,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Send email notification if enabled
+            const author = getUserById(post.user_id);
+            if (author && author.email_notifications === 1) {
+                sendEmailNotification(
+                    author.email,
+                    'New comment on your post - Dream X',
+                    `Hi ${author.full_name},\n\n${commenter.full_name} commented on your post:\n\n"${content}"\n\nView the post: ${process.env.BASE_URL || 'http://localhost:3000'}/post/${postId}\n\nBest regards,\nDream X Team`
+                );
+            }
+        }
+        
+        // Send notification to parent comment author (if replying to someone else's comment)
+        if (parentAuthorId && parentAuthorId !== req.session.userId) {
+            createNotification({
+                userId: parentAuthorId,
+                type: 'reply',
+                title: 'New reply',
+                message: `${commenter.full_name} replied to your comment`,
+                link: `/post/${postId}`
+            });
+            
+            io.to(`user-${parentAuthorId}`).emit('notification', {
+                type: 'reply',
+                title: 'New reply',
+                message: `${commenter.full_name} replied to your comment`,
+                link: `/post/${postId}`,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Send email notification if enabled
+            const parentAuthor = getUserById(parentAuthorId);
+            if (parentAuthor && parentAuthor.email_notifications === 1) {
+                sendEmailNotification(
+                    parentAuthor.email,
+                    'New reply to your comment - Dream X',
+                    `Hi ${parentAuthor.full_name},\n\n${commenter.full_name} replied to your comment:\n\n"${content}"\n\nView the post: ${process.env.BASE_URL || 'http://localhost:3000'}/post/${postId}\n\nBest regards,\nDream X Team`
+                );
+            }
+        }
+        
+        io.emit('post-comment', { postId, comment });
+        res.json({ success: true, comment });
+    } catch (e) {
+        console.error('add comment error', e);
+        res.status(500).json({ error: 'Failed to add comment' });
+    }
+});
+
+// Star (like) a comment (toggle)
+app.post('/api/comments/:commentId/star', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const commentId = parseInt(req.params.commentId, 10);
+    try {
+        const result = toggleCommentLike({ commentId, userId: req.session.userId });
+        
+        // Get comment details for notification
+        const comment = db.prepare('SELECT post_id, user_id FROM post_comments WHERE id = ?').get(commentId);
+        
+        // Send notification to comment author (if liking someone else's comment and it was liked, not unliked)
+        if (comment && comment.user_id !== req.session.userId && result.liked) {
+            const liker = getUserById(req.session.userId);
+            createNotification({
+                userId: comment.user_id,
+                type: 'like',
+                title: 'Comment liked',
+                message: `${liker.full_name} liked your comment`,
+                link: `/post/${comment.post_id}`
+            });
+            
+            io.to(`user-${comment.user_id}`).emit('notification', {
+                type: 'like',
+                title: 'Comment liked',
+                message: `${liker.full_name} liked your comment`,
+                link: `/post/${comment.post_id}`,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Send email notification if enabled
+            const author = getUserById(comment.user_id);
+            if (author && author.email_notifications === 1) {
+                sendEmailNotification(
+                    author.email,
+                    'Your comment was liked - Dream X',
+                    `Hi ${author.full_name},\n\n${liker.full_name} liked your comment.\n\nView the post: ${process.env.BASE_URL || 'http://localhost:3000'}/post/${comment.post_id}\n\nBest regards,\nDream X Team`
+                );
+            }
+        }
+        
+        io.emit('comment-star', { postId: comment?.post_id, commentId, liked: result.liked, starCount: result.starCount });
+        res.json({ success: true, liked: result.liked, starCount: result.starCount });
+    } catch (e) {
+        console.error('star comment error', e);
+        res.status(500).json({ error: 'Failed to star comment' });
+    }
 });
 
 // Profile page (current user)
@@ -1006,25 +1657,47 @@ app.get('/profile', (req, res) => {
     const passions = row.categories ? JSON.parse(row.categories) : [];
     const goals = row.goals ? JSON.parse(row.goals) : [];
     const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
-    const userPosts = getUserPosts(req.session.userId);
+    let userPosts = getUserPosts(req.session.userId).filter(p => !p.is_reel);
+    // enrich posts with current user's reaction and ensure reactions map exists
+    userPosts = userPosts.map(p => {
+        try {
+            p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+            p.reactions = p.reactions || {};
+        } catch (e) {}
+        return p;
+    });
+    
+    const followerCount = getFollowerCount(req.session.userId);
+    const followingCount = getFollowingCount(req.session.userId);
+    
     const user = {
         displayName: row.full_name,
         handle: row.handle || row.email.split('@')[0],
         bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
         passions,
         skills: skillsList,
-        stats: { posts: userPosts.length, followers: 0, following: 0, sessions: 0 },
+        stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
         isSeller: false,
         bannerImage: row.banner_image
     };
     const projects = [];
     const services = [];
+    const me = getUserById(req.session.userId);
+    const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
+    
     res.render('profile', {
         title: `${user.displayName} - Profile - Dream X`,
         currentPage: 'profile',
         user,
+        authUser: me,
         projects,
-        services
+        services,
+        userPosts,
+        profileUserId: row.id,
+        profilePicture: row.profile_picture || null,
+        isOwnProfile: true,
+        isFollowing: false,
+        isSuperAdmin
     });
 });
 // Public profile by ID (view others) — only match numeric IDs to avoid catching '/profile/edit'
@@ -1037,25 +1710,47 @@ app.get('/profile/:id(\\d+)', (req, res) => {
     const passions = row.categories ? JSON.parse(row.categories) : [];
     const goals = row.goals ? JSON.parse(row.goals) : [];
     const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
-    const userPosts = getUserPosts(uid);
+    let userPosts = getUserPosts(uid).filter(p => !p.is_reel);
+    userPosts = userPosts.map(p => {
+        try {
+            p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+            p.reactions = p.reactions || {};
+        } catch (e) {}
+        return p;
+    });
+    
+    const followerCount = getFollowerCount(uid);
+    const followingCount = getFollowingCount(uid);
+    const isFollowingUser = isFollowing({ followerId: req.session.userId, followingId: uid });
+    
     const user = {
         displayName: row.full_name,
         handle: row.handle || row.email.split('@')[0],
         bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
         passions,
         skills: skillsList,
-        stats: { posts: userPosts.length, followers: 0, following: 0, sessions: 0 },
+        stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
         isSeller: false,
         bannerImage: row.banner_image
     };
     const projects = [];
     const services = [];
+    const me = getUserById(req.session.userId);
+    const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
+    
     res.render('profile', {
         title: `${user.displayName} - Profile - Dream X`,
         currentPage: 'profile',
         user,
+        authUser: me,
         projects,
-        services
+        services,
+        userPosts,
+        profileUserId: uid,
+        profilePicture: row.profile_picture || null,
+        isOwnProfile: false,
+        isFollowing: isFollowingUser,
+        isSuperAdmin
     });
 });
 
@@ -1212,6 +1907,26 @@ app.get('/messages', (req, res) => {
         }
         // Mark messages as read
         markMessagesAsRead({ conversationId: currentConversation.id, userId: req.session.userId });
+        // Emit read receipt if enabled and direct chat
+        try {
+            const reader = getUserById(req.session.userId);
+            if (reader && reader.read_receipts === 1 && !currentConversation.is_group) {
+                const lastReadMessage = db.prepare(`
+                  SELECT MAX(id) as maxId
+                  FROM messages
+                  WHERE conversation_id = ? AND sender_id != ?
+                `).get(currentConversation.id, req.session.userId);
+                const lastReadMessageId = lastReadMessage && lastReadMessage.maxId ? lastReadMessage.maxId : null;
+                if (lastReadMessageId) {
+                    io.to(`conversation-${currentConversation.id}`).emit('read-receipt', {
+                        conversationId: currentConversation.id,
+                        readerId: req.session.userId,
+                        lastReadMessageId,
+                        at: new Date().toISOString()
+                    });
+                }
+            }
+        } catch (e) { /* noop */ }
     }
     
     res.render('messages', {
@@ -1284,15 +1999,18 @@ app.get('/api/users/search', (req, res) => {
     }
 });
 
-// Send message API (supports optional file attachment)
-app.post('/api/messages/send', chatUpload.single('file'), (req, res) => {
+// Send message API (supports optional single or multiple file attachments)
+app.post('/api/messages/send', chatUpload.any(), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const conversationId = parseInt(req.body.conversationId, 10);
     const content = (req.body.content || '').trim();
-    const file = req.file || null;
+        // Multer .any() -> files in req.files; support both 'file' and 'files' fields
+        let files = Array.isArray(req.files) ? req.files : [];
+        // Filter to only accepted field names (support common variants)
+        files = files.filter(f => (f.fieldname === 'file' || f.fieldname === 'files' || f.fieldname === 'files[]'));
 
-    if ((!content || content.length === 0) && !file) {
+        if ((!content || content.length === 0) && files.length === 0) {
       return res.status(400).json({ error: 'Message must include text or a file' });
     }
 
@@ -1301,29 +2019,71 @@ app.post('/api/messages/send', chatUpload.single('file'), (req, res) => {
       return res.status(403).json({ error: 'Not a participant in this conversation' });
     }
 
-    const attachmentUrl = file ? `/uploads/${file.filename}` : null;
-    const attachmentMime = file ? file.mimetype : null;
+    // Fetch conversation for privacy and notifications
+    const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+    if (!conv) return res.status(404).json({ error: 'Conversation not found' });
 
-        // If direct conversation, enforce recipient privacy setting
-        const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
-        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
-        if (!conv.is_group) {
-            const otherId = (conv.user1_id === req.session.userId) ? conv.user2_id : conv.user1_id;
-            const other = getUserById(otherId);
-            if (other && (other.allow_messages_from || 'everyone') === 'no_one' && otherId !== req.session.userId) {
-                return res.status(403).json({ error: 'Recipient is not accepting messages' });
-            }
+    // If direct conversation, enforce recipient privacy setting
+    if (!conv.is_group) {
+        const otherId = (conv.user1_id === req.session.userId) ? conv.user2_id : conv.user1_id;
+        const other = getUserById(otherId);
+        if (other && (other.allow_messages_from || 'everyone') === 'no_one' && otherId !== req.session.userId) {
+            return res.status(403).json({ error: 'Recipient is not accepting messages' });
         }
+    }
 
+    const createdMessageIds = [];
+    const createdPayloads = [];
+
+    // If text content provided, send as a standalone message first
+    if (content && content.length > 0) {
         const messageId = createMessage({
-        conversationId,
-        senderId: req.session.userId,
-        content: content || '',
-        attachmentUrl,
-        attachmentMime
-    });
+            conversationId,
+            senderId: req.session.userId,
+            content,
+            attachmentUrl: null,
+            attachmentMime: null
+        });
+        createdMessageIds.push(messageId);
+        const payload = {
+            id: messageId,
+            conversation_id: conversationId,
+            sender_id: req.session.userId,
+            content,
+            attachment_url: null,
+            attachment_mime: null,
+            created_at: new Date().toISOString()
+        };
+        createdPayloads.push(payload);
+        io.to(`conversation-${conversationId}`).emit('new-message', payload);
+    }
 
-        // Get conversation details and participants to send notifications
+    // Create one message per attachment
+    for (const f of files) {
+        const attachmentUrl = `/uploads/${f.filename}`;
+        const attachmentMime = f.mimetype;
+        const messageId = createMessage({
+            conversationId,
+            senderId: req.session.userId,
+            content: '',
+            attachmentUrl,
+            attachmentMime
+        });
+        createdMessageIds.push(messageId);
+        const payload = {
+            id: messageId,
+            conversation_id: conversationId,
+            sender_id: req.session.userId,
+            content: '',
+            attachment_url: attachmentUrl,
+            attachment_mime: attachmentMime,
+            created_at: new Date().toISOString()
+        };
+        createdPayloads.push(payload);
+        io.to(`conversation-${conversationId}`).emit('new-message', payload);
+    }
+
+    // Get conversation details and participants to send notifications
     const participants = getConversationParticipants(conversationId);
     const sender = getUserById(req.session.userId);
     
@@ -1333,7 +2093,7 @@ app.post('/api/messages/send', chatUpload.single('file'), (req, res) => {
             const notifTitle = conv.is_group 
                 ? `New message in ${conv.group_name || 'Group Chat'}`
                 : `New message from ${sender.full_name}`;
-            const notifMessage = content || '📎 Sent an attachment';
+            const notifMessage = content || (files.length > 1 ? `📎 Sent ${files.length} attachments` : '📎 Sent an attachment');
             
             createNotification({
                 userId: participant.user_id,
@@ -1354,18 +2114,7 @@ app.post('/api/messages/send', chatUpload.single('file'), (req, res) => {
         }
     });
 
-    // Emit to socket for real-time delivery
-    io.to(`conversation-${conversationId}`).emit('new-message', {
-        id: messageId,
-        conversation_id: conversationId,
-        sender_id: req.session.userId,
-        content: content || '',
-        attachment_url: attachmentUrl,
-        attachment_mime: attachmentMime,
-        created_at: new Date().toISOString()
-    });
-
-    res.json({ success: true, messageId, attachmentUrl, attachmentMime });
+    res.json({ success: true, messageIds: createdMessageIds });
 });
 
 // Protected file download
@@ -1388,8 +2137,89 @@ app.post('/api/messages/:conversationId/read', (req, res) => {
     
     const conversationId = parseInt(req.params.conversationId);
     markMessagesAsRead({ conversationId, userId: req.session.userId });
+    // Emit read receipt if enabled and direct chat
+    try {
+        const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+        if (conv && !conv.is_group) {
+            const reader = getUserById(req.session.userId);
+            if (reader && reader.read_receipts === 1) {
+                const lastReadMessage = db.prepare(`
+                  SELECT MAX(id) as maxId
+                  FROM messages
+                  WHERE conversation_id = ? AND sender_id != ?
+                `).get(conversationId, req.session.userId);
+                const lastReadMessageId = lastReadMessage && lastReadMessage.maxId ? lastReadMessage.maxId : null;
+                if (lastReadMessageId) {
+                    io.to(`conversation-${conversationId}`).emit('read-receipt', {
+                        conversationId,
+                        readerId: req.session.userId,
+                        lastReadMessageId,
+                        at: new Date().toISOString()
+                    });
+                }
+            }
+        }
+    } catch (e) { /* noop */ }
     
     res.json({ success: true });
+});
+
+// React to a message
+app.post('/api/messages/:messageId/react', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const messageId = parseInt(req.params.messageId);
+    const { reactionType = 'like' } = req.body;
+    
+    // Verify message exists and user has access
+    const msg = db.prepare('SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.id = ?').get(messageId);
+    if (!msg) return res.status(404).json({ error: 'Message not found' });
+    if (!isUserInConversation({ conversationId: msg.conversation_id, userId: req.session.userId })) {
+        return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    const result = setMessageReaction({ messageId, userId: req.session.userId, reactionType });
+    
+    // Emit reaction event to conversation
+    io.to(`conversation-${msg.conversation_id}`).emit('message-reaction', {
+        messageId,
+        userId: req.session.userId,
+        status: result.status,
+        counts: result.counts
+    });
+    
+    // Create notification for message sender if someone else reacted
+    if (result.status !== 'cleared' && msg.sender_id !== req.session.userId) {
+        const reactor = getUserById(req.session.userId);
+        createNotification({
+            userId: msg.sender_id,
+            type: 'reaction',
+            title: 'Message reaction',
+            message: `${reactor.full_name} reacted ${reactionType} to your message`,
+            link: `/messages?conversation=${msg.conversation_id}`
+        });
+        
+        io.to(`user-${msg.sender_id}`).emit('notification', {
+            type: 'reaction',
+            title: 'Message reaction',
+            message: `${reactor.full_name} reacted ${reactionType} to your message`,
+            link: `/messages?conversation=${msg.conversation_id}`,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    res.json({ success: true, ...result });
+});
+
+// Get reactions for a message
+app.get('/api/messages/:messageId/reactions', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const messageId = parseInt(req.params.messageId);
+    const reactions = getMessageReactions(messageId);
+    const userReaction = getUserReactionForMessage({ messageId, userId: req.session.userId });
+    
+    res.json({ reactions, userReaction });
 });
 
 // Settings page with full functionality
@@ -1747,6 +2577,35 @@ app.post('/api/checkout/subscribe', (req, res) => {
     }
 });
 
+// Cancel subscription endpoint
+app.post('/api/subscription/cancel', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const { reason } = req.body;
+    
+    try {
+        // Log the cancellation reason
+        addAuditLog({
+            userId: req.session.userId,
+            action: 'cancel_subscription',
+            details: JSON.stringify({ reason: reason || 'No reason provided' })
+        });
+        
+        // Update subscription to cancelled status
+        // In a real app, this would keep access until billing period ends
+        createOrUpdateSubscription({
+            userId: req.session.userId,
+            tier: 'free',
+            status: 'cancelled'
+        });
+        
+        res.json({ success: true, message: 'Subscription cancelled successfully' });
+    } catch (error) {
+        console.error('Cancel subscription error:', error);
+        res.status(500).json({ error: 'Failed to cancel subscription' });
+    }
+});
+
 // Pricing page (tiers)
 app.get('/pricing', (req, res) => {
     const tiers = [
@@ -2066,6 +2925,383 @@ app.post('/api/careers/apply', careerUpload.fields([{ name: 'resumeFile', maxCou
     }
 });
 
+// === FOLLOW/UNFOLLOW ROUTES ===
+// Follow a user
+app.post('/api/users/:id/follow', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const targetUserId = parseInt(req.params.id, 10);
+    if (!targetUserId || targetUserId === req.session.userId) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    try {
+        followUser({ followerId: req.session.userId, followingId: targetUserId });
+        
+        // Create notification for the followed user
+        const follower = getUserById(req.session.userId);
+        createNotification({
+            userId: targetUserId,
+            type: 'follow',
+            title: 'New Follower',
+            message: `${follower.full_name} started following you`,
+            link: `/profile/${req.session.userId}`
+        });
+        
+        // Emit notification via socket
+        io.to(`user-${targetUserId}`).emit('notification', {
+            type: 'follow',
+            title: 'New Follower',
+            message: `${follower.full_name} started following you`,
+            link: `/profile/${req.session.userId}`,
+            timestamp: new Date().toISOString()
+        });
+        
+        res.json({ success: true, following: true });
+    } catch (error) {
+        console.error('Follow error:', error);
+        res.status(500).json({ error: 'Failed to follow user' });
+    }
+});
+
+// Unfollow a user
+app.post('/api/users/:id/unfollow', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const targetUserId = parseInt(req.params.id, 10);
+    if (!targetUserId || targetUserId === req.session.userId) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    try {
+        unfollowUser({ followerId: req.session.userId, followingId: targetUserId });
+        res.json({ success: true, following: false });
+    } catch (error) {
+        console.error('Unfollow error:', error);
+        res.status(500).json({ error: 'Failed to unfollow user' });
+    }
+});
+
+// === ADMIN MODERATION ROUTES ===
+// Ban a user
+app.post('/admin/users/:id/ban', requireSuperAdmin, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    const { reason, notifyUser } = req.body;
+    const banReason = reason || 'Violation of community guidelines';
+    const isJson = req.headers['content-type']?.includes('application/json');
+    
+    try {
+        const targetUser = getUserById(userId);
+        banUser({ userId, reason: banReason, bannedBy: req.session.userId });
+        
+        // Send email notification if requested
+        if (notifyUser && targetUser && targetUser.email) {
+            sendEmailNotification(
+                targetUser.email,
+                'Account Banned - Dream X',
+                `Dear ${targetUser.full_name},\n\nYour Dream X account has been permanently banned.\n\nReason: ${banReason}\n\nIf you believe this is a mistake, you can submit an appeal at https://dreamx.local/account-appeal\n\nBest regards,\nDream X Team`
+            );
+        }
+        
+        // Create in-app notification
+        const { createNotification } = require('./db');
+        createNotification({
+            userId: userId,
+            type: 'account_action',
+            title: '🚫 Account Banned',
+            message: `Your account has been permanently banned. Reason: ${banReason}. You can submit an appeal if you believe this is a mistake.`,
+            link: '/account-appeal'
+        });
+        
+        // Emit real-time notification
+        io.to(`user-${userId}`).emit('notification', {
+            type: 'account_action',
+            title: '🚫 Account Banned',
+            message: `Your account has been permanently banned. Reason: ${banReason}.`
+        });
+        
+        // Invalidate all sessions for this user
+        const Database = require('better-sqlite3');
+        const dbPath = path.join(__dirname, 'sessions.sqlite3');
+        const sessDb = new Database(dbPath);
+        try {
+            sessDb.prepare('DELETE FROM sessions WHERE sess LIKE ?').run(`%"userId":${userId}%`);
+        } catch(e) {
+            console.warn('Session cleanup failed:', e.message);
+        }
+        sessDb.close();
+        
+        if (isJson) {
+            return res.json({ success: true });
+        }
+        res.redirect('/admin?success=User+banned+successfully');
+    } catch (error) {
+        console.error('Ban user error:', error);
+        if (isJson) {
+            return res.status(500).json({ success: false, error: 'Failed to ban user' });
+        }
+        res.redirect('/admin?error=Failed+to+ban+user');
+    }
+});
+
+// Suspend a user
+app.post('/admin/users/:id/suspend', requireSuperAdmin, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    const { duration, days, reason, notifyUser } = req.body;
+    const suspendReason = reason || 'Temporary suspension';
+    
+    // Support both 'days' (from JSON requests) and 'duration' (from form requests)
+    const isJson = req.headers['content-type']?.includes('application/json');
+    
+    if (!duration && !days) {
+        if (isJson) {
+            return res.status(400).json({ success: false, error: 'Suspension duration required' });
+        }
+        return res.redirect('/admin?error=Suspension+duration+required');
+    }
+    
+    try {
+        const targetUser = getUserById(userId);
+        const now = new Date();
+        let until;
+        let durationText = '';
+        
+        if (days) {
+            // Handle days as integer (from JSON modal)
+            const numDays = parseInt(days, 10);
+            until = new Date(now.getTime() + numDays * 24 * 60 * 60 * 1000);
+            durationText = `${numDays} day${numDays !== 1 ? 's' : ''}`;
+        } else if (duration) {
+            // Parse duration (e.g., "1d", "7d", "30d", "1h")
+            const match = duration.match(/^(\d+)([hdwm])$/);
+            if (match) {
+                const value = parseInt(match[1]);
+                const unit = match[2];
+                
+                switch(unit) {
+                    case 'h': 
+                        until = new Date(now.getTime() + value * 60 * 60 * 1000);
+                        durationText = `${value} hour${value !== 1 ? 's' : ''}`;
+                        break;
+                    case 'd': 
+                        until = new Date(now.getTime() + value * 24 * 60 * 60 * 1000);
+                        durationText = `${value} day${value !== 1 ? 's' : ''}`;
+                        break;
+                    case 'w': 
+                        until = new Date(now.getTime() + value * 7 * 24 * 60 * 60 * 1000);
+                        durationText = `${value} week${value !== 1 ? 's' : ''}`;
+                        break;
+                    case 'm': 
+                        until = new Date(now.getTime() + value * 30 * 24 * 60 * 60 * 1000);
+                        durationText = `${value} month${value !== 1 ? 's' : ''}`;
+                        break;
+                    default: 
+                        until = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                        durationText = '7 days';
+                }
+            } else {
+                // Default to 7 days if invalid format
+                until = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                durationText = '7 days';
+            }
+        }
+        
+        suspendUser({ 
+            userId, 
+            until: until.toISOString(), 
+            reason: suspendReason, 
+            suspendedBy: req.session.userId 
+        });
+        
+        // Send email notification if requested
+        if (notifyUser && targetUser && targetUser.email) {
+            sendEmailNotification(
+                targetUser.email,
+                'Account Suspended - Dream X',
+                `Dear ${targetUser.full_name},\n\nYour Dream X account has been temporarily suspended for ${durationText}.\n\nReason: ${suspendReason}\n\nYour suspension will be automatically lifted on ${until.toLocaleString()}.\n\nIf you believe this is a mistake, you can submit an appeal at https://dreamx.local/account-appeal\n\nBest regards,\nDream X Team`
+            );
+        }
+        
+        // Create in-app notification
+        const { createNotification } = require('./db');
+        createNotification({
+            userId: userId,
+            type: 'account_action',
+            title: '⏸️ Account Suspended',
+            message: `Your account has been suspended for ${durationText}. Reason: ${suspendReason}. Suspension ends: ${until.toLocaleString()}.`,
+            link: '/account-appeal'
+        });
+        
+        // Emit real-time notification
+        io.to(`user-${userId}`).emit('notification', {
+            type: 'account_action',
+            title: '⏸️ Account Suspended',
+            message: `Your account has been suspended for ${durationText}.`
+        });
+        
+        // Invalidate all sessions for this user
+        const Database = require('better-sqlite3');
+        const dbPath = path.join(__dirname, 'sessions.sqlite3');
+        const sessDb = new Database(dbPath);
+        try {
+            sessDb.prepare('DELETE FROM sessions WHERE sess LIKE ?').run(`%"userId":${userId}%`);
+        } catch(e) {
+            console.warn('Session cleanup failed:', e.message);
+        }
+        sessDb.close();
+        
+        if (isJson) {
+            return res.json({ success: true });
+        }
+        res.redirect('/admin?success=User+suspended+successfully');
+    } catch (error) {
+        console.error('Suspend user error:', error);
+        if (isJson) {
+            return res.status(500).json({ success: false, error: 'Failed to suspend user' });
+        }
+        res.redirect('/admin?error=Failed+to+suspend+user');
+    }
+});
+
+// Unban/unsuspend a user
+app.post('/admin/users/:id/unban', requireSuperAdmin, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    const isJson = req.headers['content-type']?.includes('application/json');
+    
+    try {
+        const targetUser = getUserById(userId);
+        unbanUser({ userId, unbannedBy: req.session.userId });
+        
+        // Create in-app notification
+        const { createNotification } = require('./db');
+        createNotification({
+            userId: userId,
+            type: 'account_action',
+            title: '✅ Account Restored',
+            message: 'Your account has been restored and you can now access all features again.',
+            link: '/feed'
+        });
+        
+        // Emit real-time notification
+        io.to(`user-${userId}`).emit('notification', {
+            type: 'account_action',
+            title: '✅ Account Restored',
+            message: 'Your account has been restored!'
+        });
+        
+        if (isJson) {
+            return res.json({ success: true });
+        }
+        res.redirect('/admin?success=User+account+restored');
+    } catch (error) {
+        console.error('Unban user error:', error);
+        if (isJson) {
+            return res.status(500).json({ success: false, error: 'Failed to restore account' });
+        }
+        res.redirect('/admin?error=Failed+to+restore+account');
+    }
+});
+
+// Delete post (admin action)
+app.post('/admin/posts/:id/delete', requireAdmin, (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const postId = parseInt(req.params.id, 10);
+    
+    try {
+        db.prepare(`DELETE FROM posts WHERE id = ?`).run(postId);
+        addAuditLog({ 
+            userId: req.session.userId, 
+            action: 'delete_post', 
+            details: JSON.stringify({ postId }) 
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete post error:', error);
+        res.status(500).json({ error: 'Failed to delete post' });
+    }
+});
+
+// Hide post (admin action)
+app.post('/admin/posts/:id/hide', requireAdmin, (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const postId = parseInt(req.params.id, 10);
+    
+    try {
+        // Add a hidden flag column if it doesn't exist
+        try {
+            db.exec(`ALTER TABLE posts ADD COLUMN hidden INTEGER DEFAULT 0;`);
+        } catch (e) { /* Column exists */ }
+        
+        db.prepare(`UPDATE posts SET hidden = 1 WHERE id = ?`).run(postId);
+        addAuditLog({ 
+            userId: req.session.userId, 
+            action: 'hide_post', 
+            details: JSON.stringify({ postId }) 
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Hide post error:', error);
+        res.status(500).json({ error: 'Failed to hide post' });
+    }
+});
+
+// Hide comment (admin action)
+app.post('/admin/comments/:id/hide', requireAdmin, (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const commentId = parseInt(req.params.id, 10);
+    
+    try {
+        hideComment({ commentId, hiddenBy: req.session.userId });
+        res.json({ success: true, message: 'Comment hidden successfully' });
+    } catch (error) {
+        console.error('Hide comment error:', error);
+        res.status(500).json({ error: 'Failed to hide comment' });
+    }
+});
+
+// Delete comment (admin action)
+app.post('/admin/comments/:id/delete', requireAdmin, (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const commentId = parseInt(req.params.id, 10);
+    
+    try {
+        deleteComment({ commentId, deletedBy: req.session.userId });
+        res.json({ success: true, message: 'Comment deleted successfully' });
+    } catch (error) {
+        console.error('Delete comment error:', error);
+        res.status(500).json({ error: 'Failed to delete comment' });
+    }
+});
+
+// Restore comment (admin action)
+app.post('/admin/comments/:id/restore', requireAdmin, (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const commentId = parseInt(req.params.id, 10);
+    
+    try {
+        restoreComment({ commentId, restoredBy: req.session.userId });
+        res.json({ success: true, message: 'Comment restored successfully' });
+    } catch (error) {
+        console.error('Restore comment error:', error);
+        res.status(500).json({ error: 'Failed to restore comment' });
+    }
+});
+
+// Account status page
+app.get('/account-status', (req, res) => {
+    const userId = parseInt(req.query.userId, 10);
+    if (!userId) return res.redirect('/login');
+    
+    const accountStatus = checkAccountStatus(userId);
+    const user = getUserById(userId);
+    
+    res.render('account-status', {
+        title: 'Account Status - Dream X',
+        currentPage: 'account-status',
+        accountStatus,
+        user,
+        authUser: null
+    });
+});
+
 // Submit content appeal
 app.post('/api/appeals/content', (req, res) => {
     try {
@@ -2136,6 +3372,17 @@ io.on('connection', (socket) => {
     
     socket.on('leave-conversation', (conversationId) => {
         socket.leave(`conversation-${conversationId}`);
+    });
+
+    // Typing indicators within a conversation
+    socket.on('typing', (payload) => {
+        // payload: { conversationId, userId, name }
+        if (!payload || !payload.conversationId) return;
+        socket.to(`conversation-${payload.conversationId}`).emit('typing', payload);
+    });
+    socket.on('stop-typing', (payload) => {
+        if (!payload || !payload.conversationId) return;
+        socket.to(`conversation-${payload.conversationId}`).emit('stop-typing', payload);
     });
     
     socket.on('disconnect', () => {

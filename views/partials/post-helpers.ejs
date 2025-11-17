@@ -1,0 +1,382 @@
+<script>
+// Define shared helpers once for any page rendering posts
+(function(){
+  if (window.DXPostHelpers) return;
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s]));
+  }
+  function updateReactions(article, counts, activeType, status){
+    const allCounts = article.querySelectorAll('.rx-count');
+    allCounts.forEach(span => { const t = span.getAttribute('data-type'); span.textContent = counts[t] || 0; });
+    article.querySelectorAll('.rx-btn').forEach(btn => {
+      const t = btn.getAttribute('data-type');
+      const isActive = (t === activeType && status !== 'cleared');
+      btn.classList.toggle('active', isActive);
+    });
+  }
+  function renderCommentItem(c){
+    const avatar = c.profile_picture ? `<img src="/uploads/${c.profile_picture}" alt="${c.full_name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">` : `<div style="width:28px;height:28px;border-radius:50%;background:#7C3AED;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;">${(c.full_name||'U').charAt(0)}</div>`;
+    const time = new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const isReply = !!c.parent_id;
+    const isSuperAdmin = <%= (typeof authUser !== 'undefined' && authUser && authUser.role === 'super_admin') ? 'true' : 'false' %>;
+    const isHidden = c.is_hidden === 1;
+    const isDeleted = c.is_deleted === 1;
+    const statusBadge = isDeleted ? '<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-left:8px;">Deleted</span>' : (isHidden ? '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-left:8px;">Hidden</span>' : '');
+    
+    // Build reply indicator if this is a reply
+    const replyIndicator = isReply && c.parent_author_name ? `<span style="color:#7C3AED;font-size:0.8rem;font-weight:600;margin-bottom:4px;display:block;">↳ replying to ${escapeHtml(c.parent_author_name)}</span>` : '';
+    
+    const adminActions = isSuperAdmin ? `
+      <div style="position:relative;display:inline-block;">
+        <button type="button" class="comment-admin-btn" onclick="toggleCommentActions(${c.id})" style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;cursor:pointer;font-weight:700;">⋮</button>
+        <div id="comment-actions-${c.id}" class="comment-admin-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;min-width:140px;">
+          ${isHidden || isDeleted ? `
+            <button onclick="restoreCommentAction(${c.id})" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:0.85rem;color:#10b981;font-weight:600;">✓ Restore</button>
+          ` : `
+            <button onclick="hideCommentAction(${c.id})" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:0.85rem;color:#f59e0b;font-weight:600;">👁️ Hide</button>
+            <button onclick="deleteCommentAction(${c.id})" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;font-size:0.85rem;color:#ef4444;font-weight:600;border-top:1px solid #e5e7eb;">🗑️ Delete</button>
+          `}
+        </div>
+      </div>
+    ` : '';
+    
+    return `<div class="comment-item${isReply ? ' reply' : ''}" data-comment-id="${c.id}" data-parent-id="${c.parent_id||''}" style="display:flex;gap:8px;align-items:flex-start;${isReply ? 'margin-left:36px;' : ''}${isHidden || isDeleted ? 'opacity:0.5;' : ''}">
+      ${avatar}
+      <div style="flex:1;background:#f9fafb;border:1px solid #eef2f7;padding:8px 10px;border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div style="display:flex;align-items:center;">
+            <strong style="font-size:.85rem;">${c.full_name}</strong>
+            ${statusBadge}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:.7rem;color:#9ca3af;">${time}</span>
+            ${adminActions}
+          </div>
+        </div>
+        ${replyIndicator}
+        <div style="font-size:.9rem;color:#374151;line-height:1.5;">${escapeHtml(c.content)}</div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+          <button type="button" class="star-btn" style="background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;color:${c.user_starred?'#111827':'#6b7280'};" data-init="0">
+            <span>⭐</span><span class="star-count">${c.star_count||0}</span>
+          </button>
+          <button type="button" class="reply-btn" data-reply-init="0" style="background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:4px 10px;cursor:pointer;font-weight:700;color:#6b7280;">Reply</button>
+        </div>
+        <div class="replies" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;"></div>
+      </div>
+    </div>`;
+  }
+  async function loadComments(article, postId){
+    const res = await fetch(`/api/posts/${postId}/comments?limit=100`);
+    const data = await res.json();
+    const list = article.querySelector('.comments-list');
+    list.innerHTML = '';
+    const items = Array.isArray(data.comments) ? data.comments : [];
+    const parents = items.filter(x => !x.parent_id);
+    const replies = items.filter(x => x.parent_id);
+    parents.forEach(p => appendCommentToDOM(article, p));
+    replies.forEach(r => appendCommentToDOM(article, r));
+    attachCommentHandlers(article);
+  }
+  function appendCommentToDOM(article, c){
+    const list = article.querySelector('.comments-list');
+    if (!c.parent_id) list.insertAdjacentHTML('beforeend', renderCommentItem(c));
+    else {
+      const parent = list.querySelector(`.comment-item[data-comment-id="${c.parent_id}"]`);
+      if (parent) (parent.querySelector('.replies')||parent).insertAdjacentHTML('beforeend', renderCommentItem(c));
+      else list.insertAdjacentHTML('beforeend', renderCommentItem(c));
+    }
+  }
+  function attachCommentHandlers(article){
+    article.querySelectorAll('.comment-item .star-btn[data-init="0"]').forEach(btn => {
+      btn.setAttribute('data-init','1');
+      btn.addEventListener('click', async () => {
+        const item = btn.closest('.comment-item');
+        const commentId = item.getAttribute('data-comment-id');
+        const res = await fetch(`/api/comments/${commentId}/star`, { method:'POST' });
+        const data = await res.json();
+        if (!data.success) return;
+        btn.querySelector('.star-count').textContent = data.starCount || 0;
+        btn.style.color = data.liked ? '#111827' : '#6b7280';
+      });
+    });
+    article.querySelectorAll('.comment-item .reply-btn[data-reply-init="0"]').forEach(btn => {
+      btn.setAttribute('data-reply-init','1');
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.comment-item');
+        const cid = item.getAttribute('data-comment-id');
+        const name = (item.querySelector('strong')?.textContent) || 'user';
+        article.setAttribute('data-reply-parent-id', cid);
+        const pill = article.querySelector('.replying-indicator');
+        if (pill) { pill.querySelector('.replying-name').textContent = name; pill.style.display = 'inline-flex'; }
+        const input = article.querySelector('.comment-input');
+        input.placeholder = `Replying to ${name}...`;
+        input.focus();
+      });
+    });
+  }
+  async function sendComment(article, postId){
+    const input = article.querySelector('.comment-input');
+    const content = (input.value || '').trim();
+    if (!content) return;
+    const parentId = article.getAttribute('data-reply-parent-id');
+    const res = await fetch(`/api/posts/${postId}/comments`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ content, parentId: parentId ? Number(parentId) : null }) });
+    const data = await res.json();
+    if (!data.success) return;
+    appendCommentToDOM(article, data.comment);
+    attachCommentHandlers(article);
+    input.value='';
+    article.removeAttribute('data-reply-parent-id');
+    const pill = article.querySelector('.replying-indicator');
+    if (pill) pill.style.display = 'none';
+    input.placeholder = 'Write a thoughtful comment...';
+    const cc = article.querySelector('.comment-count');
+    if (cc) cc.textContent = (parseInt(cc.textContent||'0',10) + 1);
+  }
+  // Ensure single socket setup for the page
+  function ensureSocketSetup(){
+    if (window.__dxSocketSetup) return;
+    window.__dxSocketSetup = true;
+    try {
+      if (typeof io === 'undefined') return;
+      const socket = io();
+      socket.on('post-reaction', (payload) => {
+        const art = document.querySelector(`article.post-card[data-post-id="${payload.postId}"]`);
+        if (art) updateReactions(art, payload.counts, payload.type, payload.status);
+      });
+      socket.on('post-comment', ({ postId, comment }) => {
+        const art = document.querySelector(`article.post-card[data-post-id="${postId}"]`);
+        if (!art) return;
+        try { if (window.authUser && comment && Number(comment.user_id) === Number(window.authUser.id)) return; } catch(_){}
+        const list = art.querySelector('.comments-list');
+        if (!list) return;
+        if (list.querySelector(`.comment-item[data-comment-id="${comment.id}"]`)) return;
+        appendCommentToDOM(art, comment);
+        const cc = art.querySelector('.comment-count');
+        if (cc) cc.textContent = (parseInt(cc.textContent||'0',10) + 1);
+        attachCommentHandlers(art);
+      });
+      socket.on('comment-star', ({ postId, commentId, starCount }) => {
+        const item = document.querySelector(`article.post-card[data-post-id="${postId}"] .comment-item[data-comment-id="${commentId}"]`);
+        if (item) {
+          const btn = item.querySelector('.star-btn .star-count');
+          if (btn) btn.textContent = starCount || 0;
+        }
+      });
+    } catch(e){}
+  }
+  window.DXPostHelpers = { updateReactions, loadComments, renderCommentItem, appendCommentToDOM, attachCommentHandlers, sendComment, escapeHtml, ensureSocketSetup };
+})();
+
+// Comment admin actions (global functions)
+function toggleCommentActions(commentId) {
+  const menu = document.getElementById('comment-actions-' + commentId);
+  if (menu) {
+    // Close all other menus first
+    document.querySelectorAll('.comment-admin-menu').forEach(m => {
+      if (m.id !== 'comment-actions-' + commentId) m.style.display = 'none';
+    });
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+// Close comment menus when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.comment-admin-btn')) {
+    document.querySelectorAll('.comment-admin-menu').forEach(menu => {
+      menu.style.display = 'none';
+    });
+  }
+});
+
+function hideCommentAction(commentId) {
+  showCommentModerationModal(
+    'Hide Comment',
+    'Hide this comment? It will be invisible to regular users but visible to admins.',
+    'warning',
+    async () => {
+      try {
+        const res = await fetch(`/admin/comments/${commentId}/hide`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showCommentSuccessModal('Comment hidden successfully');
+        } else {
+          showCommentErrorModal('Error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Hide comment error:', err);
+        showCommentErrorModal('Failed to hide comment');
+      }
+    }
+  );
+}
+
+function deleteCommentAction(commentId) {
+  showCommentModerationModal(
+    'Delete Comment',
+    'Delete this comment? It will be marked as deleted and invisible to all users.',
+    'danger',
+    async () => {
+      try {
+        const res = await fetch(`/admin/comments/${commentId}/delete`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showCommentSuccessModal('Comment deleted successfully');
+        } else {
+          showCommentErrorModal('Error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Delete comment error:', err);
+        showCommentErrorModal('Failed to delete comment');
+      }
+    }
+  );
+}
+
+function restoreCommentAction(commentId) {
+  showCommentModerationModal(
+    'Restore Comment',
+    'Restore this comment? It will become visible to all users again.',
+    'success',
+    async () => {
+      try {
+        const res = await fetch(`/admin/comments/${commentId}/restore`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showCommentSuccessModal('Comment restored successfully');
+        } else {
+          showCommentErrorModal('Error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Restore comment error:', err);
+        showCommentErrorModal('Failed to restore comment');
+      }
+    }
+  );
+}
+
+// Modal system for comment moderation
+function showCommentModerationModal(title, message, type, onConfirm) {
+  const existingModal = document.getElementById('commentModerationModal');
+  if (existingModal) existingModal.remove();
+
+  const typeColors = {
+    danger: { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', hover: '#dc2626' },
+    warning: { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', hover: '#d97706' },
+    success: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', hover: '#059669' }
+  };
+  const colors = typeColors[type] || typeColors.warning;
+
+  const modal = document.createElement('div');
+  modal.id = 'commentModerationModal';
+  modal.innerHTML = `
+    <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10000;animation:fadeIn 0.2s ease;">
+      <div style="background:white;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:480px;width:90%;animation:slideUp 0.3s ease;">
+        <div style="padding:24px;border-bottom:1px solid #e5e7eb;">
+          <h3 style="margin:0;font-size:1.25rem;font-weight:700;color:#1f2937;">${title}</h3>
+        </div>
+        <div style="padding:24px;">
+          <p style="margin:0;color:#4b5563;line-height:1.6;">${message}</p>
+        </div>
+        <div style="padding:16px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:12px;justify-content:flex-end;border-radius:0 0 16px 16px;">
+          <button onclick="closeCommentModerationModal()" style="padding:10px 24px;background:#fff;color:#374151;border:2px solid #e5e7eb;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;">Cancel</button>
+          <button onclick="confirmCommentModeration()" style="padding:10px 24px;background:${colors.bg};color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.15);">Confirm</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  window.currentCommentModerationAction = onConfirm;
+}
+
+function closeCommentModerationModal() {
+  const modal = document.getElementById('commentModerationModal');
+  if (modal) modal.remove();
+  window.currentCommentModerationAction = null;
+}
+
+async function confirmCommentModeration() {
+  if (window.currentCommentModerationAction) {
+    closeCommentModerationModal();
+    await window.currentCommentModerationAction();
+  }
+}
+
+function showCommentSuccessModal(message) {
+  const existingModal = document.getElementById('commentResultModal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'commentResultModal';
+  modal.innerHTML = `
+    <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10001;animation:fadeIn 0.2s ease;">
+      <div style="background:white;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:420px;width:90%;animation:slideUp 0.3s ease;">
+        <div style="padding:32px;text-align:center;">
+          <div style="width:64px;height:64px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <h3 style="margin:0 0 8px 0;font-size:1.25rem;font-weight:700;color:#1f2937;">Success</h3>
+          <p style="margin:0 0 24px 0;color:#4b5563;">${message}</p>
+          <button onclick="closeCommentResultModal()" style="padding:10px 32px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(16,185,129,0.3);">OK</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  setTimeout(() => {
+    closeCommentResultModal();
+    location.reload();
+  }, 2000);
+}
+
+function showCommentErrorModal(message) {
+  const existingModal = document.getElementById('commentResultModal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'commentResultModal';
+  modal.innerHTML = `
+    <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10001;animation:fadeIn 0.2s ease;">
+      <div style="background:white;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:420px;width:90%;animation:slideUp 0.3s ease;">
+        <div style="padding:32px;text-align:center;">
+          <div style="width:64px;height:64px;background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </div>
+          <h3 style="margin:0 0 8px 0;font-size:1.25rem;font-weight:700;color:#1f2937;">Error</h3>
+          <p style="margin:0 0 24px 0;color:#4b5563;">${message}</p>
+          <button onclick="closeCommentResultModal()" style="padding:10px 32px;background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(239,68,68,0.3);">OK</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function closeCommentResultModal() {
+  const modal = document.getElementById('commentResultModal');
+  if (modal) modal.remove();
+}
+
+// Add CSS animations if not already present
+if (!document.getElementById('commentModalStyles')) {
+  const style = document.createElement('style');
+  style.id = 'commentModalStyles';
+  style.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+</script>

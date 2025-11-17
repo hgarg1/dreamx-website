@@ -64,8 +64,11 @@
                                         <ul class="dropdown-menu" role="menu">
                                             <li><a href="/profile">Profile</a></li>
                                             <li><a href="/settings">Settings</a></li>
-                                            <% if (authUser.role === 'admin' || authUser.role === 'super_admin') { %>
+                                            <% if (authUser.role === 'admin' || authUser.role === 'super_admin' || authUser.role === 'global_admin') { %>
                                                 <li><a href="/admin">Admin</a></li>
+                                            <% } %>
+                                            <% if (authUser.role === 'hr') { %>
+                                                <li><a href="/hr">HR Portal</a></li>
                                             <% } %>
                                             <li class="divider" role="separator"></li>
                                             <li><a href="/logout">Logout</a></li>

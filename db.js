@@ -75,6 +75,19 @@ CREATE TABLE IF NOT EXISTS conversation_participants (
   UNIQUE(conversation_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS message_reactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  message_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  reaction_type TEXT NOT NULL DEFAULT 'like',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(message_id, user_id),
+  FOREIGN KEY (message_id) REFERENCES messages(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_message_reactions_message ON message_reactions(message_id);
+CREATE INDEX IF NOT EXISTS idx_message_reactions_type ON message_reactions(reaction_type);
+
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   conversation_id INTEGER NOT NULL,
@@ -149,6 +162,63 @@ try {
   // Column already exists, ignore
 }
 try {
+  db.exec(`ALTER TABLE users ADD COLUMN account_status TEXT DEFAULT 'active';`);
+} catch (e) {
+  // Column already exists, ignore
+}
+// Ensure all existing users have account_status set
+try {
+  db.exec(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL;`);
+} catch (e) {
+  // Ignore if fails
+}
+
+// Seed Global Admin account if it doesn't exist
+try {
+  const adminExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('admin@dreamx.local');
+  if (!adminExists) {
+    const bcrypt = require('bcrypt');
+    const adminPassword = bcrypt.hashSync('DreamXAdmin2025!', 10);
+    db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+      .run('Global Administrator', 'admin@dreamx.local', adminPassword, 'global_admin', 'active', 'Global Administrator - Full System Access');
+    console.log('✅ Global Admin account created: admin@dreamx.local / DreamXAdmin2025!');
+  } else {
+    // Ensure existing admin has global_admin role
+    const adminRole = db.prepare(`SELECT role FROM users WHERE email = ?`).get('admin@dreamx.local');
+    if (adminRole && adminRole.role !== 'global_admin') {
+      db.prepare(`UPDATE users SET role = 'global_admin' WHERE email = ?`).run('admin@dreamx.local');
+      console.log('✅ Admin account upgraded to global_admin role');
+    }
+  }
+} catch (e) {
+  console.warn('Admin seed error:', e.message);
+}
+
+// Seed HR account if it doesn't exist
+try {
+  const hrExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('hr@dreamx.local');
+  if (!hrExists) {
+    const bcrypt = require('bcrypt');
+    const hrPassword = bcrypt.hashSync('DreamXHR2025!', 10);
+    db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+      .run('HR Manager', 'hr@dreamx.local', hrPassword, 'hr', 'active', 'Human Resources Department - Talent Acquisition and Employee Relations');
+    console.log('✅ HR account created: hr@dreamx.local / DreamXHR2025!');
+  }
+} catch (e) {
+  console.warn('HR seed error:', e.message);
+}
+
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN suspension_until DATETIME;`);
+} catch (e) {
+  // Column already exists, ignore
+}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN suspension_reason TEXT;`);
+} catch (e) {
+  // Column already exists, ignore
+}
+try {
   db.exec(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user';`);
 } catch (e) {
   // Column already exists, ignore
@@ -208,6 +278,8 @@ try {
 } catch (e) {
   // Column already exists, ignore
 }
+// Posts reels support migration (idempotent)
+try { db.exec(`ALTER TABLE posts ADD COLUMN is_reel INTEGER DEFAULT 0;`); } catch (e) {}
 // Privacy settings migrations (idempotent)
 try { db.exec(`ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public';`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'everyone';`); } catch (e) {}
@@ -256,6 +328,14 @@ try {
   );`);
 } catch (e) {}
 
+// Comments replies migration (idempotent)
+try { db.exec(`ALTER TABLE post_comments ADD COLUMN parent_id INTEGER;`); } catch (e) {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_post_comments_parent ON post_comments(parent_id);`); } catch (e) {}
+
+// Comment moderation columns
+try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_hidden INTEGER DEFAULT 0;`); } catch (e) {}
+try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
+
 // Ensure audit logs table exists
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS audit_logs (
@@ -268,6 +348,20 @@ try {
   );`);
 } catch (e) {}
 
+// Follows table
+db.exec(`CREATE TABLE IF NOT EXISTS follows (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  follower_id INTEGER NOT NULL,
+  following_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(follower_id, following_id),
+  FOREIGN KEY (follower_id) REFERENCES users(id),
+  FOREIGN KEY (following_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
+CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+`);
+
 // Posts table for rich feed content
 db.exec(`CREATE TABLE IF NOT EXISTS posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -275,10 +369,53 @@ db.exec(`CREATE TABLE IF NOT EXISTS posts (
   content_type TEXT DEFAULT 'text',
   text_content TEXT,
   media_url TEXT,
+  is_reel INTEGER DEFAULT 0,
   activity_label TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );`);
+
+// Reactions and comments for posts
+db.exec(`CREATE TABLE IF NOT EXISTS post_reactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  reaction_type TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(post_id, user_id),
+  FOREIGN KEY (post_id) REFERENCES posts(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_post_reactions_post ON post_reactions(post_id);
+CREATE INDEX IF NOT EXISTS idx_post_reactions_type ON post_reactions(reaction_type);
+`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS post_comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  parent_id INTEGER,
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (post_id) REFERENCES posts(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (parent_id) REFERENCES post_comments(id)
+);
+CREATE INDEX IF NOT EXISTS idx_post_comments_post ON post_comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_post_comments_parent ON post_comments(parent_id);
+`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS comment_likes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  comment_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(comment_id, user_id),
+  FOREIGN KEY (comment_id) REFERENCES post_comments(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_comment_likes_comment ON comment_likes(comment_id);
+`);
 
 // Careers applications table
 db.exec(`CREATE TABLE IF NOT EXISTS career_applications (
@@ -360,7 +497,7 @@ module.exports = {
     if (search) {
       const s = `%${search.toLowerCase()}%`;
       return db.prepare(`
-        SELECT id, full_name, email, role, created_at
+        SELECT id, full_name, email, role, account_status, created_at
         FROM users
         WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?
         ORDER BY created_at DESC
@@ -368,7 +505,7 @@ module.exports = {
       `).all(s, s, limit, offset);
     }
     return db.prepare(`
-      SELECT id, full_name, email, role, created_at
+      SELECT id, full_name, email, role, account_status, created_at
       FROM users
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
@@ -587,29 +724,148 @@ module.exports = {
     return db.prepare(`SELECT COUNT(*) as c FROM audit_logs`).get().c;
   },
   // Posts
-  createPost: ({ userId, contentType, textContent, mediaUrl, activityLabel }) => {
-    const stmt = db.prepare(`INSERT INTO posts (user_id, content_type, text_content, media_url, activity_label) VALUES (?,?,?,?,?)`);
-    const info = stmt.run(userId, contentType || 'text', textContent || null, mediaUrl || null, activityLabel || null);
+  createPost: ({ userId, contentType, textContent, mediaUrl, activityLabel, isReel }) => {
+    const stmt = db.prepare(`INSERT INTO posts (user_id, content_type, text_content, media_url, activity_label, is_reel) VALUES (?,?,?,?,?,?)`);
+    const info = stmt.run(userId, contentType || 'text', textContent || null, mediaUrl || null, activityLabel || null, isReel ? 1 : 0);
     return info.lastInsertRowid;
   },
   getFeedPosts: ({ limit, offset }) => {
     return db.prepare(`
       SELECT p.*, u.full_name, u.email, u.profile_picture,
-        (SELECT COUNT(*) FROM posts) as total_count
+        (SELECT COUNT(*) FROM posts) as total_count,
+        (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS comments_count
       FROM posts p
       JOIN users u ON p.user_id = u.id
+      WHERE p.is_reel = 0
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(limit, offset);
+    `).all(limit, offset).map(row => {
+      const counts = db.prepare(`
+        SELECT reaction_type, COUNT(*) as c
+        FROM post_reactions
+        WHERE post_id = ?
+        GROUP BY reaction_type
+      `).all(row.id);
+      row.reactions = counts.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
+      return row;
+    });
   },
   getUserPosts: (userId) => {
     return db.prepare(`
-      SELECT p.*, u.full_name, u.email, u.profile_picture
+      SELECT p.*, u.full_name, u.email, u.profile_picture,
+        (SELECT COUNT(*) FROM post_comments WHERE post_id = p.id) as comments_count
       FROM posts p
       JOIN users u ON p.user_id = u.id
       WHERE p.user_id = ?
       ORDER BY p.created_at DESC
     `).all(userId);
+  },
+  getUserReels: (userId) => {
+    return db.prepare(`
+      SELECT p.*, u.full_name, u.email, u.profile_picture
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.user_id = ? AND p.is_reel = 1
+      ORDER BY p.created_at DESC
+    `).all(userId);
+  },
+  getPostById: (postId) => {
+    const row = db.prepare(`
+      SELECT p.*, u.full_name, u.email, u.profile_picture
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.id = ?
+    `).get(postId);
+    if (!row) return null;
+    const counts = db.prepare(`
+      SELECT reaction_type, COUNT(*) as c
+      FROM post_reactions
+      WHERE post_id = ?
+      GROUP BY reaction_type
+    `).all(postId);
+    row.reactions = counts.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
+    row.comments_count = db.prepare(`SELECT COUNT(*) as c FROM post_comments WHERE post_id = ?`).get(postId).c;
+    return row;
+  },
+  // Reactions
+  setPostReaction: ({ postId, userId, reactionType }) => {
+    const existing = db.prepare(`SELECT id, reaction_type FROM post_reactions WHERE post_id = ? AND user_id = ?`).get(postId, userId);
+    let status = 'set';
+    if (!existing) {
+      db.prepare(`INSERT INTO post_reactions (post_id, user_id, reaction_type) VALUES (?,?,?)`).run(postId, userId, reactionType);
+      status = 'set';
+    } else if (existing.reaction_type === reactionType) {
+      db.prepare(`DELETE FROM post_reactions WHERE id = ?`).run(existing.id);
+      status = 'cleared';
+    } else {
+      db.prepare(`UPDATE post_reactions SET reaction_type = ? WHERE id = ?`).run(reactionType, existing.id);
+      status = 'updated';
+    }
+    const summary = db.prepare(`
+      SELECT reaction_type, COUNT(*) as c
+      FROM post_reactions
+      WHERE post_id = ?
+      GROUP BY reaction_type
+    `).all(postId);
+    const counts = summary.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
+    return { status, counts };
+  },
+  getPostReactionsSummary: (postId) => {
+    const rows = db.prepare(`
+      SELECT reaction_type, COUNT(*) as c
+      FROM post_reactions
+      WHERE post_id = ?
+      GROUP BY reaction_type
+    `).all(postId);
+    return rows.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
+  },
+  getUserReactionForPost: ({ postId, userId }) => {
+    const row = db.prepare(`SELECT reaction_type FROM post_reactions WHERE post_id = ? AND user_id = ?`).get(postId, userId);
+    return row ? row.reaction_type : null;
+  },
+  // Comments
+  addPostComment: ({ postId, userId, content, parentId = null }) => {
+    const info = db.prepare(`INSERT INTO post_comments (post_id, user_id, parent_id, content) VALUES (?,?,?,?)`).run(postId, userId, parentId || null, content);
+    return info.lastInsertRowid;
+  },
+  getPostComments: ({ postId, limit = 20, offset = 0, isAdmin = false }) => {
+    const whereClause = isAdmin 
+      ? 'WHERE c.post_id = ?' 
+      : 'WHERE c.post_id = ? AND c.is_hidden = 0 AND c.is_deleted = 0';
+    
+    const comments = db.prepare(`
+      SELECT c.*, u.full_name, u.profile_picture,
+        (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS star_count,
+        pc.user_id as parent_author_id,
+        pu.full_name as parent_author_name
+      FROM post_comments c
+      JOIN users u ON u.id = c.user_id
+      LEFT JOIN post_comments pc ON pc.id = c.parent_id
+      LEFT JOIN users pu ON pu.id = pc.user_id
+      ${whereClause}
+      ORDER BY c.created_at ASC
+      LIMIT ? OFFSET ?
+    `).all(postId, limit, offset);
+    return comments;
+  },
+  getCommentsCount: (postId, isAdmin = false) => {
+    const whereClause = isAdmin 
+      ? 'WHERE post_id = ?' 
+      : 'WHERE post_id = ? AND is_hidden = 0 AND is_deleted = 0';
+    return db.prepare(`SELECT COUNT(*) as c FROM post_comments ${whereClause}`).get(postId).c;
+  },
+  toggleCommentLike: ({ commentId, userId }) => {
+    const existing = db.prepare(`SELECT id FROM comment_likes WHERE comment_id = ? AND user_id = ?`).get(commentId, userId);
+    let liked = false;
+    if (existing) {
+      db.prepare(`DELETE FROM comment_likes WHERE id = ?`).run(existing.id);
+      liked = false;
+    } else {
+      db.prepare(`INSERT INTO comment_likes (comment_id, user_id) VALUES (?,?)`).run(commentId, userId);
+      liked = true;
+    }
+    const starCount = db.prepare(`SELECT COUNT(*) as c FROM comment_likes WHERE comment_id = ?`).get(commentId).c;
+    return { liked, starCount };
   },
   // WebAuthn helpers
   addWebAuthnCredential: ({ userId, credentialId, publicKey, counter, transports }) => {
@@ -740,6 +996,88 @@ module.exports = {
     const stmt = db.prepare(`SELECT * FROM invoices WHERE user_id = ? ORDER BY invoice_date DESC`);
     return stmt.all(userId);
   },
+  // Follow helpers
+  followUser: ({ followerId, followingId }) => {
+    db.prepare(`INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`).run(followerId, followingId);
+  },
+  unfollowUser: ({ followerId, followingId }) => {
+    db.prepare(`DELETE FROM follows WHERE follower_id = ? AND following_id = ?`).run(followerId, followingId);
+  },
+  isFollowing: ({ followerId, followingId }) => {
+    const row = db.prepare(`SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`).get(followerId, followingId);
+    return !!row;
+  },
+  getFollowerCount: (userId) => {
+    return db.prepare(`SELECT COUNT(*) as c FROM follows WHERE following_id = ?`).get(userId).c;
+  },
+  getFollowingCount: (userId) => {
+    return db.prepare(`SELECT COUNT(*) as c FROM follows WHERE follower_id = ?`).get(userId).c;
+  },
+  getFollowers: (userId, limit = 100) => {
+    return db.prepare(`
+      SELECT u.id, u.full_name, u.email, u.profile_picture, u.bio
+      FROM follows f
+      JOIN users u ON u.id = f.follower_id
+      WHERE f.following_id = ?
+      ORDER BY f.created_at DESC
+      LIMIT ?
+    `).all(userId, limit);
+  },
+  getFollowing: (userId, limit = 100) => {
+    return db.prepare(`
+      SELECT u.id, u.full_name, u.email, u.profile_picture, u.bio
+      FROM follows f
+      JOIN users u ON u.id = f.following_id
+      WHERE f.follower_id = ?
+      ORDER BY f.created_at DESC
+      LIMIT ?
+    `).all(userId, limit);
+  },
+  // Account moderation helpers
+  banUser: ({ userId, reason, bannedBy }) => {
+    db.prepare(`UPDATE users SET account_status = 'banned', suspension_reason = ? WHERE id = ?`).run(reason || 'Violation of community guidelines', userId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      bannedBy,
+      'ban_user',
+      JSON.stringify({ targetUserId: userId, reason: reason || 'Violation of community guidelines' })
+    );
+  },
+  suspendUser: ({ userId, until, reason, suspendedBy }) => {
+    db.prepare(`UPDATE users SET account_status = 'suspended', suspension_until = ?, suspension_reason = ? WHERE id = ?`).run(until, reason || 'Temporary suspension', userId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      suspendedBy,
+      'suspend_user',
+      JSON.stringify({ targetUserId: userId, until, reason: reason || 'Temporary suspension' })
+    );
+  },
+  unbanUser: ({ userId, unbannedBy }) => {
+    db.prepare(`UPDATE users SET account_status = 'active', suspension_until = NULL, suspension_reason = NULL WHERE id = ?`).run(userId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      unbannedBy,
+      'unban_user',
+      JSON.stringify({ targetUserId: userId })
+    );
+  },
+  checkAccountStatus: (userId) => {
+    const user = db.prepare(`SELECT account_status, suspension_until, suspension_reason FROM users WHERE id = ?`).get(userId);
+    if (!user) return { status: 'not_found' };
+    
+    // Check if suspension has expired
+    if (user.account_status === 'suspended' && user.suspension_until) {
+      const now = new Date();
+      const suspensionEnd = new Date(user.suspension_until);
+      if (now >= suspensionEnd) {
+        db.prepare(`UPDATE users SET account_status = 'active', suspension_until = NULL, suspension_reason = NULL WHERE id = ?`).run(userId);
+        return { status: 'active' };
+      }
+    }
+    
+    return {
+      status: user.account_status || 'active',
+      suspensionUntil: user.suspension_until,
+      suspensionReason: user.suspension_reason
+    };
+  },
   // Careers helpers
   createCareerApplication: ({ position, name, email, phone, coverLetter, resumeFile, portfolioFile }) => {
     const stmt = db.prepare(`
@@ -776,6 +1114,9 @@ module.exports = {
     if (status) return db.prepare(`SELECT * FROM content_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
     return db.prepare(`SELECT * FROM content_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
   },
+  getContentAppealById: (id) => {
+    return db.prepare(`SELECT * FROM content_appeals WHERE id = ?`).get(id);
+  },
   updateContentAppealStatus: ({ id, status, reviewerId }) => {
     db.prepare(`UPDATE content_appeals SET status = ?, reviewer_id = ? WHERE id = ?`).run(status, reviewerId || null, id);
   },
@@ -792,7 +1133,187 @@ module.exports = {
     if (status) return db.prepare(`SELECT * FROM account_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
     return db.prepare(`SELECT * FROM account_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
   },
+  getAccountAppealById: (id) => {
+    return db.prepare(`SELECT * FROM account_appeals WHERE id = ?`).get(id);
+  },
   updateAccountAppealStatus: ({ id, status, reviewerId }) => {
     db.prepare(`UPDATE account_appeals SET status = ?, reviewer_id = ? WHERE id = ?`).run(status, reviewerId || null, id);
+  },
+  // Get recent activity for feed sidebar
+  getRecentActivity: (limit = 5) => {
+    const activities = [];
+    
+    // Get recent posts (with user info)
+    const recentPosts = db.prepare(`
+      SELECT p.created_at, u.full_name
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.is_reel = 0
+      ORDER BY p.created_at DESC
+      LIMIT ?
+    `).all(limit);
+    
+    recentPosts.forEach(post => {
+      activities.push({
+        type: 'post',
+        desc: `${post.full_name} published a new post`,
+        time: post.created_at,
+        timestamp: new Date(post.created_at).getTime()
+      });
+    });
+    
+    // Get recent follows
+    const recentFollows = db.prepare(`
+      SELECT f.created_at, 
+             u1.full_name as follower_name,
+             u2.full_name as following_name
+      FROM follows f
+      JOIN users u1 ON f.follower_id = u1.id
+      JOIN users u2 ON f.following_id = u2.id
+      ORDER BY f.created_at DESC
+      LIMIT ?
+    `).all(limit);
+    
+    recentFollows.forEach(follow => {
+      activities.push({
+        type: 'follow',
+        desc: `${follow.follower_name} followed ${follow.following_name}`,
+        time: follow.created_at,
+        timestamp: new Date(follow.created_at).getTime()
+      });
+    });
+    
+    // Get recent profile updates (we'll check for recent updates based on created_at being close to current time)
+    const recentUpdates = db.prepare(`
+      SELECT created_at, full_name
+      FROM users
+      WHERE datetime(created_at) >= datetime('now', '-1 day')
+      ORDER BY created_at DESC
+      LIMIT ?
+    `).all(limit);
+    
+    recentUpdates.forEach(update => {
+      activities.push({
+        type: 'update',
+        desc: `${update.full_name} updated their profile`,
+        time: update.created_at,
+        timestamp: new Date(update.created_at).getTime()
+      });
+    });
+    
+    // Sort all activities by timestamp descending and format time
+    activities.sort((a, b) => b.timestamp - a.timestamp);
+    
+    // Format time strings
+    const now = Date.now();
+    activities.forEach(act => {
+      const diff = now - act.timestamp;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      
+      if (minutes < 1) {
+        act.time = 'just now';
+      } else if (minutes < 60) {
+        act.time = `${minutes}m ago`;
+      } else if (hours < 24) {
+        act.time = `${hours}h ago`;
+      } else {
+        act.time = `${days}d ago`;
+      }
+      
+      // Clean up internal fields
+      delete act.timestamp;
+    });
+    
+    return activities.slice(0, limit);
+  },
+  // Comment moderation
+  hideComment: ({ commentId, hiddenBy }) => {
+    db.prepare(`UPDATE post_comments SET is_hidden = 1 WHERE id = ?`).run(commentId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      hiddenBy,
+      'hide_comment',
+      JSON.stringify({ commentId })
+    );
+  },
+  deleteComment: ({ commentId, deletedBy }) => {
+    db.prepare(`UPDATE post_comments SET is_deleted = 1 WHERE id = ?`).run(commentId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      deletedBy,
+      'delete_comment',
+      JSON.stringify({ commentId })
+    );
+  },
+  restoreComment: ({ commentId, restoredBy }) => {
+    db.prepare(`UPDATE post_comments SET is_hidden = 0, is_deleted = 0 WHERE id = ?`).run(commentId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      restoredBy,
+      'restore_comment',
+      JSON.stringify({ commentId })
+    );
+  },
+  getSuggestedUsers: ({ currentUserId, limit = 4 }) => {
+    // Get users that the current user is NOT following and exclude self
+    return db.prepare(`
+      SELECT u.id, u.full_name, u.email, u.profile_picture, u.categories
+      FROM users u
+      WHERE u.id != ?
+        AND u.id NOT IN (
+          SELECT following_id FROM follows WHERE follower_id = ?
+        )
+      ORDER BY (
+        SELECT COUNT(*) FROM posts WHERE user_id = u.id
+      ) DESC, u.created_at DESC
+      LIMIT ?
+    `).all(currentUserId, currentUserId, limit);
+  },
+  // Message reactions
+  setMessageReaction: ({ messageId, userId, reactionType = 'like' }) => {
+    const existing = db.prepare(`SELECT id, reaction_type FROM message_reactions WHERE message_id = ? AND user_id = ?`).get(messageId, userId);
+    let status = 'set';
+    if (!existing) {
+      db.prepare(`INSERT INTO message_reactions (message_id, user_id, reaction_type) VALUES (?,?,?)`).run(messageId, userId, reactionType);
+      status = 'set';
+    } else if (existing.reaction_type === reactionType) {
+      db.prepare(`DELETE FROM message_reactions WHERE id = ?`).run(existing.id);
+      status = 'cleared';
+    } else {
+      db.prepare(`UPDATE message_reactions SET reaction_type = ? WHERE id = ?`).run(reactionType, existing.id);
+      status = 'updated';
+    }
+    const summary = db.prepare(`
+      SELECT reaction_type, COUNT(*) as c
+      FROM message_reactions
+      WHERE message_id = ?
+      GROUP BY reaction_type
+    `).all(messageId);
+    const counts = summary.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
+    return { status, counts };
+  },
+  getMessageReactions: (messageId) => {
+    const rows = db.prepare(`
+      SELECT reaction_type, COUNT(*) as c
+      FROM message_reactions
+      WHERE message_id = ?
+      GROUP BY reaction_type
+    `).all(messageId);
+    return rows.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
+  },
+  getUserReactionForMessage: ({ messageId, userId }) => {
+    const row = db.prepare(`SELECT reaction_type FROM message_reactions WHERE message_id = ? AND user_id = ?`).get(messageId, userId);
+    return row ? row.reaction_type : null;
+  },
+  // Get comment with parent info for nested comments
+  getCommentWithParent: (commentId) => {
+    return db.prepare(`
+      SELECT c.*, u.full_name, u.profile_picture,
+             p.full_name as parent_author_name
+      FROM post_comments c
+      JOIN users u ON u.id = c.user_id
+      LEFT JOIN post_comments pc ON pc.id = c.parent_id
+      LEFT JOIN users p ON p.id = pc.user_id
+      WHERE c.id = ?
+    `).get(commentId);
   }
 };

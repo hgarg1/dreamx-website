@@ -161,6 +161,75 @@
     });
   </script>
 
+  <!-- Account Status Section -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">Account Status</h2>
+    <% 
+      const accountStatus = authUser.account_status || 'active';
+      const suspensionUntil = authUser.suspension_until;
+      const suspensionReason = authUser.suspension_reason;
+    %>
+    
+    <% if (accountStatus === 'active') { %>
+      <div style="display:flex;align-items:center;gap:16px;padding:20px;background:linear-gradient(135deg, #10b981, #059669);border-radius:12px;">
+        <div style="flex-shrink:0;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <div style="color:white;">
+          <h3 style="margin:0 0 4px;font-size:1.25rem;font-weight:700;">Account in Good Standing</h3>
+          <p style="margin:0;font-size:0.9rem;opacity:0.9;">Your account is active with full access to all features.</p>
+        </div>
+      </div>
+    <% } else if (accountStatus === 'suspended') { %>
+      <div style="display:flex;align-items:center;gap:16px;padding:20px;background:linear-gradient(135deg, #f59e0b, #d97706);border-radius:12px;">
+        <div style="flex-shrink:0;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="10" y1="15" x2="10" y2="15"></line>
+            <line x1="14" y1="15" x2="14" y2="15"></line>
+          </svg>
+        </div>
+        <div style="color:white;">
+          <h3 style="margin:0 0 4px;font-size:1.25rem;font-weight:700;">Account Suspended</h3>
+          <% if (suspensionReason) { %>
+            <p style="margin:0 0 8px;font-size:0.9rem;opacity:0.9;"><strong>Reason:</strong> <%= suspensionReason %></p>
+          <% } %>
+          <% if (suspensionUntil) { %>
+            <p style="margin:0;font-size:0.9rem;opacity:0.9;">
+              <strong>Suspension ends:</strong> <%= new Date(suspensionUntil).toLocaleString() %>
+            </p>
+          <% } %>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <a href="/account-appeal" class="settings-btn" style="display:inline-block;background:#f59e0b;color:white;text-decoration:none;">Appeal Suspension</a>
+      </div>
+    <% } else if (accountStatus === 'banned') { %>
+      <div style="display:flex;align-items:center;gap:16px;padding:20px;background:linear-gradient(135deg, #ef4444, #dc2626);border-radius:12px;">
+        <div style="flex-shrink:0;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+          </svg>
+        </div>
+        <div style="color:white;">
+          <h3 style="margin:0 0 4px;font-size:1.25rem;font-weight:700;">Account Banned</h3>
+          <% if (suspensionReason) { %>
+            <p style="margin:0;font-size:0.9rem;opacity:0.9;"><strong>Reason:</strong> <%= suspensionReason %></p>
+          <% } else { %>
+            <p style="margin:0;font-size:0.9rem;opacity:0.9;">Your account has been permanently banned for violating our community guidelines.</p>
+          <% } %>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <a href="/account-appeal" class="settings-btn" style="display:inline-block;background:#ef4444;color:white;text-decoration:none;">Appeal Ban</a>
+      </div>
+    <% } %>
+  </div>
+
   <!-- Notifications Section -->
   <div class="settings-card">
     <h2 class="settings-card-title">Notifications</h2>

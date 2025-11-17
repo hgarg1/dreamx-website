@@ -1,0 +1,185 @@
+<article class="post-card premium" style="background:white;border-radius:16px;padding:20px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+  <header class="post-header" style="display:flex;gap:12px;margin-bottom:16px;">
+    <% if (post.profile_picture) { %>
+      <img src="/uploads/<%= post.profile_picture %>" alt="<%= post.full_name %>" class="avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">
+    <% } else { %>
+      <div class="avatar" style="width:48px;height:48px;border-radius:50%;background:#7C3AED;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;"><%= post.full_name.charAt(0) %></div>
+    <% } %>
+    <div class="post-user-meta" style="flex:1;">
+      <h3 class="post-user-name" style="margin:0;font-weight:700;font-size:1rem;"><%= post.full_name %></h3>
+      <div class="post-meta-line" style="color:#6b7280;font-size:0.875rem;">
+        <% if (post.activity_label) { %>
+          <span class="post-passion-tag" style="background:#ede9fe;color:#7C3AED;padding:2px 8px;border-radius:4px;font-weight:600;"><%= post.activity_label %></span>
+        <% } %>
+        <span class="post-time">• <%= new Date(post.created_at).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }) %></span>
+      </div>
+    </div>
+    <% if (typeof authUser !== 'undefined' && authUser && (authUser.role === 'super_admin' || authUser.role === 'global_admin' || authUser.role === 'admin')) { %>
+      <div style="position:relative;display:inline-block;">
+        <button class="admin-post-actions-btn" style="background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;padding:4px 10px;font-size:1.2rem;cursor:pointer;transition:all 0.2s ease;line-height:1;" onclick="event.stopPropagation();const menu = this.nextElementSibling; menu.style.display = menu.style.display === 'block' ? 'none' : 'block'">⋮</button>
+        <div class="admin-post-actions-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:white;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;min-width:160px;">
+          <button onclick="event.stopPropagation();hidePost(<%= post.id %>)" style="width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:0.875rem;color:#374151;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.color='#92400e'" onmouseout="this.style.background='none';this.style.color='#374151'">👁️‍🗨️ Hide Post</button>
+          <button onclick="event.stopPropagation();deletePost(<%= post.id %>)" style="width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:0.875rem;color:#374151;border-top:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fee2e2';this.style.color='#991b1b'" onmouseout="this.style.background='none';this.style.color='#374151'">🗑️ Delete Post</button>
+          <a href="/profile/<%= post.user_id %>" style="display:block;width:100%;text-align:left;padding:10px 14px;text-decoration:none;color:#374151;font-size:0.875rem;border-top:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='none'">👤 View Profile</a>
+        </div>
+      </div>
+      <script>
+        function hidePost(postId) {
+          if (!confirm('Hide this post? It will be removed from public view but not deleted.')) return;
+          
+          fetch(`/admin/posts/${postId}/hide`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                const article = document.querySelector(`[data-post-id="${postId}"]`);
+                if (article) {
+                  article.style.opacity = '0.5';
+                  article.style.pointerEvents = 'none';
+                  const badge = document.createElement('div');
+                  badge.style.cssText = 'background:#fef3c7;color:#92400e;padding:8px;border-radius:8px;font-weight:600;text-align:center;margin-top:8px;';
+                  badge.textContent = 'This post has been hidden by an administrator';
+                  article.appendChild(badge);
+                }
+                alert('Post hidden successfully');
+              } else {
+                alert('Failed to hide post');
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              alert('Error hiding post');
+            });
+        }
+        
+        function deletePost(postId) {
+          if (!confirm('Permanently delete this post? This action cannot be undone.')) return;
+          
+          fetch(`/admin/posts/${postId}/delete`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                const article = document.querySelector(`[data-post-id="${postId}"]`);
+                if (article) {
+                  article.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                  article.style.opacity = '0';
+                  article.style.transform = 'translateY(-20px)';
+                  setTimeout(() => article.remove(), 300);
+                }
+              } else {
+                alert('Failed to delete post');
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              alert('Error deleting post');
+            });
+        }
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+          document.querySelectorAll('.admin-post-actions-menu').forEach(menu => {
+            if (!menu.previousElementSibling.contains(e.target) && !menu.contains(e.target)) {
+              menu.style.display = 'none';
+            }
+          });
+        });
+      </script>
+    <% } %>
+  </header>
+  <div class="post-body">
+    <% if (post.text_content) { %>
+      <p class="post-text" style="margin:0 0 12px 0;line-height:1.6;"><%= post.text_content %></p>
+    <% } %>
+    <% if (post.media_url) { %>
+      <% if (post.is_reel) { %>
+        <div style="position:relative;margin-top:12px;border-radius:12px;overflow:hidden;background:#000;">
+          <% if (post.media_url) { %>
+            <video src="<%= post.media_url %>" controls playsinline style="width:100%;max-height:640px;display:block;"></video>
+          <% } %>
+          <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.5);color:#fff;padding:4px 8px;border-radius:999px;font-size:12px;">Reel</div>
+        </div>
+      <% } else if (post.content_type === 'image') { %>
+        <img src="<%= post.media_url %>" alt="Post image" style="width:100%;border-radius:12px;margin-top:12px;">
+      <% } else if (post.content_type === 'video') { %>
+        <video src="<%= post.media_url %>" controls style="width:100%;border-radius:12px;margin-top:12px;"></video>
+      <% } %>
+    <% } %>
+  </div>
+  <footer class="post-footer" style="display:block;padding-top:12px;margin-top:12px;border-top:1px solid #e5e7eb;">
+    <div class="reactions-row" style="display:flex;align-items:center;justify-content:flex-start;gap:8px 12px;flex-wrap:nowrap;width:100%;">
+      <% const rx = post.reactions || {}; const ur = post.user_reaction; %>
+      <button type="button" class="rx-btn<%= ur==='like' ? ' active' : '' %>" data-type="like" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='like' ? '#111827' : '#6b7280' %>;background:<%= ur==='like' ? 'rgba(124,58,237,0.08)' : 'transparent' %>;min-height:36px;"><span>👍</span><span class="rx-count" data-type="like"><%= rx.like || 0 %></span></button>
+      <button type="button" class="rx-btn<%= ur==='love' ? ' active' : '' %>" data-type="love" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='love' ? '#111827' : '#6b7280' %>;background:<%= ur==='love' ? 'rgba(255,79,163,0.1)' : 'transparent' %>;min-height:36px;"><span>❤️</span><span class="rx-count" data-type="love"><%= rx.love || 0 %></span></button>
+      <button type="button" class="rx-btn<%= ur==='clap' ? ' active' : '' %>" data-type="clap" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='clap' ? '#111827' : '#6b7280' %>;background:<%= ur==='clap' ? 'rgba(234,179,8,0.12)' : 'transparent' %>;min-height:36px;"><span>👏</span><span class="rx-count" data-type="clap"><%= rx.clap || 0 %></span></button>
+      <button type="button" class="rx-btn<%= ur==='fire' ? ' active' : '' %>" data-type="fire" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='fire' ? '#111827' : '#6b7280' %>;background:<%= ur==='fire' ? 'rgba(249,115,22,0.12)' : 'transparent' %>;min-height:36px;"><span>🔥</span><span class="rx-count" data-type="fire"><%= rx.fire || 0 %></span></button>
+      <button type="button" class="rx-btn<%= ur==='rocket' ? ' active' : '' %>" data-type="rocket" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='rocket' ? '#111827' : '#6b7280' %>;background:<%= ur==='rocket' ? 'rgba(96,165,250,0.12)' : 'transparent' %>;min-height:36px;"><span>🚀</span><span class="rx-count" data-type="rocket"><%= rx.rocket || 0 %></span></button>
+      <button type="button" class="rx-btn<%= ur==='celebrate' ? ' active' : '' %>" data-type="celebrate" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='celebrate' ? '#111827' : '#6b7280' %>;background:<%= ur==='celebrate' ? 'rgba(34,197,94,0.12)' : 'transparent' %>;min-height:36px;"><span>🎉</span><span class="rx-count" data-type="celebrate"><%= rx.celebrate || 0 %></span></button>
+      <button type="button" class="comment-toggle" style="margin-left:auto;background:#fff;border:1px solid #e5e7eb;cursor:pointer;padding:8px 12px;border-radius:10px;font-weight:800;color:#374151;">Show comments (<span class="comment-count"><%= post.comments_count || 0 %></span>)</button>
+    </div>
+    <div class="comments-panel" style="display:block;width:100%;align-self:stretch;flex:0 0 100%;flex-basis:100%;clear:both;box-sizing:border-box;margin-top:12px;border-top:1px dashed #e5e7eb;padding-top:12px;max-height:0;opacity:0;overflow:hidden;transition:max-height .28s ease, opacity .25s ease;">
+      <div class="comments-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <div class="comment-input-row" style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+        <span class="replying-indicator" style="display:none;align-items:center;gap:6px;background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:4px 10px;font-size:.8rem;color:#6b7280;">
+          Replying to <strong class="replying-name" style="margin-left:4px;color:#111827;">user</strong>
+          <button type="button" class="cancel-reply" style="margin-left:6px;background:transparent;border:none;color:#ef4444;cursor:pointer;font-weight:700;">×</button>
+        </span>
+        <input type="text" class="comment-input" placeholder="Write a thoughtful comment..." style="flex:1;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;">
+        <button type="button" class="comment-send" style="background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;">Send</button>
+      </div>
+    </div>
+  </footer>
+  <script>
+    (function(){
+      const H = window.DXPostHelpers; if (!H) return;
+      H.ensureSocketSetup();
+      const article = document.currentScript.closest('article.post-card');
+      article.setAttribute('data-post-id', '<%= post.id %>');
+      const postId = <%= post.id %>;
+      function setToggleLabel(open){
+        const cc = article.querySelector('.comment-count');
+        const num = cc ? (cc.textContent || '0') : '0';
+        const btn = article.querySelector('.comment-toggle');
+        if (!btn) return;
+        btn.innerHTML = (open ? 'Hide comments (' : 'Show comments (') + '<span class="comment-count">' + num + '</span>)';
+      }
+      article.querySelectorAll('.rx-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const type = btn.getAttribute('data-type');
+          const res = await fetch(`/api/posts/${postId}/react`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type }) });
+          const data = await res.json();
+          if (!data.success) return; H.updateReactions(article, data.counts, type, data.status);
+        });
+      });
+      const toggleBtn = article.querySelector('.comment-toggle');
+      const panel = article.querySelector('.comments-panel');
+      let open = false;
+      toggleBtn.addEventListener('click', async ()=>{
+        if (!open) {
+          await H.loadComments(article, postId);
+          panel.style.opacity = '0'; panel.style.maxHeight = '0px';
+          requestAnimationFrame(() => {
+            panel.style.opacity = '1';
+            panel.style.maxHeight = '280px';
+            panel.style.overflowY = 'auto';
+          });
+        } else {
+          panel.style.opacity = '0';
+          panel.style.maxHeight = '0px';
+          panel.style.overflowY = 'hidden';
+        }
+        open = !open;
+        setToggleLabel(open);
+      });
+      const cancel = article.querySelector('.cancel-reply');
+      if (cancel) cancel.addEventListener('click', () => {
+        article.removeAttribute('data-reply-parent-id');
+        article.querySelector('.replying-indicator').style.display = 'none';
+        const input = article.querySelector('.comment-input'); input.placeholder = 'Write a thoughtful comment...'; input.focus();
+      });
+      article.querySelector('.comment-send').addEventListener('click', ()=>{ H.sendComment(article, postId); setToggleLabel(true); });
+      article.querySelector('.comment-input').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); H.sendComment(article, postId); }});
+      // Initialize label on load
+      setToggleLabel(false);
+    })();
+  </script>
+</article>

@@ -1,0 +1,12 @@
+<%- include('partials/header') %>
+
+<div class="container" style="max-width:900px;margin:24px auto;">
+  <a href="/feed" class="btn" style="display:inline-flex;align-items:center;gap:8px;border:2px solid var(--primary-color);color:var(--primary-color);padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700;margin-bottom:16px;">
+    ← Back to Feed
+  </a>
+
+  <%- include('partials/post-helpers') %>
+  <%- include('partials/post-card', { post }) %>
+</div>
+
+<%- include('partials/footer') %>

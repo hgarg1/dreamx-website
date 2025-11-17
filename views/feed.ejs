@@ -29,7 +29,7 @@
         <button type="button" onclick="openPostComposer('image')" style="flex:1;background:linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05));border:1px solid rgba(255,79,163,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(255,79,163,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
           <span style="font-size:1.4rem;">📸</span> <span>Photo</span>
         </button>
-        <button type="button" onclick="openPostComposer('video')" style="flex:1;background:linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05));border:1px solid rgba(102,126,234,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(102,126,234,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+        <button type="button" onclick="openPostComposer('video')" style="flex:1;background:linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05));border:1px solid rgba(102,126,234,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(102,126,234,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'" title="Reel (no images, videos/GIFs only)">
           <span style="font-size:1.4rem;">🎬</span> <span>Reel</span>
         </button>
         <button type="button" onclick="openPostComposer('text')" style="flex:1;background:linear-gradient(135deg, rgba(124,58,237,0.05), rgba(139,92,246,0.05));border:1px solid rgba(124,58,237,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(124,58,237,0.15), rgba(139,92,246,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(124,58,237,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(124,58,237,0.05), rgba(139,92,246,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
@@ -98,7 +98,8 @@
           mediaInput.required = true;
         } else if (type === 'video') {
           mediaSection.style.display = 'block';
-          mediaInput.accept = 'video/*';
+          // Reels: Only videos and GIFs allowed; explicitly disallow images
+          mediaInput.accept = 'video/*,image/gif';
           mediaInput.required = true;
         } else {
           mediaSection.style.display = 'none';
@@ -118,6 +119,13 @@
         preview.innerHTML = '';
         
         if (file) {
+          const type = document.getElementById('postContentType').value;
+          // Enforce: if Reel, disallow static images (allow GIF via image/gif)
+          if (type === 'video' && file.type.startsWith('image/') && file.type !== 'image/gif') {
+            alert('Reels cannot include images. Please upload a video or GIF.');
+            e.target.value = '';
+            return;
+          }
           const reader = new FileReader();
           reader.onload = function(ev) {
             if (file.type.startsWith('image/')) {
@@ -140,44 +148,13 @@
       });
     </script>
 
+    <%- include('partials/post-helpers') %>
+
     <!-- Posts -->
     <section class="posts-stream">
       <% if (posts && posts.length > 0) { %>
         <% posts.forEach(function(post){ %>
-          <article class="post-card" style="background:white;border-radius:16px;padding:20px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-            <header class="post-header" style="display:flex;gap:12px;margin-bottom:16px;">
-              <% if (post.profile_picture) { %>
-                <img src="/uploads/<%= post.profile_picture %>" alt="<%= post.full_name %>" class="avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">
-              <% } else { %>
-                <div class="avatar" style="width:48px;height:48px;border-radius:50%;background:#7C3AED;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;"><%= post.full_name.charAt(0) %></div>
-              <% } %>
-              <div class="post-user-meta" style="flex:1;">
-                <h3 class="post-user-name" style="margin:0;font-weight:700;font-size:1rem;"><%= post.full_name %></h3>
-                <div class="post-meta-line" style="color:#6b7280;font-size:0.875rem;">
-                  <% if (post.activity_label) { %>
-                    <span class="post-passion-tag" style="background:#ede9fe;color:#7C3AED;padding:2px 8px;border-radius:4px;font-weight:600;"><%= post.activity_label %></span>
-                  <% } %>
-                  <span class="post-time">• <%= new Date(post.created_at).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }) %></span>
-                </div>
-              </div>
-            </header>
-            <div class="post-body">
-              <% if (post.text_content) { %>
-                <p class="post-text" style="margin:0 0 12px 0;line-height:1.6;"><%= post.text_content %></p>
-              <% } %>
-              <% if (post.media_url) { %>
-                <% if (post.content_type === 'image') { %>
-                  <img src="<%= post.media_url %>" alt="Post image" style="width:100%;border-radius:12px;margin-top:12px;">
-                <% } else if (post.content_type === 'video') { %>
-                  <video src="<%= post.media_url %>" controls style="width:100%;border-radius:12px;margin-top:12px;"></video>
-                <% } %>
-              <% } %>
-            </div>
-            <footer class="post-footer" style="display:flex;gap:16px;padding-top:12px;margin-top:12px;border-top:1px solid #e5e7eb;">
-              <button type="button" class="post-action like-btn" style="background:none;border:none;cursor:pointer;padding:6px 12px;border-radius:6px;font-weight:600;color:#6b7280;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">👍 Like</button>
-              <button type="button" class="post-action comment-btn" style="background:none;border:none;cursor:pointer;padding:6px 12px;border-radius:6px;font-weight:600;color:#6b7280;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">💬 Comment</button>
-            </footer>
-          </article>
+          <%- include('partials/post-card', { post }) %>
         <% }); %>
       <% } else { %>
         <div style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;">
@@ -253,15 +230,44 @@
     <div class="suggested-creators">
       <% suggestions.forEach(function(s){ %>
         <div class="creator-card">
-          <div class="avatar avatar-sm"><%= s.user.charAt(0) %></div>
+          <% if (s.id && s.profile_picture) { %>
+            <img src="/uploads/<%= s.profile_picture %>" alt="<%= s.user %>" class="avatar avatar-sm" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+          <% } else { %>
+            <div class="avatar avatar-sm"><%= s.user.charAt(0) %></div>
+          <% } %>
           <div class="creator-info">
             <span class="creator-name"><%= s.user %></span>
             <span class="creator-passion"><%= s.passion %></span>
           </div>
-          <button type="button" class="follow-btn">Follow</button>
+          <% if (s.id) { %>
+            <button type="button" class="follow-btn" onclick="followCreator(<%= s.id %>, this)">Follow</button>
+          <% } else { %>
+            <button type="button" class="follow-btn" disabled style="opacity:0.5;">Follow</button>
+          <% } %>
         </div>
       <% }); %>
     </div>
+
+    <script>
+      async function followCreator(userId, btn) {
+        try {
+          const res = await fetch(`/api/users/${userId}/follow`, { method: 'POST' });
+          const data = await res.json();
+          if (data.success) {
+            btn.textContent = 'Following';
+            btn.style.background = '#10b981';
+            btn.disabled = true;
+            setTimeout(() => {
+              btn.closest('.creator-card').style.transition = 'opacity 0.3s';
+              btn.closest('.creator-card').style.opacity = '0';
+              setTimeout(() => btn.closest('.creator-card').remove(), 300);
+            }, 500);
+          }
+        } catch (err) {
+          console.error('Follow error:', err);
+        }
+      }
+    </script>
 
     <script>
       (function(){

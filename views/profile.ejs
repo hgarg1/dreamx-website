@@ -7,11 +7,13 @@
     <% } %>
   </div>
   <div style="position:absolute;bottom:-80px;left:50%;transform:translateX(-50%);z-index:100;">
-    <% if (authUser && authUser.profile_picture) { %>
-      <img src="/uploads/<%= authUser.profile_picture %>" alt="<%= user.displayName %>" style="object-fit:cover;border-radius:50%;width:160px;height:160px;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);">
-    <% } else { %>
-      <div style="width:160px;height:160px;border-radius:50%;background:#8b5cf6;color:white;display:flex;align-items:center;justify-content:center;font-size:4rem;font-weight:700;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);"><%= user.displayName.charAt(0) %></div>
-    <% } %>
+    <div style="position:relative;display:inline-block;">
+      <% if (profilePicture) { %>
+        <img id="profileAvatar" src="/uploads/<%= profilePicture %>" alt="<%= user.displayName %>" style="object-fit:cover;border-radius:50%;width:160px;height:160px;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+      <% } else { %>
+        <div id="profileAvatar" style="width:160px;height:160px;border-radius:50%;background:#8b5cf6;color:white;display:flex;align-items:center;justify-content:center;font-size:4rem;font-weight:700;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);"><%= user.displayName.charAt(0) %></div>
+      <% } %>
+    </div>
   </div>
 </div>
 
@@ -33,21 +35,257 @@
     <div class="stat"><span class="stat-number"><%= user.isSeller ? user.stats.sessions : '—' %></span><span class="stat-label">Sessions Offered</span></div>
   </div>
   <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;">
-    <a href="/profile/edit" style="padding:10px 24px;background:#ec4899;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Edit Profile</a>
-    <a href="/messages" style="padding:10px 24px;background:#ec4899;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Message</a>
+    <% if (typeof isOwnProfile !== 'undefined' && isOwnProfile) { %>
+      <a href="/profile/edit" style="padding:10px 24px;background:#ec4899;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Edit Profile</a>
+      <a href="/messages" style="padding:10px 24px;background:#8b5cf6;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Messages</a>
+    <% } else { %>
+      <button id="followBtn" data-user-id="<%= profileUserId %>" data-following="<%= typeof isFollowing !== 'undefined' && isFollowing ? 'true' : 'false' %>" style="padding:10px 24px;background:<%= typeof isFollowing !== 'undefined' && isFollowing ? '#6b7280' : '#ec4899' %>;color:white;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+        <%= typeof isFollowing !== 'undefined' && isFollowing ? 'Following' : 'Follow' %>
+      </button>
+      <a href="/messages/start/<%= profileUserId %>" style="padding:10px 24px;background:#8b5cf6;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Message</a>
+    <% } %>
+    
+    <% if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin && typeof isOwnProfile !== 'undefined' && !isOwnProfile) { %>
+      <div style="position:relative;display:inline-block;" data-profile-user-id="<%= profileUserId %>" data-profile-user-name="<%= user.displayName || '' %>">
+        <button id="adminActionsBtn" style="padding:10px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-weight:600;font-size:1.2rem;cursor:pointer;transition:all 0.3s ease;" onclick="document.getElementById('adminActionsMenu').style.display = document.getElementById('adminActionsMenu').style.display === 'block' ? 'none' : 'block'">⋮</button>
+        <div id="adminActionsMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:8px;background:white;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;min-width:200px;">
+          <button onclick="openBanModalProfile()" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#374151;transition:background 0.2s;" onmouseover="this.style.background='#fee2e2';this.style.color='#991b1b'" onmouseout="this.style.background='none';this.style.color='#374151'">🚫 Ban User</button>
+          <button onclick="openSuspendModalProfile()" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#374151;border-top:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.color='#92400e'" onmouseout="this.style.background='none';this.style.color='#374151'">⏸️ Suspend User</button>
+          <a href="/admin/users/<%= profileUserId %>/stats" style="display:block;width:100%;text-align:left;padding:12px 16px;text-decoration:none;color:#374151;font-size:0.9rem;border-top:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='none'">📊 View Stats</a>
+        </div>
+      </div>
+    <% } %>
   </div>
+  
+  <script>
+    // Follow/unfollow functionality
+    const followBtn = document.getElementById('followBtn');
+    if (followBtn) {
+      followBtn.addEventListener('click', async function() {
+        const userId = this.getAttribute('data-user-id');
+        const isFollowing = this.getAttribute('data-following') === 'true';
+        const endpoint = isFollowing ? `/api/users/${userId}/unfollow` : `/api/users/${userId}/follow`;
+        
+        try {
+          const res = await fetch(endpoint, { method: 'POST' });
+          const data = await res.json();
+          
+          if (data.success) {
+            if (data.following) {
+              this.textContent = 'Following';
+              this.style.setProperty('background', '#6b7280', 'important');
+              this.style.setProperty('background-color', '#6b7280', 'important');
+              this.setAttribute('data-following', 'true');
+              
+              // Update follower count
+              const followerStat = document.querySelector('.stat:nth-child(2) .stat-number');
+              if (followerStat) followerStat.textContent = parseInt(followerStat.textContent) + 1;
+            } else {
+              this.textContent = 'Follow';
+              this.style.setProperty('background', '#ec4899', 'important');
+              this.style.setProperty('background-color', '#ec4899', 'important');
+              this.setAttribute('data-following', 'false');
+              
+              // Update follower count
+              const followerStat = document.querySelector('.stat:nth-child(2) .stat-number');
+              if (followerStat) followerStat.textContent = Math.max(0, parseInt(followerStat.textContent) - 1);
+            }
+          }
+        } catch (error) {
+          console.error('Follow/unfollow error:', error);
+          alert('Failed to update follow status');
+        }
+      });
+    }
+    
+    // Admin actions
+    function openBanModalProfile() {
+      const container = document.querySelector('[data-profile-user-id]');
+      const userId = container.getAttribute('data-profile-user-id');
+      const userName = container.getAttribute('data-profile-user-name');
+      document.getElementById('profileBanUserId').value = userId;
+      document.getElementById('profileBanUserName').textContent = userName;
+      document.getElementById('profileBanReason').value = '';
+      document.getElementById('profileBanModal').style.display = 'flex';
+    }
+    
+    function openBanModal(userId, userName) {
+      document.getElementById('profileBanUserId').value = userId;
+      document.getElementById('profileBanUserName').textContent = userName;
+      document.getElementById('profileBanReason').value = '';
+      document.getElementById('profileBanModal').style.display = 'flex';
+    }
+    
+    function closeBanModal() {
+      document.getElementById('profileBanModal').style.display = 'none';
+    }
+    
+    function confirmProfileBan() {
+      const userId = document.getElementById('profileBanUserId').value;
+      const reason = document.getElementById('profileBanReason').value.trim();
+      
+      if (!reason) {
+        alert('Please provide a ban reason.');
+        return;
+      }
+      
+      fetch(`/admin/users/${userId}/ban`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert('User has been banned.');
+          window.location.href = '/admin';
+        } else {
+          alert('Error: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        console.error('Ban error:', err);
+        alert('Failed to ban user. Please try again.');
+      });
+    }
+    
+    function openSuspendModalProfile() {
+      const container = document.querySelector('[data-profile-user-id]');
+      const userId = container.getAttribute('data-profile-user-id');
+      const userName = container.getAttribute('data-profile-user-name');
+      document.getElementById('profileSuspendUserId').value = userId;
+      document.getElementById('profileSuspendUserName').textContent = userName;
+      document.getElementById('profileSuspendDays').value = '7';
+      document.getElementById('profileSuspendReason').value = '';
+      document.getElementById('profileSuspendModal').style.display = 'flex';
+    }
+    
+    function openSuspendModal(userId, userName) {
+      document.getElementById('profileSuspendUserId').value = userId;
+      document.getElementById('profileSuspendUserName').textContent = userName;
+      document.getElementById('profileSuspendDays').value = '7';
+      document.getElementById('profileSuspendReason').value = '';
+      document.getElementById('profileSuspendModal').style.display = 'flex';
+    }
+    
+    function closeSuspendModal() {
+      document.getElementById('profileSuspendModal').style.display = 'none';
+    }
+    
+    function confirmProfileSuspend() {
+      const userId = document.getElementById('profileSuspendUserId').value;
+      const days = parseInt(document.getElementById('profileSuspendDays').value);
+      const reason = document.getElementById('profileSuspendReason').value.trim();
+      
+      if (!days || days < 1) {
+        alert('Please provide a valid suspension duration.');
+        return;
+      }
+      
+      if (!reason) {
+        alert('Please provide a suspension reason.');
+        return;
+      }
+      
+      fetch(`/admin/users/${userId}/suspend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days, reason })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert(`User has been suspended for ${days} days.`);
+          window.location.href = '/admin';
+        } else {
+          alert('Error: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        console.error('Suspend error:', err);
+        alert('Failed to suspend user. Please try again.');
+      });
+    }
+
+    function banUser(userId) {
+      const reason = prompt('Enter ban reason:');
+      if (!reason) return;
+      
+      if (confirm('Are you sure you want to permanently ban this user?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/users/${userId}/ban`;
+        
+        const reasonInput = document.createElement('input');
+        reasonInput.type = 'hidden';
+        reasonInput.name = 'reason';
+        reasonInput.value = reason;
+        form.appendChild(reasonInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+      }
+    }
+    
+    function suspendUser(userId) {
+      const duration = prompt('Enter suspension duration (e.g., 1d, 7d, 30d, 1h):');
+      if (!duration) return;
+      
+      const reason = prompt('Enter suspension reason:');
+      if (!reason) return;
+      
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `/admin/users/${userId}/suspend`;
+      
+      const durationInput = document.createElement('input');
+      durationInput.type = 'hidden';
+      durationInput.name = 'duration';
+      durationInput.value = duration;
+      form.appendChild(durationInput);
+      
+      const reasonInput = document.createElement('input');
+      reasonInput.type = 'hidden';
+      reasonInput.name = 'reason';
+      reasonInput.value = reason;
+      form.appendChild(reasonInput);
+      
+      document.body.appendChild(form);
+      form.submit();
+    }
+    
+    // Close admin menu when clicking outside
+    document.addEventListener('click', function(e) {
+      const menu = document.getElementById('adminActionsMenu');
+      const btn = document.getElementById('adminActionsBtn');
+      if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+        menu.style.display = 'none';
+      }
+    });
+  </script>
 </section>
 
 <div class="profile-tabs-wrapper">
   <nav class="profile-tabs" aria-label="Profile sections">
-    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn <%= (Array.isArray(userPosts) && userPosts.length > 0) ? '' : 'active' %>" data-tab="overview">Overview</button>
+    <button class="tab-btn <%= (Array.isArray(userPosts) && userPosts.length > 0) ? 'active' : '' %>" data-tab="posts">Posts
+      <span class="tab-badge" style="margin-left:6px;background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:700;">
+        <%= (Array.isArray(userPosts) ? userPosts.length : 0) %>
+      </span>
+    </button>
+    <button class="tab-btn" data-tab="reels" id="reelsTabBtn">
+      <span style="display:flex;align-items:center;gap:6px;">
+        Reels
+        <span class="tab-badge reels-count-badge" style="background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:700;">0</span>
+      </span>
+    </button>
     <button class="tab-btn" data-tab="projects">Projects</button>
     <button class="tab-btn" data-tab="services">Services</button>
   </nav>
 
   <div class="tab-panels">
     <!-- Overview Panel -->
-    <div class="tab-panel active" id="overview">
+    <div class="tab-panel <%= (Array.isArray(userPosts) && userPosts.length > 0) ? '' : 'active' %>" id="overview">
       <div class="card card-spacious">
         <h2 class="panel-title">About</h2>
         <p class="panel-text">Learning loop oriented builder focused on sustainable velocity, clarity of architecture, and community impact. I ship small, iterate fast, and document as I go.</p>
@@ -60,6 +298,36 @@
           <% }); %>
         </ul>
       </div>
+    </div>
+
+    <!-- Posts Panel -->
+    <div class="tab-panel <%= (Array.isArray(userPosts) && userPosts.length > 0) ? 'active' : '' %>" id="posts">
+      <%- include('partials/post-helpers') %>
+      <section class="posts-stream" style="max-width:900px;margin:0 auto;">
+        <% if (Array.isArray(userPosts) && userPosts.length > 0) { %>
+          <% userPosts.forEach(function(post){ %>
+            <%- include('partials/post-card', { post }) %>
+          <% }); %>
+        <% } else { %>
+          <div style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;">
+            <p style="font-size:1.125rem;margin:0 0 8px 0;">No posts yet</p>
+            <p style="margin:0;">When you post, they'll show up here.</p>
+          </div>
+        <% } %>
+      </section>
+    </div>
+
+    <!-- Reels Panel -->
+    <div class="tab-panel" id="reels">
+      <section class="reels-grid-container" style="max-width:1200px;margin:0 auto;">
+        <div id="reelsGridContent" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">
+          <!-- Reels will be loaded here dynamically -->
+        </div>
+        <div id="reelsEmptyState" style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;display:none;">
+          <p style="font-size:1.125rem;margin:0 0 8px 0;">No reels yet</p>
+          <p style="margin:0;">When <%= isOwnProfile ? 'you post reels, they\'ll' : 'this user posts reels, they\'ll' %> show up here.</p>
+        </div>
+      </section>
     </div>
 
     <!-- Projects Panel -->
@@ -100,10 +368,260 @@
 </div>
 
 <script>
+  // Reels: click to open reels if present; long-press enlarges profile picture
+  (function(){
+    const avatar = document.getElementById('profileAvatar');
+    if (!avatar) return;
+    let pressTimer = null;
+    let hasReels = false;
+    let reelsData = [];
+    let currentReelIndex = 0;
+    const tzOffset = new Date().getTimezoneOffset();
+    
+    async function checkReels(){
+      try {
+        const res = await fetch(`/api/users/<%= profileUserId %>/reels/count?tzOffset=${tzOffset}`);
+        const data = await res.json();
+        hasReels = (data.count || 0) > 0;
+        // Add visual indicator if reels exist
+        if (hasReels) {
+          avatar.style.border = '6px solid #ec4899';
+          avatar.style.cursor = 'pointer';
+          const badge = document.createElement('div');
+          badge.id = 'reelsBadge';
+          badge.style.cssText = 'position:absolute;bottom:10px;right:10px;width:32px;height:32px;background:linear-gradient(135deg,#ec4899,#8b5cf6);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(0,0,0,0.3);pointer-events:none;';
+          badge.innerHTML = '🎬';
+          avatar.parentElement.appendChild(badge);
+        }
+      } catch(e) { hasReels = false; }
+    }
+    
+    async function loadReels(){
+      try {
+        const res = await fetch(`/api/users/<%= profileUserId %>/reels?tzOffset=${tzOffset}`);
+        const data = await res.json();
+        reelsData = data.reels || [];
+        const c = document.getElementById('reelsContainer');
+        if (!c) return;
+        if (!reelsData.length) { c.innerHTML = '<div style="color:#aaa">No active reels</div>'; return; }
+        currentReelIndex = 0;
+        renderReel();
+      } catch(e) {
+        const c = document.getElementById('reelsContainer');
+        if (c) c.innerHTML = 'Failed to load reels';
+      }
+    }
+    
+    function renderReel(){
+      const c = document.getElementById('reelsContainer');
+      if (!c || !reelsData.length) return;
+      const r = reelsData[currentReelIndex];
+      const prevBtn = currentReelIndex > 0 ? `<button onclick="window.prevReel()" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:50%;width:48px;height:48px;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;z-index:10;">‹</button>` : '';
+      const nextBtn = currentReelIndex < reelsData.length - 1 ? `<button onclick="window.nextReel()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:50%;width:48px;height:48px;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;z-index:10;">›</button>` : '';
+      c.innerHTML = `
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;position:relative;">
+          ${r.media_url ? `<video id="reelVideo" src="${r.media_url}" playsinline autoplay loop muted style="max-width:100%;max-height:100%;cursor:pointer;"></video>` : ''}
+          ${prevBtn}
+          ${nextBtn}
+          <div style="position:absolute;bottom:20px;left:20px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);pointer-events:none;">
+            <div style="font-weight:700;font-size:16px;">${r.full_name || 'User'}</div>
+            ${r.text_content ? `<div style="font-size:14px;margin-top:4px;">${r.text_content}</div>` : ''}
+          </div>
+          <div style="position:absolute;top:50px;right:10px;color:#fff;font-size:12px;background:rgba(0,0,0,0.5);padding:4px 8px;border-radius:12px;pointer-events:none;">${currentReelIndex + 1} / ${reelsData.length}</div>
+          <div id="pauseIndicator" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;background:rgba(0,0,0,0.7);border-radius:50%;align-items:center;justify-content:center;font-size:40px;color:#fff;pointer-events:none;">⏸</div>
+        </div>
+      `;
+      
+      // Add hold-to-pause functionality
+      const video = document.getElementById('reelVideo');
+      const pauseIndicator = document.getElementById('pauseIndicator');
+      if (video) {
+        let isHolding = false;
+        
+        const startHold = (e) => {
+          e.preventDefault();
+          isHolding = true;
+          video.pause();
+          if (pauseIndicator) pauseIndicator.style.display = 'flex';
+        };
+        
+        const endHold = (e) => {
+          if (isHolding) {
+            e.preventDefault();
+            isHolding = false;
+            video.play();
+            if (pauseIndicator) pauseIndicator.style.display = 'none';
+          }
+        };
+        
+        // Mouse events
+        video.addEventListener('mousedown', startHold);
+        video.addEventListener('mouseup', endHold);
+        video.addEventListener('mouseleave', endHold);
+        
+        // Touch events
+        video.addEventListener('touchstart', startHold, { passive: false });
+        video.addEventListener('touchend', endHold, { passive: false });
+        video.addEventListener('touchcancel', endHold);
+        
+        // Unmute on first tap/click
+        video.addEventListener('click', () => {
+          if (video.muted) video.muted = false;
+        }, { once: true });
+      }
+    }
+    
+    window.nextReel = function(){
+      if (currentReelIndex < reelsData.length - 1) {
+        currentReelIndex++;
+        renderReel();
+      }
+    };
+    
+    window.prevReel = function(){
+      if (currentReelIndex > 0) {
+        currentReelIndex--;
+        renderReel();
+      }
+    };
+    
+    function openReels(e){ 
+      if (!hasReels) return; 
+      if (e) e.preventDefault();
+      const overlay = document.getElementById('reelsOverlay');
+      if (!overlay) return;
+      overlay.style.display = 'flex';
+      loadReels(); 
+    }
+    
+    function openAvatar(){
+      const overlay = document.getElementById('avatarOverlay');
+      if (!overlay) return;
+      overlay.style.display = 'flex';
+      const img = document.getElementById('avatarOverlayImg');
+      if (img && avatar.tagName === 'IMG') img.src = avatar.src;
+    }
+    
+    checkReels();
+    
+    let longPressTriggered = false;
+    
+    avatar.addEventListener('mousedown', (e) => { 
+      longPressTriggered = false;
+      pressTimer = setTimeout(() => {
+        longPressTriggered = true;
+        openAvatar();
+      }, 500); 
+    });
+    
+    avatar.addEventListener('mouseup', (e) => { 
+      clearTimeout(pressTimer);
+    });
+    
+    avatar.addEventListener('mouseleave', () => { 
+      clearTimeout(pressTimer); 
+    });
+    
+    avatar.addEventListener('click', (e) => { 
+      if (longPressTriggered) {
+        longPressTriggered = false;
+        return;
+      }
+      if (hasReels) {
+        e.preventDefault();
+        e.stopPropagation();
+        openReels(e);
+      }
+    });
+  })();
+</script>
+
+<%- include('partials/reels-overlay') %>
+
+<script>
   // Simple tab switch logic
   document.addEventListener('DOMContentLoaded', function(){
     const tabButtons = document.querySelectorAll('.tab-btn');
     const panels = document.querySelectorAll('.tab-panel');
+    
+    // Load reels when reels tab is clicked
+    let reelsLoaded = false;
+    const profileUserId = <%= profileUserId %>;
+    
+    async function loadProfileReels() {
+      if (reelsLoaded) return;
+      
+      try {
+        const res = await fetch(`/api/users/${profileUserId}/reels`);
+        const data = await res.json();
+        
+        const reelsGrid = document.getElementById('reelsGridContent');
+        const emptyState = document.getElementById('reelsEmptyState');
+        const countBadge = document.querySelector('.reels-count-badge');
+        
+        if (data.reels && data.reels.length > 0) {
+          countBadge.textContent = data.reels.length;
+          reelsGrid.innerHTML = data.reels.map(reel => `
+            <div class="reel-card" onclick="openReelFromGrid('${reel.media_url}')" style="position:relative;border-radius:12px;overflow:hidden;cursor:pointer;aspect-ratio:9/16;background:#000;">
+              <video src="${reel.media_url}" muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+              <div class="reel-overlay" style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 50%,rgba(0,0,0,0.7));display:flex;flex-direction:column;justify-content:flex-end;padding:16px;">
+                <div style="color:#fff;font-size:0.9rem;font-weight:600;margin-bottom:4px;">${reel.text_content || ''}</div>
+                <div style="color:rgba(255,255,255,0.8);font-size:0.85rem;">${new Date(reel.created_at).toLocaleDateString()}</div>
+              </div>
+            </div>
+          `).join('');
+          emptyState.style.display = 'none';
+        } else {
+          countBadge.textContent = '0';
+          reelsGrid.innerHTML = '';
+          emptyState.style.display = 'block';
+        }
+        
+        reelsLoaded = true;
+      } catch (err) {
+        console.error('Error loading reels:', err);
+      }
+    }
+    
+    window.openReelFromGrid = function(mediaUrl) {
+      const overlay = document.getElementById('reelsOverlay');
+      if (!overlay) return;
+      
+      const container = document.getElementById('reelsContainer');
+      container.innerHTML = `
+        <div style="position:relative;width:100%;max-width:500px;height:90vh;background:#000;border-radius:12px;overflow:hidden;">
+          <video id="gridReelVideo" src="${mediaUrl}" playsinline muted autoplay loop style="width:100%;height:100%;object-fit:contain;"></video>
+          <div id="pauseIndicator" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4rem;color:white;text-shadow:0 4px 12px rgba(0,0,0,0.5);pointer-events:none;user-select:none;">⏸</div>
+        </div>
+      `;
+      
+      overlay.style.display = 'flex';
+      
+      const video = document.getElementById('gridReelVideo');
+      const pauseIndicator = document.getElementById('pauseIndicator');
+      
+      // Hold-to-pause functionality
+      function handlePause(e) {
+        e.preventDefault();
+        if (video.paused) {
+          video.play();
+          pauseIndicator.style.display = 'none';
+        } else {
+          video.pause();
+          pauseIndicator.style.display = 'block';
+          setTimeout(() => { pauseIndicator.style.display = 'none'; }, 600);
+        }
+      }
+      
+      video.addEventListener('mousedown', handlePause);
+      video.addEventListener('touchstart', handlePause);
+      
+      // Unmute on first click
+      video.addEventListener('click', function unmute() {
+        if (video.muted) video.muted = false;
+      }, { once: true });
+    };
+    
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         tabButtons.forEach(b => b.classList.remove('active'));
@@ -111,9 +629,179 @@
         btn.classList.add('active');
         const target = btn.getAttribute('data-tab');
         document.getElementById(target).classList.add('active');
+        
+        // Load reels when reels tab is opened
+        if (target === 'reels') {
+          loadProfileReels();
+        }
       });
     });
   });
 </script>
+
+<!-- Ban User Modal -->
+<div id="profileBanModal" class="admin-modal" style="display:none;">
+  <div class="admin-modal-content">
+    <div class="admin-modal-header">
+      <h3>Ban User</h3>
+      <button class="admin-modal-close" onclick="closeBanModal()">&times;</button>
+    </div>
+    <div class="admin-modal-body">
+      <input type="hidden" id="profileBanUserId">
+      <p style="margin-bottom:20px;color:#6b7280;">Permanently ban <strong id="profileBanUserName"></strong> from the platform.</p>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Ban Reason <span style="color:#ef4444;">*</span></label>
+        <textarea id="profileBanReason" rows="4" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-family:inherit;" placeholder="Describe the reason for this permanent ban..."></textarea>
+      </div>
+      <div style="padding:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:16px;">
+        <p style="margin:0;color:#991b1b;font-size:0.9rem;"><strong>⚠️ Warning:</strong> This action is severe and permanent. The user will lose all access to the platform.</p>
+      </div>
+    </div>
+    <div class="admin-modal-footer">
+      <button class="admin-modal-btn secondary" onclick="closeBanModal()">Cancel</button>
+      <button class="admin-modal-btn danger" onclick="confirmProfileBan()">Ban User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Suspend User Modal -->
+<div id="profileSuspendModal" class="admin-modal" style="display:none;">
+  <div class="admin-modal-content">
+    <div class="admin-modal-header">
+      <h3>Suspend User</h3>
+      <button class="admin-modal-close" onclick="closeSuspendModal()">&times;</button>
+    </div>
+    <div class="admin-modal-body">
+      <input type="hidden" id="profileSuspendUserId">
+      <p style="margin-bottom:20px;color:#6b7280;">Temporarily suspend <strong id="profileSuspendUserName"></strong> from the platform.</p>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Suspension Duration (days) <span style="color:#ef4444;">*</span></label>
+        <input type="number" id="profileSuspendDays" min="1" max="365" value="7" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Suspension Reason <span style="color:#ef4444;">*</span></label>
+        <textarea id="profileSuspendReason" rows="4" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-family:inherit;" placeholder="Describe the reason for this suspension..."></textarea>
+      </div>
+      <div style="padding:16px;background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;margin-bottom:16px;">
+        <p style="margin:0;color:#92400e;font-size:0.9rem;"><strong>ℹ️ Note:</strong> The user will be unable to access the platform until the suspension period ends.</p>
+      </div>
+    </div>
+    <div class="admin-modal-footer">
+      <button class="admin-modal-btn secondary" onclick="closeSuspendModal()">Cancel</button>
+      <button class="admin-modal-btn warning" onclick="confirmProfileSuspend()">Suspend User</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.admin-modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+}
+.admin-modal[style*="display: flex"],
+.admin-modal[style*="display:flex"] {
+    display: flex !important;
+}
+.admin-modal-content {
+    background: white;
+    border-radius: 16px;
+    max-width: 540px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+}
+.admin-modal-header {
+    padding: 24px 28px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(255,79,163,0.05) 0%, rgba(118,75,162,0.05) 100%);
+}
+.admin-modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.admin-modal-close {
+    background: rgba(107,114,128,0.1);
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    color: #6b7280;
+    line-height: 1;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.admin-modal-close:hover {
+    background: rgba(239,68,68,0.1);
+    color: #ef4444;
+    transform: rotate(90deg);
+}
+.admin-modal-body {
+    padding: 28px;
+}
+.admin-modal-footer {
+    padding: 20px 28px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    background: #f9fafb;
+}
+.admin-modal-btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+}
+.admin-modal-btn.secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+}
+.admin-modal-btn.secondary:hover {
+    background: #e5e7eb;
+}
+.admin-modal-btn.danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+}
+.admin-modal-btn.danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+}
+.admin-modal-btn.warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+}
+.admin-modal-btn.warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.4);
+}
+</style>
 
 <%- include('partials/footer') %>

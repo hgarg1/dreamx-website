@@ -70,6 +70,22 @@ npm run dev
 
 The website will be available at: **http://localhost:3000**
 
+## Admin Credentials
+
+The application comes with pre-seeded admin accounts for testing and management:
+
+### Global Admin Account
+- **Email:** `admin@dreamx.local`
+- **Password:** `DreamXAdmin2025!`
+- **Role:** `global_admin` (highest level administrator)
+- **Permissions:** Full system access, can manage all users and admins
+
+### HR Account
+- **Email:** `hr@dreamx.local`
+- **Password:** `DreamXHR2025!`
+- **Role:** `hr` (Human Resources)
+- **Permissions:** Access to HR dashboard, career management, talent acquisition
+
 ## Pages
 
 - **Home** (`/`) - Hero section with mission and feature overview

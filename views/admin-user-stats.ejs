@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Statistics - <%= targetUser.full_name || targetUser.email %></title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+    <style>
+        .stats-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .user-header {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            font-weight: bold;
+        }
+
+        .user-info h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.75rem;
+            color: #1a1a1a;
+        }
+
+        .user-info p {
+            margin: 0.25rem 0;
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-suspended {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-banned {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .stat-card h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .recent-posts {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .recent-posts h2 {
+            margin: 0 0 1.5rem 0;
+            font-size: 1.5rem;
+            color: #1a1a1a;
+        }
+
+        .post-item {
+            padding: 1rem;
+            border-left: 3px solid #667eea;
+            background: #f8f9fa;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+
+        .post-item p {
+            margin: 0 0 0.5rem 0;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .post-meta {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.75rem;
+        }
+
+        .post-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .no-posts {
+            text-align: center;
+            color: #999;
+            padding: 2rem;
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+
+        .role-user {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .role-admin {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .role-super_admin {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <div class="stats-container">
+        <div class="user-header">
+            <div class="user-avatar">
+                <%= (targetUser.full_name || targetUser.email).charAt(0).toUpperCase() %>
+            </div>
+            <div class="user-info">
+                <h1>
+                    <%= targetUser.full_name || targetUser.email %>
+                    <span class="role-badge role-<%= targetUser.role %>">
+                        <%= targetUser.role.replace('_', ' ').toUpperCase() %>
+                    </span>
+                </h1>
+                <p><strong>Email:</strong> <%= targetUser.email %></p>
+                <p><strong>User ID:</strong> <%= targetUser.id %></p>
+                <p><strong>Joined:</strong> <%= new Date(targetUser.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %> (<%= stats.accountAge %> days ago)</p>
+                
+                <% if (accountStatus.isBanned) { %>
+                    <span class="status-badge status-banned">
+                        ⛔ Banned
+                        <% if (accountStatus.bannedUntil) { %>
+                            until <%= new Date(accountStatus.bannedUntil).toLocaleDateString() %>
+                        <% } else { %>
+                            (Permanent)
+                        <% } %>
+                    </span>
+                <% } else if (accountStatus.isSuspended) { %>
+                    <span class="status-badge status-suspended">
+                        ⚠️ Suspended until <%= new Date(accountStatus.suspendedUntil).toLocaleDateString() %>
+                    </span>
+                <% } else { %>
+                    <span class="status-badge status-active">✓ Active</span>
+                <% } %>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Posts</h3>
+                <div class="stat-value"><%= stats.posts %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Comments</h3>
+                <div class="stat-value"><%= stats.comments %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Followers</h3>
+                <div class="stat-value"><%= stats.followers %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Following</h3>
+                <div class="stat-value"><%= stats.following %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Conversations</h3>
+                <div class="stat-value"><%= stats.conversations %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Messages Sent</h3>
+                <div class="stat-value"><%= stats.messages %></div>
+            </div>
+        </div>
+
+        <div class="recent-posts">
+            <h2>Recent Posts</h2>
+            <% if (recentPosts && recentPosts.length > 0) { %>
+                <% recentPosts.forEach(post => { %>
+                    <div class="post-item">
+                        <p><%= post.content %></p>
+                        <div class="post-meta">
+                            <span>👍 <%= post.reactions_count %> reactions</span>
+                            <span>💬 <%= post.comments_count %> comments</span>
+                            <span>📅 <%= new Date(post.created_at).toLocaleDateString() %></span>
+                        </div>
+                    </div>
+                <% }) %>
+            <% } else { %>
+                <div class="no-posts">No posts yet</div>
+            <% } %>
+        </div>
+
+        <a href="/admin?highlight=<%= targetUser.id %>" class="back-button">
+            ← Back to Users Table
+        </a>
+    </div>
+
+    <script>
+        // Highlight user in admin table when returning
+        const urlParams = new URLSearchParams(window.location.search);
+        const highlightId = urlParams.get('highlight');
+        if (highlightId) {
+            setTimeout(() => {
+                const row = document.querySelector(`tr[data-user-id="${highlightId}"]`);
+                if (row) {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    row.style.backgroundColor = '#fff3cd';
+                    setTimeout(() => {
+                        row.style.transition = 'background-color 1s';
+                        row.style.backgroundColor = '';
+                    }, 2000);
+                }
+            }, 300);
+        }
+    </script>
+</body>
+</html>

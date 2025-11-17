@@ -3,28 +3,95 @@
 
 <main class="admin-dashboard-container">
   <header class="admin-dashboard-header">
-    <h1>Admin Dashboard</h1>
-    <p>Platform management and moderation center</p>
+    <div class="header-content">
+      <div class="header-text">
+        <h1>Admin Command Center</h1>
+        <p>Real-time platform management and analytics</p>
+      </div>
+      <div class="header-actions">
+        <button class="admin-header-btn" onclick="window.location.reload()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          Refresh
+        </button>
+        <span class="admin-role-badge"><%= authUser.role.replace('_', ' ').toUpperCase() %></span>
+      </div>
+    </div>
   </header>
 
   <nav class="admin-tabs">
-    <button class="tab-btn active" data-tab="metrics">Metrics</button>
-    <button class="tab-btn" data-tab="users">Users</button>
-    <button class="tab-btn" data-tab="careers">Careers</button>
-    <button class="tab-btn" data-tab="content-appeals">Content Appeals</button>
-    <button class="tab-btn" data-tab="account-appeals">Account Appeals</button>
+    <button class="tab-btn active" data-tab="metrics">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      Metrics
+    </button>
+    <button class="tab-btn" data-tab="users">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      Users
+    </button>
+    <button class="tab-btn" data-tab="careers">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+      </svg>
+      Careers
+    </button>
+    <button class="tab-btn" data-tab="content-appeals">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="12" y1="18" x2="12" y2="12"></line>
+        <line x1="9" y1="15" x2="15" y2="15"></line>
+      </svg>
+      Content Appeals
+    </button>
+    <button class="tab-btn" data-tab="account-appeals">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      Account Appeals
+    </button>
     <% if (authUser && authUser.role === 'super_admin') { %>
-      <button class="tab-btn" data-tab="audit">Audit Logs</button>
+      <button class="tab-btn" data-tab="audit">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        Audit Logs
+      </button>
     <% } %>
   </nav>
 
   <% if (typeof success !== 'undefined' && success) { %>
     <div class="admin-alert admin-alert-success">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
       <%= success %>
     </div>
   <% } %>
   <% if (typeof error !== 'undefined' && error) { %>
     <div class="admin-alert admin-alert-error">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+      </svg>
       <%= error %>
     </div>
   <% } %>
@@ -39,57 +106,136 @@
         const contentOpen = (contentAppeals || []).filter(a => a.status==='open' || a.status==='under_review').length;
         const accountOpen = (accountAppeals || []).filter(a => a.status==='open' || a.status==='under_review').length;
       %>
-      <div class="admin-grid">
-        <div class="admin-card stat">
-          <h3>Users</h3>
-          <div class="stat-val"><%= stats.users %></div>
-          <div class="muted">Registered accounts</div>
+      
+      <div class="metrics-overview">
+        <div class="metric-card glow">
+          <div class="metric-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div class="metric-content">
+            <div class="metric-label">Total Users</div>
+            <div class="metric-value"><%= stats.users %></div>
+            <div class="metric-subtitle">Registered accounts</div>
+          </div>
         </div>
-        <div class="admin-card stat">
-          <h3>Conversations</h3>
-          <div class="stat-val"><%= stats.conversations %></div>
-          <div class="muted">Active chats</div>
+
+        <div class="metric-card glow">
+          <div class="metric-icon accent-2">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </div>
+          <div class="metric-content">
+            <div class="metric-label">Conversations</div>
+            <div class="metric-value"><%= stats.conversations %></div>
+            <div class="metric-subtitle">Active chats</div>
+          </div>
         </div>
-        <div class="admin-card stat">
-          <h3>Messages</h3>
-          <div class="stat-val"><%= stats.messages %></div>
-          <div class="muted">Total sent</div>
+
+        <div class="metric-card glow">
+          <div class="metric-icon accent-3">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
+          <div class="metric-content">
+            <div class="metric-label">Total Messages</div>
+            <div class="metric-value"><%= stats.messages %></div>
+            <div class="metric-subtitle">All time</div>
+          </div>
         </div>
-        <div class="admin-card stat">
-          <h3>Avg Msgs/User</h3>
-          <div class="stat-val"><%= avgMsgs %></div>
-          <div class="muted">Engagement indicator</div>
+
+        <div class="metric-card glow">
+          <div class="metric-icon accent-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <div class="metric-content">
+            <div class="metric-label">Avg Msgs/User</div>
+            <div class="metric-value"><%= avgMsgs %></div>
+            <div class="metric-subtitle">Engagement metric</div>
+          </div>
         </div>
       </div>
 
-      <div class="admin-grid" style="margin-top:12px;">
-        <div class="admin-card">
-          <div class="panel-head"><h3>Conversations per User</h3><span class="muted"><%= convPerUser %> avg</span></div>
-          <% const convPct = Math.min(100, Math.round((convPerUser/3)*100)); %>
-          <div style="height:10px;background:#0e1020;border:1px solid var(--admin-border);border-radius:999px;overflow:hidden;">
-            <div style="width:<%= convPct %>%;height:100%;background:linear-gradient(135deg,var(--accent),var(--accent-2));"></div>
+      <div class="analytics-row">
+        <div class="analytics-card">
+          <div class="analytics-header">
+            <h3>User Engagement</h3>
+            <span class="analytics-badge"><%= convPerUser %> avg conversations</span>
           </div>
-          <div class="muted" style="margin-top:6px;">Target: 3 conv/user</div>
+          <div class="progress-bar-wrapper">
+            <% const convPct = Math.min(100, Math.round((convPerUser/3)*100)); %>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:<%= convPct %>%">
+                <span class="progress-label"><%= convPct %>%</span>
+              </div>
+            </div>
+          </div>
+          <div class="analytics-footer">Target: 3 conversations per user</div>
         </div>
-        <div class="admin-card">
-          <div class="panel-head"><h3>Moderation Queue</h3><span class="muted">Open items</span></div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-            <div class="admin-card stat" style="padding:12px;">
-              <div class="muted">Careers</div>
-              <div class="stat-val"><%= careerOpen %></div>
+
+        <div class="analytics-card">
+          <div class="analytics-header">
+            <h3>Moderation Queue</h3>
+            <span class="analytics-badge urgent"><%= careerOpen + contentOpen + accountOpen %> total</span>
+          </div>
+          <div class="queue-grid">
+            <div class="queue-item">
+              <div class="queue-icon careers">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                </svg>
+              </div>
+              <div class="queue-content">
+                <div class="queue-label">Careers</div>
+                <div class="queue-count"><%= careerOpen %></div>
+              </div>
             </div>
-            <div class="admin-card stat" style="padding:12px;">
-              <div class="muted">Content</div>
-              <div class="stat-val"><%= contentOpen %></div>
+            <div class="queue-item">
+              <div class="queue-icon content">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+              </div>
+              <div class="queue-content">
+                <div class="queue-label">Content</div>
+                <div class="queue-count"><%= contentOpen %></div>
+              </div>
             </div>
-            <div class="admin-card stat" style="padding:12px;">
-              <div class="muted">Accounts</div>
-              <div class="stat-val"><%= accountOpen %></div>
+            <div class="queue-item">
+              <div class="queue-icon account">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <div class="queue-content">
+                <div class="queue-label">Accounts</div>
+                <div class="queue-count"><%= accountOpen %></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="muted" style="margin-top:8px;">Last updated <%= new Date().toLocaleString() %></div>
+      
+      <div class="timestamp-footer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        Last updated <%= new Date().toLocaleString() %>
+      </div>
     </div>
   </section>
 
@@ -99,26 +245,51 @@
   <section class="admin-panel tab-panel" data-tab="users" style="display:none;">
     <div class="panel-head">
       <h2>User Management</h2>
-      <form action="/admin" method="GET" class="admin-search-form">
-        <input 
-          type="text" 
-          name="q" 
-          value="<%= typeof q !== 'undefined' ? q : '' %>" 
-          placeholder="Search by name or email..." 
-          class="admin-search-input"
-        >
-        <input type="hidden" name="page" value="1" />
-        <button type="submit" class="admin-search-btn">Search</button>
-        <% if (q) { %>
-          <a href="/admin" class="admin-search-clear">Clear</a>
+      <div class="panel-actions">
+        <% if (authUser && (authUser.role === 'super_admin' || authUser.role === 'global_admin')) { %>
+          <button class="admin-header-btn" onclick="openAddAdminModal()" style="margin-right:12px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <line x1="20" y1="8" x2="20" y2="14"></line>
+              <line x1="23" y1="11" x2="17" y2="11"></line>
+            </svg>
+            Add Admin
+          </button>
         <% } %>
-      </form>
+        <form action="/admin" method="GET" class="admin-search-form">
+          <div class="search-input-wrapper">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <input 
+              type="text" 
+              name="q" 
+              value="<%= typeof q !== 'undefined' ? q : '' %>" 
+              placeholder="Search by name or email..." 
+              class="admin-search-input"
+            >
+          </div>
+          <input type="hidden" name="page" value="1" />
+          <button type="submit" class="admin-search-btn">Search</button>
+          <% if (q) { %>
+            <a href="/admin" class="admin-search-clear">Clear</a>
+          <% } %>
+        </form>
+      </div>
     </div>
     
     <div class="table-responsive">
-      <div style="margin:6px 0 10px; display:flex; gap:8px; align-items:center;">
-        <input type="text" id="filterUsers" placeholder="Quick filter users..." class="admin-search-input" style="max-width:260px;">
-        <span class="muted">Type to filter by name, email, or role</span>
+      <div class="filter-row">
+        <div class="search-input-wrapper">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input type="text" id="filterUsers" placeholder="Quick filter users..." class="admin-search-input">
+        </div>
+        <span class="filter-hint">Type to filter by name, email, or role</span>
       </div>
       <table class="admin-table">
         <thead>
@@ -127,34 +298,115 @@
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Status</th>
             <th>Joined</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <% users.forEach(u => { %>
-            <tr class="row-user" data-name="<%= u.full_name %>" data-email="<%= u.email %>" data-role="<%= u.role %>">
+            <tr class="row-user" data-user-id="<%= u.id %>" data-name="<%= u.full_name %>" data-email="<%= u.email %>" data-role="<%= u.role %>">
               <td><span class="user-id">#<%= u.id %></span></td>
               <td>
                 <div class="user-info">
+                  <div class="user-avatar">
+                    <%= u.full_name.charAt(0).toUpperCase() %>
+                  </div>
                   <strong><%= u.full_name %></strong>
                 </div>
               </td>
               <td><%= u.email %></td>
               <td>
-                <span class="role-badge role-<%= u.role %>"><%= u.role %></span>
+                <span class="role-badge role-<%= u.role.replace('_', '-') %>"><%= u.role.replace('_', ' ') %></span>
+              </td>
+              <td>
+                <% 
+                  const accountStatus = u.account_status || 'active';
+                  let statusClass = 'role-user';
+                  let statusText = 'Active';
+                  if (accountStatus === 'banned') {
+                    statusClass = 'role-banned';
+                    statusText = 'Banned';
+                  } else if (accountStatus === 'suspended') {
+                    statusClass = 'role-suspended';
+                    statusText = 'Suspended';
+                  }
+                %>
+                <span class="role-badge <%= statusClass %>"><%= statusText %></span>
               </td>
               <td><%= new Date(u.created_at).toLocaleDateString() %></td>
               <td>
-                <form action="/admin/users/<%= u.id %>/role" method="POST" class="role-update-form">
-                  <select name="role" class="role-select">
-                    <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
-                    <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
-                    <option value="super_admin" <%= u.role === 'super_admin' ? 'selected' : '' %>>Super Admin</option>
-                    <option value="hr" <%= u.role === 'hr' ? 'selected' : '' %>>HR</option>
-                  </select>
-                  <button type="submit" class="btn-update">Update</button>
-                </form>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <form action="/admin/users/<%= u.id %>/role" method="POST" class="role-update-form" style="margin:0;">
+                    <select name="role" class="role-select">
+                      <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
+                      <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                      <option value="super_admin" <%= u.role === 'super_admin' ? 'selected' : '' %>>Super Admin</option>
+                      <% if (authUser && authUser.role === 'global_admin') { %>
+                        <option value="global_admin" <%= u.role === 'global_admin' ? 'selected' : '' %>>Global Admin</option>
+                      <% } %>
+                      <option value="hr" <%= u.role === 'hr' ? 'selected' : '' %>>HR</option>
+                    </select>
+                    <button type="submit" class="btn-update">Update</button>
+                  </form>
+                  
+                  <% if (authUser && authUser.role === 'super_admin') { %>
+                    <div class="admin-user-actions" style="position:relative;">
+                      <button class="admin-actions-btn" onclick="toggleUserActions(<%= u.id %>)">⋮</button>
+                      <div class="admin-actions-menu" id="user-actions-<%= u.id %>" style="display:none;">
+                        <% if (u.account_status === 'suspended') { %>
+                          <button onclick="removeSuspensionAction(<%= u.id %>, '<%= u.full_name %>')">  
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            Remove Suspension
+                          </button>
+                        <% } else if (u.account_status === 'banned') { %>
+                          <button onclick="removeBanAction(<%= u.id %>, '<%= u.full_name %>')">  
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            Remove Ban
+                          </button>
+                        <% } else if (u.account_status === 'active') { %>
+                          <button onclick="suspendUserModal(<%= u.id %>, '<%= u.full_name %>')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <line x1="10" y1="15" x2="10" y2="15"></line>
+                              <line x1="14" y1="15" x2="14" y2="15"></line>
+                            </svg>
+                            Suspend User
+                          </button>
+                          <button onclick="banUserAction(<%= u.id %>, '<%= u.full_name %>')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                            </svg>
+                            Ban User
+                          </button>
+                        <% } %>
+                        <a href="/admin/users/<%= u.id %>/stats">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                          </svg>
+                          View Stats
+                        </a>
+                        <a href="/profile/<%= u.id %>" target="_blank">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                          </svg>
+                          View Profile
+                        </a>
+                      </div>
+                    </div>
+                  <% } %>
+                </div>
               </td>
             </tr>
           <% }) %>
@@ -177,14 +429,34 @@
         <div class="pagination-controls">
           <% const qp = q ? `&q=${encodeURIComponent(q)}` : '' %>
           <% if (page > 1) { %>
-            <a class="pagination-btn" href="/admin?page=<%= page - 1 %><%= qp %>">← Previous</a>
+            <a class="pagination-btn" href="/admin?page=<%= page - 1 %><%= qp %>">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Previous
+            </a>
           <% } else { %>
-            <button class="pagination-btn" disabled>← Previous</button>
+            <button class="pagination-btn" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              Previous
+            </button>
           <% } %>
           <% if (page < totalPages) { %>
-            <a class="pagination-btn" href="/admin?page=<%= page + 1 %><%= qp %>">Next →</a>
+            <a class="pagination-btn" href="/admin?page=<%= page + 1 %><%= qp %>">
+              Next
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </a>
           <% } else { %>
-            <button class="pagination-btn" disabled>Next →</button>
+            <button class="pagination-btn" disabled>
+              Next
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
           <% } %>
         </div>
       </div>
@@ -197,15 +469,21 @@
       <h2>Career Applications</h2>
     </div>
     <div class="table-responsive">
-      <div style="margin:6px 0 10px; display:flex; gap:8px; align-items:center;">
-        <input type="text" id="filterCareers" placeholder="Filter by position, name, email..." class="admin-search-input" style="max-width:300px;">
-        <span class="muted">Click an ID to view details</span>
+      <div class="filter-row">
+        <div class="search-input-wrapper">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input type="text" id="filterCareers" placeholder="Filter by position, name, email..." class="admin-search-input">
+        </div>
+        <span class="filter-hint">Click an ID to view details</span>
         <form method="GET" action="/admin" style="margin-left:auto;display:flex;gap:8px;align-items:center;">
           <input type="hidden" name="page" value="<%= page %>">
           <input type="hidden" name="q" value="<%= q %>">
           <input type="hidden" name="caPage" value="<%= caPage %>">
           <input type="hidden" name="aaPage" value="<%= aaPage %>">
-          <label class="muted">Status</label>
+          <label class="filter-hint">Status</label>
           <select name="cStatus" class="role-select" onchange="this.form.submit()">
             <option value="" <%= !cStatus ? 'selected' : '' %>>All</option>
             <option value="new" <%= cStatus==='new'?'selected':'' %>>New</option>
@@ -218,29 +496,29 @@
       <table class="admin-table" id="careersTable">
         <thead>
           <tr>
-            <th class="sortable" data-sort-type="number">ID</th>
-            <th class="sortable" data-sort-type="text">Position</th>
-            <th class="sortable" data-sort-type="text">Name</th>
-            <th class="sortable" data-sort-type="text">Email</th>
+            <th>ID</th>
+            <th>Position</th>
+            <th>Name</th>
+            <th>Email</th>
             <th>Phone</th>
             <th>Resume</th>
             <th>Portfolio</th>
-            <th class="sortable" data-sort-type="text">Status</th>
-            <th class="sortable" data-sort-type="date">Submitted</th>
+            <th>Status</th>
+            <th>Submitted</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody>
           <% (careers || []).forEach(c => { %>
             <tr class="row-career" data-position="<%= c.position %>" data-name="<%= c.name %>" data-email="<%= c.email %>" data-status="<%= c.status || 'new' %>">
-              <td><a href="#" class="career-view" data-id="<%= c.id %>" data-json='<%- JSON.stringify(c) %>'>#<%= c.id %></a></td>
-              <td><%= c.position %></td>
+              <td><a href="#" class="career-view user-id" data-id="<%= c.id %>" data-json='<%- JSON.stringify(c) %>'>#<%= c.id %></a></td>
+              <td><strong><%= c.position %></strong></td>
               <td><%= c.name %></td>
-              <td><a href="mailto:<%= c.email %>"><%= c.email %></a></td>
+              <td><a href="mailto:<%= c.email %>" style="color: var(--accent);"><%= c.email %></a></td>
               <td><%= c.phone || '-' %></td>
-              <td><% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank">View</a><% } else { %>-<% } %></td>
-              <td><% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank">View</a><% } else { %>-<% } %></td>
-              <td><span class="role-badge role-<%= c.status || 'new' %>"><%= c.status || 'new' %></span></td>
+              <td><% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank" style="color: var(--accent-2);">View</a><% } else { %>-<% } %></td>
+              <td><% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank" style="color: var(--accent-2);">View</a><% } else { %>-<% } %></td>
+              <td><span class="role-badge role-<%= (c.status || 'new').replace('_', '-') %>"><%= (c.status || 'new').replace('_', ' ') %></span></td>
               <td><%= new Date(c.created_at).toLocaleString() %></td>
               <td>
                 <form action="/admin/careers/<%= c.id %>/status" method="POST" class="role-update-form">
@@ -261,18 +539,18 @@
         </tbody>
       </table>
       <div class="pager">
-        <div class="muted">Page <%= cPage %></div>
+        <div class="pagination-info">Page <%= cPage %></div>
         <div class="pager-actions">
           <% const baseQ = `page=${page}&q=${encodeURIComponent(q||'')}&caPage=${caPage}&aaPage=${aaPage}&cStatus=${encodeURIComponent(cStatus||'')}` %>
           <% if (cPage > 1) { %>
-            <a class="btn-light" href="/admin?cPage=<%= cPage - 1 %>&<%- baseQ %>">Prev</a>
+            <a class="pagination-btn" href="/admin?cPage=<%= cPage - 1 %>&<%- baseQ %>">Prev</a>
           <% } else { %>
-            <button class="btn-light" disabled>Prev</button>
+            <button class="pagination-btn" disabled>Prev</button>
           <% } %>
           <% if (cHasMore) { %>
-            <a class="btn" href="/admin?cPage=<%= cPage + 1 %>&<%- baseQ %>">Next</a>
+            <a class="pagination-btn" href="/admin?cPage=<%= cPage + 1 %>&<%- baseQ %>">Next</a>
           <% } else { %>
-            <button class="btn-light" disabled>Next</button>
+            <button class="pagination-btn" disabled>Next</button>
           <% } %>
         </div>
       </div>
@@ -285,14 +563,20 @@
       <h2>Content Appeals</h2>
     </div>
     <div class="table-responsive">
-      <div style="margin:6px 0 10px; display:flex; gap:8px; align-items:center;">
-        <input type="text" id="filterContentAppeals" placeholder="Filter by email, type, status..." class="admin-search-input" style="max-width:300px;">
+      <div class="filter-row">
+        <div class="search-input-wrapper">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input type="text" id="filterContentAppeals" placeholder="Filter by email, type, status..." class="admin-search-input">
+        </div>
         <form method="GET" action="/admin" style="margin-left:auto;display:flex;gap:8px;align-items:center;">
           <input type="hidden" name="page" value="<%= page %>">
           <input type="hidden" name="q" value="<%= q %>">
           <input type="hidden" name="cPage" value="<%= cPage %>">
           <input type="hidden" name="aaPage" value="<%= aaPage %>">
-          <label class="muted">Status</label>
+          <label class="filter-hint">Status</label>
           <select name="caStatus" class="role-select" onchange="this.form.submit()">
             <option value="" <%= !caStatus ? 'selected' : '' %>>All</option>
             <option value="open" <%= caStatus==='open'?'selected':'' %>>Open</option>
@@ -305,36 +589,32 @@
       <table class="admin-table" id="contentAppealsTable">
         <thead>
           <tr>
-            <th class="sortable" data-sort-type="number">ID</th>
-            <th class="sortable" data-sort-type="text">Email</th>
-            <th class="sortable" data-sort-type="text">Type</th>
+            <th>ID</th>
+            <th>Email</th>
+            <th>Type</th>
             <th>URL/ID</th>
             <th>Reason</th>
-            <th class="sortable" data-sort-type="text">Status</th>
-            <th class="sortable" data-sort-type="date">Submitted</th>
+            <th>Status</th>
+            <th>Submitted</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody>
           <% (contentAppeals || []).forEach(a => { %>
             <tr class="row-content-appeal" data-email="<%= a.email %>" data-type="<%= a.content_type %>" data-status="<%= a.status %>">
-              <td><%= a.id %></td>
-              <td><a href="mailto:<%= a.email %>"><%= a.email %></a></td>
-              <td><%= a.content_type %></td>
+              <td><span class="user-id">#<%= a.id %></span></td>
+              <td><a href="mailto:<%= a.email %>" style="color: var(--accent);"><%= a.email %></a></td>
+              <td><strong><%= a.content_type %></strong></td>
               <td><%= a.content_url || '-' %></td>
               <td><%= a.removal_reason || '-' %></td>
-              <td><span class="role-badge role-<%= a.status %>"><%= a.status %></span></td>
+              <td><span class="role-badge role-<%= a.status.replace('_', '-') %>"><%= a.status.replace('_', ' ') %></span></td>
               <td><%= new Date(a.created_at).toLocaleString() %></td>
               <td>
-                <form action="/admin/appeals/content/<%= a.id %>/status" method="POST" class="role-update-form">
-                  <select name="status" class="role-select">
-                    <option value="open" <%= a.status==='open'?'selected':'' %>>Open</option>
-                    <option value="under_review" <%= a.status==='under_review'?'selected':'' %>>Under Review</option>
-                    <option value="approved" <%= a.status==='approved'?'selected':'' %>>Approved</option>
-                    <option value="denied" <%= a.status==='denied'?'selected':'' %>>Denied</option>
-                  </select>
-                  <button type="submit" class="btn-update">Save</button>
-                </form>
+                <div style="display:flex;gap:4px;">
+                  <button onclick="quickAppealAction('content', <%= a.id %>, 'approved')" class="quick-action-btn" style="background:#10b981;color:white;" title="Approve">✓</button>
+                  <button onclick="quickAppealAction('content', <%= a.id %>, 'denied')" class="quick-action-btn" style="background:#ef4444;color:white;" title="Deny">✗</button>
+                  <button onclick="viewAppealDetails('content', <%= a.id %>, <%- JSON.stringify(a).replace(/'/g, '&apos;') %>)" class="quick-action-btn" style="background:#667eea;color:white;" title="View Details">👁</button>
+                </div>
               </td>
             </tr>
           <% }) %>
@@ -344,18 +624,18 @@
         </tbody>
       </table>
       <div class="pager">
-        <div class="muted">Page <%= caPage %></div>
+        <div class="pagination-info">Page <%= caPage %></div>
         <div class="pager-actions">
           <% const baseCA = `page=${page}&q=${encodeURIComponent(q||'')}&cPage=${cPage}&aaPage=${aaPage}&caStatus=${encodeURIComponent(caStatus||'')}` %>
           <% if (caPage > 1) { %>
-            <a class="btn-light" href="/admin?caPage=<%= caPage - 1 %>&<%- baseCA %>">Prev</a>
+            <a class="pagination-btn" href="/admin?caPage=<%= caPage - 1 %>&<%- baseCA %>">Prev</a>
           <% } else { %>
-            <button class="btn-light" disabled>Prev</button>
+            <button class="pagination-btn" disabled>Prev</button>
           <% } %>
           <% if (caHasMore) { %>
-            <a class="btn" href="/admin?caPage=<%= caPage + 1 %>&<%- baseCA %>">Next</a>
+            <a class="pagination-btn" href="/admin?caPage=<%= caPage + 1 %>&<%- baseCA %>">Next</a>
           <% } else { %>
-            <button class="btn-light" disabled>Next</button>
+            <button class="pagination-btn" disabled>Next</button>
           <% } %>
         </div>
       </div>
@@ -368,14 +648,20 @@
       <h2>Account Appeals</h2>
     </div>
     <div class="table-responsive">
-      <div style="margin:6px 0 10px; display:flex; gap:8px; align-items:center;">
-        <input type="text" id="filterAccountAppeals" placeholder="Filter by email, username, status..." class="admin-search-input" style="max-width:300px;">
+      <div class="filter-row">
+        <div class="search-input-wrapper">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input type="text" id="filterAccountAppeals" placeholder="Filter by email, username, status..." class="admin-search-input">
+        </div>
         <form method="GET" action="/admin" style="margin-left:auto;display:flex;gap:8px;align-items:center;">
           <input type="hidden" name="page" value="<%= page %>">
           <input type="hidden" name="q" value="<%= q %>">
           <input type="hidden" name="cPage" value="<%= cPage %>">
           <input type="hidden" name="caPage" value="<%= caPage %>">
-          <label class="muted">Status</label>
+          <label class="filter-hint">Status</label>
           <select name="aaStatus" class="role-select" onchange="this.form.submit()">
             <option value="" <%= !aaStatus ? 'selected' : '' %>>All</option>
             <option value="open" <%= aaStatus==='open'?'selected':'' %>>Open</option>
@@ -388,36 +674,32 @@
       <table class="admin-table" id="accountAppealsTable">
         <thead>
           <tr>
-            <th class="sortable" data-sort-type="number">ID</th>
-            <th class="sortable" data-sort-type="text">Email</th>
-            <th class="sortable" data-sort-type="text">Username</th>
-            <th class="sortable" data-sort-type="text">Action</th>
+            <th>ID</th>
+            <th>Email</th>
+            <th>Username</th>
+            <th>Action</th>
             <th>Reason</th>
-            <th class="sortable" data-sort-type="text">Status</th>
-            <th class="sortable" data-sort-type="date">Submitted</th>
+            <th>Status</th>
+            <th>Submitted</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody>
           <% (accountAppeals || []).forEach(a => { %>
             <tr class="row-account-appeal" data-email="<%= a.email %>" data-username="<%= a.username %>" data-status="<%= a.status %>">
-              <td><%= a.id %></td>
-              <td><a href="mailto:<%= a.email %>"><%= a.email %></a></td>
-              <td><%= a.username %></td>
+              <td><span class="user-id">#<%= a.id %></span></td>
+              <td><a href="mailto:<%= a.email %>" style="color: var(--accent);"><%= a.email %></a></td>
+              <td><strong><%= a.username %></strong></td>
               <td><%= a.account_action %></td>
               <td><%= a.violation_reason || '-' %></td>
-              <td><span class="role-badge role-<%= a.status %>"><%= a.status %></span></td>
+              <td><span class="role-badge role-<%= a.status.replace('_', '-') %>"><%= a.status.replace('_', ' ') %></span></td>
               <td><%= new Date(a.created_at).toLocaleString() %></td>
               <td>
-                <form action="/admin/appeals/account/<%= a.id %>/status" method="POST" class="role-update-form">
-                  <select name="status" class="role-select">
-                    <option value="open" <%= a.status==='open'?'selected':'' %>>Open</option>
-                    <option value="under_review" <%= a.status==='under_review'?'selected':'' %>>Under Review</option>
-                    <option value="approved" <%= a.status==='approved'?'selected':'' %>>Approved</option>
-                    <option value="denied" <%= a.status==='denied'?'selected':'' %>>Denied</option>
-                  </select>
-                  <button type="submit" class="btn-update">Save</button>
-                </form>
+                <div style="display:flex;gap:4px;">
+                  <button onclick="quickAppealAction('account', <%= a.id %>, 'approved')" class="quick-action-btn" style="background:#10b981;color:white;" title="Approve">✓</button>
+                  <button onclick="quickAppealAction('account', <%= a.id %>, 'denied')" class="quick-action-btn" style="background:#ef4444;color:white;" title="Deny">✗</button>
+                  <button onclick="viewAppealDetails('account', <%= a.id %>, <%- JSON.stringify(a).replace(/'/g, '&apos;') %>)" class="quick-action-btn" style="background:#667eea;color:white;" title="View Details">👁</button>
+                </div>
               </td>
             </tr>
           <% }) %>
@@ -427,18 +709,18 @@
         </tbody>
       </table>
       <div class="pager">
-        <div class="muted">Page <%= aaPage %></div>
+        <div class="pagination-info">Page <%= aaPage %></div>
         <div class="pager-actions">
           <% const baseAA = `page=${page}&q=${encodeURIComponent(q||'')}&cPage=${cPage}&caPage=${caPage}&aaStatus=${encodeURIComponent(aaStatus||'')}` %>
           <% if (aaPage > 1) { %>
-            <a class="btn-light" href="/admin?aaPage=<%= aaPage - 1 %>&<%- baseAA %>">Prev</a>
+            <a class="pagination-btn" href="/admin?aaPage=<%= aaPage - 1 %>&<%- baseAA %>">Prev</a>
           <% } else { %>
-            <button class="btn-light" disabled>Prev</button>
+            <button class="pagination-btn" disabled>Prev</button>
           <% } %>
           <% if (aaHasMore) { %>
-            <a class="btn" href="/admin?aaPage=<%= aaPage + 1 %>&<%- baseAA %>">Next</a>
+            <a class="pagination-btn" href="/admin?aaPage=<%= aaPage + 1 %>&<%- baseAA %>">Next</a>
           <% } else { %>
-            <button class="btn-light" disabled>Next</button>
+            <button class="pagination-btn" disabled>Next</button>
           <% } %>
         </div>
       </div>
@@ -481,73 +763,385 @@
       </div>
     </section>
   <% } %>
+
+  <!-- Ban User Modal -->
+  <!-- Add Admin Modal -->
+  <div id="addAdminModal" class="admin-modal" style="display:none;">
+    <div class="admin-modal-content">
+      <div class="admin-modal-header">
+        <h3>Add New Administrator</h3>
+        <button class="admin-modal-close" onclick="closeAddAdminModal()">&times;</button>
+      </div>
+      <div class="admin-modal-body">
+        <p style="margin-bottom:20px;color:#6b7280;">Promote an existing user to an administrative role.</p>
+        
+        <div style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Search User <span style="color:#ef4444;">*</span></label>
+          <div style="position:relative;">
+            <input 
+              type="text" 
+              id="adminUserSearch" 
+              placeholder="Search by name or email..." 
+              style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;"
+              onkeyup="searchUsersForAdmin()"
+            >
+            <div id="adminUserResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:10;">
+            </div>
+          </div>
+        </div>
+
+        <div id="selectedUserInfo" style="display:none;padding:16px;background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:20px;" id="selectedUserAvatar"></div>
+            <div style="flex:1;">
+              <div style="font-weight:700;color:#111827;font-size:16px;" id="selectedUserName"></div>
+              <div style="color:#6b7280;font-size:14px;" id="selectedUserEmail"></div>
+            </div>
+            <button onclick="clearSelectedUser()" style="background:none;border:none;color:#6b7280;font-size:24px;cursor:pointer;padding:0;width:32px;height:32px;">&times;</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Administrative Role <span style="color:#ef4444;">*</span></label>
+          <select id="adminRoleSelect" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;">
+            <option value="">Select a role...</option>
+            <option value="admin">Admin - Basic administrative permissions</option>
+            <option value="super_admin">Super Admin - Full administrative access</option>
+            <% if (authUser && authUser.role === 'global_admin') { %>
+              <option value="global_admin">Global Admin - Highest level access</option>
+            <% } %>
+            <option value="hr">HR - Human resources management</option>
+          </select>
+        </div>
+
+        <div style="padding:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:16px;">
+          <p style="margin:0 0 12px 0;color:#1e40af;font-weight:600;font-size:0.95rem;">Role Permissions Overview:</p>
+          <ul style="margin:0;padding-left:20px;color:#1e3a8a;font-size:0.9rem;line-height:1.8;">
+            <li><strong>Admin:</strong> Manage users, view content, moderate posts</li>
+            <li><strong>Super Admin:</strong> All admin powers + role management + audit logs</li>
+            <% if (authUser && authUser.role === 'global_admin') { %>
+              <li><strong>Global Admin:</strong> Unrestricted access to all platform features</li>
+            <% } %>
+            <li><strong>HR:</strong> Manage career applications and recruitment</li>
+          </ul>
+        </div>
+
+        <div style="padding:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+          <p style="margin:0;color:#991b1b;font-size:0.9rem;"><strong>⚠️ Important:</strong> Granting administrative access gives significant platform control. Only promote trusted individuals.</p>
+        </div>
+      </div>
+      <div class="admin-modal-footer">
+        <button class="admin-modal-btn secondary" onclick="closeAddAdminModal()">Cancel</button>
+        <button class="admin-modal-btn primary" onclick="confirmAddAdmin()">Promote to Admin</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ban User Modal -->
+  <div id="banUserModal" class="admin-modal" style="display:none;">
+    <div class="admin-modal-content">
+      <div class="admin-modal-header">
+        <h3>Ban User</h3>
+        <button class="admin-modal-close" onclick="closeBanModal()">&times;</button>
+      </div>
+      <div class="admin-modal-body">
+        <p style="margin-bottom:20px;color:#6b7280;">Permanently ban <strong id="banUserName"></strong> from the platform.</p>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Ban Reason <span style="color:#ef4444;">*</span></label>
+          <textarea id="banReason" rows="4" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-family:inherit;" placeholder="Describe the reason for this permanent ban..."></textarea>
+        </div>
+        <div style="padding:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:16px;">
+          <p style="margin:0;color:#991b1b;font-size:0.9rem;"><strong>⚠️ Warning:</strong> This action is severe and permanent. The user will lose all access to the platform.</p>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="banNotifyUser" checked style="width:18px;height:18px;cursor:pointer;">
+            <span style="font-weight:600;color:#374151;">✉️ Send email notification to user about this ban</span>
+          </label>
+        </div>
+      </div>
+      <div class="admin-modal-footer">
+        <button class="admin-modal-btn secondary" onclick="closeBanModal()">Cancel</button>
+        <button class="admin-modal-btn danger" onclick="confirmBan()">Ban User</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Suspend User Modal -->
+  <div id="suspendUserModal" class="admin-modal" style="display:none;">
+    <div class="admin-modal-content">
+      <div class="admin-modal-header">
+        <h3>Suspend User</h3>
+        <button class="admin-modal-close" onclick="closeSuspendModal()">&times;</button>
+      </div>
+      <div class="admin-modal-body">
+        <p style="margin-bottom:20px;color:#6b7280;">Temporarily suspend <strong id="suspendUserName"></strong> from the platform.</p>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Suspension Duration <span style="color:#ef4444;">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <input type="number" id="suspendDays" min="1" max="365" value="7" style="padding:12px;border:2px solid #e5e7eb;border-radius:8px;">
+            <select id="suspendUnit" style="padding:12px;border:2px solid #e5e7eb;border-radius:8px;">
+              <option value="days" selected>Days</option>
+              <option value="hours">Hours</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Suspension Reason <span style="color:#ef4444;">*</span></label>
+          <textarea id="suspendReason" rows="4" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-family:inherit;" placeholder="Describe the reason for this suspension..."></textarea>
+        </div>
+        <div style="padding:16px;background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;margin-bottom:16px;">
+          <p style="margin:0;color:#92400e;font-size:0.9rem;"><strong>ℹ️ Note:</strong> The user will be unable to access the platform until the suspension period ends.</p>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="suspendNotifyUser" checked style="width:18px;height:18px;cursor:pointer;">
+            <span style="font-weight:600;color:#374151;">✉️ Send email notification to user about this suspension</span>
+          </label>
+        </div>
+      </div>
+      <div class="admin-modal-footer">
+        <button class="admin-modal-btn secondary" onclick="closeSuspendModal()">Cancel</button>
+        <button class="admin-modal-btn warning" onclick="confirmSuspend()">Suspend User</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/admin.js"></script>
   <script>
-// Tab handling
-document.addEventListener('DOMContentLoaded', function(){
-  document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.getAttribute('data-tab');
-      document.querySelectorAll('.admin-tabs .tab-btn').forEach(b => b.classList.toggle('active', b===btn));
-      document.querySelectorAll('.tab-panel').forEach(p => p.style.display = (p.getAttribute('data-tab')===tab ? '' : 'none'));
+    // Highlight user row when returning from stats page
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const highlightId = urlParams.get('highlight');
+      if (highlightId) {
+        // Switch to users tab
+        const usersTab = document.querySelector('[data-tab="users"]');
+        if (usersTab) {
+          usersTab.click();
+        }
+        
+        // Highlight the user row
+        setTimeout(() => {
+          const row = document.querySelector(`tr[data-user-id="${highlightId}"]`);
+          if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.style.backgroundColor = '#fff3cd';
+            row.style.transition = 'background-color 0.3s';
+            setTimeout(() => {
+              row.style.backgroundColor = '';
+            }, 2000);
+          }
+        }, 300);
+      }
     });
-  });
+  </script>
 
-// Filters
-  function attachFilter(inputId, rowSelector, fields){
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    input.addEventListener('input', () => {
-      const q = input.value.trim().toLowerCase();
-      document.querySelectorAll(rowSelector).forEach(tr => {
-        const hay = fields.map(f => (tr.getAttribute('data-' + f) || '').toLowerCase()).join(' ');
-        tr.style.display = hay.includes(q) ? '' : 'none';
-      });
-    });
-  }
-  attachFilter('filterUsers', '.row-user', ['name','email','role']);
-  attachFilter('filterCareers', '.row-career', ['position','name','email','status']);
-  attachFilter('filterContentAppeals', '.row-content-appeal', ['email','type','status']);
-  attachFilter('filterAccountAppeals', '.row-account-appeal', ['email','username','status']);
-
-// Career detail modal
-  const careerModal = document.createElement('div');
-  careerModal.className = 'modal';
-  careerModal.style.display = 'none';
-  careerModal.innerHTML = `
-    <div class="modal-content" style="max-width:700px;">
-      <span class="modal-close" id="cmClose">&times;</span>
-      <h3>Application Details</h3>
-      <div id="cmBody" class="pre-wrap"></div>
-    </div>`;
-  document.body.appendChild(careerModal);
-  document.addEventListener('click', (e) => { if (e.target === careerModal) careerModal.style.display='none'; });
-  document.addEventListener('click', (e) => {
-    if (e.target && e.target.matches('.career-view')){
-      e.preventDefault();
-      const a = e.target;
-      try {
-        const obj = JSON.parse(a.getAttribute('data-json'));
-        const html = `
-          <p><strong>Position:</strong> ${obj.position}</p>
-          <p><strong>Name:</strong> ${obj.name} &lt;${obj.email}&gt;</p>
-          <p><strong>Phone:</strong> ${obj.phone || '-'}</p>
-          <p><strong>Status:</strong> ${obj.status || 'new'}</p>
-          <p><strong>Submitted:</strong> ${new Date(obj.created_at).toLocaleString()}</p>
-          <p><strong>Cover Letter:</strong></p>
-          <div class="pre-wrap" style="border:1px solid var(--admin-border); padding:10px; border-radius:10px;">${(obj.cover_letter || '').replace(/</g,'&lt;')}</div>
-          <p style="margin-top:10px;">
-            ${obj.resume_file ? `<a href="${obj.resume_file}" target="_blank">Resume</a>` : ''}
-            ${obj.portfolio_file ? ` | <a href="${obj.portfolio_file}" target="_blank">Portfolio</a>` : ''}
-          </p>`;
-        const body = document.getElementById('cmBody');
-        if (body) body.innerHTML = html;
-        const close = document.getElementById('cmClose');
-        if (close) close.onclick = () => (careerModal.style.display='none');
-        careerModal.style.display = 'flex';
-      } catch {}
+  <style>
+    .quick-action-btn {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
     }
-  });
-});
+    .quick-action-btn:hover {
+      opacity: 0.8;
+      transform: translateY(-1px);
+    }
+  </style>
+
+  <script>
+    // Add Admin Modal Functions
+    let selectedUserId = null;
+
+    function openAddAdminModal() {
+      document.getElementById('addAdminModal').style.display = 'flex';
+      selectedUserId = null;
+      document.getElementById('adminUserSearch').value = '';
+      document.getElementById('adminRoleSelect').value = '';
+      document.getElementById('selectedUserInfo').style.display = 'none';
+      document.getElementById('adminUserResults').style.display = 'none';
+    }
+
+    function closeAddAdminModal() {
+      document.getElementById('addAdminModal').style.display = 'none';
+      selectedUserId = null;
+    }
+
+    let searchTimeout;
+    async function searchUsersForAdmin() {
+      const query = document.getElementById('adminUserSearch').value.trim();
+      const resultsDiv = document.getElementById('adminUserResults');
+      
+      if (query.length < 2) {
+        resultsDiv.style.display = 'none';
+        return;
+      }
+
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          const users = data.results || [];
+          
+          if (users.length === 0) {
+            resultsDiv.innerHTML = '<div style="padding:12px;color:#6b7280;text-align:center;">No users found</div>';
+            resultsDiv.style.display = 'block';
+            return;
+          }
+
+          resultsDiv.innerHTML = users.map(u => `
+            <div onclick="selectUser(${u.id}, '${u.full_name.replace(/'/g, "\\'")}', '${u.email}')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+              <div style="width:36px;height:36px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;">
+                ${u.full_name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style="font-weight:600;color:#111827;">${u.full_name}</div>
+                <div style="font-size:12px;color:#6b7280;">${u.email}</div>
+              </div>
+            </div>
+          `).join('');
+          resultsDiv.style.display = 'block';
+        } catch (err) {
+          console.error('Error searching users:', err);
+        }
+      }, 300);
+    }
+
+    function selectUser(id, name, email) {
+      selectedUserId = id;
+      document.getElementById('adminUserSearch').value = name;
+      document.getElementById('adminUserResults').style.display = 'none';
+      
+      document.getElementById('selectedUserAvatar').textContent = name.charAt(0).toUpperCase();
+      document.getElementById('selectedUserName').textContent = name;
+      document.getElementById('selectedUserEmail').textContent = email;
+      document.getElementById('selectedUserInfo').style.display = 'block';
+    }
+
+    function clearSelectedUser() {
+      selectedUserId = null;
+      document.getElementById('adminUserSearch').value = '';
+      document.getElementById('selectedUserInfo').style.display = 'none';
+    }
+
+    async function confirmAddAdmin() {
+      if (!selectedUserId) {
+        alert('Please select a user first');
+        return;
+      }
+
+      const role = document.getElementById('adminRoleSelect').value;
+      if (!role) {
+        alert('Please select an administrative role');
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to promote this user to ${role.replace('_', ' ')}?`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/admin/users/${selectedUserId}/role`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `role=${role}`
+        });
+
+        if (res.ok) {
+          window.location.href = '/admin?success=User+promoted+to+' + role.replace('_', '+');
+        } else {
+          alert('Failed to update user role');
+        }
+      } catch (err) {
+        alert('Error updating user role');
+      }
+    }
+
+    // Quick appeal action
+    async function quickAppealAction(type, id, status) {
+      if (!confirm(`${status === 'approved' ? 'Approve' : 'Deny'} this ${type} appeal?`)) return;
+      
+      try {
+        const res = await fetch(`/admin/appeals/${type}/${id}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `status=${status}`
+        });
+        
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          alert('Failed to update appeal status');
+        }
+      } catch (err) {
+        alert('Error updating appeal');
+      }
+    }
+
+    // View appeal details
+    function viewAppealDetails(type, id, data) {
+      const modal = document.createElement('div');
+      modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;';
+      
+      const content = document.createElement('div');
+      content.style.cssText = 'background:white;border-radius:16px;padding:32px;max-width:700px;width:90%;max-height:90vh;overflow-y:auto;';
+      
+      let detailsHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+          <h2 style="margin:0;">${type === 'content' ? 'Content' : 'Account'} Appeal #${id}</h2>
+          <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:32px;color:#6b7280;cursor:pointer;">&times;</button>
+        </div>
+      `;
+      
+      if (type === 'content') {
+        detailsHTML += `
+          <p><strong>Email:</strong> <a href="mailto:${data.email}">${data.email}</a></p>
+          <p><strong>Content Type:</strong> ${data.content_type}</p>
+          <p><strong>Content URL:</strong> ${data.content_url || 'N/A'}</p>
+          <p><strong>Removal Reason:</strong> ${data.removal_reason || 'N/A'}</p>
+          <p><strong>Description:</strong></p>
+          <div style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px;">${(data.description || 'N/A').replace(/\n/g, '<br>')}</div>
+          <p><strong>Appeal Reason:</strong></p>
+          <div style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px;">${(data.appeal_reason || '').replace(/\n/g, '<br>')}</div>
+          <p><strong>Additional Info:</strong></p>
+          <div style="background:#f9fafb;padding:16px;border-radius:8px;">${(data.additional_info || 'None').replace(/\n/g, '<br>')}</div>
+        `;
+      } else {
+        detailsHTML += `
+          <p><strong>Email:</strong> <a href="mailto:${data.email}">${data.email}</a></p>
+          <p><strong>Username:</strong> ${data.username}</p>
+          <p><strong>Account Action:</strong> ${data.account_action}</p>
+          <p><strong>Action Date:</strong> ${data.action_date || 'N/A'}</p>
+          <p><strong>Violation Reason:</strong> ${data.violation_reason || 'N/A'}</p>
+          <p><strong>Appeal Explanation:</strong></p>
+          <div style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px;">${(data.appeal_explanation || '').replace(/\n/g, '<br>')}</div>
+          <p><strong>Additional Context:</strong></p>
+          <div style="background:#f9fafb;padding:16px;border-radius:8px;">${(data.additional_context || 'None').replace(/\n/g, '<br>')}</div>
+        `;
+      }
+      
+      detailsHTML += `
+        <p><strong>Status:</strong> <span class="role-badge role-${data.status.replace('_', '-')}">${data.status.replace('_', ' ')}</span></p>
+        <p><strong>Submitted:</strong> ${new Date(data.created_at).toLocaleString()}</p>
+        <div style="display:flex;gap:12px;margin-top:20px;">
+          <button onclick="quickAppealAction('${type}', ${id}, 'approved'); this.closest('[style*=fixed]').remove();" style="padding:12px 24px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Approve</button>
+          <button onclick="quickAppealAction('${type}', ${id}, 'denied'); this.closest('[style*=fixed]').remove();" style="padding:12px 24px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Deny</button>
+          <button onclick="this.closest('[style*=fixed]').remove()" style="padding:12px 24px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Close</button>
+        </div>
+      `;
+      
+      content.innerHTML = detailsHTML;
+      modal.appendChild(content);
+      document.body.appendChild(modal);
+      
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+    }
   </script>
 
 </main>

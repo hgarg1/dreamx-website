@@ -51,7 +51,7 @@
     <div class="billing-actions">
       <a href="/pricing" class="billing-btn billing-btn-primary">Change Plan</a>
       <% if (normalized !== 'free') { %>
-        <button type="button" class="billing-btn billing-btn-secondary">Cancel Subscription</button>
+        <button type="button" class="billing-btn billing-btn-secondary" onclick="openCancelModal()">Cancel Subscription</button>
       <% } %>
     </div>
     <p class="billing-note">
@@ -306,6 +306,30 @@
 
 </section>
 
+<!-- Cancel Subscription Modal -->
+<div id="cancelSubscriptionModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:32px;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h3 style="margin:0;font-size:24px;color:#1f2937;">Cancel Subscription</h3>
+      <button onclick="closeCancelModal()" style="background:none;border:none;font-size:32px;color:#6b7280;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    
+    <p style="margin-bottom:20px;color:#6b7280;line-height:1.6;">
+      We're sorry to see you go! Your subscription will remain active until the end of your current billing period (January 15, 2026), and you'll continue to have access to all premium features until then.
+    </p>
+    
+    <div style="margin-bottom:24px;">
+      <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Why are you cancelling? (Optional)</label>
+      <textarea id="cancelReason" rows="4" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-family:inherit;resize:vertical;" placeholder="Let us know how we can improve..."></textarea>
+    </div>
+    
+    <div style="display:flex;gap:12px;justify-content:flex-end;">
+      <button onclick="closeCancelModal()" style="padding:12px 24px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;">Keep Subscription</button>
+      <button onclick="confirmCancelSubscription()" style="padding:12px 24px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;">Cancel Subscription</button>
+    </div>
+  </div>
+</div>
+
 <%- include('partials/footer') %>
 
 <script>
@@ -427,4 +451,55 @@
       });
     });
   })();
+
+  // Cancel Subscription Modal Functions
+  function openCancelModal() {
+    const modal = document.getElementById('cancelSubscriptionModal');
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+  }
+
+  function closeCancelModal() {
+    const modal = document.getElementById('cancelSubscriptionModal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  }
+
+  async function confirmCancelSubscription() {
+    const reason = document.getElementById('cancelReason')?.value?.trim() || 'No reason provided';
+    
+    if (!confirm('Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.')) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/subscription/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        alert('Your subscription has been cancelled. You will retain access until the end of your billing period.');
+        closeCancelModal();
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to cancel subscription. Please try again.');
+      }
+    } catch (err) {
+      console.error('Cancel subscription error:', err);
+      alert('Network error. Please try again.');
+    }
+  }
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (e) => {
+    const modal = document.getElementById('cancelSubscriptionModal');
+    if (modal && e.target === modal) {
+      closeCancelModal();
+    }
+  });
 </script>

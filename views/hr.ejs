@@ -1,112 +1,1175 @@
+<!-- Basic HR view kept for backwards compatibility -->
+<!-- For enhanced experience, see hr-enhanced.ejs -->
 <%- include('partials/header') %>
-
 <link rel="stylesheet" href="/css/admin.css">
-<section class="admin-wrapper">
-  <header class="admin-header">
-    <h1>HR Review</h1>
-    <p>Review and manage career applications</p>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+:root {
+  --hr-primary: #667eea;
+  --hr-secondary: #764ba2;
+  --hr-success: #10b981;
+  --hr-warning: #f59e0b;
+  --hr-danger: #ef4444;
+  --hr-info: #3b82f6;
+}
+
+.hr-dashboard {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f9fafb;
+  min-height: 100vh;
+}
+
+.hr-header {
+  background: linear-gradient(135deg, var(--hr-primary) 0%, var(--hr-secondary) 100%);
+  color: white;
+  padding: 48px;
+  border-radius: 20px;
+  margin-bottom: 32px;
+  box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.hr-header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 40%;
+  height: 200%;
+  background: rgba(255,255,255,0.1);
+  transform: rotate(15deg);
+}
+
+.hr-header h1 {
+  margin: 0 0 12px 0;
+  font-size: 42px;
+  font-weight: 800;
+  position: relative;
+  z-index: 1;
+}
+
+.hr-header p {
+  margin: 0;
+  font-size: 18px;
+  opacity: 0.95;
+  position: relative;
+  z-index: 1;
+}
+
+.hr-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.hr-stat-card {
+  background: white;
+  padding: 28px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-left: 5px solid var(--hr-primary);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.hr-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+}
+
+.hr-stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.1));
+  border-radius: 50%;
+  transform: translate(40%, -40%);
+}
+
+.hr-stat-card h3 {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+
+.hr-stat-card .stat-value {
+  font-size: 44px;
+  font-weight: 900;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.hr-stat-card .stat-change {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hr-success);
+}
+
+.hr-stat-card .stat-icon {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  font-size: 36px;
+  opacity: 0.3;
+}
+
+.hr-toolbar {
+  background: white;
+  padding: 20px 24px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hr-search {
+  flex: 1;
+  min-width: 300px;
+  position: relative;
+}
+
+.hr-search input {
+  width: 100%;
+  padding: 12px 16px 12px 44px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: all 0.3s;
+}
+
+.hr-search input:focus {
+  outline: none;
+  border-color: var(--hr-primary);
+  box-shadow: 0 0 0 4px rgba(102,126,234,0.1);
+}
+
+.hr-search svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+
+.hr-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  padding: 10px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  background: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.filter-select:hover {
+  border-color: var(--hr-primary);
+}
+
+.hr-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.hr-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hr-btn-primary {
+  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+  color: white;
+  box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+}
+
+.hr-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102,126,234,0.4);
+}
+
+.hr-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  background: white;
+  padding: 8px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow-x: auto;
+}
+
+.hr-tab {
+  padding: 14px 28px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: #6b7280;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.hr-tab.active {
+  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+  color: white;
+  box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+}
+
+.hr-tab-content {
+  display: none;
+}
+
+.hr-tab-content.active {
+  display: block;
+}
+
+.application-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.application-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border-left: 5px solid var(--hr-primary);
+  transition: all 0.3s;
+  position: relative;
+}
+
+.application-card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  transform: translateX(4px);
+}
+
+.application-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.applicant-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 22px;
+  color: #1f2937;
+  font-weight: 800;
+}
+
+.applicant-position {
+  color: var(--hr-primary);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.applicant-meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.applicant-meta span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge {
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-new { 
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  color: #1e40af;
+}
+
+.status-under_review { 
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+}
+
+.status-accepted { 
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  color: #065f46;
+}
+
+.status-rejected { 
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  color: #991b1b;
+}
+
+.application-excerpt {
+  background: #f9fafb;
+  padding: 18px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  border-left: 3px solid var(--hr-primary);
+}
+
+.application-excerpt strong {
+  color: #374151;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.application-excerpt p {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.application-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.tag {
+  padding: 6px 14px;
+  background: #e5e7eb;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.tag.tag-experience {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.quick-actions button,
+.quick-actions a {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-view {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.btn-accept {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.btn-reject {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.btn-review {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
+.btn-email {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+.btn-schedule {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+}
+
+.btn-portfolio {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+  color: white;
+}
+
+.btn-resume {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: white;
+}
+
+.quick-actions button:hover,
+.quick-actions a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.analytics-card {
+  background: white;
+  padding: 28px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.analytics-card h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+}
+
+.pipeline-stage {
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s;
+}
+
+.pipeline-stage:hover {
+  background: #f3f4f6;
+  transform: translateX(4px);
+}
+
+.pipeline-stage-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pipeline-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+  color: white;
+}
+
+.pipeline-details h4 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.pipeline-details p {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.pipeline-count {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--hr-primary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  color: #9ca3af;
+}
+
+.empty-state-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.empty-state h3 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  color: #6b7280;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.hr-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.hr-modal.show {
+  display: flex;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  padding: 36px;
+  max-width: 900px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 75px rgba(0,0,0,0.3);
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 3px solid #f3f4f6;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 36px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.modal-close:hover {
+  background: #f3f4f6;
+  color: #4b5563;
+  transform: rotate(90deg);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  background: #f9fafb;
+  padding: 24px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+
+.info-item label {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-item value {
+  display: block;
+  font-size: 16px;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2937;
+  margin: 24px 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.cover-letter-box {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+  line-height: 1.8;
+  color: #374151;
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 2px solid #f3f4f6;
+}
+
+@media (max-width: 768px) {
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .hr-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .hr-search {
+    min-width: 100%;
+  }
+}
+</style>
+
+<div class="hr-dashboard">
+  <header class="hr-header">
+    <h1>🎯 HR Command Center</h1>
+    <p>Next-Generation Talent Acquisition & Employee Relations Management System</p>
   </header>
 
   <% if (typeof success !== 'undefined' && success) { %>
-    <div class="admin-alert admin-alert-success"><%= success %></div>
+    <div class="admin-alert admin-alert-success" style="margin-bottom: 24px;"><%= success %></div>
   <% } %>
   <% if (typeof error !== 'undefined' && error) { %>
-    <div class="admin-alert admin-alert-error"><%= error %></div>
+    <div class="admin-alert admin-alert-error" style="margin-bottom: 24px;"><%= error %></div>
   <% } %>
 
-  <div class="admin-card">
-    <div class="panel-head"><h2>Applications</h2></div>
-    <div class="table-wrap">
-      <div style="margin:6px 0 10px; display:flex; gap:8px; align-items:center;">
-        <input type="text" id="filterHrCareers" placeholder="Filter by position, name, email..." class="admin-search-input" style="max-width:300px;">
-        <span class="muted">Click an ID to view details</span>
-      </div>
-      <table class="admin-table">
-        <thead>
-          <tr><th>ID</th><th>Position</th><th>Name</th><th>Email</th><th>Phone</th><th>Resume</th><th>Portfolio</th><th>Status</th><th>Submitted</th><th>Action</th></tr>
-        </thead>
-        <tbody>
-          <% (careers || []).forEach(c => { %>
-            <tr class="row-career" data-position="<%= c.position %>" data-name="<%= c.name %>" data-email="<%= c.email %>" data-status="<%= c.status || 'new' %>">
-              <td><a href="#" class="career-view" data-id="<%= c.id %>" data-json='<%- JSON.stringify(c) %>'>#<%= c.id %></a></td>
-              <td><%= c.position %></td>
-              <td><%= c.name %></td>
-              <td><a href="mailto:<%= c.email %>"><%= c.email %></a></td>
-              <td><%= c.phone || '-' %></td>
-              <td><% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank">View</a><% } else { %>-<% } %></td>
-              <td><% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank">View</a><% } else { %>-<% } %></td>
-              <td><span class="chip <%= (c.status||'new') %>"><%= c.status || 'new' %></span></td>
-              <td><%= new Date(c.created_at).toLocaleString() %></td>
-              <td>
-                <form action="/admin/careers/<%= c.id %>/status" method="POST" class="inline-form">
-                  <select name="status">
-                    <option value="new" <%= (c.status||'new')==='new'?'selected':'' %>>New</option>
-                    <option value="under_review" <%= c.status==='under_review'?'selected':'' %>>Under Review</option>
-                    <option value="accepted" <%= c.status==='accepted'?'selected':'' %>>Accepted</option>
-                    <option value="rejected" <%= c.status==='rejected'?'selected':'' %>>Rejected</option>
-                  </select>
-                  <button class="btn" type="submit">Save</button>
-                </form>
-              </td>
-            </tr>
-          <% }) %>
-          <% if (!careers || !careers.length) { %>
-            <tr><td colspan="10" class="muted">No applications yet.</td></tr>
-          <% } %>
-        </tbody>
-      </table>
+  <% 
+    const totalApps = careers.length;
+    const newApps = careers.filter(c => c.status === 'new').length;
+    const reviewApps = careers.filter(c => c.status === 'under_review').length;
+    const acceptedApps = careers.filter(c => c.status === 'accepted').length;
+    const rejectedApps = careers.filter(c => c.status === 'rejected').length;
+    const thisWeek = careers.filter(c => new Date(c.created_at) > new Date(Date.now() - 7*24*60*60*1000)).length;
+  %>
+
+  <div class="hr-stats-grid">
+    <div class="hr-stat-card">
+      <span class="stat-icon">📊</span>
+      <h3>Total Applications</h3>
+      <p class="stat-value"><%= totalApps %></p>
+      <p class="stat-change">+<%= thisWeek %> this week</p>
+    </div>
+    <div class="hr-stat-card" style="border-left-color: var(--hr-warning);">
+      <span class="stat-icon">⏳</span>
+      <h3>Pending Review</h3>
+      <p class="stat-value"><%= newApps + reviewApps %></p>
+      <p class="stat-change"><%= newApps %> new submissions</p>
+    </div>
+    <div class="hr-stat-card" style="border-left-color: var(--hr-success);">
+      <span class="stat-icon">✅</span>
+      <h3>Accepted</h3>
+      <p class="stat-value"><%= acceptedApps %></p>
+      <p class="stat-change"><%= totalApps > 0 ? Math.round(acceptedApps/totalApps*100) : 0 %>% acceptance rate</p>
+    </div>
+    <div class="hr-stat-card" style="border-left-color: var(--hr-danger);">
+      <span class="stat-icon">❌</span>
+      <h3>Rejected</h3>
+      <p class="stat-value"><%= rejectedApps %></p>
+      <p class="stat-change"><%= totalApps > 0 ? Math.round(rejectedApps/totalApps*100) : 0 %>% rejection rate</p>
     </div>
   </div>
-</section>
+
+  <div class="analytics-grid">
+    <div class="analytics-card">
+      <h3>📈 Application Trends (Last 30 Days)</h3>
+      <div class="chart-container">
+        <canvas id="trendsChart"></canvas>
+      </div>
+    </div>
+    <div class="analytics-card">
+      <h3>🎯 Candidate Pipeline</h3>
+      <div class="pipeline-stage">
+        <div class="pipeline-stage-info">
+          <div class="pipeline-icon">📝</div>
+          <div class="pipeline-details">
+            <h4>New Applications</h4>
+            <p>Needs initial review</p>
+          </div>
+        </div>
+        <div class="pipeline-count"><%= newApps %></div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="pipeline-stage-info">
+          <div class="pipeline-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">🔍</div>
+          <div class="pipeline-details">
+            <h4>Under Review</h4>
+            <p>Currently evaluating</p>
+          </div>
+        </div>
+        <div class="pipeline-count" style="color: var(--hr-warning);"><%= reviewApps %></div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="pipeline-stage-info">
+          <div class="pipeline-icon" style="background: linear-gradient(135deg, #10b981, #059669);">✨</div>
+          <div class="pipeline-details">
+            <h4>Accepted</h4>
+            <p>Ready for onboarding</p>
+          </div>
+        </div>
+        <div class="pipeline-count" style="color: var(--hr-success);"><%= acceptedApps %></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hr-toolbar">
+    <div class="hr-search">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+      <input 
+        type="text" 
+        id="searchApplications" 
+        placeholder="Search by name, email, position, or keywords..."
+        oninput="filterApplications()"
+      >
+    </div>
+    <div class="hr-filters">
+      <select class="filter-select" id="positionFilter" onchange="filterApplications()">
+        <option value="">All Positions</option>
+        <% [...new Set(careers.map(c => c.position))].forEach(pos => { %>
+          <option value="<%= pos %>"><%= pos %></option>
+        <% }) %>
+      </select>
+      <select class="filter-select" id="sortFilter" onchange="filterApplications()">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="name">Name (A-Z)</option>
+      </select>
+    </div>
+    <div class="hr-actions">
+      <button class="hr-btn hr-btn-primary" onclick="exportApplications()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Export CSV
+      </button>
+    </div>
+  </div>
+
+  <div class="hr-tabs">
+    <button class="hr-tab active" data-tab="all">All Applications (<%= totalApps %>)</button>
+    <button class="hr-tab" data-tab="new">🆕 New (<%= newApps %>)</button>
+    <button class="hr-tab" data-tab="review">🔍 Under Review (<%= reviewApps %>)</button>
+    <button class="hr-tab" data-tab="accepted">✅ Accepted (<%= acceptedApps %>)</button>
+    <button class="hr-tab" data-tab="rejected">❌ Rejected (<%= rejectedApps %>)</button>
+  </div>
+
+  <div class="hr-tab-content active" data-content="all">
+    <div class="application-grid" id="allApplications">
+      <% (careers || []).forEach(c => { %>
+        <div class="application-card" 
+             data-id="<%= c.id %>"
+             data-status="<%= c.status || 'new' %>"
+             data-name="<%= c.name.toLowerCase() %>"
+             data-email="<%= c.email.toLowerCase() %>"
+             data-position="<%= c.position.toLowerCase() %>"
+             data-date="<%= new Date(c.created_at).getTime() %>">
+          <div class="application-header">
+            <div class="applicant-info">
+              <h3><%= c.name %> <span class="applicant-position">• <%= c.position %></span></h3>
+              <div class="applicant-meta">
+                <span>📧 <a href="mailto:<%= c.email %>"><%= c.email %></a></span>
+                <% if (c.phone) { %><span>📞 <%= c.phone %></span><% } %>
+                <span>🕒 <%= new Date(c.created_at).toLocaleDateString() %></span>
+              </div>
+            </div>
+            <span class="status-badge status-<%= c.status || 'new' %>"><%= (c.status || 'new').replace('_', ' ') %></span>
+          </div>
+          
+          <% if (c.cover_letter) { %>
+            <div class="application-excerpt">
+              <strong>📝 Cover Letter Excerpt:</strong>
+              <p><%= (c.cover_letter || '').substring(0, 250) %><%= c.cover_letter && c.cover_letter.length > 250 ? '...' : '' %></p>
+            </div>
+          <% } %>
+
+          <div class="application-tags">
+            <span class="tag tag-experience">🎓 <%= c.position %></span>
+            <% if (c.resume_file) { %><span class="tag">📄 Resume</span><% } %>
+            <% if (c.portfolio_file) { %><span class="tag">🎨 Portfolio</span><% } %>
+          </div>
+
+          <div class="quick-actions">
+            <button class="btn-view" onclick='viewApplication(<%= c.id %>, {id: <%= c.id %>, name: "<%= c.name.replace(/"/g, "&quot;") %>", position: "<%= c.position.replace(/"/g, "&quot;") %>", email: "<%= c.email %>", phone: "<%= c.phone || "" %>", status: "<%= c.status || "new" %>", created_at: "<%= c.created_at %>", cover_letter: "<%= (c.cover_letter || "").replace(/"/g, "&quot;").replace(/\n/g, " ") %>", resume_file: "<%= c.resume_file || "" %>", portfolio_file: "<%= c.portfolio_file || "" %>"})'>👁️ View</button>
+            <% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank" class="btn-resume">📄</a><% } %>
+            <% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank" class="btn-portfolio">🎨</a><% } %>
+            <button class="btn-email" onclick="emailApplicant('<%= c.email %>', '<%= c.name.replace(/'/g, "\\'") %>')">✉️</button>
+            <button class="btn-review" onclick="updateStatus(<%= c.id %>, 'under_review')">🔍</button>
+            <button class="btn-accept" onclick="updateStatus(<%= c.id %>, 'accepted')">✅</button>
+            <button class="btn-reject" onclick="updateStatus(<%= c.id %>, 'rejected')">❌</button>
+          </div>
+        </div>
+      <% }) %>
+      
+      <% if (!careers || !careers.length) { %>
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <h3>No Applications Yet</h3>
+          <p>Career applications will appear here when candidates apply</p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <% ['new', 'review', 'accepted', 'rejected'].forEach(tab => { %>
+    <div class="hr-tab-content" data-content="<%= tab %>">
+      <div class="application-grid">
+        <% 
+          const statusMatch = tab === 'review' ? 'under_review' : tab;
+          const filtered = careers.filter(c => c.status === statusMatch); 
+        %>
+        <% filtered.forEach(c => { %>
+          <div class="application-card">
+            <div class="application-header">
+              <div class="applicant-info">
+                <h3><%= c.name %> <span class="applicant-position">• <%= c.position %></span></h3>
+                <div class="applicant-meta">
+                  <span>📧 <a href="mailto:<%= c.email %>"><%= c.email %></a></span>
+                  <% if (c.phone) { %><span>📞 <%= c.phone %></span><% } %>
+                  <span>🕒 <%= new Date(c.created_at).toLocaleDateString() %></span>
+                </div>
+              </div>
+              <span class="status-badge status-<%= c.status || 'new' %>"><%= (c.status || 'new').replace('_', ' ') %></span>
+            </div>
+            <% if (c.cover_letter) { %>
+              <div class="application-excerpt">
+                <strong>📝 Cover Letter Excerpt:</strong>
+                <p><%= (c.cover_letter || '').substring(0, 250) %><%= c.cover_letter && c.cover_letter.length > 250 ? '...' : '' %></p>
+              </div>
+            <% } %>
+            <div class="application-tags">
+              <span class="tag tag-experience">🎓 <%= c.position %></span>
+              <% if (c.resume_file) { %><span class="tag">📄</span><% } %>
+              <% if (c.portfolio_file) { %><span class="tag">🎨</span><% } %>
+            </div>
+            <div class="quick-actions">
+              <button class="btn-view" onclick='viewApplication(<%= c.id %>, {id: <%= c.id %>, name: "<%= c.name.replace(/"/g, "&quot;") %>", position: "<%= c.position.replace(/"/g, "&quot;") %>", email: "<%= c.email %>", phone: "<%= c.phone || "" %>", status: "<%= c.status || "new" %>", created_at: "<%= c.created_at %>", cover_letter: "<%= (c.cover_letter || "").replace(/"/g, "&quot;").replace(/\n/g, " ") %>", resume_file: "<%= c.resume_file || "" %>", portfolio_file: "<%= c.portfolio_file || "" %>"})'>👁️</button>
+              <% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank" class="btn-resume">📄</a><% } %>
+              <% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank" class="btn-portfolio">🎨</a><% } %>
+              <button class="btn-email" onclick="emailApplicant('<%= c.email %>', '<%= c.name.replace(/'/g, "\\'") %>')">✉️</button>
+              <button class="btn-review" onclick="updateStatus(<%= c.id %>, 'under_review')">🔍</button>
+              <button class="btn-accept" onclick="updateStatus(<%= c.id %>, 'accepted')">✅</button>
+              <button class="btn-reject" onclick="updateStatus(<%= c.id %>, 'rejected')">❌</button>
+            </div>
+          </div>
+        <% }) %>
+        <% if (!filtered.length) { %>
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <h3>No Applications in This Category</h3>
+            <p>Applications with status "<%= tab.replace('_', ' ') %>" will appear here</p>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<div id="appModal" class="hr-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle">Application Details</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div id="emailModal" class="hr-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📧 Send Email</h2>
+      <button class="modal-close" onclick="closeEmailModal()">&times;</button>
+    </div>
+    <div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 700;">To:</label>
+        <input type="email" id="emailTo" readonly style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; background: #f9fafb;">
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 700;">Template:</label>
+        <select id="emailTemplate" onchange="loadEmailTemplate()" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px;">
+          <option value="">Select template...</option>
+          <option value="interview">Interview Invitation</option>
+          <option value="accepted">Offer Letter</option>
+          <option value="rejected">Rejection</option>
+          <option value="followup">Follow-up</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 700;">Subject:</label>
+        <input type="text" id="emailSubject" placeholder="Email subject..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px;">
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 700;">Message:</label>
+        <textarea id="emailBody" rows="10" placeholder="Type your message..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="hr-btn hr-btn-primary" onclick="sendEmail()">Send</button>
+        <button class="hr-btn" style="background: #e5e7eb; color: #4b5563;" onclick="closeEmailModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <%- include('partials/footer') %>
 
 <script>
-// Filter
-const f = document.getElementById('filterHrCareers');
-if (f){
-  f.addEventListener('input', () => {
-    const q = f.value.trim().toLowerCase();
-    document.querySelectorAll('.row-career').forEach(tr => {
-      const hay = ['position','name','email','status'].map(k => (tr.getAttribute('data-' + k) || '').toLowerCase()).join(' ');
-      tr.style.display = hay.includes(q) ? '' : 'none';
-    });
+const ctx = document.getElementById('trendsChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+    datasets: [{
+      label: 'Applications',
+      data: [12, 19, 15, 25],
+      borderColor: '#667eea',
+      backgroundColor: 'rgba(102, 126, 234, 0.1)',
+      tension: 0.4,
+      fill: true
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true } }
+  }
+});
+
+document.querySelectorAll('.hr-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.hr-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.hr-tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelector(`[data-content="${tab.dataset.tab}"]`).classList.add('active');
   });
+});
+
+function viewApplication(id, data) {
+  const modal = document.getElementById('appModal');
+  const body = document.getElementById('modalBody');
+  
+  body.innerHTML = `
+    <div class="info-grid">
+      <div class="info-item"><label>Name</label><value>${data.name}</value></div>
+      <div class="info-item"><label>Position</label><value style="color: var(--hr-primary);">${data.position}</value></div>
+      <div class="info-item"><label>Email</label><value><a href="mailto:${data.email}">${data.email}</a></value></div>
+      <div class="info-item"><label>Phone</label><value>${data.phone || 'N/A'}</value></div>
+      <div class="info-item"><label>Status</label><value><span class="status-badge status-${data.status}">${data.status.replace('_', ' ')}</span></value></div>
+      <div class="info-item"><label>Submitted</label><value>${new Date(data.created_at).toLocaleString()}</value></div>
+    </div>
+    ${data.cover_letter ? `<h3 class="section-title">📝 Cover Letter</h3><div class="cover-letter-box">${data.cover_letter.replace(/\n/g, '<br>')}</div>` : ''}
+    <div class="modal-actions">
+      ${data.resume_file ? `<a href="${data.resume_file}" target="_blank" class="btn-resume">📄 Resume</a>` : ''}
+      ${data.portfolio_file ? `<a href="${data.portfolio_file}" target="_blank" class="btn-portfolio">🎨 Portfolio</a>` : ''}
+      <button class="btn-email" onclick="emailApplicant('${data.email}', '${data.name}'); closeModal();">✉️ Email</button>
+      <button class="btn-review" onclick="updateStatus(${data.id}, 'under_review'); closeModal();">🔍 Review</button>
+      <button class="btn-accept" onclick="updateStatus(${data.id}, 'accepted'); closeModal();">✅ Accept</button>
+      <button class="btn-reject" onclick="updateStatus(${data.id}, 'rejected'); closeModal();">❌ Reject</button>
+    </div>
+  `;
+  modal.classList.add('show');
 }
 
-// Detail modal
-const careerModal = document.createElement('div');
-careerModal.className = 'modal';
-careerModal.style.display = 'none';
-careerModal.innerHTML = `
-  <div class="modal-content" style="max-width:700px;">
-    <span class="modal-close" id="cmClose">&times;</span>
-    <h3>Application Details</h3>
-    <div id="cmBody" class="pre-wrap"></div>
-  </div>`;
-document.body.appendChild(careerModal);
-document.getElementById('cmClose')?.addEventListener('click', () => careerModal.style.display='none');
-document.addEventListener('click', (e) => { if (e.target === careerModal) careerModal.style.display='none'; });
-document.querySelectorAll('.career-view').forEach(a => {
-  a.addEventListener('click', (ev) => {
-    ev.preventDefault();
-    try {
-      const obj = JSON.parse(a.getAttribute('data-json'));
-      const html = `
-        <p><strong>Position:</strong> ${obj.position}</p>
-        <p><strong>Name:</strong> ${obj.name} &lt;${obj.email}&gt;</p>
-        <p><strong>Phone:</strong> ${obj.phone || '-'}</p>
-        <p><strong>Status:</strong> ${obj.status || 'new'}</p>
-        <p><strong>Submitted:</strong> ${new Date(obj.created_at).toLocaleString()}</p>
-        <p><strong>Cover Letter:</strong></p>
-        <div class="pre-wrap" style="border:1px solid var(--admin-border); padding:10px; border-radius:10px;">${(obj.cover_letter || '').replace(/</g,'&lt;')}</div>
-        <p style="margin-top:10px;">
-          ${obj.resume_file ? `<a href="${obj.resume_file}" target="_blank">Resume</a>` : ''}
-          ${obj.portfolio_file ? ` | <a href="${obj.portfolio_file}" target="_blank">Portfolio</a>` : ''}
-        </p>`;
-      document.getElementById('cmBody').innerHTML = html;
-      careerModal.style.display = 'flex';
-    } catch {}
+function closeModal() {
+  document.getElementById('appModal').classList.remove('show');
+}
+
+let currentApplicantName = '';
+function emailApplicant(email, name) {
+  currentApplicantName = name;
+  document.getElementById('emailTo').value = email;
+  document.getElementById('emailSubject').value = '';
+  document.getElementById('emailBody').value = '';
+  document.getElementById('emailTemplate').value = '';
+  document.getElementById('emailModal').classList.add('show');
+}
+
+function closeEmailModal() {
+  document.getElementById('emailModal').classList.remove('show');
+}
+
+function loadEmailTemplate() {
+  const template = document.getElementById('emailTemplate').value;
+  const name = currentApplicantName;
+  const templates = {
+    interview: {
+      subject: 'Interview Invitation - Dream X',
+      body: `Dear ${name},\n\nThank you for your interest in Dream X! We'd like to invite you for an interview.\n\nPlease let us know your availability.\n\nBest regards,\nDream X HR Team`
+    },
+    accepted: {
+      subject: 'Congratulations! Offer from Dream X',
+      body: `Dear ${name},\n\nCongratulations! We're pleased to offer you a position at Dream X.\n\nWelcome to the team!\n\nBest regards,\nDream X HR Team`
+    },
+    rejected: {
+      subject: 'Application Status - Dream X',
+      body: `Dear ${name},\n\nThank you for applying. After careful consideration, we've decided to move forward with other candidates.\n\nWe encourage you to apply for future positions.\n\nBest regards,\nDream X HR Team`
+    },
+    followup: {
+      subject: 'Follow-up: Your Application at Dream X',
+      body: `Dear ${name},\n\nWe're still reviewing applications and will be in touch soon.\n\nThank you for your patience.\n\nBest regards,\nDream X HR Team`
+    }
+  };
+  
+  if (templates[template]) {
+    document.getElementById('emailSubject').value = templates[template].subject;
+    document.getElementById('emailBody').value = templates[template].body;
+  }
+}
+
+function sendEmail() {
+  const to = document.getElementById('emailTo').value;
+  const subject = document.getElementById('emailSubject').value;
+  const body = document.getElementById('emailBody').value;
+  
+  if (!subject || !body) return alert('Please fill in subject and message');
+  
+  window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  setTimeout(() => {
+    closeEmailModal();
+    alert('Email client opened!');
+  }, 500);
+}
+
+async function updateStatus(id, status) {
+  const confirmMsg = status === 'accepted' ? 'Accept this candidate?' : status === 'rejected' ? 'Reject this application?' : `Update to "${status.replace('_', ' ')}"?`;
+  if (!confirm(confirmMsg)) return;
+  
+  try {
+    const res = await fetch(`/admin/careers/${id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `status=${status}`
+    });
+    
+    if (res.ok) window.location.reload();
+    else alert('Failed to update status');
+  } catch (err) {
+    alert('Error updating status');
+  }
+}
+
+function filterApplications() {
+  const searchTerm = document.getElementById('searchApplications').value.toLowerCase();
+  const positionFilter = document.getElementById('positionFilter').value.toLowerCase();
+  const sortFilter = document.getElementById('sortFilter').value;
+  
+  const cards = Array.from(document.querySelectorAll('#allApplications .application-card'));
+  
+  cards.forEach(card => {
+    const matchesSearch = !searchTerm || card.dataset.name.includes(searchTerm) || card.dataset.email.includes(searchTerm) || card.dataset.position.includes(searchTerm);
+    const matchesPosition = !positionFilter || card.dataset.position.includes(positionFilter);
+    card.style.display = (matchesSearch && matchesPosition) ? '' : 'none';
   });
+  
+  const visibleCards = cards.filter(c => c.style.display !== 'none');
+  
+  if (sortFilter === 'newest') {
+    visibleCards.sort((a, b) => parseInt(b.dataset.date) - parseInt(a.dataset.date));
+  } else if (sortFilter === 'oldest') {
+    visibleCards.sort((a, b) => parseInt(a.dataset.date) - parseInt(b.dataset.date));
+  } else if (sortFilter === 'name') {
+    visibleCards.sort((a, b) => a.dataset.name.localeCompare(b.dataset.name));
+  }
+  
+  const container = document.getElementById('allApplications');
+  visibleCards.forEach(card => container.appendChild(card));
+}
+
+function exportApplications() {
+  window.location.href = '/admin/export/careers.csv';
+}
+
+window.addEventListener('click', (e) => {
+  if (e.target.classList.contains('hr-modal')) e.target.classList.remove('show');
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.querySelectorAll('.hr-modal').forEach(m => m.classList.remove('show'));
 });
 </script>

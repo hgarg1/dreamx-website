@@ -1993,6 +1993,37 @@ main {
     font-size: 0.9rem;
 }
 
+/* Responsive attachments inside bubbles */
+.chat-attachment-image {
+    display: block;
+    max-width: min(100%, 420px);
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    margin: 4px 0;
+    cursor: zoom-in;
+}
+.chat-attachment-video {
+    display: block;
+    width: min(100%, 480px);
+    max-height: 320px;
+    border-radius: 10px;
+    margin: 6px 0;
+}
+.chat-attachment-audio {
+    width: 100%;
+    max-width: 420px;
+}
+.chat-attachment-file {
+    display: inline-block;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Carousel slides */
+.carousel-slide { flex: 0 0 100%; display:flex; align-items:center; justify-content:center; }
+.carousel-slide img { max-width: 100%; max-height: 80vh; object-fit: contain; }
+
 .chat-time {
     font-size: 0.75rem;
     color: rgba(255,255,255,0.85);
@@ -2097,6 +2128,13 @@ main {
 .posts-stream { display:flex; flex-direction:column; gap:1.5rem; }
 .post-card { background: var(--bg-white); border:2px solid var(--border-color); border-radius: var(--radius-lg); padding:1.1rem 1.1rem .9rem; box-shadow:0 4px 14px rgba(0,0,0,0.05); transition: var(--transition-fast); }
 .post-card:hover { border-color: var(--primary-color); box-shadow:0 6px 20px rgba(255,79,163,0.15); }
+/* Premium ring + subtle glow */
+.post-card.premium {
+    border: 2px solid transparent;
+    background: linear-gradient(#ffffff, #ffffff) padding-box,
+               linear-gradient(135deg, rgba(255,79,163,0.9), rgba(118,75,162,0.9)) border-box;
+    box-shadow: 0 10px 26px rgba(255,79,163,0.12);
+}
 .post-header { display:flex; align-items:center; gap:.9rem; margin-bottom:.5rem; }
 .post-user-meta { display:flex; flex-direction:column; }
 .post-user-name { font-size:.95rem; margin:0; font-weight:600; }
@@ -2109,6 +2147,32 @@ main {
 .post-footer { display:flex; gap:1rem; }
 .post-action { background: var(--bg-light); border:2px solid var(--border-color); padding:.45rem .9rem; font-size:.65rem; font-weight:600; border-radius: 30px; cursor:pointer; transition: var(--transition-fast); }
 .post-action:hover { border-color: var(--primary-color); background:#fff; }
+
+/* Reactions row */
+.reactions-row { gap: 10px 12px; }
+.reactions-row .rx-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1.5px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    font-weight: 700;
+    font-size: .85rem;
+    transition: all .2s ease;
+}
+.reactions-row .rx-btn:hover { border-color: var(--primary-color); transform: translateY(-1px); }
+.reactions-row .rx-btn.active { background: rgba(255,79,163,0.08); color:#111827; border-color: rgba(255,79,163,0.35); }
+
+/* Comments panel + input */
+.comments-panel { background: #fafafb; border: 1px dashed #e5e7eb; border-radius: 12px; padding: 12px; }
+.comment-input-row { display:flex; gap: 8px; margin-top: 10px; }
+.comment-input-row .comment-input { flex:1; border:2px solid var(--border-color); border-radius: 999px; padding: 10px 14px; font-size:.9rem; }
+.comment-input-row .comment-send { border-radius: 999px; padding: 10px 18px; box-shadow: 0 4px 12px rgba(255,79,163,0.25); }
+.comment-item { gap: 10px; }
 
 /* Suggested Creators */
 .suggested-creators { display:flex; flex-direction:column; gap:.9rem; }
@@ -2202,6 +2266,67 @@ main {
 .service-desc { font-size:.75rem; line-height:1.5; margin:0; color: var(--text-dark); }
 .service-btn { align-self:flex-start; background: var(--primary-color); color:#fff; text-decoration:none; font-size:.65rem; font-weight:600; padding:.45rem .85rem; border-radius:30px; box-shadow:0 3px 10px rgba(255,79,163,0.35); transition: var(--transition-fast); }
 .service-btn:hover { background: var(--primary-hover); }
+
+/* Reels Grid - Google Electric Border Animation */
+.reel-card {
+  position: relative;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.reel-card::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  padding: 4px;
+  background: linear-gradient(45deg, 
+    #4285f4, #ea4335, #fbbc04, #34a853, 
+    #4285f4, #ea4335, #fbbc04, #34a853
+  );
+  background-size: 400% 400%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: electric-border 8s linear infinite;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.reel-card:hover::before {
+  opacity: 1;
+}
+
+.reel-card:hover {
+  transform: scale(1.02);
+}
+
+@keyframes electric-border {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.reel-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.7));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+  pointer-events: none;
+}
 
 @media (max-width: 800px){
     .profile-stats { gap:1.2rem; }
@@ -4155,3 +4280,68 @@ main {
         padding: var(--spacing-xs);
     }
 }
+
+/* ===================================
+   MESSAGE REACTIONS
+   =================================== */
+.chat-message-wrapper:hover .quick-react-btn {
+    opacity: 1 !important;
+}
+
+.quick-react-btn {
+    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.quick-react-btn:hover {
+    transform: scale(1.1);
+    background: #f3f4f6 !important;
+}
+
+.quick-react-btn:active {
+    transform: scale(0.95);
+}
+
+.reaction-picker {
+    animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.reaction-option:active {
+    transform: scale(0.9);
+}
+
+.message-reactions {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Comment reply indicator */
+.comment-item .reply {
+    position: relative;
+}
+
+.comment-item .reply::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(135deg, #7C3AED 0%, #9f7aea 100%);
+    opacity: 0.3;
+}
+

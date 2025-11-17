@@ -75,30 +75,45 @@
       <div class="chat-history" id="chatHistory" aria-live="polite">
         <% if(messages && messages.length > 0) { %>
           <% messages.forEach(function(msg){ %>
-            <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>">
-              <div class="chat-bubble">
-                <% if (msg.content) { %>
-                  <p class="chat-text"><%= msg.content %></p>
-                <% } else if (msg.attachment_url) { %>
-                  <p class="chat-text" style="font-size:0.85rem;opacity:0.8;">📎 <%= msg.attachment_url.split('/').pop().replace(/^chat-\d+-\d+-/, '') %></p>
-                <% } %>
-                <% if (msg.attachment_url) { %>
-                  <% const mime = (msg.attachment_mime || '').toLowerCase(); %>
-                  <% if (mime.startsWith('image/')) { %>
-                    <img class="chat-attachment-image" src="<%= msg.attachment_url %>" alt="Image attachment" />
-                  <% } else if (mime.startsWith('video/')) { %>
-                    <video class="chat-attachment-video" controls src="<%= msg.attachment_url %>"></video>
-                  <% } else if (mime.startsWith('audio/')) { %>
-                    <audio class="chat-attachment-audio" controls src="<%= msg.attachment_url %>"></audio>
-                  <% } else if (mime === 'application/pdf') { %>
-                    <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">View PDF</a>
-                  <% } else if (mime === 'text/plain') { %>
-                    <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">View Text File</a>
-                  <% } else { %>
-                    <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">Download attachment</a>
+            <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>" data-created-at="<%= msg.created_at %>">
+              <div class="chat-bubble-container" style="position:relative;display:inline-block;">
+                <div class="chat-bubble">
+                  <% if (msg.content) { %>
+                    <p class="chat-text"><%= msg.content %></p>
+                  <% } else if (msg.attachment_url) { %>
+                    <p class="chat-text" style="font-size:0.85rem;opacity:0.8;">📎 <%= msg.attachment_url.split('/').pop().replace(/^chat-\d+-\d+-/, '') %></p>
                   <% } %>
-                <% } %>
-                <span class="chat-time"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %></span>
+                  <% if (msg.attachment_url) { %>
+                    <% const mime = (msg.attachment_mime || '').toLowerCase(); %>
+                    <% if (mime.startsWith('image/')) { %>
+                      <img class="chat-attachment-image" src="<%= msg.attachment_url %>" alt="Image attachment" onclick="openImageCarousel(this)" />
+                    <% } else if (mime.startsWith('video/')) { %>
+                      <video class="chat-attachment-video" controls src="<%= msg.attachment_url %>"></video>
+                    <% } else if (mime.startsWith('audio/')) { %>
+                      <audio class="chat-attachment-audio" controls src="<%= msg.attachment_url %>"></audio>
+                    <% } else if (mime === 'application/pdf') { %>
+                      <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">View PDF</a>
+                    <% } else if (mime === 'text/plain') { %>
+                      <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">View Text File</a>
+                    <% } else { %>
+                      <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">Download attachment</a>
+                    <% } %>
+                  <% } %>
+                  <span class="chat-time"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %></span>
+                </div>
+                <!-- Quick reaction button (long-press for more options) -->
+                <button type="button" class="quick-react-btn" data-message-id="<%= msg.id %>" style="position:absolute;bottom:4px;<%= msg.sender_id === authUser.id ? 'left' : 'right' %>:-32px;background:white;border:1px solid #e5e7eb;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.1);">❤️</button>
+                <!-- Reaction picker (shown on long-press) -->
+                <div class="reaction-picker" data-message-id="<%= msg.id %>" style="position:absolute;bottom:40px;<%= msg.sender_id === authUser.id ? 'left' : 'right' %>:0;background:white;border:1px solid #e5e7eb;border-radius:24px;padding:8px;display:none;flex-direction:row;gap:4px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:100;">
+                  <button type="button" class="reaction-option" data-type="like" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:12px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">❤️</button>
+                  <button type="button" class="reaction-option" data-type="love" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:12px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">😍</button>
+                  <button type="button" class="reaction-option" data-type="laugh" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:12px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">😂</button>
+                  <button type="button" class="reaction-option" data-type="wow" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:12px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">😮</button>
+                  <button type="button" class="reaction-option" data-type="fire" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:12px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">🔥</button>
+                  <button type="button" class="reaction-option" data-type="thumbsup" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:12px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">👍</button>
+                </div>
+                <!-- Reaction display -->
+                <div class="message-reactions" data-message-id="<%= msg.id %>" style="display:none;margin-top:4px;gap:4px;flex-wrap:wrap;"></div>
               </div>
             </div>
           <% }); %>
@@ -117,9 +132,10 @@
         <span id="fileStatusIcon">📎</span>
         <span id="fileStatusText">Ready to send</span>
       </div>
+      <div id="typingIndicator" style="display:none;margin-bottom:.25rem;color:var(--text-light);font-size:.85rem;font-weight:600;">Typing...</div>
       <form id="messageForm" class="chat-input-row" enctype="multipart/form-data">
         <label class="chat-attach-btn" for="fileInput" title="Attach file" aria-label="Attach file">📎</label>
-        <input type="file" id="fileInput" name="file" accept="image/*,video/*,audio/*,.pdf,.txt" style="display:none" />
+        <input type="file" id="fileInput" name="files" accept="image/*,video/*,audio/*,.pdf,.txt" multiple style="display:none" />
         <div id="filePreview" style="display:none;padding:.5rem;border:2px dashed var(--border-color);border-radius:8px;margin-bottom:.5rem;font-size:.7rem;"></div>
         <textarea id="messageInput" class="chat-input" rows="1" placeholder="Type a message..." aria-label="Message input"></textarea>
         <button type="submit" class="chat-send-btn" id="sendBtn">Send</button>
@@ -161,16 +177,27 @@
     }
   });
 
+  // Read receipts: mark outgoing messages as seen up to a given ID
+  socket.on('read-receipt', (payload) => {
+    try {
+      if (!payload || payload.conversationId !== currentConversationId) return;
+      if (typeof payload.lastReadMessageId === 'number') {
+        markSeenForOutgoingUpTo(payload.lastReadMessageId);
+      }
+    } catch (e) { console.error('read-receipt handling error', e); }
+  });
+
   // Send message form handler (with optional file + drag-drop + progress)
-  let selectedFile = null;
+  let selectedFiles = [];
   const fileInput = document.getElementById('fileInput');
   const filePreview = document.getElementById('filePreview');
   const uploadProgress = document.getElementById('uploadProgress');
   const progressBar = document.getElementById('progressBar');
   const sendBtn = document.getElementById('sendBtn');
+  const typingIndicator = document.getElementById('typingIndicator');
 
   fileInput?.addEventListener('change', (e) => {
-    selectedFile = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+    selectedFiles = e.target.files ? Array.from(e.target.files) : [];
     updateFilePreview();
   });
 
@@ -179,7 +206,7 @@
     const statusIcon = document.getElementById('fileStatusIcon');
     const statusText = document.getElementById('fileStatusText');
     
-    if (!selectedFile) {
+    if (!selectedFiles || selectedFiles.length === 0) {
       filePreview.style.display = 'none';
       filePreview.innerHTML = '';
       statusIndicator.style.display = 'none';
@@ -189,21 +216,32 @@
     // Show status indicator
     statusIndicator.style.display = 'flex';
     statusIcon.textContent = '📎';
-    statusText.textContent = `Ready to send: ${selectedFile.name}`;
+    statusText.textContent = selectedFiles.length === 1 ? `Ready to send: ${selectedFiles[0].name}` : `Ready to send ${selectedFiles.length} files`;
     
     filePreview.style.display = 'block';
-    filePreview.innerHTML = `
-      <div style="display:flex;align-items:center;gap:.5rem;">
-        <span style="font-weight:700;">${selectedFile.name}</span>
-        <span style="color:var(--text-light);">(${(selectedFile.size / 1024).toFixed(1)} KB)</span>
-        <button type="button" onclick="clearFile()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--primary-color);font-weight:700;">✕</button>
+    filePreview.innerHTML = selectedFiles.map((f, idx) => `
+      <div style="display:flex;align-items:center;gap:.5rem;margin:.15rem 0;">
+        <span style="font-weight:700;">${f.name}</span>
+        <span style="color:var(--text-light);">(${(f.size / 1024).toFixed(1)} KB)</span>
+        <button type="button" onclick="removeSelectedFile(${idx})" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--primary-color);font-weight:700;">✕</button>
       </div>
-    `;
+    `).join('') + `
+      <div style="text-align:right;margin-top:.25rem;">
+        <button type="button" onclick="clearFile()" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:700;">Clear all</button>
+      </div>`;
   }
 
   window.clearFile = () => {
-    selectedFile = null;
+    selectedFiles = [];
     fileInput.value = '';
+    updateFilePreview();
+  };
+  window.removeSelectedFile = (idx) => {
+    if (!selectedFiles || idx < 0 || idx >= selectedFiles.length) return;
+    selectedFiles.splice(idx, 1);
+    const dt = new DataTransfer();
+    selectedFiles.forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
     updateFilePreview();
   };
 
@@ -224,9 +262,11 @@
     e.stopPropagation();
     chatHistory.style.background = '';
     const files = e.dataTransfer?.files;
-    if (files && files[0]) {
-      selectedFile = files[0];
-      fileInput.files = e.dataTransfer.files;
+    if (files && files.length) {
+      selectedFiles = Array.from(files);
+      const dt = new DataTransfer();
+      selectedFiles.forEach(f => dt.items.add(f));
+      fileInput.files = dt.files;
       updateFilePreview();
     }
   });
@@ -237,7 +277,7 @@
     const input = document.getElementById('messageInput');
     const content = (input.value || '').trim();
     
-    if ((!content && !selectedFile) || !currentConversationId) return;
+    if ((!content && (!selectedFiles || selectedFiles.length === 0)) || !currentConversationId) return;
     
     try {
       const statusIndicator = document.getElementById('fileStatusIndicator');
@@ -248,16 +288,18 @@
       progressBar.style.width = '0%';
       sendBtn.disabled = true;
 
-      if (selectedFile) {
+      if (selectedFiles && selectedFiles.length > 0) {
         statusIndicator.style.display = 'flex';
         statusIcon.textContent = '⏳';
-        statusText.textContent = 'Uploading...';
+        statusText.textContent = selectedFiles.length === 1 ? 'Uploading...' : `Uploading ${selectedFiles.length} files...`;
       }
 
       const form = new FormData();
       form.append('conversationId', currentConversationId);
       form.append('content', content);
-      if (selectedFile) form.append('file', selectedFile);
+      if (selectedFiles && selectedFiles.length > 0) {
+        selectedFiles.forEach(f => form.append('files', f));
+      }
 
       // XMLHttpRequest for real progress tracking
       const xhr = new XMLHttpRequest();
@@ -265,7 +307,7 @@
         if (evt.lengthComputable) {
           const pct = (evt.loaded / evt.total) * 100;
           progressBar.style.width = pct + '%';
-          if (selectedFile) {
+          if (selectedFiles && selectedFiles.length > 0) {
             statusText.textContent = `Uploading... ${Math.round(pct)}%`;
           }
         }
@@ -310,6 +352,9 @@
     const wrapper = document.createElement('div');
     wrapper.className = `chat-message-wrapper ${isOutgoing ? 'outgoing' : 'incoming'}`;
     wrapper.setAttribute('data-message-id', msg.id);
+    if (msg.created_at) {
+      wrapper.setAttribute('data-created-at', msg.created_at);
+    }
     
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
@@ -337,6 +382,7 @@
         img.className = 'chat-attachment-image';
         img.src = msg.attachment_url;
         img.alt = 'Image attachment';
+        img.addEventListener('click', () => openImageCarousel(img));
         bubble.appendChild(img);
       } else if (m.startsWith('video/')) {
         const v = document.createElement('video');
@@ -386,6 +432,26 @@
     chatHistory.appendChild(wrapper);
   }
 
+  // Mark all outgoing messages with id <= lastId as seen (double check)
+  function markSeenForOutgoingUpTo(lastId) {
+    if (!lastId) return;
+    const nodes = document.querySelectorAll('.chat-message-wrapper.outgoing');
+    nodes.forEach(w => {
+      const mid = parseInt(w.getAttribute('data-message-id'), 10);
+      if (!isNaN(mid) && mid <= lastId) {
+        const bubble = w.querySelector('.chat-bubble');
+        const timeEl = bubble?.querySelector('.chat-time');
+        if (!timeEl) return;
+        if (!timeEl.querySelector('.chat-status')) {
+          const status = document.createElement('span');
+          status.className = 'chat-status';
+          status.textContent = ' ✓✓';
+          timeEl.appendChild(status);
+        }
+      }
+    });
+  }
+
   // Helper: Scroll to bottom
   function scrollToBottom() {
     const chatHistory = document.getElementById('chatHistory');
@@ -402,11 +468,85 @@
   messageInput?.addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = (this.scrollHeight) + 'px';
+    handleTyping();
+  });
+
+  // Typing indicator emit/debounce and listeners
+  let typingTimeout = null;
+  let typingSent = false;
+  function handleTyping(){
+    if (!currentConversationId || !authUserId) return;
+    try {
+      if (!typingSent) {
+        socket.emit('typing', { conversationId: currentConversationId, userId: authUserId });
+        typingSent = true;
+      }
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        socket.emit('stop-typing', { conversationId: currentConversationId, userId: authUserId });
+        typingSent = false;
+      }, 1500);
+    } catch(e) { console.error('typing emit error', e); }
+  }
+
+  socket.on('typing', (payload) => {
+    if (!payload || payload.conversationId !== currentConversationId) return;
+    if (payload.userId && authUserId && payload.userId === authUserId) return; // ignore self
+    typingIndicator.style.display = 'block';
+    typingIndicator.textContent = 'Typing...';
+  });
+  socket.on('stop-typing', (payload) => {
+    if (!payload || payload.conversationId !== currentConversationId) return;
+    if (payload.userId && authUserId && payload.userId === authUserId) return;
+    typingIndicator.style.display = 'none';
   });
 
   // Scroll to bottom on load
   if (currentConversationId) {
     scrollToBottom();
+  }
+
+  // Image carousel modal
+  function collectGroupImages(clickedImg) {
+    const wrapper = clickedImg.closest('.chat-message-wrapper');
+    let imgs = Array.from(wrapper.querySelectorAll('.chat-attachment-image'));
+    if (imgs.length <= 1) {
+      const isOutgoing = wrapper.classList.contains('outgoing');
+      const baseTime = new Date(wrapper.getAttribute('data-created-at') || Date.now()).getTime();
+      const siblings = Array.from(document.querySelectorAll('.chat-message-wrapper.' + (isOutgoing ? 'outgoing' : 'incoming')));
+      const windowMs = 2 * 60 * 1000;
+      const grouped = [];
+      siblings.forEach(w => {
+        const t = new Date(w.getAttribute('data-created-at') || 0).getTime();
+        if (Math.abs(t - baseTime) <= windowMs) {
+          grouped.push(...Array.from(w.querySelectorAll('.chat-attachment-image')));
+        }
+      });
+      if (grouped.length > 0) imgs = grouped;
+    }
+    const startIdx = imgs.findIndex(i => i === clickedImg);
+    if (startIdx > 0) imgs = imgs.slice(startIdx).concat(imgs.slice(0, startIdx));
+    return imgs.map(i => i.getAttribute('src'));
+  }
+
+  function openImageCarousel(imgEl) {
+    const images = collectGroupImages(imgEl);
+    if (!images || images.length === 0) return;
+    const overlay = document.getElementById('imageCarouselOverlay');
+    const track = document.getElementById('imageCarouselTrack');
+    track.innerHTML = images.map(src => `<div class="carousel-slide"><img src="${src}" alt="preview"></div>`).join('');
+    overlay.style.display = 'flex';
+    let idx = 0;
+    updateCarousel(idx);
+    function updateCarousel(i){
+      const slides = track.children.length;
+      idx = ((i % slides) + slides) % slides;
+      track.style.transform = `translateX(-${idx * 100}%)`;
+      document.getElementById('carouselCounter').textContent = `${idx+1}/${slides}`;
+    }
+    window._carouselPrev = () => updateCarousel(idx - 1);
+    window._carouselNext = () => updateCarousel(idx + 1);
+    window._carouselClose = () => { overlay.style.display = 'none'; track.innerHTML=''; };
   }
 
   // New Group modal
@@ -490,6 +630,180 @@
       alert('Failed to create group');
     }
   };
+
+  // Message Reactions - Quick react and long-press for picker
+  const reactionEmojis = {
+    like: '❤️',
+    love: '😍',
+    laugh: '😂',
+    wow: '😮',
+    fire: '🔥',
+    thumbsup: '👍'
+  };
+
+  // Show quick react button on hover
+  document.addEventListener('mouseover', (e) => {
+    const wrapper = e.target.closest('.chat-message-wrapper');
+    if (wrapper) {
+      const btn = wrapper.querySelector('.quick-react-btn');
+      if (btn) btn.style.opacity = '1';
+    }
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const wrapper = e.target.closest('.chat-message-wrapper');
+    if (wrapper && !wrapper.contains(e.relatedTarget)) {
+      const btn = wrapper.querySelector('.quick-react-btn');
+      if (btn) btn.style.opacity = '0';
+    }
+  });
+
+  // Quick react click handler
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.quick-react-btn');
+    if (btn) {
+      const messageId = btn.getAttribute('data-message-id');
+      await reactToMessage(messageId, 'like');
+    }
+  });
+
+  // Long press to show reaction picker
+  let pressTimer = null;
+  let pressTarget = null;
+
+  document.addEventListener('mousedown', (e) => {
+    const wrapper = e.target.closest('.chat-message-wrapper');
+    if (wrapper) {
+      pressTarget = wrapper;
+      pressTimer = setTimeout(() => {
+        const picker = wrapper.querySelector('.reaction-picker');
+        if (picker) {
+          picker.style.display = 'flex';
+        }
+      }, 500); // 500ms long press
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+      pressTarget = null;
+    }
+  });
+
+  document.addEventListener('mouseleave', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+      pressTarget = null;
+    }
+  });
+
+  // Touch support for mobile long-press
+  document.addEventListener('touchstart', (e) => {
+    const wrapper = e.target.closest('.chat-message-wrapper');
+    if (wrapper) {
+      pressTarget = wrapper;
+      pressTimer = setTimeout(() => {
+        const picker = wrapper.querySelector('.reaction-picker');
+        if (picker) {
+          picker.style.display = 'flex';
+        }
+      }, 500);
+    }
+  });
+
+  document.addEventListener('touchend', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+      pressTarget = null;
+    }
+  });
+
+  // Reaction option click handler
+  document.addEventListener('click', async (e) => {
+    const option = e.target.closest('.reaction-option');
+    if (option) {
+      const type = option.getAttribute('data-type');
+      const picker = option.closest('.reaction-picker');
+      const messageId = picker.getAttribute('data-message-id');
+      await reactToMessage(messageId, type);
+      picker.style.display = 'none';
+    }
+  });
+
+  // Close reaction picker when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.reaction-picker') && !e.target.closest('.chat-message-wrapper')) {
+      document.querySelectorAll('.reaction-picker').forEach(picker => {
+        picker.style.display = 'none';
+      });
+    }
+  });
+
+  // React to message function
+  async function reactToMessage(messageId, reactionType) {
+    try {
+      const res = await fetch(`/api/messages/${messageId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reactionType })
+      });
+      const data = await res.json();
+      if (data.success) {
+        updateMessageReactions(messageId, data.counts);
+      }
+    } catch (err) {
+      console.error('Reaction error:', err);
+    }
+  }
+
+  // Update message reactions display
+  function updateMessageReactions(messageId, counts) {
+    const wrapper = document.querySelector(`.chat-message-wrapper[data-message-id="${messageId}"]`);
+    if (!wrapper) return;
+    
+    const reactionsDiv = wrapper.querySelector('.message-reactions');
+    if (!reactionsDiv) return;
+    
+    const hasReactions = Object.values(counts).some(c => c > 0);
+    if (!hasReactions) {
+      reactionsDiv.style.display = 'none';
+      reactionsDiv.innerHTML = '';
+      return;
+    }
+    
+    reactionsDiv.style.display = 'flex';
+    reactionsDiv.innerHTML = Object.entries(counts)
+      .filter(([_, count]) => count > 0)
+      .map(([type, count]) => `
+        <span style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;padding:2px 8px;font-size:0.85rem;display:inline-flex;align-items:center;gap:4px;">
+          ${reactionEmojis[type] || '❤️'} ${count}
+        </span>
+      `).join('');
+  }
+
+  // Listen for message reaction events via socket
+  socket.on('message-reaction', (payload) => {
+    if (payload.messageId) {
+      updateMessageReactions(payload.messageId, payload.counts);
+    }
+  });
+
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = `/messages?conversation=${data.conversationId}`;
+      } else {
+        alert(data.error || 'Failed to create group');
+      }
+    } catch(e) {
+      console.error('Group creation error:', e);
+      alert('Failed to create group');
+    }
+  };
 </script>
 
 <!-- Group Creation Modal -->
@@ -516,6 +830,19 @@
       <button type="button" onclick="createGroup()" style="width:100%;background:var(--primary-color);color:#fff;border:none;padding:.75rem;border-radius:50px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,79,163,.4);">Create Group</button>
     </div>
   </div>
+</div>
+
+<!-- Image Carousel Modal -->
+<div id="imageCarouselOverlay" style="display:none;position:fixed;z-index:2500;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.9);align-items:center;justify-content:center;">
+  <button onclick="_carouselClose()" aria-label="Close" style="position:absolute;top:16px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;">×</button>
+  <button onclick="_carouselPrev()" aria-label="Previous" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:999px;width:40px;height:40px;cursor:pointer;">‹</button>
+  <div style="width:94%;max-width:920px;overflow:hidden;">
+    <div id="imageCarouselTrack" style="display:flex;transition:transform .3s ease;">
+      <!-- slides injected here -->
+    </div>
+  </div>
+  <button onclick="_carouselNext()" aria-label="Next" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:999px;width:40px;height:40px;cursor:pointer;">›</button>
+  <div id="carouselCounter" style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-weight:700;">1/1</div>
 </div>
 
 <%- include('partials/footer') %>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div style="max-width:600px;width:100%;background:white;border-radius:24px;padding:48px;box-shadow:0 24px 80px rgba(0,0,0,0.25);">
+        <% if (accountStatus.status === 'banned') { %>
+            <div style="text-align:center;margin-bottom:32px;">
+                <div style="width:80px;height:80px;background:#fee2e2;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:3rem;">
+                    🚫
+                </div>
+                <h1 style="font-size:2rem;font-weight:800;margin:0 0 12px;color:#111827;">Account Banned</h1>
+                <p style="color:#6b7280;font-size:1.1rem;margin:0;">Your account has been permanently banned from Dream X.</p>
+            </div>
+            
+            <div style="background:#fef2f2;border:2px solid #fecaca;border-radius:12px;padding:20px;margin-bottom:24px;">
+                <h3 style="margin:0 0 8px;font-size:1rem;font-weight:700;color:#991b1b;">Reason for Ban</h3>
+                <p style="margin:0;color:#7f1d1d;"><%= accountStatus.suspensionReason || 'Violation of community guidelines' %></p>
+            </div>
+            
+            <p style="color:#6b7280;margin-bottom:24px;">
+                If you believe this ban was issued in error or would like to appeal, you can submit an account appeal.
+            </p>
+            
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <a href="/account-appeal" style="flex:1;min-width:200px;padding:14px 24px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;text-align:center;border-radius:12px;text-decoration:none;font-weight:700;box-shadow:0 4px 16px rgba(255,79,163,0.3);">Submit Appeal</a>
+                <a href="/community-guidelines" style="flex:1;min-width:200px;padding:14px 24px;background:#f3f4f6;color:#374151;text-align:center;border-radius:12px;text-decoration:none;font-weight:700;">Review Guidelines</a>
+            </div>
+            
+        <% } else if (accountStatus.status === 'suspended') { %>
+            <div style="text-align:center;margin-bottom:32px;">
+                <div style="width:80px;height:80px;background:#fef3c7;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:3rem;">
+                    ⏸️
+                </div>
+                <h1 style="font-size:2rem;font-weight:800;margin:0 0 12px;color:#111827;">Account Suspended</h1>
+                <p style="color:#6b7280;font-size:1.1rem;margin:0;">Your account has been temporarily suspended.</p>
+            </div>
+            
+            <div style="background:#fffbeb;border:2px solid #fde68a;border-radius:12px;padding:20px;margin-bottom:24px;">
+                <h3 style="margin:0 0 8px;font-size:1rem;font-weight:700;color:#92400e;">Suspension Details</h3>
+                <div style="color:#78350f;">
+                    <p style="margin:8px 0;"><strong>Reason:</strong> <%= accountStatus.suspensionReason || 'Temporary suspension' %></p>
+                    <% if (accountStatus.suspensionUntil) { %>
+                        <p style="margin:8px 0;"><strong>Suspended Until:</strong> <%= new Date(accountStatus.suspensionUntil).toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %></p>
+                        <p style="margin:8px 0;"><strong>Time Remaining:</strong> <span id="countdown"></span></p>
+                    <% } %>
+                </div>
+            </div>
+            
+            <script>
+                const suspendedUntil = new Date('<%= accountStatus.suspensionUntil %>');
+                function updateCountdown() {
+                    const now = new Date();
+                    const diff = suspendedUntil - now;
+                    
+                    if (diff <= 0) {
+                        document.getElementById('countdown').textContent = 'Suspension has ended. You may now log in.';
+                        setTimeout(() => window.location.href = '/login', 2000);
+                        return;
+                    }
+                    
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                    
+                    let countdownText = '';
+                    if (days > 0) countdownText += `${days} day${days > 1 ? 's' : ''} `;
+                    if (hours > 0 || days > 0) countdownText += `${hours} hour${hours !== 1 ? 's' : ''} `;
+                    if (minutes > 0 || hours > 0 || days > 0) countdownText += `${minutes} minute${minutes !== 1 ? 's' : ''} `;
+                    countdownText += `${seconds} second${seconds !== 1 ? 's' : ''}`;
+                    
+                    document.getElementById('countdown').textContent = countdownText;
+                }
+                
+                updateCountdown();
+                setInterval(updateCountdown, 1000);
+            </script>
+            
+            <p style="color:#6b7280;margin-bottom:24px;">
+                During this suspension, you cannot access your account or post content. If you believe this suspension was issued in error, you may submit an appeal.
+            </p>
+            
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <a href="/account-appeal" style="flex:1;min-width:200px;padding:14px 24px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;text-align:center;border-radius:12px;text-decoration:none;font-weight:700;box-shadow:0 4px 16px rgba(255,79,163,0.3);">Submit Appeal</a>
+                <a href="/community-guidelines" style="flex:1;min-width:200px;padding:14px 24px;background:#f3f4f6;color:#374151;text-align:center;border-radius:12px;text-decoration:none;font-weight:700;">Review Guidelines</a>
+            </div>
+            
+        <% } else { %>
+            <div style="text-align:center;margin-bottom:32px;">
+                <div style="width:80px;height:80px;background:#d1fae5;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:3rem;">
+                    ✅
+                </div>
+                <h1 style="font-size:2rem;font-weight:800;margin:0 0 12px;color:#111827;">Account in Good Standing</h1>
+                <p style="color:#6b7280;font-size:1.1rem;margin:0;">Your account is active and in good standing.</p>
+            </div>
+            
+            <div style="background:#ecfdf5;border:2px solid #a7f3d0;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+                <p style="margin:0;color:#065f46;font-weight:600;">🎉 You have full access to Dream X!</p>
+            </div>
+            
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <a href="/feed" style="padding:14px 32px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;text-align:center;border-radius:12px;text-decoration:none;font-weight:700;box-shadow:0 4px 16px rgba(255,79,163,0.3);">Go to Feed</a>
+            </div>
+        <% } %>
+        
+        <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e5e7eb;text-align:center;">
+            <p style="color:#9ca3af;font-size:0.875rem;margin:0 0 8px;">Need help?</p>
+            <a href="/help-center" style="color:#7C3AED;text-decoration:none;font-weight:600;">Visit Help Center →</a>
+        </div>
+    </div>
+</body>
+</html>

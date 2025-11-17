@@ -623,6 +623,69 @@ body {
     animation: fadeInZoom 0.5s ease-out;
 }
 
+/* === ELECTRIC RAINBOW BORDER FOR POSTS === */
+@property --angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+
+@keyframes electricSpin {
+    to { --angle: 360deg; }
+}
+
+/* Ensure post card can host animated border layers */
+.post-card {
+    position: relative;
+    z-index: 0; /* create stacking context */
+}
+
+/* Crisp animated border ring */
+.post-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px; /* match inline radius */
+    padding: 2px; /* border thickness */
+    background: conic-gradient(from var(--angle),
+        #ff4fa3 0%,
+        #ffb703 16%,
+        #34d399 33%,
+        #60a5fa 50%,
+        #a78bfa 66%,
+        #f472b6 83%,
+        #ff4fa3 100%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude; /* show only the ring */
+    pointer-events: none;
+    animation: electricSpin 6s linear infinite;
+}
+
+/* Soft outer glow for the "electric" feel */
+.post-card::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 18px; /* slightly larger for glow */
+    background: conic-gradient(from var(--angle),
+        rgba(255,79,163,0.75) 0%,
+        rgba(255,183,3,0.75) 16%,
+        rgba(52,211,153,0.75) 33%,
+        rgba(96,165,250,0.75) 50%,
+        rgba(167,139,250,0.75) 66%,
+        rgba(244,114,182,0.75) 83%,
+        rgba(255,79,163,0.75) 100%
+    );
+    filter: blur(14px);
+    opacity: 0.25; /* tasteful glow */
+    z-index: -1; /* behind the card */
+    pointer-events: none;
+    animation: electricSpin 6s linear infinite;
+}
+
 /* === CENTERED BUTTONS FIX === */
 .hero-buttons,
 .billing-actions,
