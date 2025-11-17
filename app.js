@@ -66,7 +66,7 @@ const {
     // Comment parent info
     getCommentWithParent,
     // Services
-    createService, getUserServices, getAllServices, getServiceCount, updateService, deleteService
+    createService, getUserServices, getAllServices, getService, getServiceCount, updateService, deleteService
  } = require('./db');
 let fetch;
 try {
@@ -1990,7 +1990,7 @@ app.get('/services/new', ensureAuthenticated, (req, res) => {
 // Service details page (single service placeholder)
 app.get('/services/:id', (req, res) => {
     const { id } = req.params;
-    const service = db.getService(id);
+    const service = getService(id);
     
     if (!service) {
         return res.status(404).render('404', { title: 'Service Not Found' });
