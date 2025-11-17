@@ -3,7 +3,7 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_VERSION = 'dreamx-v1.0.0';
+const CACHE_VERSION = 'dreamx-v1.0.1';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
@@ -69,6 +69,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip cross-origin requests
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   // Skip socket.io and API requests
   if (url.pathname.includes('/socket.io') || 
       url.pathname.startsWith('/api/') ||
@@ -88,6 +93,13 @@ self.addEventListener('fetch', (event) => {
 
 // Handle static asset requests (cache-first)
 async function handleStaticRequest(request) {
+  const url = new URL(request.url);
+  
+  // Only handle same-origin requests
+  if (url.origin !== self.location.origin) {
+    return fetch(request);
+  }
+  
   const cache = await caches.open(CACHE_STATIC);
   const cachedResponse = await cache.match(request);
   
@@ -97,7 +109,10 @@ async function handleStaticRequest(request) {
 
   try {
     const networkResponse = await fetch(request);
-    cache.put(request, networkResponse.clone());
+    // Only cache successful same-origin responses
+    if (networkResponse.ok && url.origin === self.location.origin) {
+      cache.put(request, networkResponse.clone());
+    }
     return networkResponse;
   } catch (error) {
     console.error('[Service Worker] Static fetch failed:', error);
@@ -110,11 +125,21 @@ async function handleStaticRequest(request) {
 
 // Handle dynamic content requests (network-first, fallback to cache)
 async function handleDynamicRequest(request) {
+  const url = new URL(request.url);
+  
+  // Only handle same-origin requests
+  if (url.origin !== self.location.origin) {
+    return fetch(request);
+  }
+  
   const cache = await caches.open(CACHE_DYNAMIC);
   
   try {
     const networkResponse = await fetch(request);
-    cache.put(request, networkResponse.clone());
+    // Only cache successful same-origin responses
+    if (networkResponse.ok && url.origin === self.location.origin) {
+      cache.put(request, networkResponse.clone());
+    }
     return networkResponse;
   } catch (error) {
     const cachedResponse = await cache.match(request);
@@ -133,6 +158,13 @@ async function handleDynamicRequest(request) {
 
 // Handle image requests (cache-first with network fallback)
 async function handleImageRequest(request) {
+  const url = new URL(request.url);
+  
+  // Only handle same-origin requests
+  if (url.origin !== self.location.origin) {
+    return fetch(request);
+  }
+  
   const cache = await caches.open(CACHE_IMAGES);
   const cachedResponse = await cache.match(request);
   
@@ -142,8 +174,8 @@ async function handleImageRequest(request) {
 
   try {
     const networkResponse = await fetch(request);
-    // Only cache successful responses
-    if (networkResponse.status === 200) {
+    // Only cache successful same-origin responses
+    if (networkResponse.status === 200 && url.origin === self.location.origin) {
       cache.put(request, networkResponse.clone());
     }
     return networkResponse;
