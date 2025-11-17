@@ -228,29 +228,16 @@ body {
 }
 
 .logo a {
-    font-size: 1.75rem;
-    font-weight: 900;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
     text-decoration: none;
-    letter-spacing: -0.5px;
-    position: relative;
     display: inline-block;
+    transition: var(--transition-smooth);
 }
 
-.logo a::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 0;
-    height: 3px;
-    border-radius: 2px;
-}
-
-.logo a:hover::after {
-    width: 100%;
+.logo a img {
+    display: block;
+    height: 40px;
+    width: auto;
+    transition: var(--transition-smooth);
 }
 
 .logo a:hover {
