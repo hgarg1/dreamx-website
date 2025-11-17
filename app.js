@@ -20,13 +20,8 @@ const {
 } = require('@simplewebauthn/server');
 const socketIo = require('socket.io');
 
-// Simple email notification helper (logs to console in development)
-function sendEmailNotification(to, subject, body) {
-    // In production, integrate with SendGrid, AWS SES, or similar
-    console.log(`\n📧 EMAIL NOTIFICATION:\nTo: ${to}\nSubject: ${subject}\n\n${body}\n`);
-    // TODO: Implement actual email sending with a service like SendGrid
-    return true;
-}
+// Import email service
+const emailService = require('./emailService');
 
 const { 
     db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
@@ -69,7 +64,9 @@ const {
     // Message reactions
     setMessageReaction, getMessageReactions, getUserReactionForMessage,
     // Comment parent info
-    getCommentWithParent
+    getCommentWithParent,
+    // Services
+    createService, getUserServices, getAllServices, getServiceCount, updateService, deleteService
  } = require('./db');
 let fetch;
 try {
@@ -209,6 +206,14 @@ passport.deserializeUser((id, done) => {
         done(e);
     }
 });
+
+// Authentication middleware
+function ensureAuthenticated(req, res, next) {
+    if (!req.session.userId) {
+        return res.redirect('/login');
+    }
+    next();
+}
 
 // Password complexity validator
 function validatePasswordComplexity(password) {
@@ -496,10 +501,14 @@ app.get('/webauthn/registration/options', (req, res) => {
     const user = getUserById(req.session.userId);
     const rpID = rpIDFromReq(req);
     const existingCreds = getCredentialsForUser(user.id);
+    
+    // Convert user ID to Uint8Array as required by @simplewebauthn/server v9+
+    const userIDBuffer = Buffer.from(String(user.id), 'utf-8');
+    
     const options = generateRegistrationOptions({
         rpName: 'Dream X',
         rpID,
-        userID: String(user.id),
+        userID: userIDBuffer,
         userName: user.email,
         userDisplayName: user.full_name,
         attestationType: 'none',
@@ -916,7 +925,7 @@ app.post('/admin/careers/:id/status', requireAdminOrHR, (req, res) => {
     }
     res.redirect('/admin?success=Career+application+updated');
 });
-app.post('/admin/appeals/content/:id/status', requireAdmin, (req, res) => {
+app.post('/admin/appeals/content/:id/status', requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const status = (req.body.status || '').toLowerCase();
     const valid = ['open','under_review','approved','denied'];
@@ -930,19 +939,16 @@ app.post('/admin/appeals/content/:id/status', requireAdmin, (req, res) => {
     
     // Send email notification for approved/denied appeals
     if (appeal && (status === 'approved' || status === 'denied')) {
-        const subject = status === 'approved' 
-            ? 'Your Content Appeal Has Been Approved'
-            : 'Your Content Appeal Has Been Denied';
-        const message = status === 'approved'
-            ? `Dear User,\n\nYour appeal for ${appeal.content_type} content has been approved. The content has been restored.\n\nContent Type: ${appeal.content_type}\nContent URL: ${appeal.content_url || 'N/A'}\n\nThank you for your patience.\n\nBest regards,\nDream X Team`
-            : `Dear User,\n\nYour appeal for ${appeal.content_type} content has been denied after careful review.\n\nContent Type: ${appeal.content_type}\nReason: ${appeal.removal_reason || 'Violation of community guidelines'}\n\nIf you have further questions, please contact support.\n\nBest regards,\nDream X Team`;
-        
-        sendEmailNotification(appeal.email, subject, message);
+        if (status === 'approved') {
+            await emailService.sendContentApprovalEmail(appeal.email, appeal);
+        } else {
+            await emailService.sendContentDenialEmail(appeal.email, appeal);
+        }
     }
     
     res.redirect('/admin?success=Content+appeal+updated');
 });
-app.post('/admin/appeals/account/:id/status', requireAdmin, (req, res) => {
+app.post('/admin/appeals/account/:id/status', requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const status = (req.body.status || '').toLowerCase();
     const valid = ['open','under_review','approved','denied'];
@@ -956,14 +962,11 @@ app.post('/admin/appeals/account/:id/status', requireAdmin, (req, res) => {
     
     // Send email notification for approved/denied appeals
     if (appeal && (status === 'approved' || status === 'denied')) {
-        const subject = status === 'approved' 
-            ? 'Your Account Appeal Has Been Approved'
-            : 'Your Account Appeal Has Been Denied';
-        const message = status === 'approved'
-            ? `Dear ${appeal.username || 'User'},\n\nYour account appeal has been approved. Your account restrictions have been lifted.\n\nAccount Action: ${appeal.account_action}\nYou can now access your account normally.\n\nThank you for your patience.\n\nBest regards,\nDream X Team`
-            : `Dear ${appeal.username || 'User'},\n\nYour account appeal has been denied after careful review.\n\nAccount Action: ${appeal.account_action}\nReason: ${appeal.violation_reason || 'Violation of community guidelines'}\n\nThe original decision stands. If you have further questions, please contact support.\n\nBest regards,\nDream X Team`;
-        
-        sendEmailNotification(appeal.email, subject, message);
+        if (status === 'approved') {
+            await emailService.sendAccountApprovalEmail(appeal.email, appeal);
+        } else {
+            await emailService.sendAccountDenialEmail(appeal.email, appeal);
+        }
     }
     
     res.redirect('/admin?success=Account+appeal+updated');
@@ -1431,7 +1434,7 @@ app.get('/api/posts/:postId/reactions', (req, res) => {
 });
 
 // React to a post (toggle if same type)
-app.post('/api/posts/:postId/react', (req, res) => {
+app.post('/api/posts/:postId/react', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const postId = parseInt(req.params.postId, 10);
     const { type } = req.body;
@@ -1465,11 +1468,8 @@ app.post('/api/posts/:postId/react', (req, res) => {
             // Send email notification if enabled
             const author = getUserById(post.user_id);
             if (author && author.email_notifications === 1) {
-                sendEmailNotification(
-                    author.email,
-                    'New reaction on your post - Dream X',
-                    `Hi ${author.full_name},\n\n${reactor.full_name} reacted ${type} to your post.\n\nView the post: ${process.env.BASE_URL || 'http://localhost:3000'}/post/${postId}\n\nBest regards,\nDream X Team`
-                );
+                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                await emailService.sendPostReactionEmail(author, reactor, type, postId, baseUrl);
             }
         }
         
@@ -1501,7 +1501,7 @@ app.get('/api/posts/:postId/comments', (req, res) => {
 });
 
 // Add a comment to a post
-app.post('/api/posts/:postId/comments', (req, res) => {
+app.post('/api/posts/:postId/comments', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const postId = parseInt(req.params.postId, 10);
     const content = (req.body.content || '').trim();
@@ -1556,11 +1556,8 @@ app.post('/api/posts/:postId/comments', (req, res) => {
             // Send email notification if enabled
             const author = getUserById(post.user_id);
             if (author && author.email_notifications === 1) {
-                sendEmailNotification(
-                    author.email,
-                    'New comment on your post - Dream X',
-                    `Hi ${author.full_name},\n\n${commenter.full_name} commented on your post:\n\n"${content}"\n\nView the post: ${process.env.BASE_URL || 'http://localhost:3000'}/post/${postId}\n\nBest regards,\nDream X Team`
-                );
+                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                await emailService.sendPostCommentEmail(author, commenter, content, postId, baseUrl);
             }
         }
         
@@ -1585,11 +1582,8 @@ app.post('/api/posts/:postId/comments', (req, res) => {
             // Send email notification if enabled
             const parentAuthor = getUserById(parentAuthorId);
             if (parentAuthor && parentAuthor.email_notifications === 1) {
-                sendEmailNotification(
-                    parentAuthor.email,
-                    'New reply to your comment - Dream X',
-                    `Hi ${parentAuthor.full_name},\n\n${commenter.full_name} replied to your comment:\n\n"${content}"\n\nView the post: ${process.env.BASE_URL || 'http://localhost:3000'}/post/${postId}\n\nBest regards,\nDream X Team`
-                );
+                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                await emailService.sendCommentReplyEmail(parentAuthor, commenter, content, postId, baseUrl);
             }
         }
         
@@ -1602,7 +1596,7 @@ app.post('/api/posts/:postId/comments', (req, res) => {
 });
 
 // Star (like) a comment (toggle)
-app.post('/api/comments/:commentId/star', (req, res) => {
+app.post('/api/comments/:commentId/star', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const commentId = parseInt(req.params.commentId, 10);
     try {
@@ -1633,11 +1627,8 @@ app.post('/api/comments/:commentId/star', (req, res) => {
             // Send email notification if enabled
             const author = getUserById(comment.user_id);
             if (author && author.email_notifications === 1) {
-                sendEmailNotification(
-                    author.email,
-                    'Your comment was liked - Dream X',
-                    `Hi ${author.full_name},\n\n${liker.full_name} liked your comment.\n\nView the post: ${process.env.BASE_URL || 'http://localhost:3000'}/post/${comment.post_id}\n\nBest regards,\nDream X Team`
-                );
+                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                await emailService.sendCommentLikeEmail(author, liker, comment.post_id, baseUrl);
             }
         }
         
@@ -1681,7 +1672,7 @@ app.get('/profile', (req, res) => {
         bannerImage: row.banner_image
     };
     const projects = [];
-    const services = [];
+    const services = getUserServices(req.session.userId);
     const me = getUserById(req.session.userId);
     const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
     
@@ -1734,7 +1725,7 @@ app.get('/profile/:id(\\d+)', (req, res) => {
         bannerImage: row.banner_image
     };
     const projects = [];
-    const services = [];
+    const services = getUserServices(uid);
     const me = getUserById(req.session.userId);
     const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
     
@@ -1832,46 +1823,65 @@ app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }
 
 // Services marketplace page
 app.get('/services', (req, res) => {
-    const categories = ['Tutoring','Mentorship','Coaching','Workshops','Other'];
-    const services = [
-        { id: 123, user: 'Nora Fields', passion: 'Writing', desc: 'Story structure & clarity coaching session', rating: 4.8, price: 30 },
-        { id: 124, user: 'Ethan Brooks', passion: 'Entrepreneurship', desc: 'Idea validation & lean MVP strategy', rating: 4.9, price: 45 },
-        { id: 125, user: 'Clara Dawson', passion: 'Photography', desc: 'Portrait lighting fundamentals workshop', rating: 4.7, price: 35 },
-        { id: 126, user: 'Jun Park', passion: 'Design', desc: 'UX audit + actionable redesign guidance', rating: 4.6, price: 40 },
-        { id: 127, user: 'Marcus Lee', passion: 'Art', desc: 'Gesture and anatomy critique session', rating: 4.8, price: 32 },
-    ];
+    const categories = ['Tutoring','Mentorship','Coaching','Workshops','Consulting','Other'];
+    const { category, priceRange, experience, format } = req.query;
+    
+    const services = getAllServices({
+        category,
+        priceRange,
+        experienceLevel: experience,
+        format,
+        limit: 100
+    });
+    
     res.render('services', {
         title: 'Services Marketplace - Dream X',
         currentPage: 'services',
         categories,
-        services
+        services,
+        authUser: req.user
+    });
+});
+
+// Create service page
+app.get('/services/new', ensureAuthenticated, (req, res) => {
+    res.render('create-service', {
+        title: 'Create Service - Dream X',
+        currentPage: 'services'
     });
 });
 
 // Service details page (single service placeholder)
 app.get('/services/:id', (req, res) => {
     const { id } = req.params;
-    // Placeholder service and reviews data
-    const service = {
-        id,
-        name: '1:1 Coding Mentorship',
-        provider: { name: 'Ava Chen', passion: 'Coding' },
-        rating: 4.8,
-        reviewsCount: 37,
-        pricePerSession: 40,
-        about: 'A focused one‑on‑one session designed to accelerate your learning loop. We will review current blockers, walk through code clarity improvements, and map a sustainable progression path.',
-        included: [
-            '60‑minute live session',
-            'Personalized feedback & refactor suggestions',
-            'Actionable next steps roadmap',
-            'Follow‑up summary notes'
-        ],
-        idealFor: [
-            'Self‑taught developers seeking structure',
-            'Junior engineers preparing for interviews',
-            'Makers refining MVP architecture'
-        ]
+    const service = db.getService(id);
+    
+    if (!service) {
+        return res.status(404).render('404', { title: 'Service Not Found' });
+    }
+    
+    // Calculate session price
+    service.pricePerSession = (service.price_per_hour * (service.duration_minutes / 60)).toFixed(2);
+    service.name = service.title;
+    service.provider = {
+        name: service.full_name,
+        passion: service.category
     };
+    service.rating = 4.8;
+    service.reviewsCount = 0;
+    service.about = service.description;
+    service.included = [
+        `${service.duration_minutes}-minute live session`,
+        'Personalized feedback & refactor suggestions',
+        'Actionable next steps roadmap',
+        'Follow-up summary notes'
+    ];
+    service.idealFor = [
+        'Self-taught developers seeking structure',
+        'Junior engineers preparing for interviews',
+        'Makers refining MVP architecture'
+    ];
+    
     const reviews = [
         { user: 'Leo Martinez', rating: 5, comment: 'Actionable feedback and clear improvement steps. Immediately leveled up my project structure.' },
         { user: 'Sofia Patel', rating: 5, comment: 'Great mentorship energy—supportive and direct. Loved the follow‑up notes.' },
@@ -2606,6 +2616,100 @@ app.post('/api/subscription/cancel', (req, res) => {
     }
 });
 
+// API: Create service with subscription check
+app.post('/api/services/create', ensureAuthenticated, async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        const { title, description, category, pricePerHour, durationMinutes, experienceLevel, format, availability, location, tags } = req.body;
+        
+        // Get user's subscription
+        const subscription = getUserSubscription(userId);
+        const tier = subscription ? subscription.tier : 'free';
+        
+        // Check service limits based on tier
+        const serviceLimits = {
+            'free': 0,
+            'pro-buyer': 0,
+            'pro-seller': 5,
+            'elite-seller': 999,
+            'enterprise': 999
+        };
+        
+        const currentCount = getServiceCount(userId);
+        const maxServices = serviceLimits[tier] || 0;
+        
+        if (currentCount >= maxServices) {
+            return res.json({
+                success: false,
+                error: 'Service limit reached',
+                requiresUpgrade: true,
+                currentTier: tier,
+                currentCount,
+                maxServices
+            });
+        }
+        
+        // Validate required fields
+        if (!title || !description || !category || !pricePerHour || !format) {
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+        
+        // Create the service
+        const serviceId = createService({
+            userId,
+            title,
+            description,
+            category,
+            pricePerHour: parseFloat(pricePerHour),
+            durationMinutes: parseInt(durationMinutes) || 60,
+            experienceLevel,
+            format,
+            availability,
+            location,
+            tags,
+            imageUrl: null
+        });
+        
+        res.json({ success: true, serviceId });
+    } catch (error) {
+        console.error('Error creating service:', error);
+        res.status(500).json({ success: false, error: 'Failed to create service' });
+    }
+});
+
+// API: Check service creation eligibility
+app.get('/api/services/check-eligibility', ensureAuthenticated, (req, res) => {
+    try {
+        const userId = req.session.userId;
+        const subscription = getUserSubscription(userId);
+        const tier = subscription ? subscription.tier : 'free';
+        
+        const serviceLimits = {
+            'free': 0,
+            'pro-buyer': 0,
+            'pro-seller': 5,
+            'elite-seller': 999,
+            'enterprise': 999
+        };
+        
+        const currentCount = getServiceCount(userId);
+        const maxServices = serviceLimits[tier] || 0;
+        const canCreate = currentCount < maxServices;
+        
+        res.json({
+            success: true,
+            canCreate,
+            tier,
+            currentCount,
+            maxServices,
+            requiresUpgrade: !canCreate
+        });
+    } catch (error) {
+        console.error('Error checking eligibility:', error);
+        res.status(500).json({ success: false, error: 'Failed to check eligibility' });
+    }
+});
+
 // Pricing page (tiers)
 app.get('/pricing', (req, res) => {
     const tiers = [
@@ -2980,7 +3084,7 @@ app.post('/api/users/:id/unfollow', (req, res) => {
 
 // === ADMIN MODERATION ROUTES ===
 // Ban a user
-app.post('/admin/users/:id/ban', requireSuperAdmin, (req, res) => {
+app.post('/admin/users/:id/ban', requireSuperAdmin, async (req, res) => {
     const userId = parseInt(req.params.id, 10);
     const { reason, notifyUser } = req.body;
     const banReason = reason || 'Violation of community guidelines';
@@ -2992,11 +3096,7 @@ app.post('/admin/users/:id/ban', requireSuperAdmin, (req, res) => {
         
         // Send email notification if requested
         if (notifyUser && targetUser && targetUser.email) {
-            sendEmailNotification(
-                targetUser.email,
-                'Account Banned - Dream X',
-                `Dear ${targetUser.full_name},\n\nYour Dream X account has been permanently banned.\n\nReason: ${banReason}\n\nIf you believe this is a mistake, you can submit an appeal at https://dreamx.local/account-appeal\n\nBest regards,\nDream X Team`
-            );
+            await emailService.sendAccountBannedEmail(targetUser, banReason);
         }
         
         // Create in-app notification
@@ -3041,7 +3141,7 @@ app.post('/admin/users/:id/ban', requireSuperAdmin, (req, res) => {
 });
 
 // Suspend a user
-app.post('/admin/users/:id/suspend', requireSuperAdmin, (req, res) => {
+app.post('/admin/users/:id/suspend', requireSuperAdmin, async (req, res) => {
     const userId = parseInt(req.params.id, 10);
     const { duration, days, reason, notifyUser } = req.body;
     const suspendReason = reason || 'Temporary suspension';
@@ -3111,11 +3211,7 @@ app.post('/admin/users/:id/suspend', requireSuperAdmin, (req, res) => {
         
         // Send email notification if requested
         if (notifyUser && targetUser && targetUser.email) {
-            sendEmailNotification(
-                targetUser.email,
-                'Account Suspended - Dream X',
-                `Dear ${targetUser.full_name},\n\nYour Dream X account has been temporarily suspended for ${durationText}.\n\nReason: ${suspendReason}\n\nYour suspension will be automatically lifted on ${until.toLocaleString()}.\n\nIf you believe this is a mistake, you can submit an appeal at https://dreamx.local/account-appeal\n\nBest regards,\nDream X Team`
-            );
+            await emailService.sendAccountSuspendedEmail(targetUser, suspendReason, until, durationText);
         }
         
         // Create in-app notification

@@ -292,7 +292,12 @@
               <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">Disconnect</button>
             </form>
           <% } else { %>
-            <a href="/auth/apple?mode=link" class="btn btn-primary" style="background:#000;text-decoration:none;">Connect</a>
+            <a href="/auth/apple?mode=link" class="apple-signin" aria-label="Connect Apple" style="width:auto;padding:8px 12px;">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" focusable="false" style="color:#fff;">
+                <path d="M16.365 1.43c0 1.14-.47 2.244-1.223 3.06-.783.85-2.06 1.5-3.144 1.43-.13-1.1.52-2.27 1.266-3.03.86-.86 2.31-1.48 3.1-1.46zM20.86 17.05c-.6 1.38-.89 1.98-1.67 3.2-1.08 1.65-2.6 3.7-4.48 3.72-1.67.03-2.1-1.07-4.37-1.06-2.26.02-2.75 1.09-4.43 1.06-1.87-.03-3.31-1.87-4.4-3.52-3.01-4.57-3.32-9.93-1.47-12.77 1.32-2.02 3.4-3.2 5.36-3.2 1.99 0 3.24 1.08 4.89 1.08 1.62 0 2.61-1.08 4.9-1.08 1.76 0 3.63.96 4.94 2.62-4.33 2.37-3.63 8.57.63 10.03z"/>
+              </svg>
+              <span>Connect Apple</span>
+            </a>
           <% } %>
         </div>
       </div>

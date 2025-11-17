@@ -1,0 +1,793 @@
+<%- include('partials/header') %>
+
+<div id="loadingCheck" style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
+  <div style="text-align:center;">
+    <div style="width:60px;height:60px;border:4px solid #e5e7eb;border-top-color:#764ba2;border-radius:50%;margin:0 auto 16px;animation:spin 1s linear infinite;"></div>
+    <p style="color:#6b7280;">Checking eligibility...</p>
+  </div>
+</div>
+
+<style>
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+// Check eligibility before showing the form
+(async function() {
+  try {
+    const response = await fetch('/api/services/check-eligibility');
+    const data = await response.json();
+    
+    if (!data.canCreate) {
+      // Show upgrade modal instead
+      const tierNames = {
+        'free': 'Free User',
+        'pro-buyer': 'Pro Buyer',
+        'pro-seller': 'Pro Seller',
+        'elite-seller': 'Elite Seller'
+      };
+      
+      const message = `You're currently on the ${tierNames[data.tier]} plan.\n\nService listings: ${data.currentCount} / ${data.maxServices}\n\nTo create services, you need to upgrade to Pro Seller or higher.\n\nWould you like to view pricing plans?`;
+      
+      if (confirm(message)) {
+        window.location.href = '/pricing?highlight=pro-seller';
+      } else {
+        window.location.href = '/profile';
+      }
+    } else {
+      // User can create, show the form
+      document.getElementById('loadingCheck').style.display = 'none';
+      document.getElementById('serviceFormContainer').style.display = 'block';
+
+      // Inline near-limit banner when close to limit
+      try {
+        const max = Number(data.maxServices || 0);
+        const used = Number(data.currentCount || 0);
+        const tier = data.tier || 'free';
+        // Show banner if 1 slot left or 80% used and finite cap
+        const finiteCap = max > 0 && max < 999;
+        const oneLeft = finiteCap && (max - used) <= 1;
+        const highUsage = finiteCap && (used / max) >= 0.8;
+        if (finiteCap && (oneLeft || highUsage)) {
+          const nextTierMap = { 'free': 'pro-seller', 'pro-buyer': 'pro-seller', 'pro-seller': 'elite-seller', 'elite-seller': 'enterprise', 'enterprise': 'enterprise' };
+          const tierNames = { 'free':'Free User','pro-buyer':'Pro Buyer','pro-seller':'Pro Seller','elite-seller':'Elite Seller','enterprise':'Enterprise' };
+          const nextTier = nextTierMap[tier] || 'pro-seller';
+          const banner = document.getElementById('nearLimitBanner');
+          if (banner) {
+            banner.querySelector('[data-near-limit-text]').innerHTML = `You have <strong>${used}</strong> of <strong>${max}</strong> service listings used on the <strong>${tierNames[tier] || tier}</strong> plan.`;
+            const cta = banner.querySelector('[data-upgrade-btn]');
+            if (cta) {
+              cta.textContent = `Upgrade to ${tierNames[nextTier] || 'Pro Seller'}`;
+              cta.onclick = function(){ window.location.href = '/pricing?highlight=' + encodeURIComponent(nextTier); };
+            }
+            banner.style.display = 'flex';
+          }
+        }
+      } catch (e) { /* no-op */ }
+    }
+  } catch (error) {
+    console.error('Error checking eligibility:', error);
+    alert('Failed to check eligibility. Please try again.');
+    window.location.href = '/profile';
+  }
+})();
+</script>
+
+<div id="serviceFormContainer" style="display:none;">
+<div class="service-wizard-container">
+  <!-- Near-limit banner -->
+  <div id="nearLimitBanner" style="display:none;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:#fff7ed;border:1px solid #fdba74;color:#7c2d12;margin-bottom:16px;">
+    <div style="font-size:1.25rem">⚠️</div>
+    <div style="flex:1" data-near-limit-text>You're nearing your plan's service limit.</div>
+    <button type="button" data-upgrade-btn class="settings-btn" style="white-space:nowrap;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">Upgrade</button>
+  </div>
+  <div class="wizard-header">
+    <h1>Create Your Service</h1>
+    <p>Share your expertise with the Dream X community</p>
+  </div>
+
+  <!-- Progress Steps -->
+  <div class="wizard-steps">
+    <div class="wizard-step active" data-step="1">
+      <div class="step-circle">1</div>
+      <span class="step-label">Basics</span>
+    </div>
+    <div class="wizard-step" data-step="2">
+      <div class="step-circle">2</div>
+      <span class="step-label">Details</span>
+    </div>
+    <div class="wizard-step" data-step="3">
+      <div class="step-circle">3</div>
+      <span class="step-label">Pricing</span>
+    </div>
+    <div class="wizard-step" data-step="4">
+      <div class="step-circle">4</div>
+      <span class="step-label">Review</span>
+    </div>
+  </div>
+
+  <form id="serviceForm" method="POST" action="/api/services/create">
+    <!-- Step 1: Basics -->
+    <div class="wizard-content active" data-step="1">
+      <h2>Service Basics</h2>
+      <div class="form-group">
+        <label for="title">Service Title *</label>
+        <input type="text" id="title" name="title" class="form-control" placeholder="e.g., 1:1 Coding Mentorship" required maxlength="100">
+        <small>Give your service a clear, engaging title</small>
+      </div>
+
+      <div class="form-group">
+        <label for="category">Category *</label>
+        <select id="category" name="category" class="form-control" required>
+          <option value="">Select a category</option>
+          <option value="Tutoring">Tutoring</option>
+          <option value="Mentorship">Mentorship</option>
+          <option value="Coaching">Coaching</option>
+          <option value="Workshops">Workshops</option>
+          <option value="Consulting">Consulting</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description *</label>
+        <textarea id="description" name="description" class="form-control" rows="5" placeholder="Describe what your service offers, who it's for, and what participants will learn..." required maxlength="1000"></textarea>
+        <small><span id="descCount">0</span>/1000 characters</small>
+      </div>
+
+      <div class="wizard-nav">
+        <button type="button" class="btn-secondary" disabled>Previous</button>
+        <button type="button" class="btn-primary" onclick="nextStep(2)">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Details -->
+    <div class="wizard-content" data-step="2">
+      <h2>Service Details</h2>
+      
+      <div class="form-group">
+        <label for="experienceLevel">Experience Level</label>
+        <select id="experienceLevel" name="experienceLevel" class="form-control">
+          <option value="">Any level</option>
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+          <option value="expert">Expert</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="format">Format *</label>
+        <select id="format" name="format" class="form-control" required>
+          <option value="">Select format</option>
+          <option value="online">Online</option>
+          <option value="in-person">In-person</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="location">Location</label>
+        <input type="text" id="location" name="location" class="form-control" placeholder="e.g., San Francisco, CA or Zoom">
+        <small>Where will this service be provided?</small>
+      </div>
+
+      <div class="form-group">
+        <label for="availability">Availability</label>
+        <textarea id="availability" name="availability" class="form-control" rows="3" placeholder="e.g., Weekdays 6-8 PM EST, Weekends flexible"></textarea>
+        <small>When are you typically available?</small>
+      </div>
+
+      <div class="form-group">
+        <label for="tags">Tags (comma-separated)</label>
+        <input type="text" id="tags" name="tags" class="form-control" placeholder="e.g., python, web development, career advice">
+        <small>Add relevant keywords to help people find your service</small>
+      </div>
+
+      <div class="wizard-nav">
+        <button type="button" class="btn-secondary" onclick="prevStep(1)">Previous</button>
+        <button type="button" class="btn-primary" onclick="nextStep(3)">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Pricing -->
+    <div class="wizard-content" data-step="3">
+      <h2>Pricing & Duration</h2>
+      
+      <div class="form-group">
+        <label for="pricePerHour">Price per Hour ($) *</label>
+        <input type="number" id="pricePerHour" name="pricePerHour" class="form-control" min="5" max="500" step="5" placeholder="30" required>
+        <small>Set your hourly rate (minimum $5, maximum $500)</small>
+      </div>
+
+      <div class="form-group">
+        <label for="durationMinutes">Session Duration (minutes) *</label>
+        <select id="durationMinutes" name="durationMinutes" class="form-control" required>
+          <option value="30">30 minutes</option>
+          <option value="60" selected>60 minutes</option>
+          <option value="90">90 minutes</option>
+          <option value="120">2 hours</option>
+          <option value="180">3 hours</option>
+          <option value="240">4 hours</option>
+        </select>
+      </div>
+
+      <div class="pricing-preview">
+        <h3>Session Preview</h3>
+        <div class="preview-item">
+          <span>Session Duration:</span>
+          <span id="previewDuration">60 minutes</span>
+        </div>
+        <div class="preview-item">
+          <span>Hourly Rate:</span>
+          <span id="previewRate">$30/hr</span>
+        </div>
+        <div class="preview-item total">
+          <span>Price per Session:</span>
+          <span id="previewTotal">$30</span>
+        </div>
+      </div>
+
+      <div class="wizard-nav">
+        <button type="button" class="btn-secondary" onclick="prevStep(2)">Previous</button>
+        <button type="button" class="btn-primary" onclick="nextStep(4)">Review</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Review -->
+    <div class="wizard-content" data-step="4">
+      <h2>Review Your Service</h2>
+      
+      <div class="review-section">
+        <h3 id="reviewTitle"></h3>
+        <div class="review-meta">
+          <span class="review-badge" id="reviewCategory"></span>
+          <span class="review-badge" id="reviewFormat"></span>
+          <span class="review-badge" id="reviewLevel"></span>
+        </div>
+        <p id="reviewDescription"></p>
+        
+        <div class="review-details">
+          <div class="review-item">
+            <strong>📍 Location:</strong>
+            <span id="reviewLocation"></span>
+          </div>
+          <div class="review-item">
+            <strong>🕒 Availability:</strong>
+            <span id="reviewAvailability"></span>
+          </div>
+          <div class="review-item">
+            <strong>⏱️ Session Duration:</strong>
+            <span id="reviewDurationFinal"></span>
+          </div>
+          <div class="review-item">
+            <strong>💰 Price:</strong>
+            <span id="reviewPriceFinal"></span>
+          </div>
+          <div class="review-item" id="reviewTagsContainer" style="display:none;">
+            <strong>🏷️ Tags:</strong>
+            <span id="reviewTags"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="wizard-nav">
+        <button type="button" class="btn-secondary" onclick="prevStep(3)">Previous</button>
+        <button type="submit" class="btn-success" id="submitBtn">
+          <span class="btn-text">Create Service</span>
+          <span class="btn-loader" style="display:none;">Creating...</span>
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<style>
+.service-wizard-container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+.wizard-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.wizard-header h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.wizard-header p {
+  color: #6b7280;
+  font-size: 1.1rem;
+}
+
+.wizard-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.wizard-steps::before {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: 15%;
+  right: 15%;
+  height: 3px;
+  background: #e5e7eb;
+  z-index: 0;
+}
+
+.wizard-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.step-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+.wizard-step.active .step-circle {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+  transform: scale(1.1);
+}
+
+.wizard-step.completed .step-circle {
+  background: #10b981;
+  color: white;
+}
+
+.step-label {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.wizard-step.active .step-label {
+  color: #764ba2;
+  font-weight: 700;
+}
+
+.wizard-content {
+  display: none;
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.wizard-content.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wizard-content h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: #1f2937;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+.form-group small {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.3s ease;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #764ba2;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.wizard-nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 2px solid #e5e7eb;
+}
+
+.btn-secondary,
+.btn-primary,
+.btn-success {
+  flex: 1;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-success:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pricing-preview {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  border-radius: 12px;
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.pricing-preview h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: #374151;
+}
+
+.preview-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.preview-item:last-child {
+  border-bottom: none;
+}
+
+.preview-item.total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #764ba2;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 2px solid rgba(118, 75, 162, 0.3);
+}
+
+.review-section {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 28px;
+}
+
+.review-section h3 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #1f2937;
+}
+
+.review-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.review-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.review-section p {
+  color: #4b5563;
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+.review-details {
+  display: grid;
+  gap: 12px;
+}
+
+.review-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+}
+
+.review-item strong {
+  color: #374151;
+  min-width: 140px;
+}
+
+.review-item span {
+  color: #6b7280;
+}
+
+@media (max-width: 640px) {
+  .wizard-steps::before {
+    display: none;
+  }
+  
+  .wizard-step {
+    font-size: 0.8rem;
+  }
+  
+  .step-circle {
+    width: 40px;
+    height: 40px;
+    font-size: 0.95rem;
+  }
+  
+  .step-label {
+    font-size: 0.75rem;
+  }
+  
+  .wizard-content {
+    padding: 24px;
+  }
+  
+  .review-item {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .review-item strong {
+    min-width: auto;
+  }
+}
+</style>
+
+<script>
+let currentStep = 1;
+
+// Character counter
+document.getElementById('description').addEventListener('input', function() {
+  document.getElementById('descCount').textContent = this.value.length;
+});
+
+// Price calculator
+function updatePricing() {
+  const pricePerHour = parseFloat(document.getElementById('pricePerHour').value) || 0;
+  const duration = parseInt(document.getElementById('durationMinutes').value) || 60;
+  const totalPrice = (pricePerHour * (duration / 60)).toFixed(2);
+  
+  document.getElementById('previewRate').textContent = `$${pricePerHour}/hr`;
+  document.getElementById('previewDuration').textContent = `${duration} minutes`;
+  document.getElementById('previewTotal').textContent = `$${totalPrice}`;
+}
+
+document.getElementById('pricePerHour').addEventListener('input', updatePricing);
+document.getElementById('durationMinutes').addEventListener('change', updatePricing);
+
+function nextStep(step) {
+  // Validate current step
+  const currentContent = document.querySelector(`.wizard-content[data-step="${currentStep}"]`);
+  const inputs = currentContent.querySelectorAll('input[required], select[required], textarea[required]');
+  
+  let valid = true;
+  inputs.forEach(input => {
+    if (!input.value.trim()) {
+      valid = false;
+      input.classList.add('error');
+    } else {
+      input.classList.remove('error');
+    }
+  });
+  
+  if (!valid) {
+    alert('Please fill in all required fields');
+    return;
+  }
+  
+  // Update review if going to step 4
+  if (step === 4) {
+    updateReview();
+  }
+  
+  // Mark current as completed
+  document.querySelector(`.wizard-step[data-step="${currentStep}"]`).classList.add('completed');
+  
+  // Show next step
+  currentStep = step;
+  document.querySelectorAll('.wizard-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.wizard-content[data-step="${step}"]`).classList.add('active');
+  
+  document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
+  document.querySelector(`.wizard-step[data-step="${step}"]`).classList.add('active');
+  
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function prevStep(step) {
+  currentStep = step;
+  document.querySelectorAll('.wizard-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.wizard-content[data-step="${step}"]`).classList.add('active');
+  
+  document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
+  document.querySelector(`.wizard-step[data-step="${step}"]`).classList.add('active');
+  
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateReview() {
+  document.getElementById('reviewTitle').textContent = document.getElementById('title').value;
+  document.getElementById('reviewCategory').textContent = document.getElementById('category').value;
+  document.getElementById('reviewFormat').textContent = document.getElementById('format').value;
+  
+  const level = document.getElementById('experienceLevel').value;
+  const levelElem = document.getElementById('reviewLevel');
+  if (level) {
+    levelElem.textContent = level.charAt(0).toUpperCase() + level.slice(1);
+    levelElem.style.display = 'inline-block';
+  } else {
+    levelElem.style.display = 'none';
+  }
+  
+  document.getElementById('reviewDescription').textContent = document.getElementById('description').value;
+  document.getElementById('reviewLocation').textContent = document.getElementById('location').value || 'Not specified';
+  document.getElementById('reviewAvailability').textContent = document.getElementById('availability').value || 'Flexible';
+  
+  const duration = document.getElementById('durationMinutes').value;
+  document.getElementById('reviewDurationFinal').textContent = `${duration} minutes`;
+  
+  const pricePerHour = parseFloat(document.getElementById('pricePerHour').value);
+  const totalPrice = (pricePerHour * (duration / 60)).toFixed(2);
+  document.getElementById('reviewPriceFinal').textContent = `$${totalPrice} ($${pricePerHour}/hr)`;
+  
+  const tags = document.getElementById('tags').value;
+  const tagsContainer = document.getElementById('reviewTagsContainer');
+  if (tags) {
+    document.getElementById('reviewTags').textContent = tags;
+    tagsContainer.style.display = 'flex';
+  } else {
+    tagsContainer.style.display = 'none';
+  }
+}
+
+// Form submission
+document.getElementById('serviceForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const submitBtn = document.getElementById('submitBtn');
+  const btnText = submitBtn.querySelector('.btn-text');
+  const btnLoader = submitBtn.querySelector('.btn-loader');
+  
+  submitBtn.disabled = true;
+  btnText.style.display = 'none';
+  btnLoader.style.display = 'inline';
+  
+  const formData = new FormData(this);
+  const data = Object.fromEntries(formData.entries());
+  
+  try {
+    const response = await fetch('/api/services/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      window.location.href = '/profile?success=Service created successfully!';
+    } else {
+      alert(result.error || 'Failed to create service');
+      submitBtn.disabled = false;
+      btnText.style.display = 'inline';
+      btnLoader.style.display = 'none';
+    }
+  } catch (error) {
+    console.error('Error creating service:', error);
+    alert('An error occurred. Please try again.');
+    submitBtn.disabled = false;
+    btnText.style.display = 'inline';
+    btnLoader.style.display = 'none';
+  }
+});
+
+// Add error styling
+const style = document.createElement('style');
+style.textContent = `
+  .form-control.error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+  }
+`;
+document.head.appendChild(style);
+</script>
+
+</div>
+
+<%- include('partials/footer') %>

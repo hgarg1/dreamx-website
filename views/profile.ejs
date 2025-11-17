@@ -262,6 +262,104 @@
         menu.style.display = 'none';
       }
     });
+
+    // Service creation eligibility check
+    async function checkEligibilityAndCreate() {
+      try {
+        const response = await fetch('/api/services/check-eligibility');
+        const data = await response.json();
+        
+        if (data.canCreate) {
+          window.location.href = '/services/new';
+        } else {
+          showUpgradeModal(data);
+        }
+      } catch (error) {
+        console.error('Error checking eligibility:', error);
+        alert('Failed to check eligibility. Please try again.');
+      }
+    }
+
+    function showUpgradeModal(data) {
+      const modal = document.getElementById('upgradeModal');
+      const tierName = document.getElementById('upgradeTierName');
+      const tierLimits = document.getElementById('upgradeTierLimits');
+      
+      const tierNames = {
+        'free': 'Free User',
+        'pro-buyer': 'Pro Buyer',
+        'pro-seller': 'Pro Seller',
+        'elite-seller': 'Elite Seller',
+        'enterprise': 'Enterprise'
+      };
+      const tierLabel = tierNames[data.tier] || (data.tier || 'Free User');
+
+      // Determine recommended next tier
+      const nextTierMap = {
+        'free': 'pro-seller',
+        'pro-buyer': 'pro-seller',
+        'pro-seller': 'elite-seller',
+        'elite-seller': 'enterprise',
+        'enterprise': 'enterprise'
+      };
+      const nextTier = nextTierMap[data.tier] || 'pro-seller';
+      const nextTierLabel = tierNames[nextTier] || 'Pro Seller';
+
+      // Benefits per target tier
+      const benefitsByTier = {
+        'pro-seller': [
+          'Create up to 5 service listings',
+          'Pro badge + priority in discovery',
+          'Weekly insights & analytics',
+          'Payment tools & basic CRM'
+        ],
+        'elite-seller': [
+          'Unlimited service listings',
+          'Top placement in discovery',
+          'Advanced analytics & insights',
+          'Priority support',
+          'Pro CRM workflows'
+        ],
+        'enterprise': [
+          'Unlimited listings with SLA',
+          'Organization workspaces & SSO',
+          'Admin controls & roles',
+          'Dedicated support & onboarding'
+        ]
+      };
+      const b = benefitsByTier[nextTier] || benefitsByTier['pro-seller'];
+      
+      tierName.textContent = tierLabel;
+      tierLimits.innerHTML = `
+        <p style="margin-bottom:16px;">You're currently on the <strong>${tierLabel}</strong> plan.</p>
+        <p style="margin-bottom:16px;">Service listings: <strong>${(data.currentCount ?? 0)} / ${(data.maxServices ?? 0)}</strong></p>
+        <p style="margin-bottom:20px;">To create more services, upgrade to <strong>${nextTierLabel}</strong>.</p>
+        <div style="background:#f9fafb;padding:20px;border-radius:12px;margin-bottom:20px;">
+          <h4 style="margin:0 0 12px 0;font-size:1.1rem;font-weight:700;">${nextTierLabel} Benefits:</h4>
+          <ul style="margin:0;padding-left:20px;">
+            ${b.map(item => `<li style=\"margin-bottom:8px;\">${item}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+      
+      modal.style.display = 'flex';
+
+      // Update CTA to point to the right tier
+      const ctaBtn = document.querySelector('#upgradeModal .admin-modal-footer .admin-modal-btn:not(.secondary)');
+      if (ctaBtn) {
+        ctaBtn.textContent = `Upgrade to ${nextTierLabel}`;
+        ctaBtn.onclick = function() { goToBilling(nextTier); };
+      }
+    }
+
+    function closeUpgradeModal() {
+      document.getElementById('upgradeModal').style.display = 'none';
+    }
+
+    function goToBilling(targetTier) {
+      const t = targetTier || 'pro-seller';
+      window.location.href = '/pricing?highlight=' + encodeURIComponent(t);
+    }
   </script>
 </section>
 
@@ -348,20 +446,40 @@
 
     <!-- Services Panel -->
     <div class="tab-panel" id="services">
-      <% if(user.isSeller){ %>
+      <% if (typeof isOwnProfile !== 'undefined' && isOwnProfile) { %>
+        <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+          <h2 style="margin:0;font-size:1.5rem;font-weight:700;">My Services</h2>
+          <button onclick="checkEligibilityAndCreate()" style="padding:10px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">+ Create Service</button>
+        </div>
+      <% } %>
+      
+      <% if (services && services.length > 0) { %>
         <div class="services-grid">
           <% services.forEach(function(sv){ %>
             <div class="service-card">
               <div class="service-header">
-                <h3 class="service-title"><%= sv.name %></h3>
+                <h3 class="service-title"><%= sv.title %></h3>
+                <span class="service-category"><%= sv.category %></span>
               </div>
-              <p class="service-desc"><%= sv.desc %></p>
+              <p class="service-desc"><%= sv.description.substring(0, 150) %><%= sv.description.length > 150 ? '...' : '' %></p>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+                <span style="font-size:1.25rem;font-weight:700;color:#764ba2;">$<%= (sv.price_per_hour * (sv.duration_minutes / 60)).toFixed(2) %></span>
+                <span style="font-size:0.9rem;color:#6b7280;"><%= sv.duration_minutes %> min</span>
+              </div>
               <a href="/services/<%= sv.id %>" class="service-btn">View details</a>
             </div>
           <% }); %>
         </div>
       <% } else { %>
-        <p class="panel-text">This creator does not offer services currently.</p>
+        <div style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;">
+          <p style="font-size:1.125rem;margin:0 0 8px 0;">No services yet</p>
+          <% if (typeof isOwnProfile !== 'undefined' && isOwnProfile) { %>
+            <p style="margin:0 0 20px 0;">Start sharing your expertise with the community</p>
+            <button onclick="checkEligibilityAndCreate()" style="padding:12px 28px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">Create Your First Service</button>
+          <% } else { %>
+            <p style="margin:0;">This user hasn't created any services yet.</p>
+          <% } %>
+        </div>
       <% } %>
     </div>
   </div>
@@ -803,5 +921,27 @@
     box-shadow: 0 8px 24px rgba(245, 158, 11, 0.4);
 }
 </style>
+
+<!-- Upgrade Modal -->
+<div id="upgradeModal" class="admin-modal" style="display:none;">
+  <div class="admin-modal-content">
+    <div class="admin-modal-header">
+      <h3>Upgrade Required</h3>
+      <button class="admin-modal-close" onclick="closeUpgradeModal()">&times;</button>
+    </div>
+    <div class="admin-modal-body">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;">🚀</div>
+        <h3 style="margin:0 0 8px 0;font-size:1.5rem;font-weight:700;color:#374151;">Service Limit Reached</h3>
+        <p style="margin:0;color:#6b7280;">You're on <span id="upgradeTierName">Free User</span></p>
+      </div>
+      <div id="upgradeTierLimits"></div>
+    </div>
+    <div class="admin-modal-footer">
+      <button class="admin-modal-btn secondary" onclick="closeUpgradeModal()">Maybe Later</button>
+      <button class="admin-modal-btn" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;box-shadow:0 4px 16px rgba(124,58,237,0.3);" onclick="goToBilling()">Upgrade Now</button>
+    </div>
+  </div>
+</div>
 
 <%- include('partials/footer') %>

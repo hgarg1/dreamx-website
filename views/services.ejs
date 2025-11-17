@@ -57,28 +57,49 @@
 
 <section class="services-grid-section">
   <div class="services-grid">
-    <% services.forEach(function(s){ %>
-      <div class="service-provider-card">
-        <div class="provider-header">
-          <div class="provider-avatar"><%= s.user.charAt(0) %></div>
-          <div class="provider-meta">
-            <h3 class="provider-name"><%= s.user %></h3>
-            <span class="provider-passion"><%= s.passion %></span>
+    <% if (services && services.length > 0) { %>
+      <% services.forEach(function(s){ %>
+        <div class="service-provider-card">
+          <div class="provider-header">
+            <% if (s.profile_picture) { %>
+              <img src="/uploads/<%= s.profile_picture %>" alt="<%= s.full_name %>" class="provider-avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">
+            <% } else { %>
+              <div class="provider-avatar"><%= s.full_name.charAt(0) %></div>
+            <% } %>
+            <div class="provider-meta">
+              <h3 class="provider-name"><%= s.full_name %></h3>
+              <span class="provider-passion"><%= s.category %></span>
+            </div>
           </div>
+          <h4 class="service-title-card"><%= s.title %></h4>
+          <p class="provider-desc"><%= s.description.substring(0, 120) %><%= s.description.length > 120 ? '...' : '' %></p>
+          <div class="provider-rating-price">
+            <div class="rating-stars" aria-label="Rating 4.8">★★★★★</div>
+            <span class="provider-price">$<%= (s.price_per_hour * (s.duration_minutes / 60)).toFixed(2) %></span>
+          </div>
+          <a href="/services/<%= s.id %>" class="provider-details-btn">View Details</a>
         </div>
-        <p class="provider-desc"><%= s.desc %></p>
-        <div class="provider-rating-price">
-          <div class="rating-stars" aria-label="Rating <%= s.rating %>">★★★★★</div>
-          <span class="provider-price">From $<%= s.price %>/hr</span>
-        </div>
-        <a href="/services/<%= s.id %>" class="provider-details-btn">View Details</a>
+      <% }); %>
+    <% } else { %>
+      <div style="grid-column:1/-1;text-align:center;padding:60px 20px;background:white;border-radius:16px;">
+        <h3 style="font-size:1.5rem;margin-bottom:12px;color:#6b7280;">No services found</h3>
+        <p style="color:#9ca3af;margin-bottom:24px;">Be the first to offer your expertise!</p>
+        <% if (typeof authUser !== 'undefined' && authUser) { %>
+          <a href="/services/new" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:10px;text-decoration:none;font-weight:600;">Create a Service</a>
+        <% } %>
       </div>
-    <% }); %>
+    <% } %>
   </div>
 </section>
 
-<section class="services-note-section">
-  <p class="services-note">Offering your own services? Upgrade to a seller tier to list here.</p>
-</section>
+<% if (typeof authUser !== 'undefined' && authUser) { %>
+  <section class="services-note-section">
+    <p class="services-note">Want to offer your own services? <a href="/services/new" style="color:#764ba2;font-weight:700;text-decoration:underline;">Create one now</a> or <a href="/pricing" style="color:#764ba2;font-weight:700;text-decoration:underline;">upgrade to a seller tier</a> to list here.</p>
+  </section>
+<% } else { %>
+  <section class="services-note-section">
+    <p class="services-note">Offering your own services? Upgrade to a seller tier to list here.</p>
+  </section>
+<% } %>
 
 <%- include('partials/footer') %>

@@ -153,6 +153,30 @@ CREATE TABLE IF NOT EXISTS invoices (
   invoice_date DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS services (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  category TEXT NOT NULL,
+  price_per_hour REAL NOT NULL,
+  duration_minutes INTEGER NOT NULL DEFAULT 60,
+  experience_level TEXT,
+  format TEXT,
+  availability TEXT,
+  location TEXT,
+  tags TEXT,
+  image_url TEXT,
+  status TEXT DEFAULT 'active',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_services_user_id ON services(user_id);
+CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
+CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
 `);
 
 // Migration: Add new columns if they don't exist
@@ -1315,5 +1339,89 @@ module.exports = {
       LEFT JOIN users p ON p.id = pc.user_id
       WHERE c.id = ?
     `).get(commentId);
+  },
+
+  // Service management functions
+  createService: ({ userId, title, description, category, pricePerHour, durationMinutes, experienceLevel, format, availability, location, tags, imageUrl }) => {
+    const stmt = db.prepare(`
+      INSERT INTO services (user_id, title, description, category, price_per_hour, duration_minutes, experience_level, format, availability, location, tags, image_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(userId, title, description, category, pricePerHour, durationMinutes || 60, experienceLevel, format, availability, location, tags, imageUrl);
+    return result.lastInsertRowid;
+  },
+
+  getUserServices: (userId) => {
+    return db.prepare(`
+      SELECT * FROM services
+      WHERE user_id = ? AND status = 'active'
+      ORDER BY created_at DESC
+    `).all(userId);
+  },
+
+  getAllServices: ({ category, priceRange, experienceLevel, format, limit = 100 }) => {
+    let query = `
+      SELECT s.*, u.full_name, u.profile_picture, u.categories
+      FROM services s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.status = 'active'
+    `;
+    const params = [];
+    
+    if (category) {
+      query += ` AND s.category = ?`;
+      params.push(category);
+    }
+    if (priceRange) {
+      if (priceRange === 'under-25') query += ` AND s.price_per_hour < 25`;
+      else if (priceRange === '25-50') query += ` AND s.price_per_hour BETWEEN 25 AND 50`;
+      else if (priceRange === '50-75') query += ` AND s.price_per_hour BETWEEN 50 AND 75`;
+      else if (priceRange === '75plus') query += ` AND s.price_per_hour >= 75`;
+    }
+    if (experienceLevel) {
+      query += ` AND s.experience_level = ?`;
+      params.push(experienceLevel);
+    }
+    if (format) {
+      query += ` AND s.format = ?`;
+      params.push(format);
+    }
+    
+    query += ` ORDER BY s.created_at DESC LIMIT ?`;
+    params.push(limit);
+    
+    return db.prepare(query).all(...params);
+  },
+
+  getService: (serviceId) => {
+    return db.prepare(`
+      SELECT s.*, u.full_name, u.profile_picture, u.email, u.bio, u.categories
+      FROM services s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.id = ? AND s.status = 'active'
+    `).get(serviceId);
+  },
+
+  updateService: ({ serviceId, userId, title, description, category, pricePerHour, durationMinutes, experienceLevel, format, availability, location, tags, imageUrl }) => {
+    const stmt = db.prepare(`
+      UPDATE services
+      SET title = ?, description = ?, category = ?, price_per_hour = ?, duration_minutes = ?,
+          experience_level = ?, format = ?, availability = ?, location = ?, tags = ?, image_url = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND user_id = ?
+    `);
+    const result = stmt.run(title, description, category, pricePerHour, durationMinutes, experienceLevel, format, availability, location, tags, imageUrl, serviceId, userId);
+    return result.changes > 0;
+  },
+
+  deleteService: ({ serviceId, userId }) => {
+    const stmt = db.prepare(`UPDATE services SET status = 'deleted' WHERE id = ? AND user_id = ?`);
+    const result = stmt.run(serviceId, userId);
+    return result.changes > 0;
+  },
+
+  getServiceCount: (userId) => {
+    const result = db.prepare(`SELECT COUNT(*) as count FROM services WHERE user_id = ? AND status = 'active'`).get(userId);
+    return result.count;
   }
 };
