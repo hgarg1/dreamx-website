@@ -22,12 +22,12 @@ function initSmoothScrolling() {
         link.addEventListener('click', function(e) {
             const href = this.getAttribute('href');
             
-            // Only apply smooth scroll for on-page anchors
-            if (href !== '#' && href.length > 1) {
-                e.preventDefault();
+            // Only apply smooth scroll for on-page anchors, not navigation or empty anchors
+            if (href !== '#' && href.length > 1 && !this.closest('.dropdown-toggle')) {
                 const target = document.querySelector(href);
                 
                 if (target) {
+                    e.preventDefault();
                     target.scrollIntoView({
                         behavior: 'smooth',
                         block: 'start'
@@ -124,10 +124,20 @@ function initDropdowns() {
         const toggle = dd.querySelector('.dropdown-toggle');
         if (!toggle) return;
         toggle.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
             dd.classList.toggle('open');
             const expanded = dd.classList.contains('open');
             toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        });
+        
+        // Ensure dropdown menu links work properly
+        const menuLinks = dd.querySelectorAll('.dropdown-menu a');
+        menuLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Let the link navigate normally
+            });
         });
     });
     // Close when clicking outside

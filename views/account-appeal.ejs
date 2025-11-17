@@ -1,0 +1,492 @@
+<%- include('partials/header') %>
+
+<div class="page-header">
+    <h1>Account Appeal</h1>
+    <p class="subtitle">Request a review of your account suspension or ban</p>
+</div>
+
+<div class="content-section">
+    <div class="appeal-intro">
+        <h2>About Account Appeals</h2>
+        <p>If your account was suspended or banned and you believe this was an error, you can submit an appeal. We take account actions seriously and will carefully review your case.</p>
+        
+        <div class="appeal-types">
+            <div class="appeal-type-card">
+                <h3>⚠️ Temporary Suspension</h3>
+                <p>Your account is temporarily restricted. You can appeal if you believe this was in error or want to provide context.</p>
+            </div>
+            <div class="appeal-type-card">
+                <h3>🚫 Permanent Ban</h3>
+                <p>Your account has been permanently disabled. Appeals are reviewed for severe policy violations or mistaken identity.</p>
+            </div>
+        </div>
+
+        <div class="important-notice">
+            <strong>⚠️ Important:</strong> Creating additional accounts to bypass a ban may result in permanent IP blocking. Please use this appeal process instead.
+        </div>
+    </div>
+
+    <div class="appeal-form-wrapper">
+        <form class="appeal-form" action="/api/appeals/account" method="POST">
+            <div class="form-row">
+                <label for="email" class="form-label">Account Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    class="form-input" 
+                    placeholder="email@example.com"
+                    required 
+                />
+                <small class="hint">The email associated with your Dream X account</small>
+            </div>
+
+            <div class="form-row">
+                <label for="username" class="form-label">Username/Handle</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    class="form-input" 
+                    placeholder="@yourusername"
+                    required 
+                />
+            </div>
+
+            <div class="form-row">
+                <label for="accountAction" class="form-label">Type of Account Action</label>
+                <select id="accountAction" name="accountAction" class="form-input" required>
+                    <option value="">Select action type...</option>
+                    <option value="temporary-suspension">Temporary Suspension</option>
+                    <option value="permanent-ban">Permanent Ban</option>
+                    <option value="feature-restriction">Feature Restriction</option>
+                    <option value="shadow-ban">Shadow Ban (Suspected)</option>
+                    <option value="other">Other/Unknown</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="actionDate" class="form-label">When did this happen? (approximate)</label>
+                <input 
+                    type="date" 
+                    id="actionDate" 
+                    name="actionDate" 
+                    class="form-input" 
+                />
+            </div>
+
+            <div class="form-row">
+                <label for="violationReason" class="form-label">Reason Given (if known)</label>
+                <select id="violationReason" name="violationReason" class="form-input">
+                    <option value="">Select if you know...</option>
+                    <option value="spam">Spam/Bot Activity</option>
+                    <option value="harassment">Harassment or Bullying</option>
+                    <option value="hate-speech">Hate Speech</option>
+                    <option value="impersonation">Impersonation</option>
+                    <option value="multiple-violations">Multiple Policy Violations</option>
+                    <option value="illegal-activity">Illegal Activity</option>
+                    <option value="evasion">Ban Evasion</option>
+                    <option value="copyright">Copyright Violations</option>
+                    <option value="other">Other/Unknown</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="appealReason" class="form-label">Why do you believe this action was incorrect?</label>
+                <textarea 
+                    id="appealReason" 
+                    name="appealReason" 
+                    rows="6" 
+                    class="form-textarea" 
+                    placeholder="Please provide a detailed explanation of why you believe the account action was made in error. Include any relevant context, explanations, or information that might help us review your case..."
+                    required
+                ></textarea>
+                <small class="hint">Be honest and specific. Provide any evidence that supports your case.</small>
+            </div>
+
+            <div class="form-row">
+                <label for="preventionPlan" class="form-label">If violations occurred, how will you prevent them in the future?</label>
+                <textarea 
+                    id="preventionPlan" 
+                    name="preventionPlan" 
+                    rows="5" 
+                    class="form-textarea" 
+                    placeholder="Describe the steps you'll take to comply with our Community Guidelines if your account is restored..."
+                ></textarea>
+                <small class="hint">This shows you understand our policies and are committed to following them.</small>
+            </div>
+
+            <div class="form-row">
+                <label for="additionalInfo" class="form-label">Additional Context (optional)</label>
+                <textarea 
+                    id="additionalInfo" 
+                    name="additionalInfo" 
+                    rows="4" 
+                    class="form-textarea" 
+                    placeholder="Any other information that might help us review your appeal (compromised account, mistaken identity, etc.)..."
+                ></textarea>
+            </div>
+
+            <div class="form-row">
+                <label for="contactEmail" class="form-label">Contact Email (if different from account email)</label>
+                <input 
+                    type="email" 
+                    id="contactEmail" 
+                    name="contactEmail" 
+                    class="form-input" 
+                    placeholder="alternative@email.com"
+                />
+                <small class="hint">Where we should send the appeal decision</small>
+            </div>
+
+            <div class="appeal-notice">
+                <p><strong>Before submitting your appeal:</strong></p>
+                <ul>
+                    <li>Review our <a href="/community-guidelines">Community Guidelines</a> and <a href="/terms">Terms of Service</a></li>
+                    <li>Be honest about any violations that may have occurred</li>
+                    <li>Understand that some violations may not be reversible</li>
+                    <li>Do not create additional accounts while your appeal is pending</li>
+                    <li>Submitting false information may result in permanent account termination</li>
+                </ul>
+            </div>
+
+            <div class="form-actions">
+                <a href="/" class="btn-secondary">Cancel</a>
+                <button type="submit" class="btn-primary">Submit Appeal</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="appeal-info">
+        <h2>Appeal Review Process</h2>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-number">1</div>
+                <div class="timeline-content">
+                    <h3>Appeal Received</h3>
+                    <p>You'll receive an email confirmation with a case number to track your appeal</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-number">2</div>
+                <div class="timeline-content">
+                    <h3>Investigation</h3>
+                    <p>Our team reviews your account history, the violation, and your appeal explanation</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-number">3</div>
+                <div class="timeline-content">
+                    <h3>Decision</h3>
+                    <p>We make a decision based on our policies and the evidence provided (typically within 3-5 business days)</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-number">4</div>
+                <div class="timeline-content">
+                    <h3>Notification</h3>
+                    <p>You'll receive our decision via email with an explanation and any next steps</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+            
+            <div class="faq-item">
+                <h3>How long does the appeal process take?</h3>
+                <p>Most appeals are reviewed within 3-5 business days. Complex cases may take longer.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>Can I submit multiple appeals?</h3>
+                <p>You can submit one appeal per account action. If your appeal is denied, you may request a final review after 30 days.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>What happens if my appeal is approved?</h3>
+                <p>Your account will be restored with full access. In some cases, you may receive a warning or temporary restrictions.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>What if my appeal is denied?</h3>
+                <p>We'll explain the reason for denial. Decisions are final unless new evidence becomes available.</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>My account was compromised. What should I do?</h3>
+                <p>Mention this in your appeal and provide any evidence (unusual login locations, times, etc.). We take account security seriously.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.appeal-intro {
+    max-width: 900px;
+    margin: 0 auto 3rem;
+}
+
+.appeal-intro h2 {
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+}
+
+.appeal-types {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.appeal-type-card {
+    background: var(--bg-white);
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--border-color);
+}
+
+.appeal-type-card h3 {
+    margin: 0 0 0.75rem;
+    color: var(--text-dark);
+}
+
+.appeal-type-card p {
+    margin: 0;
+    color: var(--text-light);
+    line-height: 1.6;
+}
+
+.important-notice {
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    padding: 1.25rem;
+    border-radius: var(--radius-md);
+    margin: 2rem 0;
+}
+
+.important-notice strong {
+    color: #92400e;
+}
+
+.appeal-form-wrapper {
+    max-width: 700px;
+    margin: 0 auto 3rem;
+    background: var(--bg-white);
+    padding: 2.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.appeal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.form-input, .form-textarea {
+    width: 100%;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.75rem;
+    font-family: var(--font-primary);
+    font-size: 0.95rem;
+    transition: var(--transition-fast);
+}
+
+.form-input:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+}
+
+.hint {
+    font-size: 0.8rem;
+    color: var(--text-light);
+}
+
+.appeal-notice {
+    background: var(--bg-light);
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--primary-color);
+}
+
+.appeal-notice p {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+}
+
+.appeal-notice ul {
+    margin: 0.5rem 0 0 1.5rem;
+    line-height: 1.6;
+}
+
+.appeal-notice a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.appeal-notice a:hover {
+    text-decoration: underline;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition-fast);
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 79, 163, 0.3);
+}
+
+.btn-secondary {
+    background: var(--bg-light);
+    color: var(--text-dark);
+    border: 2px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-color);
+}
+
+.appeal-info {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.appeal-info h2 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: var(--text-dark);
+}
+
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    margin-bottom: 3rem;
+}
+
+.timeline-item {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 2rem;
+    align-items: start;
+    position: relative;
+}
+
+.timeline-item:not(:last-child)::before {
+    content: '↓';
+    position: absolute;
+    left: 30px;
+    top: 70px;
+    font-size: 2rem;
+    color: var(--primary-color);
+    transform: translateX(-50%);
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateX(-50%) translateY(0);
+    }
+    50% {
+        transform: translateX(-50%) translateY(10px);
+    }
+}
+
+.timeline-number {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--primary-color), #764ba2);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.timeline-content {
+    padding-top: 0.5rem;
+}
+
+.timeline-content h3 {
+    margin: 0 0 0.5rem;
+    color: var(--text-dark);
+    font-size: 1.25rem;
+}
+
+.timeline-content p {
+    margin: 0;
+    color: var(--text-light);
+    line-height: 1.6;
+}
+
+.faq-section {
+    margin-top: 3rem;
+}
+
+.faq-item {
+    background: var(--bg-white);
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--border-color);
+    margin-bottom: 1rem;
+}
+
+.faq-item h3 {
+    margin: 0 0 0.75rem;
+    color: var(--text-dark);
+    font-size: 1.1rem;
+}
+
+.faq-item p {
+    margin: 0;
+    color: var(--text-light);
+    line-height: 1.6;
+}
+</style>
+
+<%- include('partials/footer') %>

@@ -807,11 +807,52 @@ app.get('/feed', (req, res) => {
         { user: 'Clara Dawson', passion: 'Photography' },
         { user: 'Jun Park', passion: 'Design' }
     ];
-    const trendingPosts = [
-        { user: 'Nora Fields', userId: 1, title: 'How I wrote 10k words in a week' },
-        { user: 'Ethan Brooks', userId: 2, title: 'Startup launch tips' },
-        { user: 'Clara Dawson', userId: 3, title: 'Best nature photos of 2025' }
-    ];
+    
+    // Get real trending posts from database (most recent posts with activity)
+    // TODO: Implement proper trending algorithm based on likes, comments, and recency
+    let trendingPosts = [];
+    try {
+        const trendingQuery = db.prepare(`
+            SELECT 
+                p.id as post_id,
+                p.text_content,
+                p.activity_label,
+                p.created_at,
+                u.id as user_id,
+                u.full_name,
+                u.profile_picture,
+                0 as likes_count,
+                0 as comments_count
+            FROM posts p
+            JOIN users u ON p.user_id = u.id
+            WHERE p.created_at >= datetime('now', '-7 days')
+            ORDER BY p.created_at DESC
+            LIMIT 5
+        `);
+        const trendingResults = trendingQuery.all();
+        
+        trendingPosts = trendingResults.map(post => ({
+            post_id: post.post_id,
+            user: post.full_name,
+            full_name: post.full_name,
+            userId: post.user_id,
+            user_id: post.user_id,
+            title: post.activity_label || (post.text_content ? post.text_content.substring(0, 60) + '...' : 'View post'),
+            text_content: post.text_content,
+            profile_picture: post.profile_picture,
+            likes_count: post.likes_count,
+            comments_count: post.comments_count
+        }));
+    } catch (err) {
+        console.error('Error fetching trending posts:', err);
+        // Fallback to sample data if database query fails
+        trendingPosts = [
+            { user: 'Nora Fields', userId: 1, title: 'How I wrote 10k words in a week' },
+            { user: 'Ethan Brooks', userId: 2, title: 'Startup launch tips' },
+            { user: 'Clara Dawson', userId: 3, title: 'Best nature photos of 2025' }
+        ];
+    }
+    
     const recentActivity = [
         { desc: 'Nora Fields published a new post', time: '2m ago' },
         { desc: 'Ethan Brooks commented on a post', time: '10m ago' },
@@ -1752,6 +1793,54 @@ app.get('/contact', (req, res) => {
     });
 });
 
+// Careers page
+app.get('/careers', (req, res) => {
+    res.render('careers', { 
+        title: 'Careers - Dream X',
+        currentPage: 'careers'
+    });
+});
+
+// Privacy Policy page
+app.get('/privacy', (req, res) => {
+    res.render('privacy', { 
+        title: 'Privacy Policy - Dream X',
+        currentPage: 'privacy'
+    });
+});
+
+// Terms of Service page
+app.get('/terms', (req, res) => {
+    res.render('terms', { 
+        title: 'Terms of Service - Dream X',
+        currentPage: 'terms'
+    });
+});
+
+// Community Guidelines page
+app.get('/community-guidelines', (req, res) => {
+    res.render('community-guidelines', { 
+        title: 'Community Guidelines - Dream X',
+        currentPage: 'community-guidelines'
+    });
+});
+
+// Content Appeal page
+app.get('/content-appeal', (req, res) => {
+    res.render('content-appeal', { 
+        title: 'Content Appeal - Dream X',
+        currentPage: 'content-appeal'
+    });
+});
+
+// Account Appeal page
+app.get('/account-appeal', (req, res) => {
+    res.render('account-appeal', { 
+        title: 'Account Appeal - Dream X',
+        currentPage: 'account-appeal'
+    });
+});
+
 // Login page
 // (Original login route replaced by new auth-aware version above)
 
@@ -1858,6 +1947,89 @@ app.post('/api/push/unsubscribe', express.json(), (req, res) => {
     } catch (error) {
         console.error('Error unsubscribing from push:', error);
         res.status(500).json({ error: 'Failed to unsubscribe' });
+    }
+});
+
+// === APPEAL ROUTES ===
+// Submit content appeal
+app.post('/api/appeals/content', (req, res) => {
+    try {
+        const { email, contentType, contentUrl, removalReason, description, appealReason, additionalInfo } = req.body;
+        
+        // Validate required fields
+        if (!email || !contentType || !appealReason) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // In a real implementation, save to database
+        // For now, just log and send success response
+        console.log('📝 Content appeal received:', {
+            email,
+            contentType,
+            contentUrl,
+            removalReason,
+            appealReason: appealReason.substring(0, 100) + '...',
+            timestamp: new Date().toISOString()
+        });
+
+        // TODO: Save to appeals table in database
+        // TODO: Send confirmation email to user
+        // TODO: Notify moderation team
+
+        res.json({ 
+            success: true, 
+            message: 'Your appeal has been submitted. You will receive a response within 3-5 business days.',
+            caseNumber: 'CA-' + Date.now()
+        });
+    } catch (error) {
+        console.error('Error processing content appeal:', error);
+        res.status(500).json({ error: 'Failed to submit appeal' });
+    }
+});
+
+// Submit account appeal
+app.post('/api/appeals/account', (req, res) => {
+    try {
+        const { 
+            email, 
+            username, 
+            accountAction, 
+            actionDate, 
+            violationReason, 
+            appealReason, 
+            preventionPlan, 
+            additionalInfo,
+            contactEmail 
+        } = req.body;
+        
+        // Validate required fields
+        if (!email || !username || !accountAction || !appealReason) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // In a real implementation, save to database
+        console.log('📝 Account appeal received:', {
+            email,
+            username,
+            accountAction,
+            violationReason,
+            appealReason: appealReason.substring(0, 100) + '...',
+            timestamp: new Date().toISOString()
+        });
+
+        // TODO: Save to appeals table in database
+        // TODO: Send confirmation email to user
+        // TODO: Notify moderation/security team
+        // TODO: Create review ticket
+
+        res.json({ 
+            success: true, 
+            message: 'Your account appeal has been submitted. You will receive a decision within 3-5 business days.',
+            caseNumber: 'AA-' + Date.now()
+        });
+    } catch (error) {
+        console.error('Error processing account appeal:', error);
+        res.status(500).json({ error: 'Failed to submit appeal' });
     }
 });
 

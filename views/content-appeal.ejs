@@ -1,0 +1,360 @@
+<%- include('partials/header') %>
+
+<div class="page-header">
+    <h1>Content Appeal</h1>
+    <p class="subtitle">Challenge a content moderation decision</p>
+</div>
+
+<div class="content-section">
+    <div class="appeal-intro">
+        <h2>About Content Appeals</h2>
+        <p>If you believe we incorrectly removed or restricted your content, you can submit an appeal. Our moderation team will review your case and respond within 48 hours.</p>
+        <p>Common reasons for appeals:</p>
+        <ul>
+            <li>Content was removed in error</li>
+            <li>Context was misunderstood</li>
+            <li>Content doesn't violate Community Guidelines</li>
+            <li>Educational or artistic expression was misclassified</li>
+        </ul>
+    </div>
+
+    <div class="appeal-form-wrapper">
+        <form class="appeal-form" action="/api/appeals/content" method="POST">
+            <div class="form-row">
+                <label for="email" class="form-label">Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    class="form-input" 
+                    <% if (typeof authUser !== 'undefined' && authUser) { %>value="<%= authUser.email %>"<% } %>
+                    required 
+                />
+                <small class="hint">We'll send updates to this email</small>
+            </div>
+
+            <div class="form-row">
+                <label for="contentType" class="form-label">Content Type</label>
+                <select id="contentType" name="contentType" class="form-input" required>
+                    <option value="">Select content type...</option>
+                    <option value="post">Post</option>
+                    <option value="comment">Comment</option>
+                    <option value="message">Message</option>
+                    <option value="profile">Profile Information</option>
+                    <option value="media">Photo/Video</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="contentUrl" class="form-label">Content URL or ID (if available)</label>
+                <input 
+                    type="text" 
+                    id="contentUrl" 
+                    name="contentUrl" 
+                    class="form-input" 
+                    placeholder="https://dreamx.com/post/123 or Post ID: 123"
+                />
+                <small class="hint">Help us locate the content faster</small>
+            </div>
+
+            <div class="form-row">
+                <label for="removalReason" class="form-label">Reason Given for Removal</label>
+                <select id="removalReason" name="removalReason" class="form-input">
+                    <option value="">Select if you know...</option>
+                    <option value="spam">Spam</option>
+                    <option value="harassment">Harassment</option>
+                    <option value="hate-speech">Hate Speech</option>
+                    <option value="misinformation">Misinformation</option>
+                    <option value="sexual-content">Sexual Content</option>
+                    <option value="violence">Violence</option>
+                    <option value="copyright">Copyright Violation</option>
+                    <option value="other">Other/Unknown</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="description" class="form-label">Description of Content</label>
+                <textarea 
+                    id="description" 
+                    name="description" 
+                    rows="4" 
+                    class="form-textarea" 
+                    placeholder="Briefly describe what your content was about..."
+                    required
+                ></textarea>
+            </div>
+
+            <div class="form-row">
+                <label for="appealReason" class="form-label">Why do you believe this was an error?</label>
+                <textarea 
+                    id="appealReason" 
+                    name="appealReason" 
+                    rows="6" 
+                    class="form-textarea" 
+                    placeholder="Explain why you think your content doesn't violate our Community Guidelines. Provide any relevant context..."
+                    required
+                ></textarea>
+                <small class="hint">Be specific. Include context that might have been missed.</small>
+            </div>
+
+            <div class="form-row">
+                <label for="additionalInfo" class="form-label">Additional Information (optional)</label>
+                <textarea 
+                    id="additionalInfo" 
+                    name="additionalInfo" 
+                    rows="4" 
+                    class="form-textarea" 
+                    placeholder="Any other details that might help us review your appeal..."
+                ></textarea>
+            </div>
+
+            <div class="appeal-notice">
+                <p><strong>Before submitting:</strong></p>
+                <ul>
+                    <li>Review our <a href="/community-guidelines">Community Guidelines</a></li>
+                    <li>Ensure your content doesn't violate our policies</li>
+                    <li>Provide clear, honest information</li>
+                    <li>False appeals may result in additional restrictions</li>
+                </ul>
+            </div>
+
+            <div class="form-actions">
+                <a href="/" class="btn-secondary">Cancel</a>
+                <button type="submit" class="btn-primary">Submit Appeal</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="appeal-info">
+        <h2>What Happens Next?</h2>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-number">1</div>
+                <div class="timeline-content">
+                    <h3>We Review Your Appeal</h3>
+                    <p>Our moderation team carefully reviews your appeal and the original content</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-number">2</div>
+                <div class="timeline-content">
+                    <h3>Decision Made</h3>
+                    <p>We'll make a decision within 48 hours based on our Community Guidelines</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-number">3</div>
+                <div class="timeline-content">
+                    <h3>You're Notified</h3>
+                    <p>We'll email you our decision and any actions taken</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.appeal-intro {
+    max-width: 800px;
+    margin: 0 auto 3rem;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(255, 79, 163, 0.1));
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+}
+
+.appeal-intro h2 {
+    margin-top: 0;
+    color: var(--text-dark);
+}
+
+.appeal-intro ul {
+    margin-left: 1.5rem;
+    line-height: 1.8;
+}
+
+.appeal-form-wrapper {
+    max-width: 700px;
+    margin: 0 auto 3rem;
+    background: var(--bg-white);
+    padding: 2.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.appeal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.form-input, .form-textarea {
+    width: 100%;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.75rem;
+    font-family: var(--font-primary);
+    font-size: 0.95rem;
+    transition: var(--transition-fast);
+}
+
+.form-input:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+}
+
+.hint {
+    font-size: 0.8rem;
+    color: var(--text-light);
+}
+
+.appeal-notice {
+    background: var(--bg-light);
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--primary-color);
+}
+
+.appeal-notice p {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+}
+
+.appeal-notice ul {
+    margin: 0.5rem 0 0 1.5rem;
+    line-height: 1.6;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition-fast);
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 79, 163, 0.3);
+}
+
+.btn-secondary {
+    background: var(--bg-light);
+    color: var(--text-dark);
+    border: 2px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-color);
+}
+
+.appeal-info {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.appeal-info h2 {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+.timeline-item {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 2rem;
+    align-items: start;
+    position: relative;
+}
+
+.timeline-item:not(:last-child)::before {
+    content: '↓';
+    position: absolute;
+    left: 30px;
+    top: 70px;
+    font-size: 2rem;
+    color: var(--primary-color);
+    transform: translateX(-50%);
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateX(-50%) translateY(0);
+    }
+    50% {
+        transform: translateX(-50%) translateY(10px);
+    }
+}
+
+.timeline-number {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--primary-color), #764ba2);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.timeline-content {
+    padding-top: 0.5rem;
+}
+
+.timeline-content h3 {
+    margin: 0 0 0.5rem;
+    color: var(--text-dark);
+    font-size: 1.25rem;
+}
+
+.timeline-content p {
+    margin: 0;
+    color: var(--text-light);
+    line-height: 1.6;
+}
+</style>
+
+<%- include('partials/footer') %>

@@ -198,16 +198,38 @@
 
     <h2 class="sidebar-title">Trending Posts</h2>
     <div class="trending-posts">
-      <% trendingPosts.forEach(function(tp){ %>
-        <div class="trending-post-card">
-          <div class="avatar avatar-sm"><%= tp.user.charAt(0) %></div>
-          <div class="trending-info">
-            <span class="trending-title"><%= tp.title %></span>
-            <span class="trending-user"><%= tp.user %></span>
+      <% if (trendingPosts && trendingPosts.length > 0) { %>
+        <% trendingPosts.forEach(function(tp){ %>
+          <div class="trending-post-card">
+            <% if (tp.profile_picture) { %>
+              <div class="avatar-sm">
+                <img src="/uploads/<%= tp.profile_picture %>" alt="<%= tp.user || tp.full_name %>">
+              </div>
+            <% } else { %>
+              <div class="avatar-sm"><%= (tp.user || tp.full_name || 'U').charAt(0) %></div>
+            <% } %>
+            <div class="trending-info">
+              <span class="trending-title"><%= tp.title || tp.text_content || 'Untitled Post' %></span>
+              <span class="trending-user"><%= tp.user || tp.full_name %></span>
+              <% if (tp.likes_count || tp.comments_count) { %>
+                <div class="trending-stats">
+                  <% if (tp.likes_count) { %>
+                    <span class="trending-stat">👍 <%= tp.likes_count %></span>
+                  <% } %>
+                  <% if (tp.comments_count) { %>
+                    <span class="trending-stat">💬 <%= tp.comments_count %></span>
+                  <% } %>
+                </div>
+              <% } %>
+            </div>
+            <a href="<%= tp.post_id ? '/post/' + tp.post_id : '/profile/' + (tp.userId || tp.user_id) %>" class="view-btn">View</a>
           </div>
-          <a href="/profile/<%= tp.userId %>" class="view-btn">View</a>
+        <% }); %>
+      <% } else { %>
+        <div style="padding:16px;text-align:center;color:#9ca3af;font-size:.85rem;">
+          No trending posts yet
         </div>
-      <% }); %>
+      <% } %>
     </div>
 
     <h2 class="sidebar-title">Recent Activity</h2>
