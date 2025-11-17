@@ -1,8 +1,19 @@
 /* Mobile-First Responsive Styles for Dream X */
 
-/* Base Mobile Styles */
+/* =============================
+   RESPONSIVE BREAKPOINTS
+   ============================= */
+/* xs: < 480px */
+/* sm: 480px - 768px */
+/* md: 768px - 1024px */
+/* lg: 1024px - 1200px */
+/* xl: > 1200px */
+
+/* =============================
+   BASE MOBILE OPTIMIZATIONS
+   ============================= */
 @media (max-width: 768px) {
-  /* Typography */
+  /* Typography - Better readability on mobile */
   html {
     font-size: 14px;
   }
@@ -11,45 +22,162 @@
     overflow-x: hidden;
   }
 
-  /* Header */
+  /* Improved spacing for mobile */
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+
+  /* =============================
+     NAVIGATION
+     ============================= */
   header .logo {
     font-size: 1.2rem;
   }
 
-  .header-nav {
-    flex-direction: column;
+  header .logo img {
+    height: 32px;
+  }
+
+  .navbar {
+    padding: 0.5rem 0;
+  }
+
+  .mobile-menu-toggle {
+    display: flex !important;
+  }
+  
+  .nav-links {
     position: fixed;
     top: 60px;
     left: -100%;
-    width: 80%;
+    width: 85%;
+    max-width: 320px;
     height: calc(100vh - 60px);
-    background: white;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-    transition: left 0.3s ease;
-    z-index: 1000;
-    padding: 1rem;
+    background: var(--bg-white);
+    box-shadow: var(--shadow-2xl);
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--spacing-md);
+    gap: 0;
+    transition: left var(--transition-smooth);
+    z-index: var(--z-fixed);
+    overflow-y: auto;
   }
 
-  .header-nav.active {
+  .nav-links.active {
     left: 0;
   }
 
-  .nav-link {
-    padding: 1rem;
+  .nav-links li {
+    width: 100%;
     border-bottom: 1px solid var(--border-color);
   }
 
-  /* Mobile Menu Button */
-  .mobile-menu-btn {
+  .nav-links a {
     display: block;
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0.5rem;
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    margin: 0.25rem 0;
   }
 
-  /* Messages Layout */
+  .dropdown-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dropdown-menu {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+    border: none;
+    border-left: 3px solid var(--primary-color);
+    padding-left: var(--spacing-md);
+    margin-top: var(--spacing-xs);
+  }
+
+  /* =============================
+     HERO SECTION
+     ============================= */
+  .hero {
+    padding: var(--spacing-xl) var(--spacing-sm);
+  }
+
+  .hero-title {
+    font-size: clamp(1.75rem, 6vw, 2.5rem);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .hero-subtitle {
+    font-size: clamp(0.95rem, 4vw, 1.15rem);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .hero-buttons .btn {
+    width: 100%;
+  }
+
+  /* =============================
+     FEATURE CARDS
+     ============================= */
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+  }
+
+  .feature-card {
+    padding: var(--spacing-md);
+  }
+
+  /* =============================
+     FORMS
+     ============================= */
+  .form-control {
+    padding: 0.75rem;
+    font-size: var(--font-size-base);
+  }
+
+  /* Touch-friendly buttons */
+  .btn {
+    min-height: 48px;
+    padding: 0.875rem 1.25rem;
+    font-size: var(--font-size-base);
+  }
+
+  /* =============================
+     MODALS
+     ============================= */
+  .modal {
+    max-width: 95%;
+    margin: var(--spacing-sm);
+    border-radius: var(--radius-lg);
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  /* =============================
+     CARDS
+     ============================= */
+  .card {
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  /* =============================
+     MESSAGES & FEED
+     ============================= */
   .messages-layout {
     flex-direction: column;
   }
@@ -59,81 +187,17 @@
     max-width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
+    max-height: 40vh;
   }
 
   .chat-column {
     width: 100%;
-    height: calc(100vh - 200px);
+    min-height: 60vh;
   }
 
-  /* Admin Dashboard */
-  .admin-dashboard-header {
-    padding: 1rem;
-  }
-
-  .header-actions {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .admin-tabs {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-  }
-
-  .tab-btn {
-    min-width: 120px;
-    font-size: 0.8rem;
-  }
-
-  .metrics-overview {
-    grid-template-columns: 1fr;
-  }
-
-  .analytics-row {
-    grid-template-columns: 1fr;
-  }
-
-  /* Tables */
-  .table-responsive {
-    overflow-x: auto;
-  }
-
-  .admin-table {
-    min-width: 600px;
-  }
-
-  .admin-table th,
-  .admin-table td {
-    padding: 0.5rem;
-    font-size: 0.8rem;
-  }
-
-  /* Forms */
-  .role-update-form {
-    flex-direction: column;
-  }
-
-  .role-select {
-    font-size: 0.8rem;
-  }
-
-  /* Modals */
-  .admin-modal-content {
-    width: 95%;
-    max-width: 95%;
-    margin: 1rem;
-  }
-
-  #groupModal > div,
-  #groupSettingsModal > div {
-    width: 95%;
-    max-width: 95%;
-  }
-
-  /* Feed */
   .feed-layout {
     grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .feed-main {
@@ -144,10 +208,14 @@
     display: none;
   }
 
+  .left-sidebar {
+    display: none;
+  }
+
   /* Post Cards */
   .post-card {
-    border-radius: 8px;
-    margin-bottom: 1rem;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-sm);
   }
 
   .post-header-info {
@@ -155,28 +223,96 @@
     min-width: 0;
   }
 
-  /* Profile */
+  /* =============================
+     ADMIN DASHBOARD
+     ============================= */
+  .admin-dashboard-container {
+    padding: var(--spacing-sm);
+  }
+
+  .admin-dashboard-header {
+    padding: var(--spacing-md);
+  }
+
+  .admin-dashboard-header h1 {
+    font-size: var(--font-size-3xl);
+  }
+
+  .header-actions {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .admin-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-btn {
+    min-width: 120px;
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+  }
+
+  .metrics-overview,
+  .admin-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+  }
+
+  .analytics-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tables */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-table {
+    min-width: 600px;
+    font-size: var(--font-size-sm);
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: var(--spacing-xs);
+  }
+
+  /* Forms */
+  .role-update-form {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .admin-modal-content,
+  #groupModal > div,
+  #groupSettingsModal > div {
+    width: 95%;
+    max-width: 95%;
+    margin: var(--spacing-sm);
+  }
+  /* =============================
+     PROFILE & SETTINGS
+     ============================= */
   .profile-header {
     flex-direction: column;
     text-align: center;
   }
 
   .profile-avatar {
-    width: 80px;
-    height: 80px;
+    width: 96px;
+    height: 96px;
   }
 
   .profile-stats {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-direction: row;
+    justify-content: space-around;
+    gap: var(--spacing-sm);
   }
 
-  /* Services */
-  .services-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Settings */
   .settings-layout {
     grid-template-columns: 1fr;
   }
@@ -185,63 +321,104 @@
     order: 2;
     border-left: none;
     border-top: 1px solid var(--border-color);
-    padding-top: 1rem;
+    padding-top: var(--spacing-md);
   }
 
-  /* Pricing */
+  /* =============================
+     SERVICES & PRICING
+     ============================= */
+  .services-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
   .pricing-grid {
     grid-template-columns: 1fr;
+    gap: var(--spacing-md);
   }
 
   .pricing-card {
     max-width: 100%;
   }
 
-  /* Careers */
-  .careers-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* HR Page */
+  /* =============================
+     OTHER PAGES
+     ============================= */
+  .careers-grid,
   .hr-layout {
     grid-template-columns: 1fr;
   }
 
-  /* Buttons */
-  .btn,
-  .admin-header-btn,
-  .pagination-btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-  }
-
-  /* Search */
-  .search-input-wrapper input {
-    font-size: 0.9rem;
-  }
-
-  /* Pagination */
-  .admin-pagination {
+  /* =============================
+     PAGINATION
+     ============================= */
+  .admin-pagination,
+  .pagination {
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--spacing-sm);
+    align-items: stretch;
   }
 
   .pagination-controls {
     width: 100%;
     justify-content: center;
   }
+
+  .pagination-btn,
+  .pagination-item {
+    padding: 0.75rem 1rem;
+    font-size: var(--font-size-sm);
+  }
+
+  /* =============================
+     SEARCH & FILTERS
+     ============================= */
+  .search-input-wrapper input,
+  .help-search-input {
+    font-size: var(--font-size-base);
+  }
+
+  .filters-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* =============================
+     TOOLTIPS - Disable on mobile
+     ============================= */
+  .tooltip::before,
+  .tooltip::after {
+    display: none;
+  }
+
+  /* =============================
+     IMPROVED SECTION SPACING
+     ============================= */
+  .intro-section,
+  .content-section,
+  .features-cta-section {
+    padding: var(--spacing-lg) var(--spacing-sm);
+  }
+
+  .intro-section h2,
+  .content-section h2 {
+    font-size: var(--font-size-3xl);
+  }
+
+  .intro-text {
+    font-size: var(--font-size-base);
+  }
 }
 
-/* Tablet Styles */
+/* =============================
+   TABLET STYLES (768px - 1024px)
+   ============================= */
 @media (min-width: 769px) and (max-width: 1024px) {
-  .metrics-overview {
+  .metrics-overview,
+  .admin-metrics-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .services-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
+  .services-grid,
   .pricing-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -249,24 +426,31 @@
   .conversations-column {
     width: 300px;
   }
+
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-/* Small Mobile Screens */
+/* =============================
+   SMALL MOBILE SCREENS (< 480px)
+   ============================= */
 @media (max-width: 480px) {
   html {
-    font-size: 12px;
+    font-size: 13px;
   }
 
-  .admin-dashboard-header h1 {
-    font-size: 1.5rem;
+  .admin-dashboard-header h1,
+  .hero-title {
+    font-size: var(--font-size-3xl);
   }
 
   .metric-card {
-    padding: 1rem;
+    padding: var(--spacing-sm);
   }
 
   .metric-value {
-    font-size: 1.8rem;
+    font-size: var(--font-size-3xl);
   }
 
   .chat-bubble {
@@ -275,14 +459,34 @@
 
   .post-actions {
     flex-wrap: wrap;
+    gap: var(--spacing-xs);
   }
 
   .admin-user-actions .admin-actions-btn {
     padding: 0.4rem 0.6rem;
+    font-size: var(--font-size-xs);
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Stack everything */
+  .flex {
+    flex-direction: column;
+  }
+
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-cols-4 {
+    grid-template-columns: 1fr;
   }
 }
 
-/* Landscape Mobile */
+/* =============================
+   LANDSCAPE MOBILE (< 896px)
+   ============================= */
 @media (max-width: 896px) and (orientation: landscape) {
   .chat-column {
     height: calc(100vh - 100px);
@@ -291,16 +495,134 @@
   .messages-layout {
     height: 100vh;
   }
+
+  .hero {
+    padding: var(--spacing-lg) var(--spacing-sm);
+  }
+
+  .navbar {
+    padding: 0.4rem 0;
+  }
 }
 
-/* Touch-friendly tap targets */
+/* =============================
+   TOUCH-FRIENDLY TAP TARGETS
+   ============================= */
 @media (hover: none) and (pointer: coarse) {
+  /* Ensure minimum tap target size of 44x44px */
   .btn,
   .tab-btn,
   .nav-link,
   .conversation-item,
-  .admin-actions-btn {
+  .admin-actions-btn,
+  .dropdown-toggle,
+  .pagination-btn,
+  .pagination-item,
+  input[type="checkbox"],
+  input[type="radio"] {
     min-height: 44px;
     min-width: 44px;
   }
+
+  /* Remove hover effects on touch devices */
+  *:hover {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Better focus indicators for accessibility */
+  *:focus-visible {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+/* =============================
+   PRINT STYLES
+   ============================= */
+@media print {
+  /* Hide navigation and non-essential elements */
+  .navbar,
+  .footer,
+  .mobile-menu-toggle,
+  .btn,
+  .dropdown-menu,
+  #notificationPanel {
+    display: none !important;
+  }
+
+  /* Optimize for printing */
+  body {
+    background: white;
+    color: black;
+    font-size: 12pt;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  /* Prevent page breaks inside elements */
+  .card,
+  .feature-card,
+  .pricing-card {
+    page-break-inside: avoid;
+  }
+
+  /* Show URLs for links */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* Simplify shadows and borders */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}
+
+/* =============================
+   ACCESSIBILITY IMPROVEMENTS
+   ============================= */
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .btn,
+  .card,
+  .feature-card {
+    border-width: 2px;
+    border-color: currentColor;
+  }
+
+  a {
+    text-decoration: underline;
+  }
+}
+
+/* Dark mode preference (optional - for future implementation) */
+@media (prefers-color-scheme: dark) {
+  /* Currently not implementing dark mode, but structure is here for future */
+  /* Uncomment and customize when ready to add dark mode support */
+  /*
+  :root {
+    --bg-light: #1f2937;
+    --bg-white: #111827;
+    --text-dark: #f9fafb;
+    --text-light: #d1d5db;
+    --border-color: #374151;
+  }
+  */
 }
