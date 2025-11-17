@@ -1732,7 +1732,17 @@ app.get('/help-center', (req, res) => {
         { q: 'How does the Reverse Algorithm work?', a: 'You begin with ultra-specific passion inputs. Over time the feed broadens intelligently, exposing adjacent skills and creators once you establish depth in your core interests.' },
         { q: 'How do I start offering services?', a: 'Upgrade to a seller tier, create service listings, set availability, and start accepting bookings through your public profile.' },
         { q: 'How do I upgrade my plan?', a: 'Visit the Pricing page, choose a tier, and follow the upgrade flow (coming soon). Your features unlock instantly after confirmation.' },
-        { q: 'How do I report a problem or a user?', a: 'Use the in-app report option on posts or profiles, or contact support directly for urgent issues.' }
+        { q: 'How do I report a problem or a user?', a: 'Use the in-app report option on posts or profiles, or contact support directly for urgent issues.' },
+        { q: 'How do I create my first post?', a: 'Click the "Create Post" button on your feed, add your photo or video, write a caption about your progress, and select relevant passions or skills. Your post will appear on your profile and in the feeds of your followers.' },
+        { q: 'What are passions and how do I choose them?', a: 'Passions are the core interests that define your profile. Choose 3-5 primary passions from our curated list during onboarding. These help the algorithm show you relevant content and connect you with like-minded creators.' },
+        { q: 'Can I change my username or handle?', a: 'Yes! Go to Edit Profile and update your username/handle. Note that your old handle will become available for others to claim, and all your existing links will redirect to your new handle for 30 days.' },
+        { q: 'How do streaks work?', a: 'Streaks track consecutive days of posting or activity in specific skills. Post at least once per day to maintain your streak. Streaks are displayed on your profile and in the feed, showing your commitment to consistent growth.' },
+        { q: 'What makes Dream X different from other social platforms?', a: 'Dream X is built around productivity and growth, not endless scrolling. Our Reverse Algorithm expands your interests gradually, our dopamine loop rewards progress, and our community celebrates skill-building over vanity metrics.' },
+        { q: 'Is my data secure on Dream X?', a: 'Absolutely. We use industry-standard encryption, secure password hashing, and strict access controls. We never sell your personal data. Read our Privacy Policy for full details on how we protect your information.' },
+        { q: 'How do I delete my account?', a: 'Visit Settings > Account > Delete Account. Your data will be permanently deleted within 30 days. Some information may be retained for legal or security purposes as outlined in our Privacy Policy.' },
+        { q: 'Can I use Dream X for free?', a: 'Yes! Dream X offers a robust free tier with full social feed access, unlimited posts, passion portfolios, and basic achievement tracking. Upgrade to Pro or Elite tiers for advanced features and monetization.' },
+        { q: 'How does the marketplace work?', a: 'Pro Seller and Elite Seller tiers can create service listings for tutoring, coaching, or consultations. Buyers can browse, book sessions, and pay directly through the platform. Dream X handles scheduling, payments, and invoicing.' },
+        { q: 'What payment methods are accepted?', a: 'We accept major credit cards, debit cards, and digital wallets through our secure payment processor. Sellers receive payouts via bank transfer or PayPal on a regular schedule.' }
     ];
     res.render('help-center', {
         title: 'Help Center - Dream X',
