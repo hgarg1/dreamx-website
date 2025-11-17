@@ -1,0 +1,136 @@
+/* PWA Install Banner Styles */
+#pwa-install-banner {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+  z-index: 9998;
+  max-width: 90%;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    bottom: -100px;
+    opacity: 0;
+  }
+  to {
+    bottom: 20px;
+    opacity: 1;
+  }
+}
+
+#pwa-install-banner .banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+#pwa-install-banner .banner-icon {
+  font-size: 2rem;
+}
+
+#pwa-install-banner .banner-text h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+#pwa-install-banner .banner-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+#pwa-install-banner .banner-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+#pwa-install-banner button {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#pwa-install-banner .install-btn {
+  background: white;
+  color: #6366f1;
+}
+
+#pwa-install-banner .install-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+}
+
+#pwa-install-banner .dismiss-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+#pwa-install-banner .dismiss-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* PWA Mode Adjustments */
+body.pwa-mode {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+body.pwa-mode .navbar {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Offline Indicator */
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #f59e0b;
+  color: white;
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  z-index: 10001;
+  display: none;
+}
+
+.offline-indicator.show {
+  display: block;
+}
+
+/* Mobile PWA specific */
+@media (max-width: 768px) {
+  #pwa-install-banner {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    transform: none;
+    max-width: none;
+  }
+  
+  #pwa-install-banner .banner-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  #pwa-install-banner .banner-actions {
+    width: 100%;
+  }
+  
+  #pwa-install-banner button {
+    flex: 1;
+  }
+}

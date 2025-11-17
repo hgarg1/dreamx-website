@@ -30,7 +30,7 @@ const {
     createMessage, markMessagesAsRead, getUnreadMessageCount,
     updateUserRole, getAllUsers, getStats,
     // New admin helpers
-    getUsersPaged, getUsersCount,
+    getUsersPaged, getUsersCount, searchUsers,
     // Audit logs
     addAuditLog, getAuditLogsPaged, getAuditLogCount,
     // Posts
@@ -76,6 +76,19 @@ try {
     fetch = global.fetch;
 }
 
+// Helper to generate full callback URL for OAuth
+function getCallbackURL(path) {
+    // Use BASE_URL if explicitly set, otherwise detect environment
+    if (process.env.BASE_URL) {
+        return `${process.env.BASE_URL}${path}`;
+    }
+    
+    // Auto-detect: use localhost in development, production URL otherwise
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://dreamx-website.onrender.com';
+    return `${baseUrl}${path}`;
+}
+
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);
@@ -85,7 +98,7 @@ const PORT = 3000;
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, 'public', 'uploads'));
+    cb(null, path.join(__dirname, 'public', 'uploads', 'profiles'));
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -103,10 +116,11 @@ const upload = multer({
     }
   }
 });
+
 // Separate multer for chat attachments (modest size, broader types)
 const chatStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, 'public', 'uploads'));
+    cb(null, path.join(__dirname, 'public', 'uploads', 'chat'));
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -128,7 +142,7 @@ const chatUpload = multer({
 // Posts/media uploads (supports images for image posts, videos/GIFs for reels)
 const postStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'public', 'uploads'));
+        cb(null, path.join(__dirname, 'public', 'uploads', 'posts'));
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -148,7 +162,7 @@ const postUpload = multer({
 // Career application uploads (resume/portfolio)
 const careerStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'public', 'uploads'));
+        cb(null, path.join(__dirname, 'public', 'uploads', 'careers'));
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -170,6 +184,38 @@ const careerUpload = multer({
         ];
         if (allowed.includes(m)) return cb(null, true);
         cb(new Error('Unsupported file type for application'));
+    }
+});
+
+// Service uploads (images, videos, documents for service listings)
+const serviceStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, path.join(__dirname, 'public', 'uploads', 'services'));
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'service-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const serviceUpload = multer({
+    storage: serviceStorage,
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB for service media
+    fileFilter: (req, file, cb) => {
+        const m = (file.mimetype || '').toLowerCase();
+        const allowed = [
+            // Images
+            'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif',
+            // Videos
+            'video/mp4', 'video/webm', 'video/quicktime',
+            // Documents
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        ];
+        if (allowed.includes(m)) return cb(null, true);
+        cb(new Error('Unsupported file type for service'));
     }
 });
 
@@ -349,7 +395,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         passReqToCallback: true,
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || getCallbackURL('/auth/google/callback')
     }, async (req, accessToken, refreshToken, profile, done) => {
         try {
             const email = Array.isArray(profile.emails) && profile.emails[0] ? profile.emails[0].value : null;
@@ -369,7 +415,7 @@ if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
         passReqToCallback: true,
         clientID: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-        callbackURL: process.env.MICROSOFT_CALLBACK_URL || '/auth/microsoft/callback',
+        callbackURL: process.env.MICROSOFT_CALLBACK_URL || getCallbackURL('/auth/microsoft/callback'),
         scope: ['openid', 'profile', 'email', 'User.Read']
     }, async (req, accessToken, refreshToken, profile, done) => {
         try {
@@ -400,7 +446,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
         clientID: process.env.APPLE_CLIENT_ID,
         teamID: process.env.APPLE_TEAM_ID,
         keyID: process.env.APPLE_KEY_ID,
-        callbackURL: process.env.APPLE_CALLBACK_URL || '/auth/apple/callback',
+        callbackURL: process.env.APPLE_CALLBACK_URL || getCallbackURL('/auth/apple/callback'),
         privateKeyString: (process.env.APPLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
         scope: ['name', 'email']
     }, async (req, accessToken, refreshToken, idToken, profile, done) => {
@@ -885,6 +931,51 @@ app.get('/hr', requireHR, (req, res) => {
     });
 });
 
+// HR Contact Email Route
+app.post('/hr/send-email', requireHR, async (req, res) => {
+    try {
+        const { applicantId, applicantEmail, applicantName, subject, message } = req.body;
+        
+        if (!applicantEmail || !applicantName || !subject || !message) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'All fields (email, name, subject, message) are required' 
+            });
+        }
+        
+        const hrUser = getUserById(req.session.userId);
+        const fromHR = hrUser.full_name || hrUser.email;
+        
+        await emailService.sendHRContactEmail(
+            applicantEmail,
+            applicantName,
+            subject,
+            message,
+            fromHR
+        );
+        
+        // Log the action
+        try {
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'hr_email_sent',
+                details: JSON.stringify({ applicantEmail, subject, applicantId })
+            });
+        } catch (e) {}
+        
+        res.json({ 
+            success: true, 
+            message: 'Email sent successfully to ' + applicantEmail 
+        });
+    } catch (error) {
+        console.error('HR email error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to send email. Please try again.' 
+        });
+    }
+});
+
 // CSV export for career applications
 app.get('/admin/export/careers.csv', requireHR, (req, res) => {
     const careers = require('./db').getCareerApplicationsPaged({ limit: 10000, offset: 0 });
@@ -904,7 +995,7 @@ app.get('/admin/export/careers.csv', requireHR, (req, res) => {
 });
 
 // Status update endpoints
-app.post('/admin/careers/:id/status', requireAdminOrHR, (req, res) => {
+app.post('/admin/careers/:id/status', requireAdminOrHR, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     const status = (req.body.status || '').toLowerCase();
     const valid = ['new','under_review','accepted','rejected'];
@@ -917,8 +1008,25 @@ app.post('/admin/careers/:id/status', requireAdminOrHR, (req, res) => {
         return res.redirect('/admin?error=Invalid+status');
     }
     
+    // Get application details before updating
+    const application = db.getCareerApplicationById(id);
+    
     require('./db').updateCareerApplicationStatus({ id, status, reviewerId: req.session.userId });
     try { addAuditLog({ userId: req.session.userId, action: 'career_status_update', details: JSON.stringify({ id, status }) }); } catch(e){}
+    
+    // Send email notification for status changes
+    if (application && status !== 'new') {
+        try {
+            await emailService.sendCareerStatusUpdateEmail(
+                application.email,
+                application.name,
+                application.position,
+                status
+            );
+        } catch (emailError) {
+            console.error('Failed to send career status email:', emailError);
+        }
+    }
     
     if (isJson || req.xhr) {
         return res.json({ success: true });
@@ -1122,6 +1230,12 @@ app.post('/register', async (req, res) => {
             passwordHash: hash,
             handle: userHandle
         });
+        // Ensure a default free subscription is created for every new account
+        try {
+            createOrUpdateSubscription({ userId, tier: 'free', status: 'active' });
+        } catch (subErr) {
+            console.warn('Failed to initialize free subscription for user', userId, subErr.message);
+        }
         req.session.userId = userId;
         return res.redirect('/onboarding');
     } catch (e) {
@@ -1823,7 +1937,29 @@ app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }
 
 // Services marketplace page
 app.get('/services', (req, res) => {
-    const categories = ['Tutoring','Mentorship','Coaching','Workshops','Consulting','Other'];
+    const categories = [
+        'Tutoring',
+        'Mentorship',
+        'Coaching',
+        'Workshops',
+        'Consulting',
+        'Design Services',
+        'Development',
+        'Writing & Content',
+        'Marketing & SEO',
+        'Video & Photography',
+        'Audio & Music',
+        'Business Strategy',
+        'Legal Services',
+        'Financial Planning',
+        'Health & Wellness',
+        'Language Learning',
+        'Career Services',
+        'Data & Analytics',
+        'Virtual Assistance',
+        'Project Management',
+        'Other'
+    ];
     const { category, priceRange, experience, format } = req.query;
     
     const services = getAllServices({
@@ -1970,6 +2106,99 @@ app.post('/messages/group/create', (req, res) => {
     }
 });
 
+// Update group name
+app.post('/messages/group/:conversationId/name', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const conversationId = parseInt(req.params.conversationId, 10);
+    const { groupName } = req.body;
+    
+    if (!groupName || !groupName.trim()) {
+        return res.status(400).json({ error: 'Group name required' });
+    }
+    
+    if (!isUserInConversation({ conversationId, userId: req.session.userId })) {
+        return res.status(403).json({ error: 'Not a member of this group' });
+    }
+    
+    try {
+        db.prepare('UPDATE conversations SET group_name = ? WHERE id = ? AND is_group = 1').run(groupName.trim(), conversationId);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Update group name error:', e);
+        res.status(500).json({ error: 'Failed to update group name' });
+    }
+});
+
+// Add member to group
+app.post('/messages/group/:conversationId/add', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const conversationId = parseInt(req.params.conversationId, 10);
+    const { userId } = req.body;
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID required' });
+    }
+    
+    if (!isUserInConversation({ conversationId, userId: req.session.userId })) {
+        return res.status(403).json({ error: 'Not a member of this group' });
+    }
+    
+    try {
+        // Check if user is already in the conversation
+        const existing = db.prepare('SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').get(conversationId, userId);
+        if (existing) {
+            return res.status(400).json({ error: 'User is already in this group' });
+        }
+        
+        db.prepare('INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?)').run(conversationId, userId);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Add member error:', e);
+        res.status(500).json({ error: 'Failed to add member' });
+    }
+});
+
+// Remove member from group
+app.post('/messages/group/:conversationId/remove', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const conversationId = parseInt(req.params.conversationId, 10);
+    const { userId } = req.body;
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID required' });
+    }
+    
+    if (!isUserInConversation({ conversationId, userId: req.session.userId })) {
+        return res.status(403).json({ error: 'Not a member of this group' });
+    }
+    
+    try {
+        db.prepare('DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').run(conversationId, userId);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Remove member error:', e);
+        res.status(500).json({ error: 'Failed to remove member' });
+    }
+});
+
+// Leave group
+app.post('/messages/group/:conversationId/leave', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const conversationId = parseInt(req.params.conversationId, 10);
+    
+    if (!isUserInConversation({ conversationId, userId: req.session.userId })) {
+        return res.status(403).json({ error: 'Not a member of this group' });
+    }
+    
+    try {
+        db.prepare('DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').run(conversationId, req.session.userId);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('Leave group error:', e);
+        res.status(500).json({ error: 'Failed to leave group' });
+    }
+});
+
 // Get conversation messages API (for switching conversations)
 app.get('/api/messages/:conversationId', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -2001,7 +2230,7 @@ app.get('/api/users/search', (req, res) => {
     const q = (req.query.q || '').trim();
     if (!q) return res.json({ results: [] });
     try {
-        const results = require('./db').searchUsers({ query: q, limit: 10, excludeUserId: req.session.userId });
+        const results = searchUsers({ query: q, limit: 10, excludeUserId: req.session.userId });
         res.json({ results });
     } catch (e) {
         console.error('User search error:', e);
@@ -2070,7 +2299,7 @@ app.post('/api/messages/send', chatUpload.any(), (req, res) => {
 
     // Create one message per attachment
     for (const f of files) {
-        const attachmentUrl = `/uploads/${f.filename}`;
+        const attachmentUrl = `/uploads/chat/${f.filename}`;
         const attachmentMime = f.mimetype;
         const messageId = createMessage({
             conversationId,
@@ -2237,13 +2466,28 @@ app.get('/settings', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
-    const user = { 
+    const authUser = { 
+        id: row.id,
         email: row.email, 
         fullName: row.full_name,
+        displayName: row.full_name,
         handle: row.handle || '',
         emailNotifications: row.email_notifications === 1,
         pushNotifications: row.push_notifications === 1,
-        messageNotifications: row.message_notifications === 1
+        messageNotifications: row.message_notifications === 1,
+        email_notifications: row.email_notifications === 1,
+        push_notifications: row.push_notifications === 1,
+        message_notifications: row.message_notifications === 1,
+        account_status: row.account_status,
+        suspension_until: row.suspension_until,
+        suspension_reason: row.suspension_reason,
+        profile_visibility: row.profile_visibility,
+        allow_messages_from: row.allow_messages_from,
+        discoverable_by_email: row.discoverable_by_email === 1,
+        show_online_status: row.show_online_status === 1,
+        read_receipts: row.read_receipts === 1,
+        bank_account_country: row.bank_account_country,
+        bank_account_number: row.bank_account_number
     };
     const linked = { google: false, microsoft: false, apple: false };
     try {
@@ -2259,7 +2503,7 @@ app.get('/settings', (req, res) => {
     res.render('settings', {
         title: 'Settings - Dream X',
         currentPage: 'settings',
-        user,
+        authUser,
         linked,
         getUserById,
         subscription,
@@ -2275,14 +2519,15 @@ app.get('/billing', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
-    
-    // Default to 'pro_seller' for demo purposes, or use user's actual tier from database
-    const userTier = row.subscription_tier || 'pro_seller';
+    // Load subscription from dedicated table; default to free if none
+    const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
+    const userTier = (subscription.tier || 'free');
     
     res.render('billing', {
         title: 'Billing - Dream X',
         currentPage: 'billing',
         userTier,
+        subscription,
         authUser: row
     });
 });
@@ -2622,6 +2867,16 @@ app.post('/api/services/create', ensureAuthenticated, async (req, res) => {
         const userId = req.session.userId;
         const { title, description, category, pricePerHour, durationMinutes, experienceLevel, format, availability, location, tags } = req.body;
         
+        // Check if seller privileges are frozen
+        const user = getUserById(userId);
+        if (user.seller_privileges_frozen === 1) {
+            return res.json({
+                success: false,
+                error: 'Your seller privileges have been frozen by an administrator. Please contact support.',
+                frozen: true
+            });
+        }
+        
         // Get user's subscription
         const subscription = getUserSubscription(userId);
         const tier = subscription ? subscription.tier : 'free';
@@ -2681,6 +2936,18 @@ app.post('/api/services/create', ensureAuthenticated, async (req, res) => {
 app.get('/api/services/check-eligibility', ensureAuthenticated, (req, res) => {
     try {
         const userId = req.session.userId;
+        
+        // Check if seller privileges are frozen
+        const user = getUserById(userId);
+        if (user.seller_privileges_frozen === 1) {
+            return res.json({
+                success: false,
+                canCreate: false,
+                frozen: true,
+                error: 'Your seller privileges have been frozen by an administrator.'
+            });
+        }
+        
         const subscription = getUserSubscription(userId);
         const tier = subscription ? subscription.tier : 'free';
         
@@ -2707,6 +2974,154 @@ app.get('/api/services/check-eligibility', ensureAuthenticated, (req, res) => {
     } catch (error) {
         console.error('Error checking eligibility:', error);
         res.status(500).json({ success: false, error: 'Failed to check eligibility' });
+    }
+});
+
+// Settings: Update banking info
+app.post('/settings/banking', ensureAuthenticated, (req, res) => {
+    try {
+        const { bankCountry, bankAccount, routingNumber } = req.body;
+        const userId = req.session.userId;
+        
+        // Only update if values provided
+        if (bankCountry) {
+            db.prepare('UPDATE users SET bank_account_country = ? WHERE id = ?').run(bankCountry, userId);
+        }
+        if (bankAccount && !bankAccount.includes('••••')) {
+            db.prepare('UPDATE users SET bank_account_number = ? WHERE id = ?').run(bankAccount, userId);
+        }
+        if (routingNumber) {
+            db.prepare('UPDATE users SET bank_routing_number = ? WHERE id = ?').run(routingNumber, userId);
+        }
+        
+        res.redirect('/settings?success=Banking+info+updated');
+    } catch (error) {
+        console.error('Banking update error:', error);
+        res.redirect('/settings?error=Failed+to+update+banking+info');
+    }
+});
+
+// Settings: Delete account
+app.post('/settings/delete-account', ensureAuthenticated, async (req, res) => {
+    try {
+        const { confirmation } = req.body;
+        const userId = req.session.userId;
+        
+        if (confirmation !== 'DELETE') {
+            return res.redirect('/settings?error=Invalid+confirmation');
+        }
+        
+        // Get user info before deletion
+        const user = getUserById(userId);
+        
+        // Cancel any active subscriptions
+        try {
+            cancelSubscription(userId);
+        } catch (e) {}
+        
+        // Delete all related records in correct order (child tables first)
+        // Comments and reactions
+        db.prepare('DELETE FROM comment_likes WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM post_comments WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM post_reactions WHERE user_id = ?').run(userId);
+        
+        // Posts
+        db.prepare('DELETE FROM posts WHERE user_id = ?').run(userId);
+        
+        // Messages and conversations
+        db.prepare('DELETE FROM message_reactions WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM messages WHERE sender_id = ?').run(userId);
+        db.prepare('DELETE FROM conversation_participants WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM conversations WHERE user1_id = ? OR user2_id = ?').run(userId, userId);
+        
+        // Services and payments
+        db.prepare('DELETE FROM services WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM invoices WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM payment_methods WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM user_subscriptions WHERE user_id = ?').run(userId);
+        
+        // Social and notifications
+        db.prepare('DELETE FROM follows WHERE follower_id = ? OR following_id = ?').run(userId, userId);
+        db.prepare('DELETE FROM notifications WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(userId);
+        
+        // Auth and credentials
+        db.prepare('DELETE FROM webauthn_credentials WHERE user_id = ?').run(userId);
+        db.prepare('DELETE FROM oauth_accounts WHERE user_id = ?').run(userId);
+        
+        // Appeals (set reviewer_id to NULL instead of deleting)
+        db.prepare('UPDATE career_applications SET reviewer_id = NULL WHERE reviewer_id = ?').run(userId);
+        db.prepare('UPDATE content_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(userId);
+        db.prepare('UPDATE account_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(userId);
+        
+        // Audit logs (set user_id to NULL for record keeping)
+        db.prepare('UPDATE audit_logs SET user_id = NULL WHERE user_id = ?').run(userId);
+        
+        // Finally, delete user account
+        db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+        
+        // Send confirmation email
+        if (user && user.email) {
+            await emailService.sendAccountDeletionEmail(user.email, user.full_name);
+        }
+        
+        // Destroy session
+        req.session.destroy(() => {
+            res.redirect('/?message=Account+deleted+successfully');
+        });
+    } catch (error) {
+        console.error('Account deletion error:', error);
+        res.redirect('/settings?error=Failed+to+delete+account');
+    }
+});
+
+// Admin: Freeze/unfreeze seller privileges
+app.post('/admin/users/:id/freeze-seller', requireAdmin, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id, 10);
+        const { action, reason } = req.body; // 'freeze' or 'unfreeze'
+        const adminId = req.session.userId;
+        
+        const frozenValue = action === 'freeze' ? 1 : 0;
+        db.prepare('UPDATE users SET seller_privileges_frozen = ? WHERE id = ?').run(frozenValue, userId);
+        
+        // Get user details for email notification
+        const user = getUserById(userId);
+        
+        // Log the action
+        try {
+            addAuditLog({
+                userId: adminId,
+                action: action === 'freeze' ? 'freeze_seller_privileges' : 'unfreeze_seller_privileges',
+                details: JSON.stringify({ targetUserId: userId, reason })
+            });
+        } catch (e) {}
+        
+        // Deactivate all services if freezing
+        if (action === 'freeze') {
+            db.prepare('UPDATE services SET status = \'frozen\' WHERE user_id = ? AND status = \'active\'').run(userId);
+        } else {
+            db.prepare('UPDATE services SET status = \'active\' WHERE user_id = ? AND status = \'frozen\'').run(userId);
+        }
+        
+        // Send email notification
+        if (user) {
+            try {
+                if (action === 'freeze') {
+                    await emailService.sendSellerFreezeEmail(user, reason || 'Policy violation');
+                } else {
+                    await emailService.sendSellerUnfreezeEmail(user);
+                }
+            } catch (emailError) {
+                console.error('Failed to send seller status email:', emailError);
+            }
+        }
+        
+        const message = action === 'freeze' ? 'Seller+privileges+frozen' : 'Seller+privileges+restored';
+        res.redirect(`/admin?success=${message}`);
+    } catch (error) {
+        console.error('Freeze seller error:', error);
+        res.redirect('/admin?error=Failed+to+update+seller+status');
     }
 });
 
@@ -2793,10 +3208,23 @@ app.get('/pricing', (req, res) => {
             note: 'Best for tutoring companies, mentorship orgs, clubs, and studios.'
         }
     ];
+
+    // Determine current user subscription tier if logged in
+    let userTier = null;
+    if (req.session.userId) {
+        try {
+            const sub = getUserSubscription(req.session.userId);
+            if (sub && sub.tier) userTier = sub.tier.replace(/_/g,'-'); else userTier = 'free';
+        } catch (e) {
+            userTier = 'free';
+        }
+    }
+
     res.render('pricing', {
         title: 'Pricing - Dream X',
         currentPage: 'pricing',
-        tiers
+        tiers,
+        userTier
     });
 });
 
@@ -3012,16 +3440,24 @@ app.post('/api/push/unsubscribe', express.json(), (req, res) => {
 
 // === APPEAL ROUTES ===
 // Submit career application (with file upload)
-app.post('/api/careers/apply', careerUpload.fields([{ name: 'resumeFile', maxCount: 1 }, { name: 'portfolioFile', maxCount: 1 }]), (req, res) => {
+app.post('/api/careers/apply', careerUpload.fields([{ name: 'resumeFile', maxCount: 1 }, { name: 'portfolioFile', maxCount: 1 }]), async (req, res) => {
     try {
         const { position, name, email, phone, coverLetter } = req.body;
         if (!position || !name || !email || !coverLetter) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        const resumeFile = (req.files && req.files.resumeFile && req.files.resumeFile[0]) ? `/uploads/${req.files.resumeFile[0].filename}` : null;
-        const portfolioFile = (req.files && req.files.portfolioFile && req.files.portfolioFile[0]) ? `/uploads/${req.files.portfolioFile[0].filename}` : null;
+        const resumeFile = (req.files && req.files.resumeFile && req.files.resumeFile[0]) ? `/uploads/careers/${req.files.resumeFile[0].filename}` : null;
+        const portfolioFile = (req.files && req.files.portfolioFile && req.files.portfolioFile[0]) ? `/uploads/careers/${req.files.portfolioFile[0].filename}` : null;
         const id = require('./db').createCareerApplication({ position, name, email, phone, coverLetter, resumeFile, portfolioFile });
         try { addAuditLog({ userId: req.session.userId || null, action: 'career_application_submitted', details: JSON.stringify({ id, email, position }) }); } catch(e) {}
+        
+        // Send confirmation email
+        try {
+            await emailService.sendCareerApplicationEmail(email, name, position);
+        } catch (emailError) {
+            console.error('Failed to send career application confirmation:', emailError);
+        }
+        
         res.json({ success: true, message: 'Your application has been submitted successfully. We will review it and get back to you soon.', applicationId: `JOB-${id}` });
     } catch (error) {
         console.error('Error processing career application:', error);

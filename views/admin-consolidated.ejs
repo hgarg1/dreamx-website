@@ -350,7 +350,7 @@
                     <button type="submit" class="btn-update">Update</button>
                   </form>
                   
-                  <% if (authUser && authUser.role === 'super_admin') { %>
+                  <% if (authUser && (authUser.role === 'super_admin' || authUser.role === 'global_admin')) { %>
                     <div class="admin-user-actions" style="position:relative;">
                       <button class="admin-actions-btn" onclick="toggleUserActions(<%= u.id %>)">⋮</button>
                       <div class="admin-actions-menu" id="user-actions-<%= u.id %>" style="display:none;">
@@ -385,6 +385,21 @@
                               <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
                             </svg>
                             Ban User
+                          </button>
+                        <% } %>
+                        <% if (u.seller_privileges_frozen === 1) { %>
+                          <button onclick="unfreezeSellerAction(<%= u.id %>, '<%= u.full_name %>')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                            </svg>
+                            Unfreeze Seller
+                          </button>
+                        <% } else { %>
+                          <button onclick="freezeSellerAction(<%= u.id %>, '<%= u.full_name %>')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                            </svg>
+                            Freeze Seller
                           </button>
                         <% } %>
                         <a href="/admin/users/<%= u.id %>/stats">
@@ -1141,6 +1156,33 @@
       modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.remove();
       });
+    }
+
+    // Freeze/unfreeze seller privileges
+    function freezeSellerAction(userId, userName) {
+      if (confirm(`Freeze seller privileges for ${userName}? This will deactivate all their services.`)) {
+        fetch(`/admin/users/${userId}/freeze-seller`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=freeze'
+        }).then(res => {
+          if (res.ok) location.reload();
+          else alert('Failed to freeze seller privileges');
+        });
+      }
+    }
+
+    function unfreezeSellerAction(userId, userName) {
+      if (confirm(`Restore seller privileges for ${userName}? This will reactivate their services.`)) {
+        fetch(`/admin/users/${userId}/freeze-seller`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=unfreeze'
+        }).then(res => {
+          if (res.ok) location.reload();
+          else alert('Failed to unfreeze seller privileges');
+        });
+      }
     }
   </script>
 

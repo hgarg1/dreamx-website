@@ -1,5 +1,47 @@
     </main>
 
+    <!-- PWA Install Banner -->
+    <div id="pwa-install-banner">
+      <div class="banner-content">
+        <div class="banner-icon">📱</div>
+        <div class="banner-text">
+          <h3>Install Dream X</h3>
+          <p>Get the full app experience with offline access</p>
+        </div>
+      </div>
+      <div class="banner-actions">
+        <button class="install-btn" onclick="installPWA()">Install</button>
+        <button class="dismiss-btn" onclick="this.closest('#pwa-install-banner').style.display='none'">Not now</button>
+      </div>
+    </div>
+
+    <!-- Offline Indicator -->
+    <div class="offline-indicator" id="offline-indicator">
+      ⚠️ You are currently offline. Some features may be limited.
+    </div>
+    
+    <script>
+      // Offline/Online detection
+      window.addEventListener('online', () => {
+        document.getElementById('offline-indicator').classList.remove('show');
+        if (typeof showSuccess === 'function') {
+          showSuccess('Back online!');
+        }
+      });
+      
+      window.addEventListener('offline', () => {
+        document.getElementById('offline-indicator').classList.add('show');
+        if (typeof showWarning === 'function') {
+          showWarning('You are offline. Some features may be limited.');
+        }
+      });
+      
+      // Check initial state
+      if (!navigator.onLine) {
+        document.getElementById('offline-indicator').classList.add('show');
+      }
+    </script>
+
     <!-- Footer Section -->
     <footer class="footer">
         <div class="container">

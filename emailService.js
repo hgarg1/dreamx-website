@@ -259,6 +259,106 @@ const emailService = {
         if (!user.email) return { success: false, error: 'No email address' };
         const template = templates.accountSuspended(user, reason, until, durationText);
         return await sendEmail(user.email, template.subject, template.html);
+    },
+
+    sendAccountDeletionEmail: async (email, userName) => {
+        const template = {
+            subject: 'Your Account Has Been Deleted - Dream X',
+            html: `
+                <h2>Account Deletion Confirmation</h2>
+                <p>Dear ${userName},</p>
+                <p>This email confirms that your Dream X account has been permanently deleted as requested.</p>
+                <p>All your data, including posts, messages, and services, has been removed from our platform.</p>
+                <p>If you did not request this deletion, please contact us immediately at support@dreamx.com</p>
+                <p>We're sorry to see you go. If you change your mind in the future, you're always welcome to create a new account.</p>
+                <p>Best regards,<br>Dream X Team</p>
+            `
+        };
+        return await sendEmail(email, template.subject, template.html);
+    },
+
+    // Career application emails
+    sendCareerApplicationEmail: async (applicantEmail, applicantName, position) => {
+        const template = {
+            subject: `Application Received: ${position} - Dream X`,
+            html: `
+                <h2>Application Received</h2>
+                <p>Dear ${applicantName},</p>
+                <p>Thank you for applying for the <strong>${position}</strong> position at Dream X.</p>
+                <p>We have received your application and our HR team will review it carefully.</p>
+                <p>You can expect to hear from us within 5-7 business days regarding the next steps.</p>
+                <p>Best regards,<br>Dream X Recruitment Team</p>
+            `
+        };
+        return await sendEmail(applicantEmail, template.subject, template.html);
+    },
+
+    sendCareerStatusUpdateEmail: async (applicantEmail, applicantName, position, status) => {
+        const statusMessages = {
+            'under_review': 'Your application is currently under review by our team.',
+            'accepted': 'Congratulations! We would like to move forward with your application. Our HR team will contact you soon to schedule an interview.',
+            'rejected': 'After careful consideration, we have decided to move forward with other candidates at this time. We appreciate your interest in Dream X and encourage you to apply for future positions.'
+        };
+        
+        const template = {
+            subject: `Application Update: ${position} - Dream X`,
+            html: `
+                <h2>Application Status Update</h2>
+                <p>Dear ${applicantName},</p>
+                <p>We wanted to update you on your application for the <strong>${position}</strong> position.</p>
+                <p><strong>Status:</strong> ${status.replace('_', ' ').toUpperCase()}</p>
+                <p>${statusMessages[status] || 'Your application status has been updated.'}</p>
+                ${status === 'rejected' ? '<p>We wish you the best in your job search and future endeavors.</p>' : ''}
+                <p>Best regards,<br>Dream X Recruitment Team</p>
+            `
+        };
+        return await sendEmail(applicantEmail, template.subject, template.html);
+    },
+
+    // HR contact email
+    sendHRContactEmail: async (applicantEmail, applicantName, subject, message, fromHR = 'Dream X HR Team') => {
+        const template = {
+            subject: subject,
+            html: `
+                <h2>${subject}</h2>
+                <p>Dear ${applicantName},</p>
+                ${message.split('\n').map(line => `<p>${line}</p>`).join('')}
+                <p>Best regards,<br>${fromHR}</p>
+            `
+        };
+        return await sendEmail(applicantEmail, template.subject, template.html);
+    },
+
+    // Seller privilege freeze notification
+    sendSellerFreezeEmail: async (user, reason = 'Policy violation') => {
+        const template = {
+            subject: 'Seller Privileges Frozen - Dream X',
+            html: `
+                <h2 style="color: #ffc107;">Seller Privileges Frozen</h2>
+                <p>Dear ${user.full_name},</p>
+                <p>Your seller privileges on Dream X have been temporarily frozen.</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p>While your privileges are frozen, your services will not be visible to other users and you cannot create new services.</p>
+                <p>If you believe this is a mistake, please contact support at support@dreamx.com</p>
+                <p>Best regards,<br>Dream X Team</p>
+            `
+        };
+        return await sendEmail(user.email, template.subject, template.html);
+    },
+
+    sendSellerUnfreezeEmail: async (user) => {
+        const template = {
+            subject: 'Seller Privileges Restored - Dream X',
+            html: `
+                <h2 style="color: #10b981;">Seller Privileges Restored</h2>
+                <p>Dear ${user.full_name},</p>
+                <p>Good news! Your seller privileges on Dream X have been restored.</p>
+                <p>Your services are now visible again and you can create new services.</p>
+                <p>Thank you for your patience.</p>
+                <p>Best regards,<br>Dream X Team</p>
+            `
+        };
+        return await sendEmail(user.email, template.subject, template.html);
     }
 };
 

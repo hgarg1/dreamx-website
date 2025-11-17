@@ -32,9 +32,11 @@
                     <div class="pricing-card-footer">
                         <% if (tier.id === 'enterprise') { %>
                             <a href="/contact" class="pricing-btn pricing-btn-secondary">Contact Sales</a>
+                        <% } else if (typeof userTier !== 'undefined' && userTier === tier.id) { %>
+                            <button class="pricing-btn pricing-btn-current" disabled>Current Plan</button>
                         <% } else if (tier.id === 'free') { %>
                             <% if (typeof authUser !== 'undefined' && authUser) { %>
-                                <button onclick="openCheckout('<%= tier.id %>', '<%= tier.name %>', '<%= tier.price %>', <%= JSON.stringify(tier.features) %>, '<%= tier.tagline %>')" class="pricing-btn">Current Plan</button>
+                                <button onclick="openCheckout('<%= tier.id %>', '<%= tier.name %>', '<%= tier.price %>', <%= JSON.stringify(tier.features) %>, '<%= tier.tagline %>')" class="pricing-btn">Switch to Free</button>
                             <% } else { %>
                                 <a href="/register" class="pricing-btn">Get Started</a>
                             <% } %>
@@ -344,6 +346,18 @@
 .pricing-btn-secondary:hover {
     background: var(--text-light);
     color: white;
+}
+
+.pricing-btn-current {
+    background: var(--bg-light);
+    color: var(--text-light);
+    border-color: var(--border-color);
+    cursor: default;
+}
+.pricing-btn-current:hover {
+    background: var(--bg-light);
+    color: var(--text-light);
+    transform: none;
 }
 
 .tier-note {

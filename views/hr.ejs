@@ -966,6 +966,8 @@
       <button class="modal-close" onclick="closeEmailModal()">&times;</button>
     </div>
     <div>
+      <input type="hidden" id="applicantId">
+      <input type="hidden" id="emailToName">
       <div style="margin-bottom: 20px;">
         <label style="display: block; margin-bottom: 8px; font-weight: 700;">To:</label>
         <input type="email" id="emailTo" readonly style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; background: #f9fafb;">
@@ -989,7 +991,7 @@
         <textarea id="emailBody" rows="10" placeholder="Type your message..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-family: inherit; resize: vertical;"></textarea>
       </div>
       <div class="modal-actions">
-        <button class="hr-btn hr-btn-primary" onclick="sendEmail()">Send</button>
+        <button class="hr-btn hr-btn-primary modal-btn-primary" onclick="sendEmail()">Send</button>
         <button class="hr-btn" style="background: #e5e7eb; color: #4b5563;" onclick="closeEmailModal()">Cancel</button>
       </div>
     </div>
@@ -1047,7 +1049,7 @@ function viewApplication(id, data) {
     <div class="modal-actions">
       ${data.resume_file ? `<a href="${data.resume_file}" target="_blank" class="btn-resume">📄 Resume</a>` : ''}
       ${data.portfolio_file ? `<a href="${data.portfolio_file}" target="_blank" class="btn-portfolio">🎨 Portfolio</a>` : ''}
-      <button class="btn-email" onclick="emailApplicant('${data.email}', '${data.name}'); closeModal();">✉️ Email</button>
+      <button class="btn-email" onclick="emailApplicant('${data.email}', '${data.name}', ${data.id}); closeModal();">✉️ Email</button>
       <button class="btn-review" onclick="updateStatus(${data.id}, 'under_review'); closeModal();">🔍 Review</button>
       <button class="btn-accept" onclick="updateStatus(${data.id}, 'accepted'); closeModal();">✅ Accept</button>
       <button class="btn-reject" onclick="updateStatus(${data.id}, 'rejected'); closeModal();">❌ Reject</button>
@@ -1061,9 +1063,11 @@ function closeModal() {
 }
 
 let currentApplicantName = '';
-function emailApplicant(email, name) {
+function emailApplicant(email, name, applicantId) {
   currentApplicantName = name;
   document.getElementById('emailTo').value = email;
+  document.getElementById('emailToName').value = name;
+  document.getElementById('applicantId').value = applicantId || '';
   document.getElementById('emailSubject').value = '';
   document.getElementById('emailBody').value = '';
   document.getElementById('emailTemplate').value = '';
@@ -1102,36 +1106,78 @@ function loadEmailTemplate() {
   }
 }
 
-function sendEmail() {
+async function sendEmail() {
   const to = document.getElementById('emailTo').value;
+  const toName = document.getElementById('emailToName')?.value || 'Applicant';
+  const applicantId = document.getElementById('applicantId')?.value;
   const subject = document.getElementById('emailSubject').value;
   const body = document.getElementById('emailBody').value;
   
-  if (!subject || !body) return alert('Please fill in subject and message');
+  if (!subject || !body) return showError('Please fill in subject and message');
+  if (!to) return showError('Recipient email is missing');
   
-  window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  setTimeout(() => {
-    closeEmailModal();
-    alert('Email client opened!');
-  }, 500);
+  try {
+    const sendBtn = document.querySelector('#emailModal .modal-btn-primary');
+    const originalText = sendBtn.textContent;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="modal-loading"></span>Sending...';
+    
+    const res = await fetch('/hr/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        applicantId,
+        applicantEmail: to,
+        applicantName: toName,
+        subject,
+        message: body
+      })
+    });
+    
+    const data = await res.json();
+    
+    if (data.success) {
+      closeEmailModal();
+      showSuccess('Email sent successfully to ' + to);
+    } else {
+      showError(data.error || 'Failed to send email');
+    }
+    
+    sendBtn.disabled = false;
+    sendBtn.textContent = originalText;
+  } catch (err) {
+    console.error('Email send error:', err);
+    showError('Error sending email. Please try again.');
+    const sendBtn = document.querySelector('#emailModal .modal-btn-primary');
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send Email';
+    }
+  }
 }
 
 async function updateStatus(id, status) {
   const confirmMsg = status === 'accepted' ? 'Accept this candidate?' : status === 'rejected' ? 'Reject this application?' : `Update to "${status.replace('_', ' ')}"?`;
-  if (!confirm(confirmMsg)) return;
   
-  try {
-    const res = await fetch(`/admin/careers/${id}/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `status=${status}`
-    });
-    
-    if (res.ok) window.location.reload();
-    else alert('Failed to update status');
-  } catch (err) {
-    alert('Error updating status');
-  }
+  showConfirm(confirmMsg, async () => {
+    try {
+      const res = await fetch(`/admin/careers/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `status=${status}`
+      });
+      
+      if (res.ok) {
+        showSuccess('Status updated successfully');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        showError('Failed to update status');
+      }
+    } catch (err) {
+      console.error('Status update error:', err);
+      showError('Error updating status');
+    }
+  });
 }
 
 function filterApplications() {

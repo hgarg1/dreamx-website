@@ -554,6 +554,87 @@
     </form>
   </div>
 
+  <!-- Cashout Section (for eligible tiers) -->
+  <% 
+    const tier = subscription ? subscription.tier : 'free';
+    const eligibleForCashout = ['pro_seller', 'elite_seller', 'enterprise'].includes(tier);
+  %>
+  <% if (eligibleForCashout) { %>
+  <div class="settings-card">
+    <h2 class="settings-card-title">Cashout & Banking</h2>
+    <p style="color:#6b7280;margin-bottom:20px;">Configure your banking details to receive payments from your services.</p>
+    
+    <form action="/settings/banking" method="POST">
+      <div class="settings-field-group">
+        <label class="settings-label" for="bankCountry">Country</label>
+        <select id="bankCountry" name="bankCountry" class="settings-input" required>
+          <option value="">Select country</option>
+          <option value="US" <%= authUser.bank_account_country === 'US' ? 'selected' : '' %>>United States</option>
+          <option value="CA" <%= authUser.bank_account_country === 'CA' ? 'selected' : '' %>>Canada</option>
+          <option value="GB" <%= authUser.bank_account_country === 'GB' ? 'selected' : '' %>>United Kingdom</option>
+          <option value="AU" <%= authUser.bank_account_country === 'AU' ? 'selected' : '' %>>Australia</option>
+        </select>
+      </div>
+      
+      <div class="settings-field-group">
+        <label class="settings-label" for="bankAccount">Account Number</label>
+        <input id="bankAccount" name="bankAccount" type="text" class="settings-input" 
+               value="<%= authUser.bank_account_number ? '••••' + authUser.bank_account_number.slice(-4) : '' %>" 
+               placeholder="Enter account number" />
+        <small style="color:#6b7280;font-size:0.8rem;">Your account details are encrypted and secure.</small>
+      </div>
+      
+      <div class="settings-field-group">
+        <label class="settings-label" for="routingNumber">Routing Number</label>
+        <input id="routingNumber" name="routingNumber" type="text" class="settings-input" 
+               value="<%= authUser.bank_routing_number || '' %>" 
+               placeholder="Enter routing number" />
+      </div>
+      
+      <div class="settings-actions-inline">
+        <button type="submit" class="settings-btn primary">Update Banking Info</button>
+      </div>
+    </form>
+  </div>
+  <% } %>
+
+  <!-- Danger Zone: Account Deletion -->
+  <div class="settings-card" style="border:2px solid #fee2e2;background:#fffbeb;">
+    <h2 class="settings-card-title" style="color:#dc2626;">Danger Zone</h2>
+    <p style="color:#991b1b;margin-bottom:16px;font-weight:500;">⚠️ Deleting your account is permanent and cannot be undone.</p>
+    <button type="button" onclick="document.getElementById('deleteAccountModal').style.display='flex'" 
+            class="settings-btn" style="background:#fee2e2;color:#991b1b;border:2px solid #dc2626;font-weight:600;">Delete Account</button>
+  </div>
+
+  <!-- Delete Account Confirmation Modal -->
+  <div id="deleteAccountModal" style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
+    <div style="background:white;padding:32px;border-radius:16px;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <h3 style="margin:0 0 16px;font-size:1.5rem;font-weight:700;color:#dc2626;">Delete Your Account?</h3>
+      <p style="color:#374151;margin-bottom:20px;line-height:1.6;">This action is <strong>permanent</strong> and will:</p>
+      <ul style="color:#6b7280;margin-bottom:24px;line-height:1.8;padding-left:20px;">
+        <li>Delete all your posts, messages, and services</li>
+        <li>Remove your profile and account data</li>
+        <li>Cancel any active subscriptions</li>
+        <li>Forfeit any pending payouts</li>
+      </ul>
+      <p style="color:#991b1b;font-weight:600;margin-bottom:20px;">Type "DELETE" to confirm:</p>
+      <form action="/settings/delete-account" method="POST" onsubmit="return confirm('Are you absolutely sure? This cannot be undone.');">
+        <input type="text" id="deleteConfirm" name="confirmation" class="settings-input" placeholder="Type DELETE" required 
+               pattern="DELETE" title="Must type DELETE exactly" style="margin-bottom:16px;" />
+        <div style="display:flex;gap:12px;">
+          <button type="submit" class="settings-btn" style="flex:1;background:#dc2626;color:white;font-weight:600;">Yes, Delete My Account</button>
+          <button type="button" onclick="document.getElementById('deleteAccountModal').style.display='none'" 
+                  class="settings-btn" style="flex:1;background:#e5e7eb;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    #deleteAccountModal { display: none; }
+    #deleteAccountModal[style*="display:flex"], #deleteAccountModal[style*="display: flex"] { display: flex !important; }
+  </style>
+
   <!-- Your Passions Section -->
   <div class="settings-card">
     <h2 class="settings-card-title" style="text-transform:uppercase;font-size:0.875rem;font-weight:700;letter-spacing:0.05em;color:#374151;margin-bottom:16px;">YOUR PASSIONS</h2>

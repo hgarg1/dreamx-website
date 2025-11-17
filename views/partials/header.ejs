@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Dream X - The Social Network for Productive People">
+    <meta name="theme-color" content="#6366f1">
     <title><%= title %></title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
@@ -12,15 +16,96 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
     
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Dream X">
+    
     <!-- CSS Stylesheets -->
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/toast.css">
     <link rel="stylesheet" href="/css/enhanced-animations.css">
+    <link rel="stylesheet" href="/css/notifications.css">
+    <link rel="stylesheet" href="/css/mobile.css">
+    <link rel="stylesheet" href="/css/pwa.css">
     
     <% if(authUser){ %>
     <!-- Socket.IO for real-time notifications -->
     <script src="/socket.io/socket.io.js"></script>
     <% } %>
+    
+    <!-- Global Notification System -->
+    <script src="/js/notification-system.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then((registration) => {
+              console.log('✅ Service Worker registered:', registration.scope);
+              
+              // Check for updates periodically
+              setInterval(() => {
+                registration.update();
+              }, 60000); // Check every minute
+              
+              // Listen for updates
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New service worker available
+                    if (typeof showInfo === 'function') {
+                      showInfo('New version available! Refresh to update.');
+                    }
+                  }
+                });
+              });
+            })
+            .catch((error) => {
+              console.error('❌ Service Worker registration failed:', error);
+            });
+        });
+      }
+      
+      // Handle PWA install prompt
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        // Show install button or banner
+        const installBanner = document.getElementById('pwa-install-banner');
+        if (installBanner) {
+          installBanner.style.display = 'block';
+        }
+      });
+      
+      function installPWA() {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('User accepted the install prompt');
+            }
+            deferredPrompt = null;
+            const installBanner = document.getElementById('pwa-install-banner');
+            if (installBanner) {
+              installBanner.style.display = 'none';
+            }
+          });
+        }
+      }
+      
+      // Detect if running as PWA
+      window.addEventListener('DOMContentLoaded', () => {
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+          console.log('✅ Running as PWA');
+          document.body.classList.add('pwa-mode');
+        }
+      });
+    </script>
 </head>
 <body>
     <!-- Navigation Bar -->

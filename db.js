@@ -238,6 +238,26 @@ try {
   // Column already exists, ignore
 }
 try {
+  db.exec(`ALTER TABLE users ADD COLUMN seller_privileges_frozen INTEGER DEFAULT 0;`);
+} catch (e) {
+  // Column already exists, ignore
+}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN bank_account_country TEXT;`);
+} catch (e) {
+  // Column already exists, ignore
+}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN bank_account_number TEXT;`);
+} catch (e) {
+  // Column already exists, ignore
+}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN bank_routing_number TEXT;`);
+} catch (e) {
+  // Column already exists, ignore
+}
+try {
   db.exec(`ALTER TABLE users ADD COLUMN suspension_reason TEXT;`);
 } catch (e) {
   // Column already exists, ignore
@@ -546,20 +566,26 @@ module.exports = {
     const s = `%${(query || '').toLowerCase()}%`;
     if (excludeUserId) {
       return db.prepare(`
-        SELECT id, full_name, email, profile_picture, bio, location
+        SELECT id, full_name, email, profile_picture, bio, location, handle
         FROM users
-        WHERE id != ? AND (LOWER(full_name) LIKE ? OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?))
+        WHERE id != ? AND (
+          LOWER(full_name) LIKE ? 
+          OR LOWER(handle) LIKE ?
+          OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?)
+        )
         ORDER BY full_name ASC
         LIMIT ?
-      `).all(excludeUserId, s, s, limit);
+      `).all(excludeUserId, s, s, s, limit);
     }
     return db.prepare(`
-      SELECT id, full_name, email, profile_picture, bio, location
+      SELECT id, full_name, email, profile_picture, bio, location, handle
       FROM users
-      WHERE LOWER(full_name) LIKE ? OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?)
+      WHERE LOWER(full_name) LIKE ? 
+        OR LOWER(handle) LIKE ?
+        OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?)
       ORDER BY full_name ASC
       LIMIT ?
-    `).all(s, s, limit);
+    `).all(s, s, s, limit);
   },
   getStats: () => {
     const users = db.prepare(`SELECT COUNT(*) as c FROM users`).get().c;
@@ -1116,6 +1142,9 @@ module.exports = {
       return db.prepare(`SELECT * FROM career_applications WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
     }
     return db.prepare(`SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+  },
+  getCareerApplicationById: (id) => {
+    return db.prepare(`SELECT * FROM career_applications WHERE id = ?`).get(id);
   },
   updateCareerApplicationStatus: ({ id, status, reviewerId }) => {
     db.prepare(`UPDATE career_applications SET status = ?, reviewer_id = ? WHERE id = ?`).run(status, reviewerId || null, id);

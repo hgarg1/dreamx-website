@@ -66,7 +66,11 @@
           <% } %>
         </div>
         <div class="chat-header-actions">
-          <% if (!currentConversation.is_group) { %>
+          <% if (currentConversation.is_group) { %>
+            <button type="button" onclick="openGroupSettings()" style="background:none;border:1px solid var(--border-color);padding:.5rem 1rem;border-radius:20px;font-size:.8rem;font-weight:600;cursor:pointer;color:var(--text-color);transition:all .2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
+              ⚙️ Group Settings
+            </button>
+          <% } else { %>
             <a href="/profile/<%= currentConversation.other_user_id %>" class="chat-view-profile">View Profile →</a>
           <% } %>
         </div>
@@ -549,7 +553,7 @@
     window._carouselClose = () => { overlay.style.display = 'none'; track.innerHTML=''; };
   }
 
-  // New Group modal
+  // New Group modal - basic setup
   document.getElementById('newGroupBtn')?.addEventListener('click', () => {
     document.getElementById('groupModal').style.display = 'flex';
   });
@@ -561,32 +565,6 @@
     window.selectedUserIds = [];
   };
   window.selectedUserIds = [];
-  
-  const groupSearchInput = document.getElementById('groupUserSearch');
-  let groupSearchTimeout = null;
-  groupSearchInput?.addEventListener('input', async () => {
-    clearTimeout(groupSearchTimeout);
-    const q = (groupSearchInput.value || '').trim();
-    if (!q) {
-      document.getElementById('groupUserResults').innerHTML = '';
-      return;
-    }
-    groupSearchTimeout = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        const users = (data.results || []).filter(u => !window.selectedUserIds.includes(u.id));
-        document.getElementById('groupUserResults').innerHTML = users.map(u => `
-          <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem;border-bottom:1px solid var(--border-color);cursor:pointer;" onclick="addUserToGroup(${u.id}, '${u.full_name.replace(/'/g,"\\'")}', '${u.profile_picture || ''}')">
-            ${u.profile_picture ? `<img src="/uploads/${u.profile_picture}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--primary-color);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;">${u.full_name.charAt(0)}</div>`}
-            <span style="font-weight:600;font-size:.8rem;">${u.full_name}</span>
-          </div>
-        `).join('');
-      } catch(e) {
-        console.error('Group search error:', e);
-      }
-    }, 250);
-  });
 
   window.addUserToGroup = (id, name, pic) => {
     if (window.selectedUserIds.includes(id)) return;
@@ -792,18 +770,52 @@
     }
   });
 
-      });
-      const data = await res.json();
-      if (data.success) {
-        window.location.href = `/messages?conversation=${data.conversationId}`;
-      } else {
-        alert(data.error || 'Failed to create group');
-      }
-    } catch(e) {
-      console.error('Group creation error:', e);
-      alert('Failed to create group');
+  // Group Modal Setup - Initialize after DOM is ready
+  function initGroupModal() {
+    const groupSearchInput = document.getElementById('groupUserSearch');
+    if (!groupSearchInput) {
+      console.error('Group search input not found');
+      return;
     }
-  };
+    
+    let groupSearchTimeout = null;
+    groupSearchInput.addEventListener('input', async () => {
+      clearTimeout(groupSearchTimeout);
+      const q = (groupSearchInput.value || '').trim();
+      if (!q) {
+        document.getElementById('groupUserResults').innerHTML = '';
+        return;
+      }
+      groupSearchTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+          const data = await res.json();
+          if (!res.ok) {
+            console.error('Search failed:', data.error);
+            document.getElementById('groupUserResults').innerHTML = '<div style="padding:.75rem;text-align:center;color:#ef4444;font-size:.8rem;">Search failed. Please try again.</div>';
+            return;
+          }
+          const users = (data.results || []).filter(u => !window.selectedUserIds.includes(u.id));
+          if (users.length === 0) {
+            document.getElementById('groupUserResults').innerHTML = '<div style="padding:.75rem;text-align:center;color:var(--text-light);font-size:.8rem;">No users found</div>';
+            return;
+          }
+          document.getElementById('groupUserResults').innerHTML = users.map(u => `
+            <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem;border-bottom:1px solid var(--border-color);cursor:pointer;" onclick="addUserToGroup(${u.id}, '${u.full_name.replace(/'/g,"\\'")}', '${u.profile_picture || ''}')">
+              ${u.profile_picture ? `<img src="/uploads/${u.profile_picture}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--primary-color);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;">${u.full_name.charAt(0)}</div>`}
+              <div style="display:flex;flex-direction:column;">
+                <span style="font-weight:600;font-size:.8rem;">${u.full_name}</span>
+                ${u.handle ? `<span style="font-size:.7rem;color:var(--text-light);">@${u.handle}</span>` : ''}
+              </div>
+            </div>
+          `).join('');
+        } catch(e) {
+          console.error('Group search error:', e);
+          document.getElementById('groupUserResults').innerHTML = '<div style="padding:.75rem;text-align:center;color:#ef4444;font-size:.8rem;">Error searching users</div>';
+        }
+      }, 250);
+    });
+  }
 </script>
 
 <!-- Group Creation Modal -->
@@ -831,6 +843,216 @@
     </div>
   </div>
 </div>
+
+<script>
+  // Initialize group modal after DOM is loaded
+  if (typeof initGroupModal === 'function') {
+    initGroupModal();
+  }
+</script>
+
+<!-- Group Settings Modal -->
+<div id="groupSettingsModal" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:white;border-radius:20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="padding:1.5rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;font-size:1.25rem;font-weight:700;">Group Settings</h3>
+      <button type="button" onclick="closeGroupSettings()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-light);">&times;</button>
+    </div>
+    
+    <div style="padding:1.5rem;">
+      <!-- Group Name -->
+      <div style="margin-bottom:1.5rem;">
+        <label style="display:block;margin-bottom:.5rem;font-weight:600;font-size:.8rem;">Group Name</label>
+        <div style="display:flex;gap:.5rem;">
+          <input type="text" id="editGroupName" value="<%= currentConversation && currentConversation.group_name || 'Group Chat' %>" style="flex:1;padding:.65rem;border:2px solid var(--border-color);border-radius:8px;font-size:.85rem;">
+          <button type="button" onclick="updateGroupName()" style="background:var(--primary-color);color:#fff;border:none;padding:.65rem 1.25rem;border-radius:8px;font-weight:600;cursor:pointer;font-size:.85rem;">Save</button>
+        </div>
+      </div>
+
+      <!-- Members List -->
+      <div style="margin-bottom:1.5rem;">
+        <label style="display:block;margin-bottom:.75rem;font-weight:600;font-size:.8rem;">Members (<span id="memberCount"><%= participants ? participants.length : 0 %></span>)</label>
+        <div id="groupMembersList" style="max-height:300px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;">
+          <% if (currentConversation && currentConversation.is_group && participants) { %>
+            <% participants.forEach(p => { %>
+              <div class="group-member-item" data-user-id="<%= p.id %>" style="display:flex;align-items:center;gap:.75rem;padding:.75rem;border-bottom:1px solid var(--border-color);transition:background .2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='transparent'">
+                <% if (p.profile_picture) { %>
+                  <img src="/uploads/<%= p.profile_picture %>" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" alt="<%= p.full_name %>">
+                <% } else { %>
+                  <div style="width:40px;height:40px;border-radius:50%;background:var(--primary-color);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;"><%= p.full_name.charAt(0) %></div>
+                <% } %>
+                <div style="flex:1;">
+                  <div style="font-weight:600;font-size:.85rem;"><%= p.full_name %></div>
+                  <% if (p.handle) { %>
+                    <div style="font-size:.7rem;color:var(--text-light);">@<%= p.handle %></div>
+                  <% } %>
+                </div>
+                <% if (p.id !== authUser.id) { %>
+                  <button type="button" onclick="removeGroupMember(<%= p.id %>, '<%= p.full_name.replace(/'/g, "\\'") %>')" style="background:#ef4444;color:#fff;border:none;padding:.4rem .8rem;border-radius:6px;font-size:.7rem;font-weight:600;cursor:pointer;" title="Remove from group">Remove</button>
+                <% } %>
+              </div>
+            <% }); %>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Add Members -->
+      <div style="margin-bottom:1.5rem;">
+        <label style="display:block;margin-bottom:.5rem;font-weight:600;font-size:.8rem;">Add Members</label>
+        <input type="text" id="addMemberSearch" placeholder="Search users to add..." style="width:100%;padding:.65rem;border:2px solid var(--border-color);border-radius:8px;font-size:.85rem;margin-bottom:.5rem;">
+        <div id="addMemberResults" style="max-height:200px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;"></div>
+      </div>
+
+      <!-- Group Actions -->
+      <div style="padding:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+        <h4 style="margin:0 0 .75rem 0;font-size:.9rem;color:#991b1b;font-weight:700;">⚠️ Danger Zone</h4>
+        <button type="button" onclick="leaveGroup()" style="width:100%;background:#ef4444;color:#fff;border:none;padding:.65rem;border-radius:8px;font-weight:600;cursor:pointer;font-size:.85rem;transition:background .2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Leave Group</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Group Settings Functions
+  window.openGroupSettings = () => {
+    document.getElementById('groupSettingsModal').style.display = 'flex';
+    initAddMemberSearch();
+  };
+
+  window.closeGroupSettings = () => {
+    document.getElementById('groupSettingsModal').style.display = 'none';
+    document.getElementById('addMemberSearch').value = '';
+    document.getElementById('addMemberResults').innerHTML = '';
+  };
+
+  window.updateGroupName = async () => {
+    const newName = document.getElementById('editGroupName').value.trim();
+    if (!newName) {
+      alert('Group name cannot be empty');
+      return;
+    }
+    try {
+      const res = await fetch(`/messages/group/<%= currentConversation && currentConversation.id || '' %>/name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupName: newName })
+      });
+      const data = await res.json();
+      if (data.success) {
+        location.reload();
+      } else {
+        alert(data.error || 'Failed to update group name');
+      }
+    } catch (e) {
+      console.error('Update group name error:', e);
+      alert('Failed to update group name');
+    }
+  };
+
+  window.removeGroupMember = async (userId, userName) => {
+    if (!confirm(`Remove ${userName} from this group?`)) return;
+    try {
+      const res = await fetch(`/messages/group/<%= currentConversation && currentConversation.id || '' %>/remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        location.reload();
+      } else {
+        alert(data.error || 'Failed to remove member');
+      }
+    } catch (e) {
+      console.error('Remove member error:', e);
+      alert('Failed to remove member');
+    }
+  };
+
+  window.addGroupMember = async (userId, userName) => {
+    try {
+      const res = await fetch(`/messages/group/<%= currentConversation && currentConversation.id || '' %>/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        location.reload();
+      } else {
+        alert(data.error || 'Failed to add member');
+      }
+    } catch (e) {
+      console.error('Add member error:', e);
+      alert('Failed to add member');
+    }
+  };
+
+  window.leaveGroup = async () => {
+    if (!confirm('Are you sure you want to leave this group? You won\'t be able to see messages anymore.')) return;
+    try {
+      const res = await fetch(`/messages/group/<%= currentConversation && currentConversation.id || '' %>/leave`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = '/messages';
+      } else {
+        alert(data.error || 'Failed to leave group');
+      }
+    } catch (e) {
+      console.error('Leave group error:', e);
+      alert('Failed to leave group');
+    }
+  };
+
+  function initAddMemberSearch() {
+    const searchInput = document.getElementById('addMemberSearch');
+    if (!searchInput) return;
+    
+    let searchTimeout;
+    const currentMembers = <%= currentConversation && currentConversation.is_group && participants ? JSON.stringify(participants.map(p => p.id)) : '[]' %>;
+    
+    searchInput.addEventListener('input', async () => {
+      clearTimeout(searchTimeout);
+      const q = searchInput.value.trim();
+      if (!q) {
+        document.getElementById('addMemberResults').innerHTML = '';
+        return;
+      }
+      
+      searchTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+          const data = await res.json();
+          if (!res.ok) {
+            document.getElementById('addMemberResults').innerHTML = '<div style="padding:.75rem;text-align:center;color:#ef4444;font-size:.8rem;">Search failed</div>';
+            return;
+          }
+          
+          const users = (data.results || []).filter(u => !currentMembers.includes(u.id));
+          if (users.length === 0) {
+            document.getElementById('addMemberResults').innerHTML = '<div style="padding:.75rem;text-align:center;color:var(--text-light);font-size:.8rem;">No users found</div>';
+            return;
+          }
+          
+          document.getElementById('addMemberResults').innerHTML = users.map(u => `
+            <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem;border-bottom:1px solid var(--border-color);cursor:pointer;" onclick="addGroupMember(${u.id}, '${u.full_name.replace(/'/g, "\\'")}')">
+              ${u.profile_picture ? `<img src="/uploads/${u.profile_picture}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--primary-color);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;">${u.full_name.charAt(0)}</div>`}
+              <div style="display:flex;flex-direction:column;">
+                <span style="font-weight:600;font-size:.8rem;">${u.full_name}</span>
+                ${u.handle ? `<span style="font-size:.7rem;color:var(--text-light);">@${u.handle}</span>` : ''}
+              </div>
+            </div>
+          `).join('');
+        } catch (e) {
+          console.error('Member search error:', e);
+          document.getElementById('addMemberResults').innerHTML = '<div style="padding:.75rem;text-align:center;color:#ef4444;font-size:.8rem;">Error searching users</div>';
+        }
+      }, 250);
+    });
+  }
+</script>
 
 <!-- Image Carousel Modal -->
 <div id="imageCarouselOverlay" style="display:none;position:fixed;z-index:2500;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.9);align-items:center;justify-content:center;">

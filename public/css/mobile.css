@@ -1,0 +1,306 @@
+/* Mobile-First Responsive Styles for Dream X */
+
+/* Base Mobile Styles */
+@media (max-width: 768px) {
+  /* Typography */
+  html {
+    font-size: 14px;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  header .logo {
+    font-size: 1.2rem;
+  }
+
+  .header-nav {
+    flex-direction: column;
+    position: fixed;
+    top: 60px;
+    left: -100%;
+    width: 80%;
+    height: calc(100vh - 60px);
+    background: white;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    transition: left 0.3s ease;
+    z-index: 1000;
+    padding: 1rem;
+  }
+
+  .header-nav.active {
+    left: 0;
+  }
+
+  .nav-link {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  /* Mobile Menu Button */
+  .mobile-menu-btn {
+    display: block;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+  }
+
+  /* Messages Layout */
+  .messages-layout {
+    flex-direction: column;
+  }
+
+  .conversations-column {
+    width: 100%;
+    max-width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .chat-column {
+    width: 100%;
+    height: calc(100vh - 200px);
+  }
+
+  /* Admin Dashboard */
+  .admin-dashboard-header {
+    padding: 1rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .admin-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .tab-btn {
+    min-width: 120px;
+    font-size: 0.8rem;
+  }
+
+  .metrics-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tables */
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .admin-table {
+    min-width: 600px;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  /* Forms */
+  .role-update-form {
+    flex-direction: column;
+  }
+
+  .role-select {
+    font-size: 0.8rem;
+  }
+
+  /* Modals */
+  .admin-modal-content {
+    width: 95%;
+    max-width: 95%;
+    margin: 1rem;
+  }
+
+  #groupModal > div,
+  #groupSettingsModal > div {
+    width: 95%;
+    max-width: 95%;
+  }
+
+  /* Feed */
+  .feed-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .feed-main {
+    width: 100%;
+  }
+
+  .feed-sidebar {
+    display: none;
+  }
+
+  /* Post Cards */
+  .post-card {
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+
+  .post-header-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Profile */
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+  }
+
+  .profile-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Services */
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Settings */
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-sidebar {
+    order: 2;
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+  }
+
+  /* Pricing */
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-card {
+    max-width: 100%;
+  }
+
+  /* Careers */
+  .careers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* HR Page */
+  .hr-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* Buttons */
+  .btn,
+  .admin-header-btn,
+  .pagination-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  /* Search */
+  .search-input-wrapper input {
+    font-size: 0.9rem;
+  }
+
+  /* Pagination */
+  .admin-pagination {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .pagination-controls {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Tablet Styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .metrics-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pricing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .conversations-column {
+    width: 300px;
+  }
+}
+
+/* Small Mobile Screens */
+@media (max-width: 480px) {
+  html {
+    font-size: 12px;
+  }
+
+  .admin-dashboard-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .metric-card {
+    padding: 1rem;
+  }
+
+  .metric-value {
+    font-size: 1.8rem;
+  }
+
+  .chat-bubble {
+    max-width: 85%;
+  }
+
+  .post-actions {
+    flex-wrap: wrap;
+  }
+
+  .admin-user-actions .admin-actions-btn {
+    padding: 0.4rem 0.6rem;
+  }
+}
+
+/* Landscape Mobile */
+@media (max-width: 896px) and (orientation: landscape) {
+  .chat-column {
+    height: calc(100vh - 100px);
+  }
+
+  .messages-layout {
+    height: 100vh;
+  }
+}
+
+/* Touch-friendly tap targets */
+@media (hover: none) and (pointer: coarse) {
+  .btn,
+  .tab-btn,
+  .nav-link,
+  .conversation-item,
+  .admin-actions-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
