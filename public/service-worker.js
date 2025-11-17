@@ -3,7 +3,7 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_VERSION = 'dreamx-v1.0.2';
+const CACHE_VERSION = 'dreamx-v1.0.3';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
@@ -79,10 +79,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip authenticated pages that require session data
+  if (url.pathname === '/feed' ||
+      url.pathname === '/profile' ||
+      url.pathname.startsWith('/profile/') ||
+      url.pathname === '/messages' ||
+      url.pathname === '/settings' ||
+      url.pathname === '/onboarding' ||
+      url.pathname.startsWith('/post/')) {
+    return;
+  }
+
   // Skip socket.io and API requests
   if (url.pathname.includes('/socket.io') || 
       url.pathname.startsWith('/api/') ||
-      url.pathname.startsWith('/admin/')) {
+      url.pathname.startsWith('/admin/') ||
+      url.pathname.startsWith('/hr')) {
     return;
   }
 

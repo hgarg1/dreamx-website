@@ -71,6 +71,9 @@
                                                                 });
                                                                 const out = await verifyRes.json();
                                                                 if (out.verified) {
+                                                                    if (typeof window.clearServiceWorkerCache === 'function') {
+                                                                        window.clearServiceWorkerCache();
+                                                                    }
                                                                     window.location.href = '/feed';
                                                                 } else {
                                                                     alert('Passkey sign-in failed');
