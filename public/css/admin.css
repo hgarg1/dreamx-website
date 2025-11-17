@@ -21,18 +21,14 @@
   --info: #3b82f6;
 }
 
-body.admin-page {
-  background: var(--admin-bg);
-  background-attachment: fixed;
-  min-height: 100vh;
-}
-
 /* Main Container */
 .admin-dashboard-container {
   max-width: 1400px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
   min-height: 100vh;
+  background: var(--admin-bg);
+  background-attachment: fixed;
 }
 
 /* Header */
