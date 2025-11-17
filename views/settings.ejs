@@ -238,7 +238,7 @@
       <button id="btn-create-passkey" class="settings-btn primary" type="button">Create a Passkey</button>
     </div>
     <script>
-      (function(){
+      document.addEventListener('DOMContentLoaded', function() {
         const btn = document.getElementById('btn-create-passkey');
         if (!btn || !window.SimpleWebAuthnBrowser) return;
         btn.addEventListener('click', async () => {
@@ -260,7 +260,7 @@
             alert('Passkey setup is not available on this browser or origin.');
           }
         });
-      })();
+      });
     </script>
   </div>
 

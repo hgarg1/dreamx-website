@@ -56,32 +56,32 @@
             </div>
 
                         <!-- Passkey Sign-in -->
-                        <button id="btn-passkey-login" class="btn btn-secondary btn-full" type="button" style="margin-bottom:10px;">Sign in with Passkey</button>
-                        <script>
-                            (function(){
-                                const btn = document.getElementById('btn-passkey-login');
-                                if (!btn || !window.SimpleWebAuthnBrowser) return;
-                                btn.addEventListener('click', async () => {
-                                    try {
-                                        const optsRes = await fetch('/webauthn/authentication/options');
-                                        const opts = await optsRes.json();
-                                        const asseResp = await SimpleWebAuthnBrowser.startAuthentication(opts);
-                                        const verifyRes = await fetch('/webauthn/authentication/verify', {
-                                            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(asseResp)
-                                        });
-                                        const out = await verifyRes.json();
-                                        if (out.verified) {
-                                            window.location.href = '/feed';
-                                        } else {
-                                            alert('Passkey sign-in failed');
-                                        }
-                                    } catch (e) {
-                                        console.error(e);
-                                        alert('This device may not support passkeys here.');
-                                    }
-                                });
-                            })();
-                        </script>
+                                                <button id="btn-passkey-login" class="btn btn-secondary btn-full" type="button" style="margin-bottom:10px;">Sign in with Passkey</button>
+                                                <script>
+                                                    document.addEventListener('DOMContentLoaded', function() {
+                                                        const btn = document.getElementById('btn-passkey-login');
+                                                        if (!btn || !window.SimpleWebAuthnBrowser) return;
+                                                        btn.addEventListener('click', async () => {
+                                                            try {
+                                                                const optsRes = await fetch('/webauthn/authentication/options');
+                                                                const opts = await optsRes.json();
+                                                                const asseResp = await SimpleWebAuthnBrowser.startAuthentication(opts);
+                                                                const verifyRes = await fetch('/webauthn/authentication/verify', {
+                                                                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(asseResp)
+                                                                });
+                                                                const out = await verifyRes.json();
+                                                                if (out.verified) {
+                                                                    window.location.href = '/feed';
+                                                                } else {
+                                                                    alert('Passkey sign-in failed');
+                                                                }
+                                                            } catch (e) {
+                                                                console.error(e);
+                                                                alert('This device may not support passkeys here.');
+                                                            }
+                                                        });
+                                                    });
+                                                </script>
 
             <!-- OAuth Providers -->
             <% const gp = providers && providers.googleEnabled; %>
