@@ -140,6 +140,9 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
   user_id INTEGER NOT NULL UNIQUE,
   tier TEXT NOT NULL DEFAULT 'free',
   status TEXT NOT NULL DEFAULT 'active',
+  payment_provider TEXT DEFAULT NULL,
+  provider_subscription_id TEXT DEFAULT NULL,
+  provider_customer_id TEXT DEFAULT NULL,
   started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   ends_at DATETIME,
   auto_renew INTEGER DEFAULT 1,
@@ -149,6 +152,8 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
 CREATE TABLE IF NOT EXISTS payment_methods (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
+  payment_provider TEXT DEFAULT 'mock',
+  provider_payment_method_id TEXT DEFAULT NULL,
   card_type TEXT NOT NULL,
   last_four TEXT NOT NULL,
   expiry_month INTEGER NOT NULL,
@@ -161,10 +166,23 @@ CREATE TABLE IF NOT EXISTS payment_methods (
 CREATE TABLE IF NOT EXISTS invoices (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
+  payment_provider TEXT DEFAULT NULL,
+  provider_payment_id TEXT DEFAULT NULL,
   amount REAL NOT NULL,
   tier TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'paid',
   invoice_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS payment_customers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  payment_provider TEXT NOT NULL,
+  provider_customer_id TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, payment_provider),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -1170,22 +1188,22 @@ module.exports = {
     const stmt = db.prepare(`SELECT * FROM user_subscriptions WHERE user_id = ?`);
     return stmt.get(userId);
   },
-  createOrUpdateSubscription: ({ userId, tier, status = 'active', endsAt = null, autoRenew = 1 }) => {
+  createOrUpdateSubscription: ({ userId, tier, status = 'active', endsAt = null, autoRenew = 1, provider = null, providerSubscriptionId = null, providerCustomerId = null }) => {
     const existing = db.prepare(`SELECT id FROM user_subscriptions WHERE user_id = ?`).get(userId);
     if (existing) {
       const stmt = db.prepare(`
         UPDATE user_subscriptions 
-        SET tier = ?, status = ?, ends_at = ?, auto_renew = ?, started_at = CURRENT_TIMESTAMP
+        SET tier = ?, status = ?, ends_at = ?, auto_renew = ?, payment_provider = ?, provider_subscription_id = ?, provider_customer_id = ?, started_at = CURRENT_TIMESTAMP
         WHERE user_id = ?
       `);
-      stmt.run(tier, status, endsAt, autoRenew, userId);
+      stmt.run(tier, status, endsAt, autoRenew, provider, providerSubscriptionId, providerCustomerId, userId);
       return existing.id;
     } else {
       const stmt = db.prepare(`
-        INSERT INTO user_subscriptions (user_id, tier, status, ends_at, auto_renew)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO user_subscriptions (user_id, tier, status, ends_at, auto_renew, payment_provider, provider_subscription_id, provider_customer_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      const result = stmt.run(userId, tier, status, endsAt, autoRenew);
+      const result = stmt.run(userId, tier, status, endsAt, autoRenew, provider, providerSubscriptionId, providerCustomerId);
       return result.lastInsertRowid;
     }
   },
@@ -1194,16 +1212,16 @@ module.exports = {
     stmt.run(userId);
   },
   // Payment methods
-  addPaymentMethod: ({ userId, cardType, lastFour, expiryMonth, expiryYear, isDefault = 0 }) => {
+  addPaymentMethod: ({ userId, cardType, lastFour, expiryMonth, expiryYear, isDefault = 0, provider = 'mock', providerPaymentMethodId = null }) => {
     // If this is the default, unset other defaults
     if (isDefault) {
       db.prepare(`UPDATE payment_methods SET is_default = 0 WHERE user_id = ?`).run(userId);
     }
     const stmt = db.prepare(`
-      INSERT INTO payment_methods (user_id, card_type, last_four, expiry_month, expiry_year, is_default)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO payment_methods (user_id, payment_provider, provider_payment_method_id, card_type, last_four, expiry_month, expiry_year, is_default)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    const result = stmt.run(userId, cardType, lastFour, expiryMonth, expiryYear, isDefault);
+    const result = stmt.run(userId, provider, providerPaymentMethodId, cardType, lastFour, expiryMonth, expiryYear, isDefault);
     return result.lastInsertRowid;
   },
   getPaymentMethods: (userId) => {
@@ -1219,16 +1237,35 @@ module.exports = {
     db.prepare(`UPDATE payment_methods SET is_default = 1 WHERE id = ?`).run(id);
   },
   // Invoices
-  createInvoice: ({ userId, amount, tier, status = 'paid' }) => {
+  createInvoice: ({ userId, amount, tier, status = 'paid', provider = null, providerPaymentId = null }) => {
     const stmt = db.prepare(`
-      INSERT INTO invoices (user_id, amount, tier, status)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO invoices (user_id, amount, tier, status, payment_provider, provider_payment_id)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
-    const result = stmt.run(userId, amount, tier, status);
+    const result = stmt.run(userId, amount, tier, status, provider, providerPaymentId);
     return result.lastInsertRowid;
   },
   getInvoices: (userId) => {
     const stmt = db.prepare(`SELECT * FROM invoices WHERE user_id = ? ORDER BY invoice_date DESC`);
+    return stmt.all(userId);
+  },
+  // Payment customers (for storing provider customer IDs)
+  getPaymentCustomer: ({ userId, provider }) => {
+    const stmt = db.prepare(`SELECT * FROM payment_customers WHERE user_id = ? AND payment_provider = ?`);
+    return stmt.get(userId, provider);
+  },
+  createPaymentCustomer: ({ userId, provider, providerCustomerId }) => {
+    const stmt = db.prepare(`
+      INSERT INTO payment_customers (user_id, payment_provider, provider_customer_id, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id, payment_provider) DO UPDATE SET 
+        provider_customer_id = excluded.provider_customer_id,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    stmt.run(userId, provider, providerCustomerId);
+  },
+  getAllPaymentCustomers: (userId) => {
+    const stmt = db.prepare(`SELECT * FROM payment_customers WHERE user_id = ?`);
     return stmt.all(userId);
   },
   // Follow helpers
@@ -1760,5 +1797,24 @@ module.exports = {
       'restore_service_review',
       JSON.stringify({ reviewId })
     );
+  },
+  // Payment customer helpers
+  getPaymentCustomer: ({ userId, provider }) => {
+    const stmt = db.prepare(`SELECT * FROM payment_customers WHERE user_id = ? AND payment_provider = ?`);
+    return stmt.get(userId, provider);
+  },
+  createPaymentCustomer: ({ userId, provider, providerCustomerId }) => {
+    const stmt = db.prepare(`
+      INSERT INTO payment_customers (user_id, payment_provider, provider_customer_id, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id, payment_provider) DO UPDATE SET 
+        provider_customer_id = excluded.provider_customer_id,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    stmt.run(userId, provider, providerCustomerId);
+  },
+  getAllPaymentCustomers: (userId) => {
+    const stmt = db.prepare(`SELECT * FROM payment_customers WHERE user_id = ?`);
+    return stmt.all(userId);
   }
 };
