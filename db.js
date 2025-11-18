@@ -415,6 +415,8 @@ try {
 }
 // Posts reels support migration (idempotent)
 try { db.exec(`ALTER TABLE posts ADD COLUMN is_reel INTEGER DEFAULT 0;`); } catch (e) {}
+// Posts audio support migration (idempotent)
+try { db.exec(`ALTER TABLE posts ADD COLUMN audio_url TEXT;`); } catch (e) {}
 // Privacy settings migrations (idempotent)
 try { db.exec(`ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public';`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'everyone';`); } catch (e) {}
@@ -526,6 +528,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS posts (
   content_type TEXT DEFAULT 'text',
   text_content TEXT,
   media_url TEXT,
+  audio_url TEXT,
   is_reel INTEGER DEFAULT 0,
   activity_label TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -679,6 +682,55 @@ try {
 try {
   db.exec(`ALTER TABLE service_reviews ADD COLUMN is_deleted INTEGER DEFAULT 0`);
 } catch(e) { /* Column already exists */ }
+
+// Livestreams table for video streaming infrastructure
+db.exec(`CREATE TABLE IF NOT EXISTS livestreams (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  stream_key TEXT UNIQUE NOT NULL,
+  status TEXT DEFAULT 'scheduled',
+  started_at DATETIME,
+  ended_at DATETIME,
+  viewer_count_peak INTEGER DEFAULT 0,
+  recording_enabled INTEGER DEFAULT 1,
+  recording_url TEXT,
+  thumbnail_url TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_livestreams_user ON livestreams(user_id);
+CREATE INDEX IF NOT EXISTS idx_livestreams_status ON livestreams(status);
+CREATE INDEX IF NOT EXISTS idx_livestreams_stream_key ON livestreams(stream_key);
+`);
+
+// Livestream viewers tracking
+db.exec(`CREATE TABLE IF NOT EXISTS livestream_viewers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  user_id INTEGER,
+  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  left_at DATETIME,
+  FOREIGN KEY (stream_id) REFERENCES livestreams(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_livestream_viewers_stream ON livestream_viewers(stream_id);
+CREATE INDEX IF NOT EXISTS idx_livestream_viewers_user ON livestream_viewers(user_id);
+`);
+
+// Livestream chat messages
+db.exec(`CREATE TABLE IF NOT EXISTS livestream_chat (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  message TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES livestreams(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_livestream_chat_stream ON livestream_chat(stream_id);
+`);
 
 module.exports = {
   db,
@@ -1025,9 +1077,9 @@ module.exports = {
     return db.prepare(`SELECT COUNT(*) as c FROM audit_logs`).get().c;
   },
   // Posts
-  createPost: ({ userId, contentType, textContent, mediaUrl, activityLabel, isReel }) => {
-    const stmt = db.prepare(`INSERT INTO posts (user_id, content_type, text_content, media_url, activity_label, is_reel) VALUES (?,?,?,?,?,?)`);
-    const info = stmt.run(userId, contentType || 'text', textContent || null, mediaUrl || null, activityLabel || null, isReel ? 1 : 0);
+  createPost: ({ userId, contentType, textContent, mediaUrl, audioUrl, activityLabel, isReel }) => {
+    const stmt = db.prepare(`INSERT INTO posts (user_id, content_type, text_content, media_url, audio_url, activity_label, is_reel) VALUES (?,?,?,?,?,?,?)`);
+    const info = stmt.run(userId, contentType || 'text', textContent || null, mediaUrl || null, audioUrl || null, activityLabel || null, isReel ? 1 : 0);
     return info.lastInsertRowid;
   },
   getFeedPosts: ({ limit, offset }) => {
@@ -1994,5 +2046,135 @@ module.exports = {
       LIMIT ? OFFSET ?
     `).all(limit, offset);
     return blocks;
+  },
+
+  // Livestream functions
+  createLivestream: ({ userId, title, description, recordingEnabled = 1 }) => {
+    const streamKey = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const stmt = db.prepare(`
+      INSERT INTO livestreams (user_id, title, description, stream_key, recording_enabled)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(userId, title, description || null, streamKey, recordingEnabled);
+    return {
+      id: result.lastInsertRowid,
+      streamKey
+    };
+  },
+
+  getLivestream: (streamId) => {
+    return db.prepare(`
+      SELECT l.*, u.full_name, u.profile_picture
+      FROM livestreams l
+      JOIN users u ON u.id = l.user_id
+      WHERE l.id = ?
+    `).get(streamId);
+  },
+
+  getLivestreamByKey: (streamKey) => {
+    return db.prepare(`
+      SELECT l.*, u.full_name, u.profile_picture
+      FROM livestreams l
+      JOIN users u ON u.id = l.user_id
+      WHERE l.stream_key = ?
+    `).get(streamKey);
+  },
+
+  getActiveLivestreams: ({ limit = 50, offset = 0 }) => {
+    return db.prepare(`
+      SELECT l.*, u.full_name, u.profile_picture,
+        (SELECT COUNT(*) FROM livestream_viewers WHERE stream_id = l.id AND left_at IS NULL) as current_viewers
+      FROM livestreams l
+      JOIN users u ON u.id = l.user_id
+      WHERE l.status = 'live'
+      ORDER BY l.started_at DESC
+      LIMIT ? OFFSET ?
+    `).all(limit, offset);
+  },
+
+  getUserLivestreams: (userId) => {
+    return db.prepare(`
+      SELECT * FROM livestreams
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `).all(userId);
+  },
+
+  startLivestream: (streamId) => {
+    const stmt = db.prepare(`
+      UPDATE livestreams
+      SET status = 'live', started_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(streamId);
+  },
+
+  endLivestream: ({ streamId, recordingUrl }) => {
+    const stmt = db.prepare(`
+      UPDATE livestreams
+      SET status = 'ended', ended_at = CURRENT_TIMESTAMP, recording_url = ?
+      WHERE id = ?
+    `);
+    stmt.run(recordingUrl || null, streamId);
+    
+    // Mark all viewers as left
+    db.prepare(`
+      UPDATE livestream_viewers
+      SET left_at = CURRENT_TIMESTAMP
+      WHERE stream_id = ? AND left_at IS NULL
+    `).run(streamId);
+  },
+
+  addLivestreamViewer: ({ streamId, userId }) => {
+    const stmt = db.prepare(`
+      INSERT INTO livestream_viewers (stream_id, user_id)
+      VALUES (?, ?)
+    `);
+    return stmt.run(streamId, userId || null).lastInsertRowid;
+  },
+
+  removeLivestreamViewer: ({ streamId, userId }) => {
+    db.prepare(`
+      UPDATE livestream_viewers
+      SET left_at = CURRENT_TIMESTAMP
+      WHERE stream_id = ? AND user_id = ? AND left_at IS NULL
+    `).run(streamId, userId);
+  },
+
+  getLivestreamViewers: (streamId) => {
+    return db.prepare(`
+      SELECT lv.*, u.full_name, u.profile_picture
+      FROM livestream_viewers lv
+      LEFT JOIN users u ON u.id = lv.user_id
+      WHERE lv.stream_id = ? AND lv.left_at IS NULL
+      ORDER BY lv.joined_at DESC
+    `).all(streamId);
+  },
+
+  updateLivestreamPeakViewers: ({ streamId, count }) => {
+    db.prepare(`
+      UPDATE livestreams
+      SET viewer_count_peak = MAX(viewer_count_peak, ?)
+      WHERE id = ?
+    `).run(count, streamId);
+  },
+
+  addLivestreamChatMessage: ({ streamId, userId, message }) => {
+    const stmt = db.prepare(`
+      INSERT INTO livestream_chat (stream_id, user_id, message)
+      VALUES (?, ?, ?)
+    `);
+    return stmt.run(streamId, userId, message).lastInsertRowid;
+  },
+
+  getLivestreamChat: ({ streamId, limit = 100, offset = 0 }) => {
+    return db.prepare(`
+      SELECT lc.*, u.full_name, u.profile_picture
+      FROM livestream_chat lc
+      JOIN users u ON u.id = lc.user_id
+      WHERE lc.stream_id = ?
+      ORDER BY lc.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(streamId, limit, offset);
   }
 };

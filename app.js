@@ -185,7 +185,7 @@ const postUpload = multer({
     limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
-        if (m.startsWith('image/') || m.startsWith('video/')) return cb(null, true);
+        if (m.startsWith('image/') || m.startsWith('video/') || m.startsWith('audio/')) return cb(null, true);
         cb(new Error('Unsupported media type for post'));
     }
 });
@@ -2110,12 +2110,13 @@ app.get('/search', (req, res) => {
 });
 
 // Create post
-app.post('/feed/post', postUpload.single('media'), (req, res) => {
+app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name: 'audio', maxCount: 1 }]), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const { contentType, textContent, activityLabel } = req.body;
-    const mediaUrl = req.file ? `/uploads/posts/${req.file.filename}` : null;
+    const mediaUrl = req.files && req.files['media'] ? `/uploads/posts/${req.files['media'][0].filename}` : null;
+    const audioUrl = req.files && req.files['audio'] ? `/uploads/posts/${req.files['audio'][0].filename}` : null;
     // Server-side validation: no images in reels (allow GIF), enforce media type
-    const mime = (req.file && req.file.mimetype ? req.file.mimetype.toLowerCase() : null);
+    const mime = (req.files && req.files['media'] && req.files['media'][0].mimetype ? req.files['media'][0].mimetype.toLowerCase() : null);
     if (contentType === 'video') {
         if (!mime || !(mime.startsWith('video/') || mime === 'image/gif')) {
             return res.status(400).send('Reels require a video or GIF.');
@@ -2133,6 +2134,7 @@ app.post('/feed/post', postUpload.single('media'), (req, res) => {
         contentType: contentType || 'text',
         textContent,
         mediaUrl,
+        audioUrl,
         activityLabel,
         isReel
     });
@@ -5316,6 +5318,247 @@ app.post('/api/appeals/account', (req, res) => {
     }
 });
 
+// ============= LIVESTREAM API ROUTES =============
+
+const { 
+    createLivestream, getLivestream, getLivestreamByKey, getActiveLivestreams,
+    getUserLivestreams, startLivestream, endLivestream,
+    addLivestreamViewer, removeLivestreamViewer, getLivestreamViewers,
+    updateLivestreamPeakViewers, addLivestreamChatMessage, getLivestreamChat
+} = require('./db');
+
+const livestreamServices = require('./services/livestream');
+
+// Create a new livestream
+app.post('/api/livestream/create', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const { title, description, recordingEnabled } = req.body;
+        
+        if (!title) {
+            return res.status(400).json({ error: 'Title is required' });
+        }
+
+        const result = createLivestream({
+            userId: req.session.userId,
+            title,
+            description,
+            recordingEnabled: recordingEnabled ? 1 : 0
+        });
+
+        res.json({
+            success: true,
+            streamId: result.id,
+            streamKey: result.streamKey
+        });
+    } catch (error) {
+        console.error('Error creating livestream:', error);
+        res.status(500).json({ error: 'Failed to create livestream' });
+    }
+});
+
+// Get active livestreams
+app.get('/api/livestream/active', (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+        
+        const streams = getActiveLivestreams({ limit, offset });
+        res.json({ streams });
+    } catch (error) {
+        console.error('Error fetching active streams:', error);
+        res.status(500).json({ error: 'Failed to fetch streams' });
+    }
+});
+
+// Get user's livestreams
+app.get('/api/livestream/user/:userId', (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const streams = getUserLivestreams(userId);
+        res.json({ streams });
+    } catch (error) {
+        console.error('Error fetching user streams:', error);
+        res.status(500).json({ error: 'Failed to fetch streams' });
+    }
+});
+
+// Get livestream details
+app.get('/api/livestream/:streamId', (req, res) => {
+    try {
+        const streamId = parseInt(req.params.streamId);
+        const stream = getLivestream(streamId);
+        
+        if (!stream) {
+            return res.status(404).json({ error: 'Stream not found' });
+        }
+        
+        res.json({ stream });
+    } catch (error) {
+        console.error('Error fetching stream:', error);
+        res.status(500).json({ error: 'Failed to fetch stream' });
+    }
+});
+
+// Start livestream
+app.post('/api/livestream/:streamId/start', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const streamId = parseInt(req.params.streamId);
+        const stream = getLivestream(streamId);
+        
+        if (!stream) {
+            return res.status(404).json({ error: 'Stream not found' });
+        }
+        
+        if (stream.user_id !== req.session.userId) {
+            return res.status(403).json({ error: 'Not authorized to start this stream' });
+        }
+        
+        startLivestream(streamId);
+        
+        res.json({ success: true, message: 'Stream started' });
+    } catch (error) {
+        console.error('Error starting stream:', error);
+        res.status(500).json({ error: 'Failed to start stream' });
+    }
+});
+
+// End livestream
+app.post('/api/livestream/:streamId/end', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const streamId = parseInt(req.params.streamId);
+        const { recordingUrl } = req.body;
+        const stream = getLivestream(streamId);
+        
+        if (!stream) {
+            return res.status(404).json({ error: 'Stream not found' });
+        }
+        
+        if (stream.user_id !== req.session.userId) {
+            return res.status(403).json({ error: 'Not authorized to end this stream' });
+        }
+        
+        endLivestream({ streamId, recordingUrl });
+        
+        res.json({ success: true, message: 'Stream ended' });
+    } catch (error) {
+        console.error('Error ending stream:', error);
+        res.status(500).json({ error: 'Failed to end stream' });
+    }
+});
+
+// Join livestream as viewer
+app.post('/api/livestream/:streamId/join', (req, res) => {
+    try {
+        const streamId = parseInt(req.params.streamId);
+        const userId = req.session.userId || null;
+        
+        const stream = getLivestream(streamId);
+        
+        if (!stream) {
+            return res.status(404).json({ error: 'Stream not found' });
+        }
+        
+        if (stream.status !== 'live') {
+            return res.status(400).json({ error: 'Stream is not live' });
+        }
+        
+        addLivestreamViewer({ streamId, userId });
+        
+        // Update peak viewer count
+        const viewers = getLivestreamViewers(streamId);
+        updateLivestreamPeakViewers({ streamId, count: viewers.length });
+        
+        res.json({
+            success: true,
+            iceServers: livestreamServices.webrtc.getIceServers()
+        });
+    } catch (error) {
+        console.error('Error joining stream:', error);
+        res.status(500).json({ error: 'Failed to join stream' });
+    }
+});
+
+// Leave livestream
+app.post('/api/livestream/:streamId/leave', (req, res) => {
+    try {
+        const streamId = parseInt(req.params.streamId);
+        const userId = req.session.userId;
+        
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        
+        removeLivestreamViewer({ streamId, userId });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error leaving stream:', error);
+        res.status(500).json({ error: 'Failed to leave stream' });
+    }
+});
+
+// Get livestream chat
+app.get('/api/livestream/:streamId/chat', (req, res) => {
+    try {
+        const streamId = parseInt(req.params.streamId);
+        const limit = parseInt(req.query.limit) || 100;
+        const offset = parseInt(req.query.offset) || 0;
+        
+        const messages = getLivestreamChat({ streamId, limit, offset });
+        res.json({ messages });
+    } catch (error) {
+        console.error('Error fetching chat:', error);
+        res.status(500).json({ error: 'Failed to fetch chat' });
+    }
+});
+
+// Send chat message
+app.post('/api/livestream/:streamId/chat', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const streamId = parseInt(req.params.streamId);
+        const { message } = req.body;
+        
+        if (!message) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+        
+        const messageId = addLivestreamChatMessage({
+            streamId,
+            userId: req.session.userId,
+            message
+        });
+        
+        // Emit chat message via Socket.IO
+        io.to(`livestream_${streamId}`).emit('chat:message', {
+            id: messageId,
+            userId: req.session.userId,
+            message,
+            timestamp: new Date()
+        });
+        
+        res.json({ success: true, messageId });
+    } catch (error) {
+        console.error('Error sending chat message:', error);
+        res.status(500).json({ error: 'Failed to send message' });
+    }
+});
+
 // Error handler for 503 errors
 app.use((req, res, next) => {
     res.status(503).render('503', { title: 'Service Unavailable - Dream X' });
@@ -5332,6 +5575,9 @@ app.use((req, res) => {
 });
 
 // Socket.IO for real-time messaging and notifications
+// Initialize livestream signaling service
+livestreamServices.signaling.initialize(io);
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
     
@@ -5344,6 +5590,17 @@ io.on('connection', (socket) => {
     socket.on('join-conversation', (conversationId) => {
         socket.join(`conversation-${conversationId}`);
         console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
+    });
+    
+    // Livestream socket handlers
+    socket.on('join-livestream', (streamId) => {
+        socket.join(`livestream_${streamId}`);
+        console.log(`Socket ${socket.id} joined livestream ${streamId}`);
+    });
+    
+    socket.on('leave-livestream', (streamId) => {
+        socket.leave(`livestream_${streamId}`);
+        console.log(`Socket ${socket.id} left livestream ${streamId}`);
     });
     
     socket.on('leave-conversation', (conversationId) => {
