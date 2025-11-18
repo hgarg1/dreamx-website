@@ -24,6 +24,9 @@ let webpush;
 // Import email service
 const emailService = require('./services/email');
 
+// Import payment service
+const paymentService = require('./services/payments');
+
 const { 
     db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
     updateProfilePicture, updateBannerImage, updatePassword, updateUserHandle, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
@@ -53,6 +56,7 @@ const {
     getUserSubscription, createOrUpdateSubscription, cancelSubscription,
     addPaymentMethod, getPaymentMethods, deletePaymentMethod, setDefaultPaymentMethod,
     createInvoice, getInvoices,
+    getPaymentCustomer, createPaymentCustomer, getAllPaymentCustomers,
     updatePrivacySettings,
     // Follow system
     followUser, unfollowUser, isFollowing, getFollowerCount, getFollowingCount, getFollowers, getFollowing,
@@ -538,6 +542,22 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
         }
     } catch (e) {
         console.warn('Admin seed failed:', e.message);
+    }
+})();
+
+// Initialize payment processors
+(async () => {
+    try {
+        console.log('🔧 Initializing payment processors...');
+        paymentService.initializeAll();
+        const configured = paymentService.getConfiguredProviders();
+        if (configured.length > 0) {
+            console.log(`✅ Payment processors ready: ${configured.join(', ')}`);
+        } else {
+            console.log('⚠️  No payment processors configured (running in mock mode)');
+        }
+    } catch (e) {
+        console.warn('Payment service initialization warning:', e.message);
     }
 })();
 
@@ -3603,6 +3623,182 @@ app.post('/api/banking/save', ensureAuthenticated, (req, res) => {
     } catch (e) {
         console.error('API banking save error:', e);
         return res.status(500).json({ success: false, error: 'Failed to save bank info' });
+    }
+});
+
+// ===== PAYMENT WEBHOOK ROUTES =====
+// These routes handle webhook notifications from payment processors
+
+// Stripe webhook endpoint
+app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+    const signature = req.headers['stripe-signature'];
+    
+    try {
+        const event = paymentService.verifyWebhook('stripe', {
+            rawBody: req.body,
+            signature: signature
+        });
+
+        console.log('✅ Stripe webhook verified:', event.type);
+
+        // Handle the event
+        switch (event.type) {
+            case 'payment_intent.succeeded':
+                const paymentIntent = event.data.object;
+                console.log('💰 Payment succeeded:', paymentIntent.id);
+                // Update invoice status, send confirmation email, etc.
+                break;
+
+            case 'payment_intent.payment_failed':
+                console.log('❌ Payment failed:', event.data.object.id);
+                // Notify user of payment failure
+                break;
+
+            case 'customer.subscription.created':
+            case 'customer.subscription.updated':
+                const subscription = event.data.object;
+                console.log('📦 Subscription updated:', subscription.id);
+                // Update user_subscriptions table
+                break;
+
+            case 'customer.subscription.deleted':
+                const cancelledSub = event.data.object;
+                console.log('🚫 Subscription cancelled:', cancelledSub.id);
+                // Mark subscription as cancelled
+                break;
+
+            case 'invoice.paid':
+                const invoice = event.data.object;
+                console.log('📄 Invoice paid:', invoice.id);
+                // Create invoice record, send receipt
+                break;
+
+            case 'invoice.payment_failed':
+                console.log('❌ Invoice payment failed:', event.data.object.id);
+                // Notify user of failed payment
+                break;
+
+            default:
+                console.log(`Unhandled Stripe event type: ${event.type}`);
+        }
+
+        res.json({ received: true });
+    } catch (error) {
+        console.error('Stripe webhook error:', error);
+        return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+});
+
+// Lemon Squeezy webhook endpoint
+app.post('/webhooks/lemonsqueezy', express.json(), async (req, res) => {
+    const signature = req.headers['x-signature'];
+    
+    try {
+        const isValid = paymentService.verifyWebhook('lemonsqueezy', {
+            payload: JSON.stringify(req.body),
+            signature: signature
+        });
+
+        if (!isValid) {
+            return res.status(401).send('Invalid signature');
+        }
+
+        console.log('✅ Lemon Squeezy webhook verified:', req.body.meta?.event_name);
+
+        const eventName = req.body.meta?.event_name;
+        const data = req.body.data;
+
+        switch (eventName) {
+            case 'order_created':
+                console.log('💰 Order created:', data.id);
+                // Process order, create invoice
+                break;
+
+            case 'subscription_created':
+            case 'subscription_updated':
+                console.log('📦 Subscription updated:', data.id);
+                // Update user_subscriptions table
+                break;
+
+            case 'subscription_cancelled':
+                console.log('🚫 Subscription cancelled:', data.id);
+                // Mark subscription as cancelled
+                break;
+
+            case 'subscription_payment_success':
+                console.log('💰 Subscription payment succeeded:', data.id);
+                // Create invoice, send receipt
+                break;
+
+            case 'subscription_payment_failed':
+                console.log('❌ Subscription payment failed:', data.id);
+                // Notify user
+                break;
+
+            default:
+                console.log(`Unhandled Lemon Squeezy event: ${eventName}`);
+        }
+
+        res.json({ received: true });
+    } catch (error) {
+        console.error('Lemon Squeezy webhook error:', error);
+        return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+});
+
+// Square webhook endpoint
+app.post('/webhooks/square', express.json(), async (req, res) => {
+    const signature = req.headers['x-square-signature'];
+    const webhookUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    
+    try {
+        const isValid = paymentService.verifyWebhook('square', {
+            body: JSON.stringify(req.body),
+            signature: signature,
+            url: webhookUrl
+        });
+
+        if (!isValid) {
+            return res.status(401).send('Invalid signature');
+        }
+
+        console.log('✅ Square webhook verified:', req.body.type);
+
+        const eventType = req.body.type;
+        const data = req.body.data?.object;
+
+        switch (eventType) {
+            case 'payment.created':
+            case 'payment.updated':
+                console.log('💰 Payment event:', data?.payment?.id);
+                // Update payment status
+                break;
+
+            case 'subscription.created':
+            case 'subscription.updated':
+                console.log('📦 Subscription event:', data?.subscription?.id);
+                // Update user_subscriptions table
+                break;
+
+            case 'subscription.canceled':
+                console.log('🚫 Subscription cancelled:', data?.subscription?.id);
+                // Mark subscription as cancelled
+                break;
+
+            case 'invoice.published':
+            case 'invoice.payment_made':
+                console.log('📄 Invoice event:', data?.invoice?.id);
+                // Create invoice record
+                break;
+
+            default:
+                console.log(`Unhandled Square event: ${eventType}`);
+        }
+
+        res.json({ received: true });
+    } catch (error) {
+        console.error('Square webhook error:', error);
+        return res.status(400).send(`Webhook Error: ${error.message}`);
     }
 });
 
