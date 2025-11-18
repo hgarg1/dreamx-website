@@ -201,7 +201,7 @@
       // Initialize label on load
       setToggleLabel(false);
       
-      // Audio player functionality
+      // Audio player functionality with automatic play/pause based on visibility
       const audioWrapper = article.querySelector('.audio-player-wrapper');
       if (audioWrapper) {
         const playBtn = audioWrapper.querySelector('.audio-play-btn');
@@ -212,7 +212,8 @@
         const audioSrc = playBtn.getAttribute('data-audio-src');
         
         let audio = null;
-        let isPlaying = false;
+        let userWantsToPlay = false; // Track user's intent
+        let isCurrentlyPlaying = false;
         
         // Initialize audio element
         function initAudio() {
@@ -232,9 +233,14 @@
               }
             });
             
-            // Reset button when ended (shouldn't happen with loop=true)
-            audio.addEventListener('ended', () => {
-              isPlaying = false;
+            // Update playing state when audio actually plays/pauses
+            audio.addEventListener('play', () => {
+              isCurrentlyPlaying = true;
+              playBtn.innerHTML = '⏸️';
+            });
+            
+            audio.addEventListener('pause', () => {
+              isCurrentlyPlaying = false;
               playBtn.innerHTML = '▶️';
             });
           }
@@ -243,14 +249,17 @@
         // Play/Pause toggle
         playBtn.addEventListener('click', () => {
           initAudio();
-          if (isPlaying) {
+          
+          if (isCurrentlyPlaying) {
+            userWantsToPlay = false;
             audio.pause();
-            playBtn.innerHTML = '▶️';
           } else {
-            audio.play();
-            playBtn.innerHTML = '⏸️';
+            userWantsToPlay = true;
+            audio.play().catch(err => {
+              console.log('Audio play failed:', err);
+              userWantsToPlay = false;
+            });
           }
-          isPlaying = !isPlaying;
         });
         
         // Volume control
@@ -268,6 +277,74 @@
             const percent = x / rect.width;
             audio.currentTime = percent * audio.duration;
           }
+        });
+        
+        // Intersection Observer to auto-play/pause based on visibility
+        // Only play if user wants to play AND post is significantly visible
+        const observerOptions = {
+          root: null, // viewport
+          rootMargin: '0px',
+          threshold: 0.5 // 50% of the post must be visible
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (!audio) return;
+            
+            // Check if page/tab is visible
+            const isPageVisible = !document.hidden;
+            
+            if (entry.isIntersecting && isPageVisible && userWantsToPlay) {
+              // Post is visible, page is active, user wants audio: play
+              audio.play().catch(err => console.log('Auto-play failed:', err));
+            } else {
+              // Post not visible, page hidden, or user paused: pause
+              if (isCurrentlyPlaying) {
+                audio.pause();
+              }
+            }
+          });
+        }, observerOptions);
+        
+        // Start observing this post
+        observer.observe(article);
+        
+        // Handle page visibility changes (tab switching, window minimizing)
+        const handleVisibilityChange = () => {
+          if (!audio) return;
+          
+          if (document.hidden) {
+            // Page is hidden, pause audio
+            if (isCurrentlyPlaying) {
+              audio.pause();
+            }
+          } else {
+            // Page is visible again, check if post is in view
+            const rect = article.getBoundingClientRect();
+            const isInView = (
+              rect.top >= 0 &&
+              rect.left >= 0 &&
+              rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+              rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+            );
+            
+            // Only resume if user wants to play AND post is visible
+            if (isInView && userWantsToPlay && !isCurrentlyPlaying) {
+              audio.play().catch(err => console.log('Resume play failed:', err));
+            }
+          }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+          if (audio) {
+            audio.pause();
+            audio.src = '';
+          }
+          observer.disconnect();
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
         });
       }
     })();
