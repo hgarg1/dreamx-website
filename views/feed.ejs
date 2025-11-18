@@ -76,6 +76,23 @@
             <div id="mediaPreview" style="margin-top:16px;border-radius:12px;overflow:hidden;"></div>
           </div>
 
+          <div id="audioUploadSection" style="margin-bottom:20px;">
+            <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">🎵 Background Audio <span style="color:#6b7280;font-weight:400;font-size:0.85rem;">(optional)</span></label>
+            <div style="position:relative;">
+              <input type="file" id="audioInput" name="audio" accept="audio/*" style="width:100%;padding:14px 16px;border:2px dashed rgba(255,79,163,0.3);border-radius:12px;cursor:pointer;transition:all 0.3s ease;background:rgba(255,79,163,0.02);" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.05)'" onmouseout="this.style.borderColor='rgba(255,79,163,0.3)';this.style.background='rgba(255,79,163,0.02)'">
+            </div>
+            <div id="audioPreview" style="margin-top:12px;display:none;background:linear-gradient(135deg, rgba(255,79,163,0.08) 0%, rgba(118,75,162,0.08) 100%);border-radius:12px;padding:12px;border:1px solid rgba(255,79,163,0.2);">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:1.5rem;">🎵</span>
+                <div style="flex:1;min-width:0;">
+                  <div id="audioFileName" style="font-weight:700;color:#374151;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                  <div style="font-size:0.75rem;color:#6b7280;">Audio will loop in background at 30% volume</div>
+                </div>
+                <button type="button" onclick="clearAudioUpload()" style="background:rgba(239,68,68,0.1);border:none;color:#ef4444;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.3s ease;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">Remove</button>
+              </div>
+            </div>
+          </div>
+
           <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:20px;border-top:1px solid #e5e7eb;">
             <button type="button" onclick="closePostComposer()" style="padding:12px 28px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;color:#374151;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
             <button type="submit" style="padding:12px 32px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 16px rgba(255,79,163,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(255,79,163,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.3)'">✨ Publish Post</button>
@@ -121,6 +138,14 @@
         document.getElementById('postComposerModal').style.display = 'none';
         document.getElementById('postForm').reset();
         document.getElementById('mediaPreview').innerHTML = '';
+        clearAudioUpload();
+      }
+      
+      function clearAudioUpload() {
+        const audioInput = document.getElementById('audioInput');
+        const audioPreview = document.getElementById('audioPreview');
+        audioInput.value = '';
+        audioPreview.style.display = 'none';
       }
 
       document.getElementById('mediaInput').addEventListener('change', function(e) {
@@ -154,6 +179,19 @@
             }
           };
           reader.readAsDataURL(file);
+        }
+      });
+      
+      // Audio preview
+      document.getElementById('audioInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const audioPreview = document.getElementById('audioPreview');
+        const audioFileName = document.getElementById('audioFileName');
+        if (file) {
+          audioFileName.textContent = file.name;
+          audioPreview.style.display = 'block';
+        } else {
+          audioPreview.style.display = 'none';
         }
       });
     </script>

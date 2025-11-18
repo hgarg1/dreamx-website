@@ -115,16 +115,41 @@ All page content is in the `views/` folder. Edit the `.ejs` files to update text
 
 Modify `public/css/style.css` to adjust spacing, typography, animations, or add new styles.
 
-## Future Enhancements
-Already implemented:
+## Features
+
+### Video Livestreaming 🎥
+Complete infrastructure for live video broadcasting:
+- **WebRTC Streaming**: Peer-to-peer video streaming with low latency
+- **Broadcasting**: Users can start livestreams with title and description
+- **Viewing**: Real-time viewer joining with automatic ICE server configuration
+- **Signaling**: Socket.IO based signaling for WebRTC connection establishment
+- **Chat**: Live chat during streams with message persistence
+- **Recording**: Automatic stream recording with configurable quality
+- **Analytics**: Viewer count tracking and peak viewer metrics
+- **Database**: Complete schema for streams, viewers, and chat messages
+- **API Ready**: Full REST API for stream management
+- **Infrastructure**: Foundation for adaptive bitrate streaming and transcoding
+
+See `services/livestream/README.md` for complete documentation.
+
+### Audio Support 🎵
+Posts and reels now support background audio:
+- **Upload Audio**: Add MP3, WAV, OGG, or M4A files to any post or reel
+- **Auto-Loop**: Background audio loops seamlessly for continuous playback
+- **Volume Control**: Default 30% volume with user-adjustable controls
+- **Elegant Player**: Beautiful pink-gradient audio player matching the DreamX theme
+- **Progress Bar**: Visual progress indicator with seek functionality
+- **Infrastructure Ready**: Prepared for future livestreaming and audio recording features
+
+### Already Implemented
 - Local email/password auth, profiles, edit profile with image upload
 - SQLite DB with conversations/messages, real-time messaging via Socket.IO
 - Settings: account, password, notifications
 
-Added OAuth sign-in:
+### OAuth Sign-In
 - Google, Microsoft, Apple (Apple requires HTTPS)
 
-Setup for OAuth:
+### Setup for OAuth
 1) Copy `.env.example` to `.env` and fill values
 2) Install strategy dependencies (if not already):
 ```powershell

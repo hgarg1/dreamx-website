@@ -3,8 +3,10 @@
 
 const emailService = require('./email');
 const storageServices = require('./storage');
+const livestreamServices = require('./livestream');
 
 module.exports = {
     email: emailService,
-    storage: storageServices
+    storage: storageServices,
+    livestream: livestreamServices
 };
