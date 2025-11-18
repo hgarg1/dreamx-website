@@ -4690,9 +4690,15 @@ app.post('/api/appeals/account', (req, res) => {
     }
 });
 
+// Error handler for 500 errors
+app.use((err, req, res, next) => {
+    console.error('Server error:', err);
+    res.status(500).render('500', { title: 'Server Error - Dream X' });
+});
+
 // 404 handler - must be last route
 app.use((req, res) => {
-    res.status(404).send('<h1>404 - Page Not Found</h1>');
+    res.status(404).render('404', { title: 'Page Not Found - Dream X' });
 });
 
 // Socket.IO for real-time messaging and notifications
