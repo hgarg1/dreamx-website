@@ -115,16 +115,26 @@ All page content is in the `views/` folder. Edit the `.ejs` files to update text
 
 Modify `public/css/style.css` to adjust spacing, typography, animations, or add new styles.
 
-## Future Enhancements
-Already implemented:
+## Features
+
+### Audio Support 🎵
+Posts and reels now support background audio:
+- **Upload Audio**: Add MP3, WAV, OGG, or M4A files to any post or reel
+- **Auto-Loop**: Background audio loops seamlessly for continuous playback
+- **Volume Control**: Default 30% volume with user-adjustable controls
+- **Elegant Player**: Beautiful pink-gradient audio player matching the DreamX theme
+- **Progress Bar**: Visual progress indicator with seek functionality
+- **Infrastructure Ready**: Prepared for future livestreaming and audio recording features
+
+### Already Implemented
 - Local email/password auth, profiles, edit profile with image upload
 - SQLite DB with conversations/messages, real-time messaging via Socket.IO
 - Settings: account, password, notifications
 
-Added OAuth sign-in:
+### OAuth Sign-In
 - Google, Microsoft, Apple (Apple requires HTTPS)
 
-Setup for OAuth:
+### Setup for OAuth
 1) Copy `.env.example` to `.env` and fill values
 2) Install strategy dependencies (if not already):
 ```powershell
