@@ -193,6 +193,23 @@ CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
 CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
 `);
 
+// Lightweight migrations for existing databases (ensure new columns exist)
+try {
+  const cols = db.prepare("PRAGMA table_info('users')").all();
+  const names = new Set(cols.map(c => c.name));
+  if (!names.has('email_verified')) {
+    db.prepare("ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0").run();
+  }
+  if (!names.has('verification_code')) {
+    db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run();
+  }
+  if (!names.has('verification_code_expires')) {
+    db.prepare("ALTER TABLE users ADD COLUMN verification_code_expires DATETIME").run();
+  }
+} catch (e) {
+  console.warn('Schema migration warning:', e.message);
+}
+
 // --- Services: Orders and Reviews (for verified purchaser ratings) ---
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS service_orders (
@@ -369,6 +386,14 @@ try {
   db.exec(`ALTER TABLE users ADD COLUMN banner_image TEXT;`);
 } catch (e) {
   // Column already exists, ignore
+}
+// Normalize any previously stored absolute upload paths
+try {
+  // Strip leading '/uploads/' to keep DB paths relative
+  db.exec(`UPDATE users SET profile_picture = substr(profile_picture, 10) WHERE profile_picture LIKE '/uploads/%';`);
+  db.exec(`UPDATE users SET banner_image = substr(banner_image, 10) WHERE banner_image LIKE '/uploads/%';`);
+} catch (e) {
+  // ignore
 }
 // Posts reels support migration (idempotent)
 try { db.exec(`ALTER TABLE posts ADD COLUMN is_reel INTEGER DEFAULT 0;`); } catch (e) {}

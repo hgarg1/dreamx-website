@@ -1857,6 +1857,27 @@ main {
     text-decoration: underline;
 }
 
+/* Provider buttons (compact, branded) */
+.btn-provider {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: 2px solid #e5e7eb;
+    background: #fff;
+    color: #111827;
+    transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.btn-provider:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); border-color:#d1d5db; }
+.btn-provider:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+
+.btn-microsoft { background:#fff; color:#111827; }
+.btn-google { background:#fff; color:#111827; }
+.btn-apple { background:#000; color:#fff; border-color:#000; }
+
 /* =============================
      ONBOARDING PAGE STYLES
      ============================= */
@@ -4725,7 +4746,7 @@ main {
     overflow: hidden;
 }
 
-.settings-btn::before {
+.settings-btn::after {
     content: '';
     position: absolute;
     top: 50%;
@@ -4738,7 +4759,7 @@ main {
     transition: width 0.6s, height 0.6s;
 }
 
-.settings-btn:active::before {
+.settings-btn:active::after {
     width: 300px;
     height: 300px;
 }
@@ -4826,8 +4847,10 @@ main {
 /* Passkey button icon */
 .settings-btn.primary[id*="passkey"]::before {
     content: '🔐';
+    display: inline-block;
     font-size: 1.2rem;
-    margin-right: 4px;
+    margin-right: 8px;
+    line-height: 1;
 }
 
 /* Notification preferences visual enhancement */

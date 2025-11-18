@@ -105,15 +105,9 @@
     }
     
     function showToast(title, message) {
-        // Simple toast notification
-        const toast = document.createElement('div');
-        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1f2937;color:white;padding:16px 20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:10000;max-width:320px;animation:slideIn 0.3s ease;';
-        toast.innerHTML = `<strong style="display:block;margin-bottom:4px;">${title}</strong><span style="font-size:0.9rem;opacity:0.9;">${message}</span>`;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-            toast.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => toast.remove(), 300);
-        }, 4000);
+        const combined = title ? `${title} — ${message}` : message;
+        if (window.showInfo) window.showInfo(combined || '');
+        else if (window.showToast) window.showToast({ type: 'info', message: combined || '' });
     }
     
     function formatTime(timestamp) {
@@ -161,6 +155,45 @@
         try {
             const toggle = document.querySelector('input[name="push_notifications"]');
             if (!toggle) return;
+            const btn = document.getElementById('enablePushNowBtn');
+
+            async function isSubscribed() {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+                const reg = await navigator.serviceWorker.ready;
+                const existing = await reg.pushManager.getSubscription();
+                return !!existing;
+            }
+
+            async function refreshPushButton() {
+                if (!btn) return;
+                const perm = Notification?.permission;
+                if (perm === 'denied') {
+                    btn.textContent = 'Push Blocked in Browser';
+                    btn.disabled = true;
+                    btn.classList.remove('primary');
+                    btn.style.background = '#e5e7eb';
+                    btn.style.color = '#6b7280';
+                    btn.style.border = '1px solid #e5e7eb';
+                    return;
+                }
+                btn.disabled = false;
+                const sub = await isSubscribed();
+                if (sub) {
+                    btn.textContent = 'Disable Push';
+                    btn.classList.remove('primary');
+                    btn.style.background = '#fee2e2';
+                    btn.style.color = '#991b1b';
+                    btn.style.border = '1px solid #fecaca';
+                    btn.dataset.state = 'on';
+                } else {
+                    btn.textContent = 'Enable Push Now';
+                    btn.classList.add('primary');
+                    btn.style.background = '';
+                    btn.style.color = '';
+                    btn.style.border = '';
+                    btn.dataset.state = 'off';
+                }
+            }
             toggle.addEventListener('change', async (e) => {
                 if (e.target.checked) {
                     const result = await Notification.requestPermission();
@@ -171,13 +204,21 @@
                         return;
                     }
                     await subscribeForPush();
+                    await refreshPushButton();
                 } else {
                     await unsubscribeFromPush();
+                    await refreshPushButton();
                 }
             });
-            const btn = document.getElementById('enablePushNowBtn');
             if (btn) {
                 btn.addEventListener('click', async () => {
+                    const perm = Notification?.permission;
+                    if (btn.dataset.state === 'on') {
+                        await unsubscribeFromPush();
+                        if (toggle && toggle.checked) toggle.checked = false;
+                        await refreshPushButton();
+                        return;
+                    }
                     const result = await Notification.requestPermission();
                     if (result !== 'granted') {
                         if (window.showError) window.showError('Push notifications are blocked by the browser.');
@@ -185,9 +226,11 @@
                         return;
                     }
                     await subscribeForPush();
-                    // Optionally reflect checkbox state
                     if (toggle && !toggle.checked) toggle.checked = true;
+                    await refreshPushButton();
                 });
+                // Initialize button state
+                refreshPushButton();
             }
         } catch {}
     })();

@@ -420,13 +420,13 @@ async function importProfilePhotoIfNeeded(user, photoUrl) {
         if (!res || !res.ok) return;
         const arrayBuffer = await res.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const uploadsDir = path.join(__dirname, 'public', 'uploads');
+        const uploadsDir = path.join(__dirname, 'public', 'uploads', 'profiles');
         if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
         const ext = (photoUrl.split('?')[0].split('.').pop() || 'jpg').toLowerCase();
         const safeExt = ext.length <= 5 ? ext : 'jpg';
         const filename = `profile-oauth-${user.id}-${Date.now()}.${safeExt}`;
         fs.writeFileSync(path.join(uploadsDir, filename), buffer);
-        updateProfilePicture({ userId: user.id, filename });
+        updateProfilePicture({ userId: user.id, filename: `profiles/${filename}` });
     } catch (e) {
         console.warn('Profile photo import failed:', e.message);
     }
@@ -435,12 +435,12 @@ async function importProfilePhotoIfNeeded(user, photoUrl) {
 async function importBinaryPhotoIfNeeded(user, buffer, extHint) {
     try {
         if (!buffer || !user || user.profile_picture) return;
-        const uploadsDir = path.join(__dirname, 'public', 'uploads');
+        const uploadsDir = path.join(__dirname, 'public', 'uploads', 'profiles');
         if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
         const safeExt = (extHint && extHint.length <= 5 ? extHint : 'jpg') || 'jpg';
         const filename = `profile-oauth-${user.id}-${Date.now()}.${safeExt}`;
         fs.writeFileSync(path.join(uploadsDir, filename), buffer);
-        updateProfilePicture({ userId: user.id, filename });
+        updateProfilePicture({ userId: user.id, filename: `profiles/${filename}` });
     } catch (e) {
         console.warn('Binary photo import failed:', e.message);
     }
@@ -528,6 +528,8 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
             const hash = await bcrypt.hash(adminPass, 10);
             const id = createUser({ fullName: 'Super Admin', email: adminEmail, passwordHash: hash });
             updateUserRole({ userId: id, role: 'super_admin' });
+            // Ensure seeded super admin is verified
+            try { markEmailAsVerified({ userId: id }); } catch(_) {}
             console.log(`Seeded super admin: ${adminEmail} / ${adminPass}`);
         } else if (String(process.env.DEFAULT_ADMIN_FORCE_RESET || '').toLowerCase() === 'true') {
             // Optional: force reset password for existing default admin
@@ -535,6 +537,19 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
             const hash = await bcrypt.hash(newPass, 10);
             db.prepare(`UPDATE users SET password_hash = ? WHERE email = ?`).run(hash, adminEmail);
             console.log(`Reset super admin password for ${adminEmail}`);
+            // Ensure existing super admin is verified
+            try { markEmailAsVerified({ userId: existing.id }); } catch(_) {}
+        }
+        // Auto-verify any global admin accounts (prevent lockout)
+        try {
+            const globalAdmins = db.prepare('SELECT id, email_verified FROM users WHERE role = ?').all('global_admin');
+            for (const ga of globalAdmins) {
+                if (ga.email_verified !== 1) {
+                    markEmailAsVerified({ userId: ga.id });
+                }
+            }
+        } catch(e) {
+            console.warn('Global admin verification scan failed:', e.message);
         }
     } catch (e) {
         console.warn('Admin seed failed:', e.message);
@@ -576,6 +591,30 @@ app.use((req, res, next) => {
     res.locals.authUser = user;
     res.locals.unreadMessageCount = unreadCount;
     next();
+});
+
+// Force email verification for authenticated users
+app.use((req, res, next) => {
+    try {
+        if (!req.session.userId) return next();
+        const user = getUserById(req.session.userId);
+        if (!user) return next();
+        if (user.email_verified === 1) return next();
+
+        // Allowlist: verification flow, logout, auth, static assets, and essential files
+        const p = req.path || '';
+        const isStatic = p.startsWith('/css/') || p.startsWith('/js/') || p.startsWith('/img/') || p.startsWith('/uploads/') || p.startsWith('/fonts/') || p === '/favicon.ico' || p === '/robots.txt' || p.startsWith('/manifest') || p.startsWith('/service-worker');
+        const allowedExact = new Set(['/verify-email', '/resend-verification', '/logout', '/api/push/public-key']);
+        const isAuthPath = p === '/login' || p === '/register' || p.startsWith('/auth/') || p.startsWith('/webauthn/');
+        if (isStatic || allowedExact.has(p) || isAuthPath) return next();
+
+        if (p.startsWith('/api/')) {
+            return res.status(403).json({ error: 'Email verification required', redirect: '/verify-email' });
+        }
+        return res.redirect('/verify-email');
+    } catch (e) {
+        return next();
+    }
 });
 
 // RBAC helpers
@@ -784,6 +823,13 @@ app.get('/auth/google/callback', passport.authenticate('google', { failureRedire
                     console.log('🔵 Final session ID:', req.sessionID);
                     console.log('🔵 Cookie settings:', req.session.cookie);
                 }
+                try {
+                    // Auto-verify email for SSO logins
+                    const u = getUserById(req.user.id);
+                    if (u && u.email_verified !== 1) {
+                        markEmailAsVerified({ userId: u.id });
+                    }
+                } catch(_) {}
                 return res.redirect('/feed');
             });
         });
@@ -815,6 +861,12 @@ app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failure
             req.session.userId = req.user.id;
             req.session.save((saveErr) => {
                 if (saveErr) console.error('Microsoft session save error:', saveErr);
+                try {
+                    const u = getUserById(req.user.id);
+                    if (u && u.email_verified !== 1) {
+                        markEmailAsVerified({ userId: u.id });
+                    }
+                } catch(_) {}
                 return res.redirect('/feed');
             });
         });
@@ -848,6 +900,12 @@ app.post('/auth/apple/callback', passport.authenticate('apple', { failureRedirec
             req.session.userId = req.user.id;
             req.session.save((saveErr) => {
                 if (saveErr) console.error('Apple session save error:', saveErr);
+                try {
+                    const u = getUserById(req.user.id);
+                    if (u && u.email_verified !== 1) {
+                        markEmailAsVerified({ userId: u.id });
+                    }
+                } catch(_) {}
                 return res.redirect('/feed');
             });
         });
@@ -877,7 +935,7 @@ app.get('/admin', requireAdmin, (req, res) => {
 
     // Super admins can see recent audit logs
     const me = req.session.userId ? getUserById(req.session.userId) : null;
-    const logs = (me && me.role === 'super_admin') ? getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
+    const logs = (me && (me.role === 'super_admin' || me.role === 'global_admin')) ? getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
 
     // Queue pagination (server-side, hasMore style)
     const qLimit = 20;
@@ -1751,6 +1809,10 @@ app.post('/login', async (req, res) => {
             if (saveErr) {
                 console.error('Session save error:', saveErr);
             }
+            // If email not verified, force verification immediately
+            if (user.email_verified !== 1) {
+                return res.redirect('/verify-email');
+            }
             if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
                 return res.redirect('/admin');
             }
@@ -1786,6 +1848,27 @@ app.get('/feed', (req, res) => {
             p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
             // Ensure reactions object exists even if empty
             p.reactions = p.reactions || {};
+            // Normalize media_url to new uploads structure for legacy rows
+            if (p.media_url) {
+                let m = String(p.media_url);
+                if (m.startsWith('public/')) m = m.replace(/^public\//, '/');
+                if (m.startsWith('uploads/')) m = '/' + m; // ensure leading slash
+                if (m.startsWith('posts/')) m = '/uploads/' + m;
+                if (!m.startsWith('/')) m = '/' + m;
+                // Constrain to uploads only
+                if (!m.startsWith('/uploads/')) {
+                    // last resort: assume it's a posts asset name
+                    m = '/uploads/posts/' + m.replace(/^\/+/, '');
+                }
+                p.media_url = m;
+            }
+            // Normalize profile picture to store relative path like 'profiles/...' for template prefix
+            if (p.profile_picture) {
+                let pic = String(p.profile_picture);
+                if (pic.startsWith('/uploads/')) pic = pic.replace(/^\/uploads\//, '');
+                if (pic.startsWith('public/uploads/')) pic = pic.replace(/^public\/uploads\//, '');
+                p.profile_picture = pic;
+            }
         } catch(e) {}
         return p;
     });
@@ -2260,7 +2343,21 @@ app.get('/profile', (req, res) => {
         skills: skillsList,
         stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
         isSeller: false,
-        bannerImage: row.banner_image
+        bannerImage: row.banner_image,
+        onboarding: {
+            first_goal: row.first_goal || null,
+            first_goal_date: row.first_goal_date || null,
+            first_goal_metric: row.first_goal_metric || null,
+            first_goal_public: Number(row.first_goal_public) === 1,
+            progress_visibility: row.progress_visibility || 'public',
+            daily_time_commitment: row.daily_time_commitment || null,
+            best_time: row.best_time || null,
+            reminder_frequency: row.reminder_frequency || null,
+            accountability_style: (function(){ try { return row.accountability_style ? JSON.parse(row.accountability_style) : []; } catch(e) { return []; } })(),
+            content_preferences: (function(){ try { return row.content_preferences ? JSON.parse(row.content_preferences) : []; } catch(e) { return []; } })(),
+            content_format_preference: row.content_format_preference || null,
+            open_to_mentoring: row.open_to_mentoring || null
+        }
     };
     const projects = [];
     const services = getUserServices(req.session.userId);
@@ -2313,7 +2410,21 @@ app.get('/profile/:id(\\d+)', (req, res) => {
         skills: skillsList,
         stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
         isSeller: false,
-        bannerImage: row.banner_image
+        bannerImage: row.banner_image,
+        onboarding: {
+            first_goal: row.first_goal || null,
+            first_goal_date: row.first_goal_date || null,
+            first_goal_metric: row.first_goal_metric || null,
+            first_goal_public: Number(row.first_goal_public) === 1,
+            progress_visibility: row.progress_visibility || 'public',
+            daily_time_commitment: row.daily_time_commitment || null,
+            best_time: row.best_time || null,
+            reminder_frequency: row.reminder_frequency || null,
+            accountability_style: (function(){ try { return row.accountability_style ? JSON.parse(row.accountability_style) : []; } catch(e) { return []; } })(),
+            content_preferences: (function(){ try { return row.content_preferences ? JSON.parse(row.content_preferences) : []; } catch(e) { return []; } })(),
+            content_format_preference: row.content_format_preference || null,
+            open_to_mentoring: row.open_to_mentoring || null
+        }
     };
     const projects = [];
     const services = getUserServices(uid);
@@ -2388,7 +2499,7 @@ app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }
     if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
         updateProfilePicture({
             userId: req.session.userId,
-            filename: req.files.profilePicture[0].filename
+            filename: `profiles/${req.files.profilePicture[0].filename}`
         });
     }
     
@@ -2396,7 +2507,7 @@ app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }
     if (req.files && req.files.bannerImage && req.files.bannerImage[0]) {
         updateBannerImage({
             userId: req.session.userId,
-            filename: req.files.bannerImage[0].filename
+            filename: `profiles/${req.files.bannerImage[0].filename}`
         });
     }
     
@@ -3764,46 +3875,82 @@ app.post('/settings/delete-account', ensureAuthenticated, async (req, res) => {
             cancelSubscription(userId);
         } catch (e) {}
         
-        // Delete all related records in correct order (child tables first)
-        // Comments and reactions
-        db.prepare('DELETE FROM comment_likes WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM post_comments WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM post_reactions WHERE user_id = ?').run(userId);
-        
-        // Posts
-        db.prepare('DELETE FROM posts WHERE user_id = ?').run(userId);
-        
-        // Messages and conversations
-        db.prepare('DELETE FROM message_reactions WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM messages WHERE sender_id = ?').run(userId);
-        db.prepare('DELETE FROM conversation_participants WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM conversations WHERE user1_id = ? OR user2_id = ?').run(userId, userId);
-        
-        // Services and payments
-        db.prepare('DELETE FROM services WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM invoices WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM payment_methods WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM user_subscriptions WHERE user_id = ?').run(userId);
-        
-        // Social and notifications
-        db.prepare('DELETE FROM follows WHERE follower_id = ? OR following_id = ?').run(userId, userId);
-        db.prepare('DELETE FROM notifications WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(userId);
-        
-        // Auth and credentials
-        db.prepare('DELETE FROM webauthn_credentials WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM oauth_accounts WHERE user_id = ?').run(userId);
-        
-        // Appeals (set reviewer_id to NULL instead of deleting)
-        db.prepare('UPDATE career_applications SET reviewer_id = NULL WHERE reviewer_id = ?').run(userId);
-        db.prepare('UPDATE content_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(userId);
-        db.prepare('UPDATE account_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(userId);
-        
-        // Audit logs (set user_id to NULL for record keeping)
-        db.prepare('UPDATE audit_logs SET user_id = NULL WHERE user_id = ?').run(userId);
-        
-        // Finally, delete user account
-        db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+        // Perform all deletes in a single transaction to avoid FK violations
+        const runDelete = db.transaction((uid) => {
+            // Posts and related dependencies (comments/reactions from anyone)
+            db.prepare(`DELETE FROM comment_likes WHERE comment_id IN (
+                SELECT pc.id FROM post_comments pc WHERE pc.post_id IN (SELECT p.id FROM posts p WHERE p.user_id = ?)
+            )`).run(uid);
+            db.prepare(`DELETE FROM post_comments WHERE post_id IN (
+                SELECT p.id FROM posts p WHERE p.user_id = ?
+            )`).run(uid);
+            db.prepare(`DELETE FROM post_reactions WHERE post_id IN (
+                SELECT p.id FROM posts p WHERE p.user_id = ?
+            )`).run(uid);
+            // Also remove the user's own comments/reactions on others' posts
+            db.prepare('DELETE FROM comment_likes WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM post_comments WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM post_reactions WHERE user_id = ?').run(uid);
+            // Finally remove posts created by the user
+            db.prepare('DELETE FROM posts WHERE user_id = ?').run(uid);
+
+            // Services and dependent tables
+            db.prepare(`DELETE FROM service_reviews WHERE service_id IN (
+                SELECT s.id FROM services s WHERE s.user_id = ?
+            )`).run(uid);
+            db.prepare(`DELETE FROM service_orders WHERE service_id IN (
+                SELECT s.id FROM services s WHERE s.user_id = ?
+            )`).run(uid);
+            // User-authored service artifacts
+            db.prepare('DELETE FROM service_reviews WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM service_orders WHERE buyer_id = ?').run(uid);
+            // Remove services after dependents are gone
+            db.prepare('DELETE FROM services WHERE user_id = ?').run(uid);
+
+            // Messages and conversations: remove reactions/messages in any conversation involving the user
+            db.prepare(`DELETE FROM message_reactions WHERE message_id IN (
+                SELECT m.id FROM messages m WHERE m.conversation_id IN (
+                    SELECT c.id FROM conversations c WHERE c.user1_id = ? OR c.user2_id = ?
+                )
+            )`).run(uid, uid);
+            db.prepare(`DELETE FROM messages WHERE conversation_id IN (
+                SELECT c.id FROM conversations c WHERE c.user1_id = ? OR c.user2_id = ?
+            )`).run(uid, uid);
+            // Remove participants for those conversations, then delete conversations
+            db.prepare(`DELETE FROM conversation_participants WHERE conversation_id IN (
+                SELECT c.id FROM conversations c WHERE c.user1_id = ? OR c.user2_id = ?
+            )`).run(uid, uid);
+            // Also in case: remove any participant rows directly tied to the user
+            db.prepare('DELETE FROM conversation_participants WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM conversations WHERE user1_id = ? OR user2_id = ?').run(uid, uid);
+            
+            // Payments & subscriptions
+            db.prepare('DELETE FROM invoices WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM payment_methods WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM user_subscriptions WHERE user_id = ?').run(uid);
+            
+            // Social and notifications
+            db.prepare('DELETE FROM follows WHERE follower_id = ? OR following_id = ?').run(uid, uid);
+            db.prepare('DELETE FROM notifications WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(uid);
+            
+            // Auth and credentials
+            db.prepare('DELETE FROM webauthn_credentials WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM oauth_accounts WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM email_verification_codes WHERE user_id = ?').run(uid);
+            
+            // Appeals (set reviewer_id to NULL instead of deleting)
+            db.prepare('UPDATE career_applications SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
+            db.prepare('UPDATE content_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
+            db.prepare('UPDATE account_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
+            
+            // Audit logs (set user_id to NULL for record keeping)
+            db.prepare('UPDATE audit_logs SET user_id = NULL WHERE user_id = ?').run(uid);
+            
+            // Finally, delete user account
+            db.prepare('DELETE FROM users WHERE id = ?').run(uid);
+        });
+        runDelete(userId);
         
         // Send confirmation email
         if (user && user.email) {
@@ -4123,7 +4270,7 @@ app.post('/onboarding', onboardingUpload, (req, res) => {
     // Profile picture handling
     let profilePicturePath = null;
     if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
-        profilePicturePath = '/uploads/profiles/' + req.files.profilePicture[0].filename;
+        profilePicturePath = 'profiles/' + req.files.profilePicture[0].filename;
     }
     
     // Update user with comprehensive onboarding data
