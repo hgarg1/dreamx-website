@@ -1,0 +1,39 @@
+<%- include('partials/header') %>
+
+<section class="container" style="max-width:980px;margin:24px auto;padding:0 16px;">
+  <form action="/search" method="get" style="display:flex;gap:8px;margin-bottom:16px;">
+    <input type="text" name="q" value="<%= q %>" placeholder="Search people by name, handle, or email" aria-label="Search" style="flex:1;padding:12px 14px;border:2px solid #e5e7eb;border-radius:12px;">
+    <button type="submit" class="btn" style="padding:12px 18px;background:linear-gradient(135deg,#ff4fa3,#764ba2);color:#fff;border:none;border-radius:12px;font-weight:700;">Search</button>
+  </form>
+
+  <h2 style="margin:10px 0 16px 0;font-size:1.25rem;font-weight:800;color:#111827;">Users</h2>
+  <% if (users && users.length) { %>
+    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;">
+      <% users.forEach(function(u){ %>
+        <li style="display:flex;align-items:center;gap:12px;background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:10px 12px;">
+          <% if (u.profile_picture) { %>
+            <img src="/uploads/<%= u.profile_picture %>" alt="<%= u.full_name %>" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">
+          <% } else { %>
+            <div style="width:44px;height:44px;border-radius:50%;background:#7C3AED;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;">
+              <%= (u.full_name||'U').charAt(0) %>
+            </div>
+          <% } %>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><%= u.full_name %></div>
+            <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <%= u.email %>
+            </div>
+          </div>
+          <a href="/profile/<%= u.id %>" class="btn" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#374151;text-decoration:none;">View</a>
+          <% if (authUser) { %>
+            <a href="/messages/start/<%= u.id %>" class="btn" style="padding:8px 10px;border-radius:8px;background:#7C3AED;color:#fff;text-decoration:none;">Message</a>
+          <% } %>
+        </li>
+      <% }); %>
+    </ul>
+  <% } else { %>
+    <%- include('partials/search-zero-results', { query: q }) %>
+  <% } %>
+</section>
+
+<%- include('partials/footer') %>

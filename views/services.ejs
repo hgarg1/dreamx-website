@@ -116,13 +116,7 @@
         </div>
       <% }); %>
     <% } else { %>
-      <div style="grid-column:1/-1;text-align:center;padding:60px 20px;background:white;border-radius:16px;">
-        <h3 style="font-size:1.5rem;margin-bottom:12px;color:#6b7280;">No services found</h3>
-        <p style="color:#9ca3af;margin-bottom:24px;">Be the first to offer your expertise!</p>
-        <% if (typeof authUser !== 'undefined' && authUser) { %>
-          <a href="/services/new" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:10px;text-decoration:none;font-weight:600;">Create a Service</a>
-        <% } %>
-      </div>
+      <%- include('partials/search-zero-results', { query: (typeof q !== 'undefined' ? q : '') }) %>
     <% } %>
   </div>
 </section>

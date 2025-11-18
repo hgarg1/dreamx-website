@@ -641,6 +641,42 @@ app.use((req, res, next) => {
     }
 });
 
+// After verification: gently prompt onboarding if not completed (once per session)
+app.use((req, res, next) => {
+    try {
+        if (!req.session || !req.session.userId) return next();
+        const user = getUserById(req.session.userId);
+        if (!user) return next();
+        // Only prompt if email is verified but onboarding not completed
+        if (user.email_verified === 1 && Number(user.onboarding_completed) !== 1) {
+            const p = req.path || '';
+            const isStatic = p.startsWith('/css/') || p.startsWith('/js/') || p.startsWith('/img/') || p.startsWith('/uploads/') || p.startsWith('/fonts/') || p === '/favicon.ico' || p === '/robots.txt' || p.startsWith('/manifest') || p.startsWith('/service-worker');
+            const allowedExact = new Set(['/onboarding', '/logout', '/verify-email', '/onboarding-empty-state']);
+            const isAuthPath = p === '/login' || p === '/register' || p.startsWith('/auth/') || p.startsWith('/webauthn/');
+            if (!isStatic && !isAuthPath && !allowedExact.has(p) && !req.session.seenOnboardingPrompt) {
+                return res.redirect('/onboarding-empty-state');
+            }
+        }
+        return next();
+    } catch (e) {
+        return next();
+    }
+});
+
+// Onboarding reminder page (sets session flag so we don't loop in same session)
+app.get('/onboarding-empty-state', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const user = getUserById(req.session.userId);
+    if (!user) return res.redirect('/login');
+    // If they already finished, just go to feed
+    if (Number(user.onboarding_completed) === 1) return res.redirect('/feed');
+    req.session.seenOnboardingPrompt = true;
+    res.render('onboarding-empty-state', {
+        title: 'Complete Your Onboarding - Dream X',
+        currentPage: 'onboarding-empty-state'
+    });
+});
+
 // RBAC helpers
 const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin');
 const isHR = (user) => user && user.role === 'hr';
@@ -1896,6 +1932,17 @@ app.get('/feed', (req, res) => {
         } catch(e) {}
         return p;
     });
+    // Active reels from followed users (last 48h)
+    let activeReels = [];
+    try {
+        const followed = getFollowing(req.session.userId, 500);
+        activeReels = followed.map(u => ({
+            user_id: u.id,
+            full_name: u.full_name,
+            profile_picture: u.profile_picture,
+            reelCount: require('./db').getActiveReelCount(u.id)
+        })).filter(r => r.reelCount > 0).sort((a,b) => b.reelCount - a.reelCount);
+    } catch(e) { activeReels = []; }
     
     // Get real suggested users with fallback to dummy data
     let suggestions = [];
@@ -1919,25 +1966,9 @@ app.get('/feed', (req, res) => {
                 profile_picture: u.profile_picture
             };
         });
-        
-        // Fallback to dummy data if no suggestions found
-        if (suggestions.length === 0) {
-            suggestions = [
-                { user: 'Nora Fields', passion: 'Writing' },
-                { user: 'Ethan Brooks', passion: 'Entrepreneurship' },
-                { user: 'Clara Dawson', passion: 'Photography' },
-                { user: 'Jun Park', passion: 'Design' }
-            ];
-        }
     } catch (error) {
         console.error('Error fetching suggested users:', error);
-        // Fallback to dummy data on error
-        suggestions = [
-            { user: 'Nora Fields', passion: 'Writing' },
-            { user: 'Ethan Brooks', passion: 'Entrepreneurship' },
-            { user: 'Clara Dawson', passion: 'Photography' },
-            { user: 'Jun Park', passion: 'Design' }
-        ];
+        suggestions = [];
     }
     
     // Get real trending posts from database (most recent posts with activity)
@@ -1985,30 +2016,54 @@ app.get('/feed', (req, res) => {
         ];
     }
     
-    // Get recent activity from database with fallback to dummy data
-    let recentActivity;
+    // Get recent activity from database
+    let recentActivity = [];
     try {
-        recentActivity = getRecentActivity(5);
-        // If no real activity, use dummy data
-        if (!recentActivity || recentActivity.length === 0) {
-            recentActivity = [
-                { desc: 'Nora Fields published a new post', time: '2m ago' },
-                { desc: 'Ethan Brooks commented on a post', time: '10m ago' },
-                { desc: 'Jun Park updated their profile', time: '1h ago' }
-            ];
-        }
+        recentActivity = getRecentActivity(5) || [];
     } catch (error) {
         console.error('Error fetching recent activity:', error);
-        // Fallback to dummy data on error
-        recentActivity = [
-            { desc: 'Nora Fields published a new post', time: '2m ago' },
-            { desc: 'Ethan Brooks commented on a post', time: '10m ago' },
-            { desc: 'Jun Park updated their profile', time: '1h ago' }
-        ];
+        recentActivity = [];
     }
     
-    const topPassions = ['Writing', 'Entrepreneurship', 'Photography', 'Design', 'Coding'];
     const authUser = getUserById(req.session.userId);
+    
+    // Get top passions from actual user data
+    let topPassions = [];
+    try {
+        const passionsQuery = db.prepare(`
+            SELECT categories FROM users WHERE categories IS NOT NULL AND categories != ''
+        `);
+        const usersWithCategories = passionsQuery.all();
+        
+        const passionCounts = {};
+        usersWithCategories.forEach(user => {
+            try {
+                const categories = JSON.parse(user.categories);
+                if (Array.isArray(categories)) {
+                    categories.forEach(category => {
+                        if (category && typeof category === 'string') {
+                            passionCounts[category] = (passionCounts[category] || 0) + 1;
+                        }
+                    });
+                }
+            } catch(e) {}
+        });
+        
+        // Sort by count and get top 5
+        topPassions = Object.entries(passionCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([passion]) => passion);
+        
+        // If no passions found, use default popular passions
+        if (topPassions.length === 0) {
+            topPassions = ['Entrepreneurship', 'Technology', 'Design', 'Writing', 'Art'];
+        }
+    } catch (error) {
+        console.error('Error fetching top passions:', error);
+        topPassions = ['Entrepreneurship', 'Technology', 'Design', 'Writing', 'Art'];
+    }
+    
     res.render('feed', {
         title: 'Your Feed - Dream X',
         currentPage: 'feed',
@@ -2017,7 +2072,40 @@ app.get('/feed', (req, res) => {
         suggestions,
         trendingPosts,
         recentActivity,
-        topPassions
+        topPassions,
+        activeReels,
+        success: req.query.success
+    });
+});
+
+// Unified search page
+app.get('/search', (req, res) => {
+    const q = (req.query.q || '').trim();
+    const authUser = req.session.userId ? getUserById(req.session.userId) : null;
+    let users = [];
+    try {
+        if (q) {
+            users = searchUsers({ query: q, limit: 20, excludeUserId: req.session.userId });
+        }
+    } catch (e) {
+        console.error('Search route error:', e);
+    }
+
+    if (!q || users.length === 0) {
+        return res.status(200).render('search-zero-results', {
+            title: 'Search - Dream X',
+            currentPage: 'search',
+            authUser,
+            query: q
+        });
+    }
+
+    res.render('search', {
+        title: `Search: ${q} - Dream X`,
+        currentPage: 'search',
+        authUser,
+        q,
+        users
     });
 });
 
@@ -2409,7 +2497,13 @@ app.get('/profile/:id(\\d+)', (req, res) => {
     const uid = parseInt(req.params.id, 10);
     if (!uid || isNaN(uid)) return res.redirect('/feed');
     const row = getUserById(uid);
-    if (!row) return res.redirect('/feed');
+    if (!row) {
+        return res.status(404).render('profile-not-found', {
+            title: 'Profile Not Found - Dream X',
+            currentPage: 'profile',
+            userId: uid
+        });
+    }
     const passions = row.categories ? JSON.parse(row.categories) : [];
     const goals = row.goals ? JSON.parse(row.goals) : [];
     const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
@@ -4399,7 +4493,7 @@ app.get('/privacy', (req, res) => {
 
 // Terms of Service page
 app.get('/terms', (req, res) => {
-    res.render('terms', { 
+    res.render('feed', {
         title: 'Terms of Service - Dream X',
         currentPage: 'terms'
     });
@@ -4408,6 +4502,7 @@ app.get('/terms', (req, res) => {
 // Community Guidelines page
 app.get('/community-guidelines', (req, res) => {
     res.render('community-guidelines', { 
+        activeReels,
         title: 'Community Guidelines - Dream X',
         currentPage: 'community-guidelines'
     });
@@ -4757,16 +4852,24 @@ app.get('/api/users/following/reels', (req, res) => {
     try {
         const page = Math.max(parseInt(req.query.page || '1', 10), 1);
         const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '24', 10), 1), 200); // cap
-        const startIndex = (page - 1) * pageSize;
-        const rawFollowing = getFollowing(req.session.userId, 500); // fetch up to 500 to paginate client side
-        const slice = rawFollowing.slice(startIndex, startIndex + pageSize);
-        const users = slice.map(u => ({
+        const rawFollowing = getFollowing(req.session.userId, 500); // fetch up to 500
+        
+        // Map users with reel counts and filter out users with no active reels
+        const usersWithReels = rawFollowing.map(u => ({
             id: u.id,
             full_name: u.full_name,
             profile_picture: u.profile_picture,
             reelCount: require('./db').getActiveReelCount(u.id)
-        }));
-        const total = rawFollowing.length;
+        })).filter(u => u.reelCount > 0); // Only include users with active reels
+        
+        // Sort by reel count (descending) so most active are first
+        usersWithReels.sort((a, b) => b.reelCount - a.reelCount);
+        
+        // Paginate the filtered results
+        const startIndex = (page - 1) * pageSize;
+        const users = usersWithReels.slice(startIndex, startIndex + pageSize);
+        const total = usersWithReels.length;
+        
         res.json({ users, page, pageSize, total, totalPages: Math.ceil(total / pageSize) });
     } catch (error) {
         console.error('Get following reels error:', error);
@@ -5213,9 +5316,13 @@ app.post('/api/appeals/account', (req, res) => {
     }
 });
 
+// Error handler for 503 errors
+app.use((req, res, next) => {
+    res.status(503).render('503', { title: 'Service Unavailable - Dream X' });
+});
+
 // Error handler for 500 errors
 app.use((err, req, res, next) => {
-    console.error('Server error:', err);
     res.status(500).render('500', { title: 'Server Error - Dream X' });
 });
 

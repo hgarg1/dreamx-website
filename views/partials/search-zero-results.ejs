@@ -1,0 +1,17 @@
+<% const q = typeof query !== 'undefined' ? String(query || '') : ''; %>
+<div style="grid-column:1/-1;text-align:center;padding:60px 20px;background:white;border-radius:16px;border:1px solid rgba(118,75,162,0.15);box-shadow:0 10px 32px rgba(0,0,0,0.08);">
+  <div style="font-size:56px;opacity:.75;animation:float 5s ease-in-out infinite;">🔎</div>
+  <h3 style="font-size:1.6rem;margin:10px 0;color:#111827;font-weight:800;">No results</h3>
+  <% if (q) { %>
+    <p style="color:#6b7280;margin:0 0 10px 0;">We couldn’t find any matches for “<strong><%= q %></strong>”.</p>
+  <% } else { %>
+    <p style="color:#6b7280;margin:0 0 10px 0;">Try adjusting your filters or search term.</p>
+  <% } %>
+  <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+    <a href="/feed" style="padding:10px 16px;border-radius:10px;border:2px solid #e5e7eb;text-decoration:none;color:#374151;background:white;font-weight:700;">Go to Feed</a>
+    <a href="/services" style="padding:10px 16px;border-radius:10px;background:linear-gradient(135deg,#ff4fa3,#764ba2);color:white;text-decoration:none;font-weight:700;">Browse Services</a>
+  </div>
+</div>
+<style>
+@keyframes float {0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+</style>

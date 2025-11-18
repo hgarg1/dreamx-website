@@ -1,11 +1,32 @@
 <%- include('partials/header') %>
 
+<!-- Feed Premium Styles -->
+<link rel="stylesheet" href="/css/feed.css">
+
 <div class="feed-layout">
   <!-- Left Sidebar - Reels Bubbles -->
   <aside class="feed-sidebar left-sidebar">
     <h2 class="sidebar-title" style="display:flex;justify-content:space-between;align-items:center;">Active Reels <span style="font-size:0.65rem;font-weight:600;color:#6b7280;" id="reelsPageInfo"></span></h2>
     <div class="reels-bubbles-wrapper">
-      <div id="reelsBubbles" class="reels-bubbles" aria-live="polite"></div>
+      <div id="reelsBubbles" class="reels-bubbles" aria-live="polite">
+        <% if (activeReels && activeReels.length) { %>
+          <% activeReels.forEach(function(r){ %>
+            <div class="reel-bubble" onclick="viewUserReels(<%= r.user_id %>)">
+              <% if (r.profile_picture) { %>
+                <img src="/uploads/<%= r.profile_picture %>" alt="<%= r.full_name %>" class="reel-bubble-avatar" />
+              <% } else { %>
+                <div class="reel-bubble-avatar" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:700;font-size:1.4rem;">
+                  <%= (r.full_name||'U').charAt(0) %>
+                </div>
+              <% } %>
+              <span class="reel-bubble-name"><%= r.full_name || 'User' %></span>
+              <span class="reel-bubble-count"><%= r.reelCount %> reel<%= r.reelCount === 1 ? '' : 's' %></span>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:8px 0;">No active reels</p>
+        <% } %>
+      </div>
       <div class="reels-bubbles-footer">
         <button id="reelsPrevBtn" class="bubble-btn">Prev</button>
         <button id="reelsNextBtn" class="bubble-btn">Next</button>
@@ -14,12 +35,25 @@
     <div style="margin-top: 24px; border-top: 2px solid rgba(255,79,163,0.1); padding-top: 24px;">
       <h2 class="sidebar-title">Your Passions</h2>
       <div class="passion-filters">
-        <% const passions = ["Coding","Music","Fitness","Art","Design","Writing"]; %>
-        <% passions.forEach(function(p){ %>
+        <% 
+          let userPassions = [];
+          if (authUser && authUser.categories) {
+            try {
+              const cats = JSON.parse(authUser.categories);
+              if (Array.isArray(cats) && cats.length > 0) {
+                userPassions = cats;
+              }
+            } catch(e) {}
+          }
+          if (userPassions.length === 0) {
+            userPassions = ['Add your passions'];
+          }
+        %>
+        <% userPassions.forEach(function(p){ %>
           <button type="button" class="passion-pill"><%= p %></button>
         <% }); %>
       </div>
-      <a href="#" class="manage-passions-link">Manage passions →</a>
+      <a href="/settings" class="manage-passions-link">Manage passions →</a>
     </div>
   </aside>
 
@@ -380,5 +414,8 @@
     </script>
   </aside>
 </div>
+
+<!-- Feed Advanced Animations -->
+<script src="/js/feed-animations.js"></script>
 
 <%- include('partials/footer') %>

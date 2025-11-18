@@ -1,15 +1,15 @@
-<article class="post-card premium" style="background:white;border-radius:16px;padding:20px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-  <header class="post-header" style="display:flex;gap:12px;margin-bottom:16px;">
+<article class="post-card <%= post.is_premium ? 'premium' : '' %>" data-post-id="<%= post.id %>">
+  <header class="post-header">
     <% if (post.profile_picture) { %>
-      <img src="/uploads/<%= post.profile_picture %>" alt="<%= post.full_name %>" class="avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;cursor:pointer;" ondblclick="window.location.href='/profile/<%= post.user_id %>'"
+      <img src="/uploads/<%= post.profile_picture %>" alt="<%= post.full_name %>" class="avatar" style="width:52px;height:52px;object-fit:cover;cursor:pointer;" ondblclick="window.location.href='/profile/<%= post.user_id %>'">
     <% } else { %>
-      <div class="avatar" style="width:48px;height:48px;border-radius:50%;background:#7C3AED;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;" ondblclick="window.location.href='/profile/<%= post.user_id %>'"><%= post.full_name.charAt(0) %></div>
+      <div class="avatar" style="width:52px;height:52px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;cursor:pointer;" ondblclick="window.location.href='/profile/<%= post.user_id %>'"><%= post.full_name.charAt(0) %></div>
     <% } %>
-    <div class="post-user-meta" style="flex:1;">
-      <h3 class="post-user-name" style="margin:0;font-weight:700;font-size:1rem;"><%= post.full_name %></h3>
-      <div class="post-meta-line" style="color:#6b7280;font-size:0.875rem;">
+    <div class="post-user-meta">
+      <h3 class="post-user-name"><%= post.full_name %></h3>
+      <div class="post-meta-line">
         <% if (post.activity_label) { %>
-          <span class="post-passion-tag" style="background:#ede9fe;color:#7C3AED;padding:2px 8px;border-radius:4px;font-weight:600;"><%= post.activity_label %></span>
+          <span class="post-passion-tag"><%= post.activity_label %></span>
         <% } %>
         <span class="post-time">• <%= new Date(post.created_at).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }) %></span>
       </div>
@@ -88,46 +88,69 @@
   </header>
   <div class="post-body">
     <% if (post.text_content) { %>
-      <p class="post-text" style="margin:0 0 12px 0;line-height:1.6;"><%= post.text_content %></p>
+      <p class="post-text"><%= post.text_content %></p>
     <% } %>
-    <% if (post.media_url) { %>
-      <% if (post.is_reel) { %>
-        <div style="position:relative;margin-top:12px;border-radius:12px;overflow:hidden;background:#000;">
-          <% if (post.media_url) { %>
-            <video src="<%= post.media_url %>" controls playsinline style="width:100%;max-height:640px;display:block;"></video>
-          <% } %>
-          <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.5);color:#fff;padding:4px 8px;border-radius:999px;font-size:12px;">Reel</div>
+    <% if (post.media_url) { 
+         let mediaUrl = String(post.media_url);
+         if (!mediaUrl.startsWith('/')) mediaUrl = '/' + mediaUrl;
+         // Normalize to /uploads/posts/ if not already under /uploads
+         if (!mediaUrl.startsWith('/uploads/')) {
+           mediaUrl = '/uploads/posts/' + mediaUrl.replace(/^\/+/, '');
+         }
+         const isImage = /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(mediaUrl) || post.content_type === 'image';
+         const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(mediaUrl) || post.content_type === 'video';
+    %>
+      <% if (post.is_reel && isVideo) { %>
+        <div style="position:relative;margin-top:1rem;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 8px 24px rgba(0,0,0,0.15);">
+          <video src="<%= mediaUrl %>" controls playsinline style="width:100%;max-height:640px;display:block;"></video>
+          <div style="position:absolute;top:12px;left:12px;background:linear-gradient(135deg,rgba(255,79,163,0.95),rgba(230,62,143,0.95));color:#fff;padding:6px 14px;border-radius:50px;font-size:0.75rem;font-weight:700;box-shadow:0 4px 12px rgba(255,79,163,0.4);backdrop-filter:blur(10px);">🎬 Reel</div>
         </div>
-      <% } else if (post.content_type === 'image') { %>
-        <img src="<%= post.media_url %>" alt="Post image" style="width:100%;border-radius:12px;margin-top:12px;">
-      <% } else if (post.content_type === 'video') { %>
-        <video src="<%= post.media_url %>" controls style="width:100%;border-radius:12px;margin-top:12px;"></video>
+      <% } else if (isImage) { %>
+        <img src="<%= mediaUrl %>" alt="Post image" class="post-image" loading="lazy" onerror="console.error('Failed to load image:', this.src); this.style.border='3px solid red'; this.style.minHeight='200px'; this.alt='Image failed to load: ' + this.src;">
+      <% } else if (isVideo) { %>
+        <video src="<%= mediaUrl %>" controls class="post-video" loading="lazy"></video>
+      <% } else { %>
+        <div style="margin-top:1rem;padding:2rem;border:2px dashed #e5e7eb;border-radius:16px;text-align:center;font-size:.85rem;color:#6b7280;">Unsupported media format</div>
       <% } %>
     <% } %>
   </div>
-  <footer class="post-footer" style="display:block;padding-top:12px;margin-top:12px;border-top:1px solid #e5e7eb;">
-    <div class="reactions-row" style="display:flex;align-items:center;justify-content:flex-start;gap:8px 12px;flex-wrap:nowrap;width:100%;">
+  <footer class="post-footer" style="padding-top:1.25rem;margin-top:1.25rem;border-top:2px solid rgba(229,231,235,0.5);">
+    <div class="reactions-row">
       <% const rx = post.reactions || {}; const ur = post.user_reaction; %>
-      <button type="button" class="rx-btn<%= ur==='like' ? ' active' : '' %>" data-type="like" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='like' ? '#111827' : '#6b7280' %>;background:<%= ur==='like' ? 'rgba(124,58,237,0.08)' : 'transparent' %>;min-height:36px;"><span>👍</span><span class="rx-count" data-type="like"><%= rx.like || 0 %></span></button>
-      <button type="button" class="rx-btn<%= ur==='love' ? ' active' : '' %>" data-type="love" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='love' ? '#111827' : '#6b7280' %>;background:<%= ur==='love' ? 'rgba(255,79,163,0.1)' : 'transparent' %>;min-height:36px;"><span>❤️</span><span class="rx-count" data-type="love"><%= rx.love || 0 %></span></button>
-      <button type="button" class="rx-btn<%= ur==='clap' ? ' active' : '' %>" data-type="clap" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='clap' ? '#111827' : '#6b7280' %>;background:<%= ur==='clap' ? 'rgba(234,179,8,0.12)' : 'transparent' %>;min-height:36px;"><span>👏</span><span class="rx-count" data-type="clap"><%= rx.clap || 0 %></span></button>
-      <button type="button" class="rx-btn<%= ur==='fire' ? ' active' : '' %>" data-type="fire" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='fire' ? '#111827' : '#6b7280' %>;background:<%= ur==='fire' ? 'rgba(249,115,22,0.12)' : 'transparent' %>;min-height:36px;"><span>🔥</span><span class="rx-count" data-type="fire"><%= rx.fire || 0 %></span></button>
-      <button type="button" class="rx-btn<%= ur==='rocket' ? ' active' : '' %>" data-type="rocket" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='rocket' ? '#111827' : '#6b7280' %>;background:<%= ur==='rocket' ? 'rgba(96,165,250,0.12)' : 'transparent' %>;min-height:36px;"><span>🚀</span><span class="rx-count" data-type="rocket"><%= rx.rocket || 0 %></span></button>
-      <button type="button" class="rx-btn<%= ur==='celebrate' ? ' active' : '' %>" data-type="celebrate" style="display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;color:<%= ur==='celebrate' ? '#111827' : '#6b7280' %>;background:<%= ur==='celebrate' ? 'rgba(34,197,94,0.12)' : 'transparent' %>;min-height:36px;"><span>🎉</span><span class="rx-count" data-type="celebrate"><%= rx.celebrate || 0 %></span></button>
-      <button type="button" class="comment-toggle" style="margin-left:auto;background:#fff;border:1px solid #e5e7eb;cursor:pointer;padding:8px 12px;border-radius:10px;font-weight:800;color:#374151;">Show comments (<span class="comment-count"><%= post.comments_count || 0 %></span>)</button>
-    </div>
-    <div class="comments-panel" style="display:block;width:100%;align-self:stretch;flex:0 0 100%;flex-basis:100%;clear:both;box-sizing:border-box;margin-top:12px;border-top:1px dashed #e5e7eb;padding-top:12px;max-height:0;opacity:0;overflow:hidden;transition:max-height .28s ease, opacity .25s ease;">
-      <div class="comments-list" style="display:flex;flex-direction:column;gap:10px;"></div>
-      <div class="comment-input-row" style="display:flex;gap:8px;margin-top:10px;align-items:center;">
-        <span class="replying-indicator" style="display:none;align-items:center;gap:6px;background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:4px 10px;font-size:.8rem;color:#6b7280;">
-          Replying to <strong class="replying-name" style="margin-left:4px;color:#111827;">user</strong>
-          <button type="button" class="cancel-reply" style="margin-left:6px;background:transparent;border:none;color:#ef4444;cursor:pointer;font-weight:700;">×</button>
-        </span>
-        <input type="text" class="comment-input" placeholder="Write a thoughtful comment..." style="flex:1;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;">
-        <button type="button" class="comment-send" style="background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;">Send</button>
-      </div>
+      <button type="button" class="rx-btn<%= ur==='like' ? ' active' : '' %>" data-type="like">
+        <span>👍</span><span class="rx-count" data-type="like"><%= rx.like || 0 %></span>
+      </button>
+      <button type="button" class="rx-btn<%= ur==='love' ? ' active' : '' %>" data-type="love">
+        <span>❤️</span><span class="rx-count" data-type="love"><%= rx.love || 0 %></span>
+      </button>
+      <button type="button" class="rx-btn<%= ur==='clap' ? ' active' : '' %>" data-type="clap">
+        <span>👏</span><span class="rx-count" data-type="clap"><%= rx.clap || 0 %></span>
+      </button>
+      <button type="button" class="rx-btn<%= ur==='fire' ? ' active' : '' %>" data-type="fire">
+        <span>🔥</span><span class="rx-count" data-type="fire"><%= rx.fire || 0 %></span>
+      </button>
+      <button type="button" class="rx-btn<%= ur==='rocket' ? ' active' : '' %>" data-type="rocket">
+        <span>🚀</span><span class="rx-count" data-type="rocket"><%= rx.rocket || 0 %></span>
+      </button>
+      <button type="button" class="rx-btn<%= ur==='celebrate' ? ' active' : '' %>" data-type="celebrate">
+        <span>🎉</span><span class="rx-count" data-type="celebrate"><%= rx.celebrate || 0 %></span>
+      </button>
+      <button type="button" class="comment-toggle">
+        Show comments (<span class="comment-count"><%= post.comments_count || 0 %></span>)
+      </button>
     </div>
   </footer>
+  <div class="comments-panel" style="max-height:0;opacity:0;overflow:hidden;transition:max-height .4s cubic-bezier(0.4, 0, 0.2, 1), opacity .3s ease;">
+    <div class="comments-list" style="display:flex;flex-direction:column;gap:1rem;margin-bottom:1rem;"></div>
+    <div class="comment-input-row" style="display:flex;gap:0.75rem;align-items:center;">
+      <span class="replying-indicator" style="display:none;align-items:center;gap:0.5rem;background:white;border:2px solid #e5e7eb;border-radius:50px;padding:0.5rem 1rem;font-size:0.85rem;color:#6b7280;">
+        Replying to <strong class="replying-name" style="margin-left:0.25rem;color:#111827;">user</strong>
+        <button type="button" class="cancel-reply" style="margin-left:0.5rem;background:transparent;border:none;color:#ef4444;cursor:pointer;font-weight:700;font-size:1.25rem;line-height:1;">×</button>
+      </span>
+      <input type="text" class="comment-input" placeholder="Write a thoughtful comment...">
+      <button type="button" class="comment-send">Send</button>
+    </div>
+  </div>
   <script>
     (function(){
       const H = window.DXPostHelpers; if (!H) return;

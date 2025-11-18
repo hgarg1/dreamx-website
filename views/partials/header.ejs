@@ -47,6 +47,17 @@
     
     <!-- Modal Alert System -->
     <script src="/js/modal-alerts.js"></script>
+
+    <% if (typeof authUser === 'undefined' || !authUser || !(['admin','super_admin','global_admin'].includes(authUser.role))) { %>
+      <!-- Custom Animated Cursor (enabled for non-admins) -->
+      <link rel="stylesheet" href="/css/custom-cursor.css" />
+      <script src="/js/custom-cursor.js"></script>
+      <script>
+        window.addEventListener('DOMContentLoaded', function(){
+          window.enableCustomCursor && window.enableCustomCursor();
+        });
+      </script>
+    <% } %>
     
     <!-- Global Profile Picture Click Handler -->
     <script>
