@@ -415,6 +415,8 @@ try {
 }
 // Posts reels support migration (idempotent)
 try { db.exec(`ALTER TABLE posts ADD COLUMN is_reel INTEGER DEFAULT 0;`); } catch (e) {}
+// Posts audio support migration (idempotent)
+try { db.exec(`ALTER TABLE posts ADD COLUMN audio_url TEXT;`); } catch (e) {}
 // Privacy settings migrations (idempotent)
 try { db.exec(`ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public';`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'everyone';`); } catch (e) {}
@@ -526,6 +528,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS posts (
   content_type TEXT DEFAULT 'text',
   text_content TEXT,
   media_url TEXT,
+  audio_url TEXT,
   is_reel INTEGER DEFAULT 0,
   activity_label TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -1025,9 +1028,9 @@ module.exports = {
     return db.prepare(`SELECT COUNT(*) as c FROM audit_logs`).get().c;
   },
   // Posts
-  createPost: ({ userId, contentType, textContent, mediaUrl, activityLabel, isReel }) => {
-    const stmt = db.prepare(`INSERT INTO posts (user_id, content_type, text_content, media_url, activity_label, is_reel) VALUES (?,?,?,?,?,?)`);
-    const info = stmt.run(userId, contentType || 'text', textContent || null, mediaUrl || null, activityLabel || null, isReel ? 1 : 0);
+  createPost: ({ userId, contentType, textContent, mediaUrl, audioUrl, activityLabel, isReel }) => {
+    const stmt = db.prepare(`INSERT INTO posts (user_id, content_type, text_content, media_url, audio_url, activity_label, is_reel) VALUES (?,?,?,?,?,?,?)`);
+    const info = stmt.run(userId, contentType || 'text', textContent || null, mediaUrl || null, audioUrl || null, activityLabel || null, isReel ? 1 : 0);
     return info.lastInsertRowid;
   },
   getFeedPosts: ({ limit, offset }) => {

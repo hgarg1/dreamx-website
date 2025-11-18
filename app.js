@@ -185,7 +185,7 @@ const postUpload = multer({
     limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
-        if (m.startsWith('image/') || m.startsWith('video/')) return cb(null, true);
+        if (m.startsWith('image/') || m.startsWith('video/') || m.startsWith('audio/')) return cb(null, true);
         cb(new Error('Unsupported media type for post'));
     }
 });
@@ -2022,12 +2022,13 @@ app.get('/feed', (req, res) => {
 });
 
 // Create post
-app.post('/feed/post', postUpload.single('media'), (req, res) => {
+app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name: 'audio', maxCount: 1 }]), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const { contentType, textContent, activityLabel } = req.body;
-    const mediaUrl = req.file ? `/uploads/posts/${req.file.filename}` : null;
+    const mediaUrl = req.files && req.files['media'] ? `/uploads/posts/${req.files['media'][0].filename}` : null;
+    const audioUrl = req.files && req.files['audio'] ? `/uploads/posts/${req.files['audio'][0].filename}` : null;
     // Server-side validation: no images in reels (allow GIF), enforce media type
-    const mime = (req.file && req.file.mimetype ? req.file.mimetype.toLowerCase() : null);
+    const mime = (req.files && req.files['media'] && req.files['media'][0].mimetype ? req.files['media'][0].mimetype.toLowerCase() : null);
     if (contentType === 'video') {
         if (!mime || !(mime.startsWith('video/') || mime === 'image/gif')) {
             return res.status(400).send('Reels require a video or GIF.');
@@ -2045,6 +2046,7 @@ app.post('/feed/post', postUpload.single('media'), (req, res) => {
         contentType: contentType || 'text',
         textContent,
         mediaUrl,
+        audioUrl,
         activityLabel,
         isReel
     });

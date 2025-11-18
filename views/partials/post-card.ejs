@@ -104,6 +104,26 @@
         <video src="<%= post.media_url %>" controls style="width:100%;border-radius:12px;margin-top:12px;"></video>
       <% } %>
     <% } %>
+    <% if (post.audio_url) { %>
+      <div class="audio-player-wrapper" style="margin-top:12px;background:linear-gradient(135deg, rgba(255,79,163,0.08) 0%, rgba(118,75,162,0.08) 100%);border-radius:12px;padding:16px;border:1px solid rgba(255,79,163,0.2);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="audio-play-btn" data-audio-src="<%= post.audio_url %>" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg, #ff4fa3, #e63e8f);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.2rem;transition:all 0.3s ease;box-shadow:0 4px 12px rgba(255,79,163,0.3);" onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 16px rgba(255,79,163,0.4)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 12px rgba(255,79,163,0.3)'">▶️</button>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="font-weight:700;color:#374151;font-size:0.9rem;">🎵 Background Audio</span>
+              <span class="audio-time" style="font-size:0.8rem;color:#6b7280;font-weight:600;">0:00</span>
+            </div>
+            <div style="background:rgba(0,0,0,0.1);height:4px;border-radius:2px;overflow:hidden;cursor:pointer;" class="audio-progress-bar">
+              <div class="audio-progress" style="background:linear-gradient(135deg, #ff4fa3, #e63e8f);height:100%;width:0%;transition:width 0.1s linear;"></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:0.75rem;color:#6b7280;">🔊</span>
+            <input type="range" class="audio-volume" min="0" max="100" value="30" style="width:80px;accent-color:#ff4fa3;cursor:pointer;">
+          </div>
+        </div>
+      </div>
+    <% } %>
   </div>
   <footer class="post-footer" style="display:block;padding-top:12px;margin-top:12px;border-top:1px solid #e5e7eb;">
     <div class="reactions-row" style="display:flex;align-items:center;justify-content:flex-start;gap:8px 12px;flex-wrap:nowrap;width:100%;">
@@ -180,6 +200,76 @@
       article.querySelector('.comment-input').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); H.sendComment(article, postId); }});
       // Initialize label on load
       setToggleLabel(false);
+      
+      // Audio player functionality
+      const audioWrapper = article.querySelector('.audio-player-wrapper');
+      if (audioWrapper) {
+        const playBtn = audioWrapper.querySelector('.audio-play-btn');
+        const progressBar = audioWrapper.querySelector('.audio-progress-bar');
+        const progress = audioWrapper.querySelector('.audio-progress');
+        const volumeSlider = audioWrapper.querySelector('.audio-volume');
+        const timeDisplay = audioWrapper.querySelector('.audio-time');
+        const audioSrc = playBtn.getAttribute('data-audio-src');
+        
+        let audio = null;
+        let isPlaying = false;
+        
+        // Initialize audio element
+        function initAudio() {
+          if (!audio) {
+            audio = new Audio(audioSrc);
+            audio.loop = true;
+            audio.volume = 0.3; // 30% default volume
+            
+            // Update progress bar and time
+            audio.addEventListener('timeupdate', () => {
+              if (audio.duration) {
+                const percent = (audio.currentTime / audio.duration) * 100;
+                progress.style.width = percent + '%';
+                const mins = Math.floor(audio.currentTime / 60);
+                const secs = Math.floor(audio.currentTime % 60);
+                timeDisplay.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+              }
+            });
+            
+            // Reset button when ended (shouldn't happen with loop=true)
+            audio.addEventListener('ended', () => {
+              isPlaying = false;
+              playBtn.innerHTML = '▶️';
+            });
+          }
+        }
+        
+        // Play/Pause toggle
+        playBtn.addEventListener('click', () => {
+          initAudio();
+          if (isPlaying) {
+            audio.pause();
+            playBtn.innerHTML = '▶️';
+          } else {
+            audio.play();
+            playBtn.innerHTML = '⏸️';
+          }
+          isPlaying = !isPlaying;
+        });
+        
+        // Volume control
+        volumeSlider.addEventListener('input', (e) => {
+          if (audio) {
+            audio.volume = e.target.value / 100;
+          }
+        });
+        
+        // Progress bar click to seek
+        progressBar.addEventListener('click', (e) => {
+          if (audio && audio.duration) {
+            const rect = progressBar.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const percent = x / rect.width;
+            audio.currentTime = percent * audio.duration;
+          }
+        });
+      }
     })();
   </script>
 </article>
