@@ -3,7 +3,7 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_VERSION = 'dreamx-v1.1.3';
+const CACHE_VERSION = 'dreamx-v1.1.5';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
@@ -12,6 +12,8 @@ const CACHE_IMAGES = `${CACHE_VERSION}-images`;
 const STATIC_ASSETS = [
   '/',
   '/css/style.css',
+  '/css/polish.css',
+  '/css/feed.css',
   '/css/mobile.css',
   '/css/notifications.css',
   '/css/enhanced-animations.css',

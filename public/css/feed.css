@@ -509,6 +509,9 @@
     position: relative !important;
     z-index: 10 !important; /* above gradient and all card elements */
     object-fit: cover;
+    -webkit-filter: none !important;
+    filter: none !important;
+    image-rendering: auto;
     min-height: 100px;
 }
 
@@ -1294,7 +1297,7 @@
     .post-body img,
     .post-image {
         max-height: 500px;
-        object-fit: contain;
+        object-fit: cover;
     }
     
     .post-body video,
@@ -1336,6 +1339,26 @@
     .create-post-box {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     }
+}
+
+/* === HARD OVERRIDES TO ENSURE POST IMAGES RENDER === */
+/* These rules intentionally use !important to beat any global resets */
+.post-card .post-body img,
+.post-card img.post-image,
+.post-card .post-body video,
+.post-card video.post-video {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* Prevent horizontal overflow on feed page */
+.feed-layout {
+    overflow-x: hidden;
 }
 
 /* === LOADING ANIMATIONS === */
