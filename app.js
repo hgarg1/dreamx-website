@@ -75,7 +75,11 @@ const {
     // Services
     createService, getUserServices, getAllServices, getService, getServiceCount, updateService, deleteService,
     getServiceReviews, addOrUpdateServiceReview, isVerifiedPurchaser, getServiceRatingsSummary,
-    hideServiceReview, deleteServiceReview, restoreServiceReview
+    hideServiceReview, deleteServiceReview, restoreServiceReview,
+    // User blocks and reports
+    blockUser, unblockUser, isUserBlocked, getBlockedUsers,
+    reportUser, getUserReports, updateReportStatus,
+    lockUserBlockFunctionality, unlockUserBlockFunctionality, getUserModerationStatus, getAllBlocksAndReports
  } = require('./db');
 let fetch;
 try {
@@ -2061,13 +2065,13 @@ app.get('/api/users/:id/reels', (req, res) => {
             WHERE p.user_id = ? AND p.is_reel = 1
             ORDER BY p.created_at DESC
         `).all(uid);
-        // Apply 24h expiry based on user's local time (client-provided offset)
+        // Apply 48h expiry based on user's local time (client-provided offset)
         const now = new Date();
         const nowLocalMs = now.getTime() - (tzOffsetMin * 60 * 1000);
         const active = rows.filter(r => {
             const createdUTC = new Date(r.created_at).getTime();
             const createdLocal = createdUTC - (tzOffsetMin * 60 * 1000);
-            return (nowLocalMs - createdLocal) < (24 * 60 * 60 * 1000);
+            return (nowLocalMs - createdLocal) < (48 * 60 * 60 * 1000);
         });
         res.json({ reels: active });
     } catch (e) {
@@ -2089,7 +2093,7 @@ app.get('/api/users/:id/reels/count', (req, res) => {
         const count = rows.filter(r => {
             const createdUTC = new Date(r.created_at).getTime();
             const createdLocal = createdUTC - (tzOffsetMin * 60 * 1000);
-            return (nowLocalMs - createdLocal) < (24 * 60 * 60 * 1000);
+            return (nowLocalMs - createdLocal) < (48 * 60 * 60 * 1000);
         }).length;
         res.json({ count });
     } catch (e) {
@@ -4669,7 +4673,183 @@ app.post('/api/users/:id/unfollow', (req, res) => {
     }
 });
 
+// Block a user
+app.post('/api/users/:id/block', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const targetUserId = parseInt(req.params.id, 10);
+    if (!targetUserId || targetUserId === req.session.userId) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const { reason } = req.body;
+    try {
+        blockUser({ blockerId: req.session.userId, blockedId: targetUserId, reason });
+        res.json({ success: true });
+    } catch (error) {
+        if (error.message.includes('locked')) {
+            return res.status(403).json({ error: 'Your blocking functionality has been restricted by an administrator' });
+        }
+        console.error('Block error:', error);
+        res.status(500).json({ error: 'Failed to block user' });
+    }
+});
+
+// Unblock a user
+app.post('/api/users/:id/unblock', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const targetUserId = parseInt(req.params.id, 10);
+    if (!targetUserId) return res.status(400).json({ error: 'Invalid user ID' });
+    try {
+        unblockUser({ blockerId: req.session.userId, blockedId: targetUserId });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Unblock error:', error);
+        res.status(500).json({ error: 'Failed to unblock user' });
+    }
+});
+
+// Report a user
+app.post('/api/users/:id/report', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const targetUserId = parseInt(req.params.id, 10);
+    if (!targetUserId || targetUserId === req.session.userId) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const { reason, description } = req.body;
+    if (!reason) return res.status(400).json({ error: 'Reason is required' });
+    try {
+        reportUser({ reporterId: req.session.userId, reportedId: targetUserId, reason, description });
+        res.json({ success: true, message: 'Report submitted successfully' });
+    } catch (error) {
+        console.error('Report error:', error);
+        res.status(500).json({ error: 'Failed to submit report' });
+    }
+});
+
+// Get blocked users
+app.get('/api/users/blocked', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const blocked = getBlockedUsers(req.session.userId);
+        res.json({ blocked });
+    } catch (error) {
+        console.error('Get blocked error:', error);
+        res.status(500).json({ error: 'Failed to retrieve blocked users' });
+    }
+});
+
+// Check if user is blocked
+app.get('/api/users/:id/is-blocked', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const targetUserId = parseInt(req.params.id, 10);
+    if (!targetUserId) return res.status(400).json({ error: 'Invalid user ID' });
+    try {
+        const blocked = isUserBlocked({ userId: req.session.userId, targetId: targetUserId });
+        res.json({ blocked });
+    } catch (error) {
+        console.error('Check blocked error:', error);
+        res.status(500).json({ error: 'Failed to check block status' });
+    }
+});
+
+// Get following users with reel counts
+app.get('/api/users/following/reels', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+        const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '24', 10), 1), 200); // cap
+        const startIndex = (page - 1) * pageSize;
+        const rawFollowing = getFollowing(req.session.userId, 500); // fetch up to 500 to paginate client side
+        const slice = rawFollowing.slice(startIndex, startIndex + pageSize);
+        const users = slice.map(u => ({
+            id: u.id,
+            full_name: u.full_name,
+            profile_picture: u.profile_picture,
+            reelCount: require('./db').getActiveReelCount(u.id)
+        }));
+        const total = rawFollowing.length;
+        res.json({ users, page, pageSize, total, totalPages: Math.ceil(total / pageSize) });
+    } catch (error) {
+        console.error('Get following reels error:', error);
+        res.status(500).json({ error: 'Failed to retrieve following reels' });
+    }
+});
+
 // === ADMIN MODERATION ROUTES ===
+// Admin: View all user blocks and reports
+app.get('/admin/moderation/user-actions', requireSuperAdmin, (req, res) => {
+    const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
+    const pageSize = 50;
+    const offset = (page - 1) * pageSize;
+    
+    try {
+        const blocks = getAllBlocksAndReports({ limit: pageSize, offset });
+        const reports = getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
+        const me = getUserById(req.session.userId);
+        
+        res.render('admin-user-actions', {
+            title: 'User Actions Moderation - Dream X',
+            currentPage: 'admin',
+            authUser: me,
+            blocks,
+            reports,
+            page,
+            pageSize,
+            success: req.query.success,
+            error: req.query.error
+        });
+    } catch (error) {
+        console.error('Admin moderation error:', error);
+        if (error && error.stack) console.error('Admin moderation stack:', error.stack);
+        res.redirect('/admin?error=Failed+to+load+moderation+data');
+    }
+});
+
+// Admin: Update report status
+app.post('/admin/moderation/reports/:id/status', requireSuperAdmin, (req, res) => {
+    const reportId = parseInt(req.params.id, 10);
+    const { status, adminNotes } = req.body;
+    const validStatuses = ['pending', 'reviewing', 'resolved', 'dismissed'];
+    
+    if (!validStatuses.includes(status)) {
+        return res.redirect('/admin/moderation/user-actions?error=Invalid+status');
+    }
+    
+    try {
+        updateReportStatus({ reportId, status, reviewerId: req.session.userId, adminNotes });
+        res.redirect('/admin/moderation/user-actions?success=Report+updated');
+    } catch (error) {
+        console.error('Update report error:', error);
+        res.redirect('/admin/moderation/user-actions?error=Failed+to+update+report');
+    }
+});
+
+// Admin: Lock user's block functionality
+app.post('/admin/moderation/users/:id/lock-blocking', requireSuperAdmin, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    const { reason } = req.body;
+    
+    try {
+        lockUserBlockFunctionality({ userId, reason, lockedBy: req.session.userId });
+        res.redirect('/admin/moderation/user-actions?success=Block+functionality+locked');
+    } catch (error) {
+        console.error('Lock blocking error:', error);
+        res.redirect('/admin/moderation/user-actions?error=Failed+to+lock+blocking');
+    }
+});
+
+// Admin: Unlock user's block functionality
+app.post('/admin/moderation/users/:id/unlock-blocking', requireSuperAdmin, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    
+    try {
+        unlockUserBlockFunctionality({ userId, unlockedBy: req.session.userId });
+        res.redirect('/admin/moderation/user-actions?success=Block+functionality+unlocked');
+    } catch (error) {
+        console.error('Unlock blocking error:', error);
+        res.redirect('/admin/moderation/user-actions?error=Failed+to+unlock+blocking');
+    }
+});
+
 // Ban a user
 app.post('/admin/users/:id/ban', requireSuperAdmin, async (req, res) => {
     const userId = parseInt(req.params.id, 10);

@@ -1,16 +1,26 @@
 <%- include('partials/header') %>
 
 <div class="feed-layout">
-  <!-- Left Sidebar -->
+  <!-- Left Sidebar - Reels Bubbles -->
   <aside class="feed-sidebar left-sidebar">
-    <h2 class="sidebar-title">Your Passions</h2>
-    <div class="passion-filters">
-      <% const passions = ["Coding","Music","Fitness","Art","Design","Writing"]; %>
-      <% passions.forEach(function(p){ %>
-        <button type="button" class="passion-pill"><%= p %></button>
-      <% }); %>
+    <h2 class="sidebar-title" style="display:flex;justify-content:space-between;align-items:center;">Active Reels <span style="font-size:0.65rem;font-weight:600;color:#6b7280;" id="reelsPageInfo"></span></h2>
+    <div class="reels-bubbles-wrapper">
+      <div id="reelsBubbles" class="reels-bubbles" aria-live="polite"></div>
+      <div class="reels-bubbles-footer">
+        <button id="reelsPrevBtn" class="bubble-btn">Prev</button>
+        <button id="reelsNextBtn" class="bubble-btn">Next</button>
+      </div>
     </div>
-    <a href="#" class="manage-passions-link">Manage passions →</a>
+    <div style="margin-top: 24px; border-top: 2px solid rgba(255,79,163,0.1); padding-top: 24px;">
+      <h2 class="sidebar-title">Your Passions</h2>
+      <div class="passion-filters">
+        <% const passions = ["Coding","Music","Fitness","Art","Design","Writing"]; %>
+        <% passions.forEach(function(p){ %>
+          <button type="button" class="passion-pill"><%= p %></button>
+        <% }); %>
+      </div>
+      <a href="#" class="manage-passions-link">Manage passions →</a>
+    </div>
   </aside>
 
   <!-- Main Feed Column -->
@@ -19,9 +29,9 @@
     <section class="create-post-box" style="background:linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,1) 100%);border-radius:20px;padding:28px;margin-bottom:28px;box-shadow:0 8px 32px rgba(0,0,0,0.08);border:1px solid rgba(255,79,163,0.1);backdrop-filter:blur(10px);">
       <div class="create-post-header" style="display:flex;gap:14px;align-items:center;margin-bottom:18px;">
         <% if (authUser && authUser.profile_picture) { %>
-          <img src="/uploads/<%= authUser.profile_picture %>" alt="You" class="avatar avatar-sm" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+          <img src="/uploads/<%= authUser.profile_picture %>" alt="You" class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);cursor:pointer;">
         <% } else { %>
-          <div class="avatar avatar-sm" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);"><%= (authUser.displayName || 'Y').charAt(0) %></div>
+          <div class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);cursor:pointer;"><%= (authUser.displayName || 'Y').charAt(0) %></div>
         <% } %>
         <button type="button" onclick="openPostComposer()" class="prompt" style="flex:1;background:#f9fafb;border:2px solid #e5e7eb;border-radius:28px;padding:14px 24px;text-align:left;color:#9ca3af;cursor:pointer;font-size:1.05rem;font-weight:500;transition:all 0.3s ease;" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.03)';this.style.color='#6b7280'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb';this.style.color='#9ca3af'">Share a productive update...</button>
       </div>
@@ -302,6 +312,71 @@
           clearTimeout(t); t = setTimeout(() => run(input.value.trim()), 250);
         });
       })();
+    </script>
+    
+    <!-- Reels Bubbles Logic -->
+    <style>
+      .reels-bubbles-wrapper { display:flex; flex-direction:column; gap:12px; }
+      .reels-bubbles-controls { display:flex; justify-content:space-between; align-items:center; }
+      .reels-bubbles-page { font-size:0.7rem; color:#6b7280; }
+      .reels-bubbles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill,minmax(78px,1fr));
+        gap: 16px;
+        padding: 10px 0;
+        max-height: 480px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+      }
+      .reels-bubbles::-webkit-scrollbar { width:6px; }
+      .reels-bubbles::-webkit-scrollbar-track { background:transparent; }
+      .reels-bubbles::-webkit-scrollbar-thumb { background:#e5e7eb; border-radius:4px; }
+      .reel-bubble { display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; transition:.25s; }
+      .reel-bubble:hover { transform:translateY(-3px); }
+      .reel-bubble-avatar { width:64px; height:64px; border-radius:50%; object-fit:cover; padding:3px; background:linear-gradient(135deg,#ff4fa3,#764ba2); box-shadow:0 4px 12px rgba(255,79,163,.25); }
+      .reel-bubble-name { font-size:.75rem; font-weight:600; color:#374151; max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+      .reel-bubble-count { font-size:.65rem; color:#ff4fa3; font-weight:700; }
+      .reels-bubbles-footer { display:flex; gap:8px; margin-top:4px; }
+      .bubble-btn { flex:1; padding:8px 10px; font-size:.7rem; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:8px; cursor:pointer; font-weight:600; transition:.25s; }
+      .bubble-btn:hover { background:#e5e7eb; }
+      .bubble-btn:disabled { opacity:.4; cursor:not-allowed; }
+    </style>
+    
+    <script>
+      // Load reels bubbles on page load
+      let reelsPage = 1;
+      const reelsPageSize = 24;
+      async function loadReelsBubbles(initial=false) {
+        try {
+          const res = await fetch(`/api/users/following/reels?page=${reelsPage}&pageSize=${reelsPageSize}`);
+          const data = await res.json();
+          const users = data.users || [];
+          const container = document.getElementById('reelsBubbles');
+          if (initial) {
+            container.innerHTML = '';
+          }
+          if (users.length === 0 && data.page === 1) {
+            container.innerHTML = '<p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:20px 0;">No active reels from people you follow</p>';
+          } else {
+            container.innerHTML = users.map(user => `
+              <div class=\"reel-bubble\" onclick=\"viewUserReels(${user.id})\">
+                ${user.profile_picture ? `<img src=\"/uploads/${user.profile_picture}\" alt=\"${user.full_name}\" class=\"reel-bubble-avatar\">` : `<div class=\"reel-bubble-avatar\" style=\"display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:700;font-size:1.4rem;\">${(user.full_name||'U').charAt(0)}</div>`}
+                <span class=\"reel-bubble-name\">${user.full_name || 'User'}</span>
+                <span class=\"reel-bubble-count\">${user.reelCount} reel${user.reelCount === 1 ? '' : 's'}</span>
+              </div>`).join('');
+          }
+          // Update controls
+          document.getElementById('reelsPageInfo').textContent = `Page ${data.page} / ${data.totalPages}`;
+          document.getElementById('reelsPrevBtn').disabled = reelsPage <= 1;
+          document.getElementById('reelsNextBtn').disabled = reelsPage >= data.totalPages;
+        } catch (err) {
+          console.error('Failed to load reels bubbles:', err);
+        }
+      }
+      function viewUserReels(userId){ window.location.href = `/profile/${userId}?viewReels=true`; }
+      document.getElementById('reelsPrevBtn').addEventListener('click', () => { if (reelsPage>1){ reelsPage--; loadReelsBubbles(true);} });
+      document.getElementById('reelsNextBtn').addEventListener('click', () => { reelsPage++; loadReelsBubbles(true); });
+      loadReelsBubbles(true);
     </script>
   </aside>
 </div>

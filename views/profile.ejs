@@ -9,9 +9,9 @@
   <div style="position:absolute;bottom:-80px;left:50%;transform:translateX(-50%);z-index:100;">
     <div style="position:relative;display:inline-block;">
       <% if (profilePicture) { %>
-        <img id="profileAvatar" src="/uploads/<%= profilePicture %>" alt="<%= user.displayName %>" style="object-fit:cover;border-radius:50%;width:160px;height:160px;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+        <img id="profileAvatar" src="/uploads/<%= profilePicture %>" alt="<%= user.displayName %>" <%= typeof isOwnProfile !== 'undefined' && isOwnProfile ? 'data-is-own="true"' : '' %> style="object-fit:cover;border-radius:50%;width:160px;height:160px;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);cursor:pointer;" <%= typeof isOwnProfile === 'undefined' || !isOwnProfile ? `ondblclick="window.location.href='/profile/${profileUserId}'"` : '' %>>
       <% } else { %>
-        <div id="profileAvatar" style="width:160px;height:160px;border-radius:50%;background:#8b5cf6;color:white;display:flex;align-items:center;justify-content:center;font-size:4rem;font-weight:700;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);"><%= user.displayName.charAt(0) %></div>
+        <div id="profileAvatar" <%= typeof isOwnProfile !== 'undefined' && isOwnProfile ? 'data-is-own="true"' : '' %> style="width:160px;height:160px;border-radius:50%;background:#8b5cf6;color:white;display:flex;align-items:center;justify-content:center;font-size:4rem;font-weight:700;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);cursor:pointer;" <%= typeof isOwnProfile === 'undefined' || !isOwnProfile ? `ondblclick="window.location.href='/profile/${profileUserId}'"` : '' %>><%= user.displayName.charAt(0) %></div>
       <% } %>
     </div>
   </div>
@@ -43,6 +43,15 @@
         <%= typeof isFollowing !== 'undefined' && isFollowing ? 'Following' : 'Follow' %>
       </button>
       <a href="/messages/start/<%= profileUserId %>" style="padding:10px 24px;background:#8b5cf6;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Message</a>
+      
+      <!-- User Actions Menu (Block/Report) -->
+      <div style="position:relative;display:inline-block;">
+        <button onclick="toggleUserActionsMenu()" style="padding:10px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-weight:600;font-size:1.2rem;cursor:pointer;transition:all 0.3s ease;">⋮</button>
+        <div id="userActionsMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:8px;background:white;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;min-width:180px;">
+          <button onclick="openBlockModal()" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#374151;transition:background 0.2s;" onmouseover="this.style.background='#fee2e2';this.style.color='#991b1b'" onmouseout="this.style.background='none';this.style.color='#374151'">🚫 Block User</button>
+          <button onclick="openReportModal()" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#374151;border-top:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.color='#92400e'" onmouseout="this.style.background='none';this.style.color='#374151'">⚠️ Report User</button>
+        </div>
+      </div>
     <% } %>
     
     <% if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin && typeof isOwnProfile !== 'undefined' && !isOwnProfile) { %>
@@ -992,5 +1001,331 @@
     </div>
   </div>
 </div>
+
+<!-- Block User Modal -->
+<div id="blockModal" class="admin-modal" style="display:none;">
+  <div class="admin-modal-content" style="max-width:500px;">
+    <div class="admin-modal-header">
+      <h3>🚫 Block User</h3>
+      <button class="admin-modal-close" onclick="closeBlockModal()">&times;</button>
+    </div>
+    <div class="admin-modal-body">
+      <p style="color:#6b7280;margin-bottom:20px;">Blocking this user will prevent them from viewing your profile, posts, and contacting you. You can unblock them later from your settings.</p>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Reason (optional):</label>
+        <select id="blockReason" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:0.95rem;">
+          <option value="">Select a reason...</option>
+          <option value="harassment">Harassment or bullying</option>
+          <option value="spam">Spam or unwanted content</option>
+          <option value="inappropriate">Inappropriate behavior</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="admin-modal-footer">
+      <button class="admin-modal-btn secondary" onclick="closeBlockModal()">Cancel</button>
+      <button class="admin-modal-btn danger" onclick="confirmBlock()">Block User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Report User Modal -->
+<div id="reportModal" class="admin-modal" style="display:none;">
+  <div class="admin-modal-content" style="max-width:550px;">
+    <div class="admin-modal-header">
+      <h3>⚠️ Report User</h3>
+      <button class="admin-modal-close" onclick="closeReportModal()">&times;</button>
+    </div>
+    <div class="admin-modal-body">
+      <p style="color:#6b7280;margin-bottom:20px;">Help us keep the community safe by reporting users who violate our guidelines. All reports are reviewed by our moderation team.</p>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Reason <span style="color:#ef4444;">*</span></label>
+        <select id="reportReason" required style="width:100%;padding:12px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:0.95rem;transition:all 0.3s;" onchange="handleReportReasonChange()">
+          <option value="">Select a reason...</option>
+          <option value="harassment">Harassment or threats</option>
+          <option value="spam">Spam or scam</option>
+          <option value="inappropriate">Inappropriate content</option>
+          <option value="impersonation">Impersonation</option>
+          <option value="hate-speech">Hate speech</option>
+          <option value="violence">Violence or harmful behavior</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      
+      <!-- Dynamic fields container -->
+      <div id="dynamicReportFields"></div>
+      
+      <div style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Additional Details <span style="color:#ef4444;">*</span></label>
+        <textarea id="reportDescription" rows="4" required placeholder="Please provide specific details about this report..." style="width:100%;padding:12px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:0.95rem;resize:vertical;transition:all 0.3s;"></textarea>
+      </div>
+    </div>
+    <div class="admin-modal-footer">
+      <button class="admin-modal-btn secondary" onclick="closeReportModal()">Cancel</button>
+      <button class="admin-modal-btn warning" onclick="confirmReport()">Submit Report</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const visitorProfileUserId = <%= profileUserId %>;
+  
+  function toggleUserActionsMenu() {
+    const menu = document.getElementById('userActionsMenu');
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+  }
+  
+  function openBlockModal() {
+    document.getElementById('userActionsMenu').style.display = 'none';
+    document.getElementById('blockModal').style.display = 'flex';
+  }
+  
+  function closeBlockModal() {
+    document.getElementById('blockModal').style.display = 'none';
+    document.getElementById('blockReason').value = '';
+  }
+  
+  function openReportModal() {
+    document.getElementById('userActionsMenu').style.display = 'none';
+    document.getElementById('reportModal').style.display = 'flex';
+  }
+  
+  function closeReportModal() {
+    document.getElementById('reportModal').style.display = 'none';
+    document.getElementById('reportReason').value = '';
+    document.getElementById('reportDescription').value = '';
+    document.getElementById('dynamicReportFields').innerHTML = '';
+  }
+  
+  function handleReportReasonChange() {
+    const reason = document.getElementById('reportReason').value;
+    const container = document.getElementById('dynamicReportFields');
+    container.style.opacity = '0';
+    container.style.maxHeight = '0';
+    container.style.overflow = 'hidden';
+    container.style.transition = 'opacity 0.3s ease, max-height 0.3s ease';
+    
+    setTimeout(() => {
+      container.innerHTML = '';
+      if (!reason) return;
+    
+    const fieldStyle = 'width:100%;padding:12px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:0.95rem;transition:all 0.3s;';
+    const labelStyle = 'display:block;margin-bottom:8px;font-weight:600;color:#374151;';
+    
+    let fields = '';
+    
+    switch(reason) {
+      case 'harassment':
+        fields = `
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Type of harassment: <span style="color:#ef4444;">*</span></label>
+            <select id="harassmentType" style="${fieldStyle}" required>
+              <option value="">Select type...</option>
+              <option value="threats">Threats or intimidation</option>
+              <option value="bullying">Bullying behavior</option>
+              <option value="unwanted-contact">Unwanted contact</option>
+              <option value="stalking">Stalking or following</option>
+              <option value="doxxing">Sharing private information</option>
+            </select>
+          </div>
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Is this ongoing? <span style="color:#ef4444;">*</span></label>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;">
+                <input type="radio" name="isOngoing" value="yes" required style="width:auto;cursor:pointer;"> Yes, it's happening repeatedly
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;">
+                <input type="radio" name="isOngoing" value="no" required style="width:auto;cursor:pointer;"> No, this was an isolated incident
+              </label>
+            </div>
+          </div>
+        `;
+        break;
+      
+      case 'spam':
+        fields = `
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Spam type:</label>
+            <select id="spamType" style="${fieldStyle}">
+              <option value="">Select type...</option>
+              <option value="commercial">Commercial spam / advertising</option>
+              <option value="scam">Scam or phishing attempt</option>
+              <option value="repetitive">Repetitive unwanted messages</option>
+              <option value="malicious-links">Malicious links</option>
+              <option value="fake-engagement">Fake engagement bait</option>
+            </select>
+          </div>
+        `;
+        break;
+      
+      case 'inappropriate':
+        fields = `
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Content type:</label>
+            <select id="inappropriateType" style="${fieldStyle}">
+              <option value="">Select type...</option>
+              <option value="adult">Adult/sexual content</option>
+              <option value="graphic-violence">Graphic violence</option>
+              <option value="self-harm">Self-harm content</option>
+              <option value="illegal">Illegal activities</option>
+              <option value="disturbing">Disturbing content</option>
+            </select>
+          </div>
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Where did you see this?</label>
+            <input type="text" id="contentLocation" placeholder="e.g., Profile picture, bio, post..." style="${fieldStyle}">
+          </div>
+        `;
+        break;
+      
+      case 'impersonation':
+        fields = `
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Who are they impersonating?</label>
+            <input type="text" id="impersonatedPerson" placeholder="Name or username" style="${fieldStyle}">
+          </div>
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Is this you or someone else?</label>
+            <select id="impersonationTarget" style="${fieldStyle}">
+              <option value="me">They're impersonating me</option>
+              <option value="other">They're impersonating someone else</option>
+              <option value="celebrity">They're impersonating a public figure</option>
+              <option value="organization">They're impersonating an organization</option>
+            </select>
+          </div>
+        `;
+        break;
+      
+      case 'hate-speech':
+        fields = `
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Targeted group or characteristic:</label>
+            <select id="hateSpeechTarget" style="${fieldStyle}">
+              <option value="">Select category...</option>
+              <option value="race">Race or ethnicity</option>
+              <option value="religion">Religion</option>
+              <option value="gender">Gender or gender identity</option>
+              <option value="sexual-orientation">Sexual orientation</option>
+              <option value="disability">Disability</option>
+              <option value="nationality">Nationality or origin</option>
+              <option value="other">Other protected characteristic</option>
+            </select>
+          </div>
+        `;
+        break;
+      
+      case 'violence':
+        fields = `
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Violence type:</label>
+            <select id="violenceType" style="${fieldStyle}">
+              <option value="">Select type...</option>
+              <option value="threats">Threats of violence</option>
+              <option value="promotion">Promoting violence</option>
+              <option value="graphic">Graphic violent content</option>
+              <option value="self-harm">Encouraging self-harm</option>
+              <option value="dangerous-orgs">Support for dangerous organizations</option>
+            </select>
+          </div>
+          <div style="margin-bottom:16px;background:#fef3c7;border:2px solid #fbbf24;border-radius:12px;padding:16px;animation:fadeIn 0.3s ease;">
+            <p style="margin:0;color:#92400e;font-weight:600;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.2rem;">⚠️</span> If you or someone else is in immediate danger, please contact local authorities or emergency services.
+            </p>
+          </div>
+        `;
+        break;
+      
+      case 'other':
+        fields = `
+          <div style="margin-bottom:16px;animation:fadeIn 0.3s ease;">
+            <label style="${labelStyle}">Please specify the issue:</label>
+            <input type="text" id="otherReasonType" placeholder="Brief description of the issue" style="${fieldStyle}" required>
+          </div>
+        `;
+        break;
+    }
+    
+    container.innerHTML = fields;
+    
+    // Expand container with animation
+    setTimeout(() => {
+      container.style.maxHeight = '1000px';
+      container.style.opacity = '1';
+      container.style.overflow = 'visible';
+    }, 10);
+    }, 150);
+  }
+  
+  async function confirmBlock() {
+    const reason = document.getElementById('blockReason').value;
+    try {
+      const res = await fetch(`/api/users/${visitorProfileUserId}/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      
+      if (res.status === 403) {
+        showError(data.error || 'You cannot block users at this time.', 'Block Restricted');
+        closeBlockModal();
+        return;
+      }
+      
+      if (data.success) {
+        showSuccess('User blocked successfully. You will no longer see their content.', 'User Blocked');
+        closeBlockModal();
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        showError(data.error || 'Failed to block user', 'Block Failed');
+      }
+    } catch (error) {
+      console.error('Block error:', error);
+      showError('An error occurred while blocking this user. Please try again.', 'Block Failed');
+    }
+  }
+  
+  async function confirmReport() {
+    const reason = document.getElementById('reportReason').value;
+    const description = document.getElementById('reportDescription').value;
+    
+    if (!reason) {
+      showWarning('Please select a reason for reporting', 'Missing Information');
+      return;
+    }
+    
+    if (!description || description.trim().length < 10) {
+      showWarning('Please provide detailed information about this report (at least 10 characters)', 'Missing Information');
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/users/${visitorProfileUserId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, description })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        showSuccess('Report submitted successfully. Our moderation team will review it.', 'Report Submitted');
+        closeReportModal();
+      } else {
+        showError(data.error || 'Failed to submit report', 'Report Failed');
+      }
+    } catch (error) {
+      console.error('Report error:', error);
+      showError('An error occurred while submitting your report. Please try again.', 'Report Failed');
+    }
+  }
+  
+  // Close menus when clicking outside
+  document.addEventListener('click', (e) => {
+    const userMenu = document.getElementById('userActionsMenu');
+    if (userMenu && !e.target.closest('[onclick*="toggleUserActionsMenu"]') && !e.target.closest('#userActionsMenu')) {
+      userMenu.style.display = 'none';
+    }
+  });
+</script>
 
 <%- include('partials/footer') %>

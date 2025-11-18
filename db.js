@@ -574,6 +574,54 @@ db.exec(`CREATE TABLE IF NOT EXISTS comment_likes (
 CREATE INDEX IF NOT EXISTS idx_comment_likes_comment ON comment_likes(comment_id);
 `);
 
+// User blocks and reports
+db.exec(`CREATE TABLE IF NOT EXISTS user_blocks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  blocker_id INTEGER NOT NULL,
+  blocked_id INTEGER NOT NULL,
+  reason TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(blocker_id, blocked_id),
+  FOREIGN KEY (blocker_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (blocked_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_blocks_blocker ON user_blocks(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON user_blocks(blocked_id);
+`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS user_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reporter_id INTEGER NOT NULL,
+  reported_id INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'pending',
+  admin_notes TEXT,
+  reviewed_by INTEGER,
+  reviewed_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (reported_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_reports_reporter ON user_reports(reporter_id);
+CREATE INDEX IF NOT EXISTS idx_reports_reported ON user_reports(reported_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON user_reports(status);
+`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS user_moderation (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL UNIQUE,
+  block_functionality_locked INTEGER DEFAULT 0,
+  lock_reason TEXT,
+  locked_by INTEGER,
+  locked_at DATETIME,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (locked_by) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_moderation_locked ON user_moderation(block_functionality_locked);
+`);
+
 // Careers applications table
 db.exec(`CREATE TABLE IF NOT EXISTS career_applications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1305,6 +1353,12 @@ module.exports = {
       LIMIT ?
     `).all(userId, limit);
   },
+  // Active reel count (last 48 hours)
+  getActiveReelCount: (userId) => {
+    // Assuming created_at stored in UTC; we use SQLite datetime subtraction
+    const row = db.prepare(`SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours')`).get(userId);
+    return row ? row.cnt : 0;
+  },
   // Account moderation helpers
   banUser: ({ userId, reason, bannedBy }) => {
     db.prepare(`UPDATE users SET account_status = 'banned', suspension_reason = ? WHERE id = ?`).run(reason || 'Violation of community guidelines', userId);
@@ -1816,5 +1870,129 @@ module.exports = {
   getAllPaymentCustomers: (userId) => {
     const stmt = db.prepare(`SELECT * FROM payment_customers WHERE user_id = ?`);
     return stmt.all(userId);
+  },
+
+  // User blocks
+  blockUser: ({ blockerId, blockedId, reason }) => {
+    // Check if blocker's block functionality is locked
+    const modRow = db.prepare(`SELECT block_functionality_locked FROM user_moderation WHERE user_id = ?`).get(blockerId);
+    if (modRow && modRow.block_functionality_locked === 1) {
+      throw new Error('Block functionality is locked for this user');
+    }
+    const stmt = db.prepare(`INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id, reason) VALUES (?,?,?)`);
+    const result = stmt.run(blockerId, blockedId, reason || null);
+    // Log the action
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      blockerId,
+      'block_user',
+      JSON.stringify({ blockedId, reason })
+    );
+    return result.changes > 0;
+  },
+  unblockUser: ({ blockerId, blockedId }) => {
+    const stmt = db.prepare(`DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?`);
+    const result = stmt.run(blockerId, blockedId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      blockerId,
+      'unblock_user',
+      JSON.stringify({ blockedId })
+    );
+    return result.changes > 0;
+  },
+  isUserBlocked: ({ userId, targetId }) => {
+    const row = db.prepare(`SELECT 1 FROM user_blocks WHERE blocker_id = ? AND blocked_id = ? LIMIT 1`).get(userId, targetId);
+    return !!row;
+  },
+  getBlockedUsers: (userId) => {
+    return db.prepare(`
+      SELECT u.id, u.full_name, u.email, u.profile_picture, ub.created_at, ub.reason
+      FROM user_blocks ub
+      JOIN users u ON u.id = ub.blocked_id
+      WHERE ub.blocker_id = ?
+      ORDER BY ub.created_at DESC
+    `).all(userId);
+  },
+
+  // User reports
+  reportUser: ({ reporterId, reportedId, reason, description }) => {
+    const stmt = db.prepare(`INSERT INTO user_reports (reporter_id, reported_id, reason, description) VALUES (?,?,?,?)`);
+    const result = stmt.run(reporterId, reportedId, reason, description || null);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      reporterId,
+      'report_user',
+      JSON.stringify({ reportedId, reason })
+    );
+    return result.lastInsertRowid;
+  },
+  getUserReports: ({ limit = 50, offset = 0, status }) => {
+    let sql = `
+      SELECT r.*, 
+             u1.handle as reporter_username, u1.full_name as reporter_name,
+             u2.handle as reported_username, u2.full_name as reported_name,
+             u3.full_name as reviewer_name
+      FROM user_reports r
+      JOIN users u1 ON u1.id = r.reporter_id
+      JOIN users u2 ON u2.id = r.reported_id
+      LEFT JOIN users u3 ON u3.id = r.reviewed_by
+      WHERE 1=1
+    `;
+    const params = [];
+    if (status) { sql += ` AND r.status = ?`; params.push(status); }
+    sql += ` ORDER BY r.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    return db.prepare(sql).all(...params);
+  },
+  updateReportStatus: ({ reportId, status, reviewerId, adminNotes }) => {
+    const stmt = db.prepare(`
+      UPDATE user_reports 
+      SET status = ?, reviewed_by = ?, admin_notes = ?, reviewed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    const result = stmt.run(status, reviewerId, adminNotes || null, reportId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      reviewerId,
+      'review_report',
+      JSON.stringify({ reportId, status })
+    );
+    return result.changes > 0;
+  },
+
+  // User moderation (block functionality lock)
+  lockUserBlockFunctionality: ({ userId, reason, lockedBy }) => {
+    db.prepare(`
+      INSERT OR REPLACE INTO user_moderation (user_id, block_functionality_locked, lock_reason, locked_by, locked_at)
+      VALUES (?, 1, ?, ?, CURRENT_TIMESTAMP)
+    `).run(userId, reason || null, lockedBy);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      lockedBy,
+      'lock_block_functionality',
+      JSON.stringify({ targetUserId: userId, reason })
+    );
+  },
+  unlockUserBlockFunctionality: ({ userId, unlockedBy }) => {
+    db.prepare(`DELETE FROM user_moderation WHERE user_id = ?`).run(userId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      unlockedBy,
+      'unlock_block_functionality',
+      JSON.stringify({ targetUserId: userId })
+    );
+  },
+  getUserModerationStatus: (userId) => {
+    return db.prepare(`SELECT * FROM user_moderation WHERE user_id = ?`).get(userId);
+  },
+  getAllBlocksAndReports: ({ limit = 100, offset = 0 }) => {
+    const blocks = db.prepare(`
+      SELECT ub.id, ub.blocker_id, ub.blocked_id, ub.reason, ub.created_at,
+             u1.handle as blocker_username, u1.full_name as blocker_name,
+             u2.handle as blocked_username, u2.full_name as blocked_name,
+             mod.block_functionality_locked as blocker_locked
+      FROM user_blocks ub
+      JOIN users u1 ON u1.id = ub.blocker_id
+      JOIN users u2 ON u2.id = ub.blocked_id
+      LEFT JOIN user_moderation mod ON mod.user_id = ub.blocker_id
+      ORDER BY ub.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(limit, offset);
+    return blocks;
   }
 };

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "build": "npm install --build-from-source"
+    "build": "npm install --build-from-source",
+    "migrate:chat": "node scripts/migrate-chat-attachments.js",
+    "clear:reels": "node scripts/clear-all-reels.js"
   },
   "keywords": [
     "dreamx",

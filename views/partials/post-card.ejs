@@ -1,9 +1,9 @@
 <article class="post-card premium" style="background:white;border-radius:16px;padding:20px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
   <header class="post-header" style="display:flex;gap:12px;margin-bottom:16px;">
     <% if (post.profile_picture) { %>
-      <img src="/uploads/<%= post.profile_picture %>" alt="<%= post.full_name %>" class="avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">
+      <img src="/uploads/<%= post.profile_picture %>" alt="<%= post.full_name %>" class="avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;cursor:pointer;" ondblclick="window.location.href='/profile/<%= post.user_id %>'"
     <% } else { %>
-      <div class="avatar" style="width:48px;height:48px;border-radius:50%;background:#7C3AED;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;"><%= post.full_name.charAt(0) %></div>
+      <div class="avatar" style="width:48px;height:48px;border-radius:50%;background:#7C3AED;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;" ondblclick="window.location.href='/profile/<%= post.user_id %>'"><%= post.full_name.charAt(0) %></div>
     <% } %>
     <div class="post-user-meta" style="flex:1;">
       <h3 class="post-user-name" style="margin:0;font-weight:700;font-size:1rem;"><%= post.full_name %></h3>

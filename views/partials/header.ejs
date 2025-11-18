@@ -45,6 +45,35 @@
     <!-- Cheeky Modal System -->
     <script src="/js/cheeky-modal.js"></script>
     
+    <!-- Modal Alert System -->
+    <script src="/js/modal-alerts.js"></script>
+    
+    <!-- Global Profile Picture Click Handler -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // Handle double-click on own profile picture with cheeky modal
+        const ownProfilePics = document.querySelectorAll('#profileAvatar, .avatar[data-is-own="true"]');
+        ownProfilePics.forEach(pic => {
+          pic.style.cursor = 'pointer';
+          pic.addEventListener('dblclick', function(e) {
+            e.preventDefault();
+            if (typeof showCheekyModal === 'function') {
+              const messages = [
+                "Looking good! 💁",
+                "Admiring yourself? We don't blame you! 😎",
+                "Yes, that's you! Looking sharp! ✨",
+                "Self-love is important! 💖",
+                "Narcissus would be proud! 🪞",
+                "10/10 would double-click again! ⭐"
+              ];
+              const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+              showCheekyModal(randomMsg);
+            }
+          });
+        });
+      });
+    </script>
+    
     <!-- Service Worker Registration -->
     <script>
       if ('serviceWorker' in navigator) {

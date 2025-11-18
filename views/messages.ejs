@@ -15,9 +15,9 @@
         <% conversations.forEach(function(conv){ %>
           <li class="conversation-item <%= currentConversation && currentConversation.id === conv.id ? 'active' : '' %>" data-conversation-id="<%= conv.id %>" onclick="switchConversation(<%= conv.id %>)">
             <% if (conv.other_user_picture) { %>
-              <img src="/uploads/<%= conv.other_user_picture %>" alt="<%= conv.other_user_name %>" class="conversation-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;">
+              <img src="/uploads/<%= conv.other_user_picture %>" alt="<%= conv.other_user_name %>" class="conversation-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;cursor:pointer;" ondblclick="event.stopPropagation();window.location.href='/profile/<%= conv.other_user_id %>'"
             <% } else { %>
-              <div class="conversation-avatar"><%= (conv.other_user_name || 'U').charAt(0) %></div>
+              <div class="conversation-avatar" style="cursor:pointer;" ondblclick="event.stopPropagation();window.location.href='/profile/<%= conv.other_user_id %>'"><%= (conv.other_user_name || 'U').charAt(0) %></div>
             <% } %>
             <div class="conversation-meta">
               <span class="conversation-name"><%= conv.other_user_name %></span>
@@ -55,9 +55,9 @@
             </div>
           <% } else { %>
             <% if (currentConversation.other_user_picture) { %>
-              <img src="/uploads/<%= currentConversation.other_user_picture %>" alt="<%= currentConversation.other_user_name %>" class="chat-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;">
+              <img src="/uploads/<%= currentConversation.other_user_picture %>" alt="<%= currentConversation.other_user_name %>" class="chat-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;cursor:pointer;" ondblclick="window.location.href='/profile/<%= currentConversation.other_user_id %>'"
             <% } else { %>
-              <div class="chat-avatar"><%= (currentConversation.other_user_name || 'U').charAt(0) %></div>
+              <div class="chat-avatar" style="cursor:pointer;" ondblclick="window.location.href='/profile/<%= currentConversation.other_user_id %>'"><%= (currentConversation.other_user_name || 'U').charAt(0) %></div>
             <% } %>
             <div class="chat-partner-info">
               <span class="chat-partner-name"><%= currentConversation.other_user_name %></span>
@@ -105,6 +105,16 @@
                   <% } %>
                   <span class="chat-time"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %></span>
                 </div>
+                
+                <!-- Message action menu button (only for incoming messages from other user) -->
+                <% if (msg.sender_id !== authUser.id && currentConversation && !currentConversation.is_group) { %>
+                <button type="button" class="msg-action-btn" data-message-id="<%= msg.id %>" data-sender-id="<%= msg.sender_id %>" onclick="toggleMessageActions('<%= msg.id %>')" style="position:absolute;top:6px;right:6px;background:white;border:1px solid #e5e7eb;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.2s,background 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:5;font-size:14px;font-weight:700;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">⋮</button>
+                <div class="msg-action-menu" id="msgActions<%= msg.id %>" style="display:none;position:absolute;top:35px;right:6px;background:white;border:1px solid #e5e7eb;border-radius:12px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:100;min-width:160px;">
+                  <button onclick="reportChatMessage('<%= msg.id %>', '<%= msg.sender_id %>')" style="width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#dc3545;border-radius:8px;transition:background 0.2s;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='none'">⚠️ Report Message</button>
+                  <button onclick="blockChatUser('<%= msg.sender_id %>')" style="width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#dc3545;border-top:1px solid #e5e7eb;border-radius:8px;transition:background 0.2s;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">🚫 Block User</button>
+                </div>
+                <% } %>
+                
                 <!-- Quick reaction button (long-press for more options) -->
                 <button type="button" class="quick-react-btn" data-message-id="<%= msg.id %>" style="position:absolute;bottom:6px;right:6px;left:auto;background:white;border:1px solid #e5e7eb;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:5;">❤️</button>
                 <!-- Reaction picker (shown on long-press) -->
@@ -849,6 +859,107 @@
   if (typeof initGroupModal === 'function') {
     initGroupModal();
   }
+  
+  // Message action handlers
+  window.toggleMessageActions = function(messageId) {
+    // Close all other menus
+    document.querySelectorAll('.msg-action-menu').forEach(menu => {
+      if (menu.id !== `msgActions${messageId}`) {
+        menu.style.display = 'none';
+      }
+    });
+    
+    const menu = document.getElementById(`msgActions${messageId}`);
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+  };
+  
+  // Close message action menus on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.msg-action-btn') && !e.target.closest('.msg-action-menu')) {
+      document.querySelectorAll('.msg-action-menu').forEach(menu => {
+        menu.style.display = 'none';
+      });
+    }
+  });
+  
+  // Show action buttons on message hover
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.chat-message-wrapper').forEach(wrapper => {
+      wrapper.addEventListener('mouseenter', function() {
+        const actionBtn = this.querySelector('.msg-action-btn');
+        if (actionBtn) actionBtn.style.display = 'flex';
+      });
+      wrapper.addEventListener('mouseleave', function() {
+        const actionBtn = this.querySelector('.msg-action-btn');
+        if (actionBtn) actionBtn.style.display = 'none';
+      });
+    });
+  });
+  
+  window.reportChatMessage = function(messageId, senderId) {
+    showConfirm(
+      'Report this message to our moderation team? This action will help keep the community safe.',
+      async function() {
+        try {
+          const res = await fetch(`/api/users/${senderId}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              reason: 'inappropriate',
+              description: `Reported from chat message ID: ${messageId}`
+            })
+          });
+          const data = await res.json();
+          
+          if (data.success) {
+            showSuccess('Message reported successfully. Our moderation team will review it.', 'Report Submitted');
+          } else {
+            showError(data.error || 'Failed to report message', 'Report Failed');
+          }
+        } catch (error) {
+          console.error('Report error:', error);
+          showError('An error occurred while reporting this message', 'Report Failed');
+        }
+      },
+      null,
+      'Report Message',
+      '⚠️'
+    );
+  };
+  
+  window.blockChatUser = function(userId) {
+    showConfirm(
+      'Block this user? You will no longer receive messages from them and they won\'t be able to message you.',
+      async function() {
+        try {
+          const res = await fetch(`/api/users/${userId}/block`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'Blocked from chat' })
+          });
+          const data = await res.json();
+          
+          if (res.status === 403) {
+            showError(data.error || 'You cannot block users at this time.', 'Block Restricted');
+            return;
+          }
+          
+          if (data.success) {
+            showSuccess('User blocked successfully. Refreshing...', 'User Blocked');
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            showError(data.error || 'Failed to block user', 'Block Failed');
+          }
+        } catch (error) {
+          console.error('Block error:', error);
+          showError('An error occurred while blocking this user', 'Block Failed');
+        }
+      },
+      null,
+      'Block User',
+      '🚫'
+    );
+  };
 </script>
 
 <!-- Group Settings Modal -->
