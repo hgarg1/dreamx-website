@@ -132,4 +132,104 @@
     
     // Initial badge update
     updateBadge();
+
+    // Attempt push subscription if permitted and enabled
+    (async function ensurePushSubscription(){
+        try {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            if (!authUser.push_notifications) return; // user preference off
+            const perm = Notification?.permission;
+            if (perm !== 'granted') return; // do not prompt automatically here
+            const reg = await navigator.serviceWorker.ready;
+            // Check if already subscribed
+            const existing = await reg.pushManager.getSubscription();
+            if (existing) return;
+            // Get public key
+            const keyRes = await fetch('/api/push/public-key');
+            const { key } = await keyRes.json();
+            if (!key) return;
+            const applicationServerKey = urlBase64ToUint8Array(key);
+            const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+            await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+        } catch (e) {
+            console.warn('Push subscription skipped:', e.message);
+        }
+    })();
+
+    // Wire up settings toggle (if present) to request permission/subscribe
+    (function bindPushToggle(){
+        try {
+            const toggle = document.querySelector('input[name="push_notifications"]');
+            if (!toggle) return;
+            toggle.addEventListener('change', async (e) => {
+                if (e.target.checked) {
+                    const result = await Notification.requestPermission();
+                    if (result !== 'granted') {
+                        e.target.checked = false;
+                        if (window.showError) window.showError('Push notifications were blocked by the browser.');
+                        else if (window.showToast) window.showToast({ type: 'error', message: 'Push notifications were blocked by the browser.' });
+                        return;
+                    }
+                    await subscribeForPush();
+                } else {
+                    await unsubscribeFromPush();
+                }
+            });
+            const btn = document.getElementById('enablePushNowBtn');
+            if (btn) {
+                btn.addEventListener('click', async () => {
+                    const result = await Notification.requestPermission();
+                    if (result !== 'granted') {
+                        if (window.showError) window.showError('Push notifications are blocked by the browser.');
+                        else if (window.showToast) window.showToast({ type: 'error', message: 'Push notifications are blocked by the browser.' });
+                        return;
+                    }
+                    await subscribeForPush();
+                    // Optionally reflect checkbox state
+                    if (toggle && !toggle.checked) toggle.checked = true;
+                });
+            }
+        } catch {}
+    })();
+
+    async function subscribeForPush() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        const reg = await navigator.serviceWorker.ready;
+        const existing = await reg.pushManager.getSubscription();
+        if (existing) return; // already subscribed
+        const res = await fetch('/api/push/public-key');
+        const { key } = await res.json();
+        if (!key) return;
+        const applicationServerKey = urlBase64ToUint8Array(key);
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+        const r = await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+        if (!r.ok) throw new Error('Failed to save subscription');
+        if (window.showSuccess) window.showSuccess('Push notifications enabled! 🎉');
+        else if (window.showToast) window.showToast({ type: 'success', message: 'Push notifications enabled! 🎉' });
+    }
+
+    async function unsubscribeFromPush() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        const reg = await navigator.serviceWorker.ready;
+        const existing = await reg.pushManager.getSubscription();
+        if (!existing) return;
+        try {
+            const r = await fetch('/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: existing.endpoint }) });
+            if (!r.ok) throw new Error('Failed to remove subscription');
+        } catch {}
+        try { await existing.unsubscribe(); } catch {}
+        if (window.showInfo) window.showInfo('Push notifications disabled');
+        else if (window.showToast) window.showToast({ type: 'success', message: 'Push notifications disabled' });
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
 })();

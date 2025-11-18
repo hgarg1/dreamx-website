@@ -30,7 +30,21 @@ db.exec(`CREATE TABLE IF NOT EXISTS users (
   email_notifications INTEGER DEFAULT 1,
   push_notifications INTEGER DEFAULT 1,
   message_notifications INTEGER DEFAULT 1,
+  email_verified INTEGER DEFAULT 0,
+  verification_code TEXT,
+  verification_code_expires DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS email_verification_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  email TEXT NOT NULL,
+  code TEXT NOT NULL,
+  expires_at DATETIME NOT NULL,
+  verified INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS webauthn_credentials (
@@ -599,6 +613,26 @@ module.exports = {
   updateUserRole: ({ userId, role }) => {
     db.prepare(`UPDATE users SET role = ? WHERE id = ?`).run(role, userId);
   },
+  
+  // Email Verification
+  createVerificationCode: ({ userId, email, code, expiresAt }) => {
+    const stmt = db.prepare(`INSERT INTO email_verification_codes (user_id, email, code, expires_at) VALUES (?,?,?,?)`);
+    const info = stmt.run(userId, email, code, expiresAt);
+    return info.lastInsertRowid;
+  },
+  getVerificationCode: ({ userId, code }) => {
+    return db.prepare(`SELECT * FROM email_verification_codes WHERE user_id = ? AND code = ? AND verified = 0 ORDER BY created_at DESC LIMIT 1`).get(userId, code);
+  },
+  markCodeAsVerified: ({ id }) => {
+    db.prepare(`UPDATE email_verification_codes SET verified = 1 WHERE id = ?`).run(id);
+  },
+  markEmailAsVerified: ({ userId }) => {
+    db.prepare(`UPDATE users SET email_verified = 1 WHERE id = ?`).run(userId);
+  },
+  deleteExpiredVerificationCodes: () => {
+    db.prepare(`DELETE FROM email_verification_codes WHERE expires_at < datetime('now') AND verified = 0`).run();
+  },
+  
   getAllUsers: () => db.prepare(`SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC`).all(),
   // Paged users + total for admin
   getUsersPaged: ({ limit, offset, search }) => {

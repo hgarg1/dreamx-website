@@ -19,6 +19,7 @@ const {
     verifyAuthenticationResponse
 } = require('@simplewebauthn/server');
 const socketIo = require('socket.io');
+let webpush;
 
 // Import email service
 const emailService = require('./services/email');
@@ -33,6 +34,8 @@ const {
     getUsersPaged, getUsersCount, searchUsers,
     // Audit logs
     addAuditLog, getAuditLogsPaged, getAuditLogCount,
+    // Email Verification
+    createVerificationCode, getVerificationCode, markCodeAsVerified, markEmailAsVerified, deleteExpiredVerificationCodes,
     // Posts
     createPost, getFeedPosts, getUserPosts,
     // Post reactions & comments
@@ -76,6 +79,24 @@ try {
 } catch (e) {
     // Node 18+ has global fetch; fallback
     fetch = global.fetch;
+}
+
+// Optional: configure Web Push if VAPID keys are provided
+try {
+    webpush = require('web-push');
+    if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT) {
+        webpush.setVapidDetails(
+            process.env.VAPID_SUBJECT,
+            process.env.VAPID_PUBLIC_KEY,
+            process.env.VAPID_PRIVATE_KEY
+        );
+    } else {
+        webpush = null;
+        console.warn('Web Push not configured (missing VAPID env vars).');
+    }
+} catch (e) {
+    console.warn('web-push not installed or failed to load:', e.message);
+    webpush = null;
 }
 
 // Helper to generate full callback URL for OAuth
@@ -266,6 +287,36 @@ function ensureAuthenticated(req, res, next) {
     }
     next();
 }
+
+// Helper: send browser push notifications (if configured)
+async function sendBrowserPush(userId, title, body, url) {
+    try {
+        if (!webpush) return; // Not configured
+        const user = getUserById(userId);
+        if (!user || user.push_notifications !== 1) return;
+        const subs = getPushSubscriptions(userId) || [];
+        const payload = JSON.stringify({ title: title || 'Dream X', body: body || '', url: url || '/', icon: '/img/icon-192x192.png', badge: '/img/badge-72x72.png' });
+        for (const s of subs) {
+            try {
+                await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+            } catch (err) {
+                const status = err?.statusCode || err?.statusCode === 0 ? err.statusCode : err?.statusCode;
+                if (status === 404 || status === 410) {
+                    try { deletePushSubscription(s.endpoint); } catch (_) {}
+                } else {
+                    console.warn('Web push send error:', err.message);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('sendBrowserPush error:', e.message);
+    }
+}
+
+// Expose VAPID public key to clients (for subscription)
+app.get('/api/push/public-key', (req, res) => {
+    res.json({ key: process.env.VAPID_PUBLIC_KEY || null });
+});
 
 // Password complexity validator
 function validatePasswordComplexity(password) {
@@ -909,12 +960,21 @@ app.post('/admin/services/:id/hide', requireAdmin, async (req, res) => {
             if (s) {
                 if (notifyInApp) {
                     createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service hidden', message: `Your service "${s.title}" was hidden by admins.`, link: `/services/${id}` });
+                    // Push (if enabled)
+                    await sendBrowserPush(s.user_id, 'Service hidden', `Your service "${s.title}" was hidden by admins.`, `/services/${id}`);
                 }
+                let emailSuppressed = false;
                 if (notifyEmail) {
                     const owner = getUserById(s.user_id);
-                    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                    await emailService.sendServiceModerationEmail(owner, s, 'hidden', null, baseUrl);
+                    if (owner && owner.email_notifications === 1) {
+                        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                        await emailService.sendServiceModerationEmail(owner, s, 'hidden', null, baseUrl);
+                    } else {
+                        emailSuppressed = true;
+                    }
                 }
+                const msg = 'Service hidden' + (emailSuppressed ? ' (email suppressed by user settings)' : '');
+                return res.redirect('/admin/services?success=' + encodeURIComponent(msg));
             }
         }
         res.redirect('/admin/services?success=Service+hidden');
@@ -935,12 +995,21 @@ app.post('/admin/services/:id/unhide', requireAdmin, async (req, res) => {
             if (s) {
                 if (notifyInApp) {
                     createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service restored', message: `Your service "${s.title}" is visible again.`, link: `/services/${id}` });
+                    // Push (if enabled)
+                    await sendBrowserPush(s.user_id, 'Service restored', `Your service "${s.title}" is visible again.`, `/services/${id}`);
                 }
+                let emailSuppressed = false;
                 if (notifyEmail) {
                     const owner = getUserById(s.user_id);
-                    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                    await emailService.sendServiceModerationEmail(owner, s, 'restored', null, baseUrl);
+                    if (owner && owner.email_notifications === 1) {
+                        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                        await emailService.sendServiceModerationEmail(owner, s, 'restored', null, baseUrl);
+                    } else {
+                        emailSuppressed = true;
+                    }
                 }
+                const msg = 'Service restored' + (emailSuppressed ? ' (email suppressed by user settings)' : '');
+                return res.redirect('/admin/services?success=' + encodeURIComponent(msg));
             }
         }
         res.redirect('/admin/services?success=Service+restored');
@@ -962,12 +1031,21 @@ app.post('/admin/services/:id/delete', requireAdmin, async (req, res) => {
             if (s) {
                 if (notifyInApp) {
                     createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service deleted', message: `Your service "${s.title}" was removed by admins.`, link: `/profile` });
+                    // Push (if enabled)
+                    await sendBrowserPush(s.user_id, 'Service deleted', `Your service "${s.title}" was removed by admins.`, `/profile`);
                 }
+                let emailSuppressed = false;
                 if (notifyEmail) {
                     const owner = getUserById(s.user_id);
-                    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                    await emailService.sendServiceModerationEmail(owner, s, 'deleted', reason, baseUrl);
+                    if (owner && owner.email_notifications === 1) {
+                        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                        await emailService.sendServiceModerationEmail(owner, s, 'deleted', reason, baseUrl);
+                    } else {
+                        emailSuppressed = true;
+                    }
                 }
+                const msg = 'Service deleted' + (emailSuppressed ? ' (email suppressed by user settings)' : '');
+                return res.redirect('/admin/services?success=' + encodeURIComponent(msg));
             }
         }
         res.redirect('/admin/services?success=Service+deleted');
@@ -995,13 +1073,21 @@ app.post('/admin/services/:id/edit', requireSuperAdmin, async (req, res) => {
         const ok = require('./db').adminUpdateServiceContent({ serviceId: id, fields });
         if (ok && (req.body.notifyEmail || req.body.notifyInApp)) {
             const owner = getUserById(s.user_id);
+            let emailSuppressed = false;
             if (req.body.notifyInApp) {
                 createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service edited by admin', message: `Your service "${s.title}" was edited for compliance.`, link: `/services/${id}` });
+                await sendBrowserPush(s.user_id, 'Service edited by admin', `Your service "${s.title}" was edited for compliance.`, `/services/${id}`);
             }
             if (req.body.notifyEmail) {
-                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                await emailService.sendServiceEditedByAdminEmail(owner, { ...s, ...fields }, baseUrl);
+                if (owner && owner.email_notifications === 1) {
+                    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                    await emailService.sendServiceEditedByAdminEmail(owner, { ...s, ...fields }, baseUrl);
+                } else {
+                    emailSuppressed = true;
+                }
             }
+            const msg = 'Service updated' + (emailSuppressed ? ' (email suppressed by user settings)' : '');
+            return res.redirect('/admin/services?success=' + encodeURIComponent(msg));
         }
         res.redirect(ok ? '/admin/services?success=Service+updated' : '/admin/services?error=Update+failed');
     } catch (e) {
@@ -1461,25 +1547,151 @@ app.post('/register', async (req, res) => {
         } catch (subErr) {
             console.warn('Failed to initialize free subscription for user', userId, subErr.message);
         }
-        // Log user in using Passport
+        
+        // Generate 6-digit verification code
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+        
+        // Save verification code to database
+        createVerificationCode({
+            userId,
+            email: email.trim().toLowerCase(),
+            code: verificationCode,
+            expiresAt
+        });
+        
+        // Send verification email
         const user = getUserById(userId);
+        try {
+            await emailService.sendVerificationCode(user, verificationCode);
+            console.log(`✅ Verification email sent to ${user.email}`);
+        } catch (emailErr) {
+            console.error('Failed to send verification email:', emailErr);
+            // Don't block registration if email fails
+        }
+        
+        // Log user in using Passport but don't redirect to onboarding yet
         req.login(user, (err) => {
             if (err) {
                 console.error('Registration login error:', err);
                 req.session.userId = userId; // Fallback to manual session
-                return res.redirect('/onboarding');
+                return res.redirect('/verify-email');
             }
             req.session.userId = userId;
             req.session.save((saveErr) => {
                 if (saveErr) {
                     console.error('Session save error:', saveErr);
                 }
-                return res.redirect('/onboarding');
+                return res.redirect('/verify-email');
             });
         });
     } catch (e) {
         console.error('Registration error', e);
         return res.status(500).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Server error. Try again.' });
+    }
+});
+
+// Email Verification Routes
+app.get('/verify-email', (req, res) => {
+    if (!req.session.userId) return res.redirect('/login');
+    const user = getUserById(req.session.userId);
+    if (!user) return res.redirect('/login');
+    if (user.email_verified === 1) return res.redirect('/onboarding');
+    
+    res.render('verify-email', {
+        title: 'Verify Your Email - Dream X',
+        currentPage: 'verify-email',
+        user,
+        error: null,
+        success: null
+    });
+});
+
+app.post('/verify-email', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+    
+    const user = getUserById(req.session.userId);
+    if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    
+    if (user.email_verified === 1) {
+        return res.json({ success: true, redirect: '/onboarding' });
+    }
+    
+    const { code } = req.body;
+    if (!code || code.length !== 6) {
+        return res.status(400).json({ success: false, error: 'Please enter a valid 6-digit code' });
+    }
+    
+    // Clean up expired codes
+    try {
+        deleteExpiredVerificationCodes();
+    } catch(e) {}
+    
+    // Check verification code
+    const verificationRecord = getVerificationCode({ userId: user.id, code });
+    
+    if (!verificationRecord) {
+        return res.status(400).json({ success: false, error: 'Invalid or expired code. Please try again.' });
+    }
+    
+    // Check if expired
+    const now = new Date();
+    const expiresAt = new Date(verificationRecord.expires_at);
+    if (now > expiresAt) {
+        return res.status(400).json({ success: false, error: 'Code expired. Request a new one.' });
+    }
+    
+    // Mark as verified
+    try {
+        markCodeAsVerified({ id: verificationRecord.id });
+        markEmailAsVerified({ userId: user.id });
+        
+        console.log(`✅ Email verified for user ${user.id} (${user.email})`);
+        
+        return res.json({ success: true, redirect: '/onboarding' });
+    } catch (err) {
+        console.error('Verification error:', err);
+        return res.status(500).json({ success: false, error: 'Server error. Please try again.' });
+    }
+});
+
+app.post('/resend-verification', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+    
+    const user = getUserById(req.session.userId);
+    if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    
+    if (user.email_verified === 1) {
+        return res.json({ success: true, message: 'Email already verified' });
+    }
+    
+    try {
+        // Generate new code
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+        
+        createVerificationCode({
+            userId: user.id,
+            email: user.email,
+            code: verificationCode,
+            expiresAt
+        });
+        
+        // Send email
+        await emailService.sendVerificationCode(user, verificationCode);
+        
+        return res.json({ success: true, message: 'New verification code sent!' });
+    } catch (err) {
+        console.error('Resend verification error:', err);
+        return res.status(500).json({ success: false, error: 'Failed to send email. Please try again.' });
     }
 });
 
@@ -1706,7 +1918,7 @@ app.get('/feed', (req, res) => {
 app.post('/feed/post', postUpload.single('media'), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const { contentType, textContent, activityLabel } = req.body;
-    const mediaUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const mediaUrl = req.file ? `/uploads/posts/${req.file.filename}` : null;
     // Server-side validation: no images in reels (allow GIF), enforce media type
     const mime = (req.file && req.file.mimetype ? req.file.mimetype.toLowerCase() : null);
     if (contentType === 'video') {
@@ -3794,6 +4006,14 @@ app.get('/about', (req, res) => {
     res.render('about', { 
         title: 'About - Dream X',
         currentPage: 'about'
+    });
+});
+
+// Team page
+app.get('/team', (req, res) => {
+    res.render('team', { 
+        title: 'Our Team - Dream X',
+        currentPage: 'team'
     });
 });
 

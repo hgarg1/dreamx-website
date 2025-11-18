@@ -242,6 +242,9 @@
         <input type="checkbox" name="push_notifications" <%= authUser.push_notifications ? 'checked' : '' %> />
         <span>Push notifications</span>
       </label>
+      <div class="settings-actions-inline" style="gap:8px;">
+        <button type="button" id="enablePushNowBtn" class="settings-btn" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;">Enable Push Now</button>
+      </div>
       <label class="toggle-row">
         <input type="checkbox" name="message_notifications" <%= authUser.message_notifications ? 'checked' : '' %> />
         <span>New message notifications</span>

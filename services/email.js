@@ -568,6 +568,81 @@ const emailService = {
             cta: { label: 'Manage Services', url: 'http://localhost:3000/services' },
         });
         return await sendEmail(user.email, subject, html);
+    },
+
+    // Email Verification (pre-onboarding)
+    sendVerificationCode: async (user, code) => {
+        // Use the highly-styled verification email
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #0b1020 0%, #1a1f3a 100%); }
+                    .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+                    .header { background: linear-gradient(135deg, #667eea, #764ba2); padding: 40px 30px; text-align: center; }
+                    .header h1 { color: white; margin: 0; font-size: 32px; font-weight: 900; }
+                    .header p { color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 16px; }
+                    .content { padding: 40px 30px; }
+                    .greeting { font-size: 18px; color: #1e293b; margin: 0 0 20px; }
+                    .message { color: #475569; line-height: 1.6; margin: 0 0 30px; font-size: 16px; }
+                    .code-container { background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08)); border: 2px dashed #667eea; border-radius: 16px; padding: 30px; text-align: center; margin: 30px 0; }
+                    .code-label { color: #64748b; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px; }
+                    .code { font-size: 48px; font-weight: 900; color: #667eea; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace; }
+                    .expiry { color: #94a3b8; font-size: 14px; margin: 16px 0 0; }
+                    .warning { background: rgba(239,68,68,0.1); border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px; margin: 20px 0; }
+                    .warning p { margin: 0; color: #991b1b; font-size: 14px; }
+                    .footer { background: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0; }
+                    .footer p { margin: 0; color: #64748b; font-size: 14px; line-height: 1.6; }
+                    .footer-brand { color: #667eea; font-weight: 700; font-size: 16px; margin: 16px 0 8px; }
+                    .footer-tagline { font-style: italic; color: #94a3b8; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>✨ Welcome to Dream X!</h1>
+                        <p>Let's verify your email and get started</p>
+                    </div>
+                    <div class="content">
+                        <p class="greeting">Hey ${user.full_name || 'there'}! 👋</p>
+                        <p class="message">
+                            We're excited to have you join Dream X! Before you dive into building your profile and connecting with amazing people, 
+                            we need to verify your email address.
+                        </p>
+                        <p class="message">
+                            Enter this verification code on the next screen:
+                        </p>
+                        <div class="code-container">
+                            <p class="code-label">Your Verification Code</p>
+                            <p class="code">${code}</p>
+                            <p class="expiry">⏰ Expires in 15 minutes</p>
+                        </div>
+                        <div class="warning">
+                            <p><strong>⚠️ Security Notice:</strong> Never share this code with anyone. Dream X staff will never ask for your verification code.</p>
+                        </div>
+                        <p class="message">
+                            Once verified, you'll complete your onboarding and start your journey toward growth! 🚀
+                        </p>
+                    </div>
+                    <div class="footer">
+                        <p class="footer-brand">Dream X</p>
+                        <p class="footer-tagline">"Addicted to growth."</p>
+                        <p>If you didn't create an account, you can safely ignore this email.</p>
+                        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                        <p style="color: #94a3b8; font-size: 13px; margin: 0;">
+                            You're receiving this email because you have notifications enabled.<br>
+                            Dream X © 2025
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        const subject = 'Verify Your Email - Dream X';
+        return await sendEmail(user.email, subject, html);
     }
 };
 

@@ -1,153 +1,616 @@
 <%- include('partials/header') %>
 
 <style>
-  .dx-premium-hero {background:linear-gradient(135deg,#111827,#0b1020);padding:32px 0;color:#e5e7eb}
-  .dx-premium-hero h1{margin:0;font-size:28px;font-weight:800;letter-spacing:.2px}
-  .dx-premium-wrap{max-width:1040px;margin:0 auto;padding:0 20px}
-  .dx-card{background:#0f172a;border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
-  .dx-grid{display:grid;grid-template-columns:1fr 360px;gap:24px;margin:24px 0}
-  @media (max-width:900px){.dx-grid{grid-template-columns:1fr}}
-  .dx-section{padding:20px 20px 6px;border-bottom:1px solid rgba(255,255,255,.06)}
-  .dx-section h3{margin:0 0 8px;font-size:16px;color:#cbd5e1}
-  .dx-field{padding:16px 20px}
-  .dx-label{display:block;margin-bottom:8px;color:#94a3b8;font-size:13px}
-  .dx-input,.dx-textarea{width:100%;background:#0b1020;border:1px solid rgba(255,255,255,.1);border-radius:12px;color:#e5e7eb;padding:12px 14px;outline:none}
-  .dx-input:focus,.dx-textarea:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.25)}
-  .dx-actions{display:flex;justify-content:flex-end;gap:12px;padding:16px 20px}
-  .dx-btn{padding:12px 16px;border-radius:999px;border:0;font-weight:700;cursor:pointer}
-  .dx-btn-secondary{background:#1f2937;color:#e5e7eb}
-  .dx-btn-primary{background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff}
-  .dx-aside{padding:20px}
-  .dx-aside .hint{font-size:13px;color:#94a3b8;line-height:1.6}
+  /* Premium Edit Service - Complete Revamp */
+  .edit-service-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0b1020 0%, #1a1f3a 50%, #0f172a 100%);
+    padding: 40px 0 80px;
+  }
+  
+  .edit-hero {
+    max-width: 1200px;
+    margin: 0 auto 48px;
+    padding: 0 24px;
+  }
+  
+  .edit-hero-content {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 16px;
+  }
+  
+  .edit-hero-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+  }
+  
+  .edit-hero h1 {
+    font-size: 36px;
+    font-weight: 900;
+    margin: 0;
+    background: linear-gradient(135deg, #e5e7eb, #cbd5e1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .edit-hero-subtitle {
+    color: #94a3b8;
+    font-size: 16px;
+    margin: 8px 0 0;
+    padding-left: 104px;
+  }
+  
+  .edit-grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 32px;
+  }
+  
+  @media (max-width: 1000px) {
+    .edit-grid {
+      grid-template-columns: 1fr;
+    }
+    .edit-sidebar {
+      order: -1;
+    }
+  }
+  
+  .edit-card {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+  
+  .section-header {
+    padding: 24px 32px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .section-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  
+  .section-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #e5e7eb;
+  }
+  
+  .form-section {
+    padding: 32px;
+  }
+  
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  
+  @media (max-width: 640px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .form-group {
+    margin-bottom: 24px;
+  }
+  
+  .form-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  
+  .form-label-icon {
+    color: #667eea;
+  }
+  
+  .required-star {
+    color: #ff4fa3;
+  }
+  
+  .form-input,
+  .form-textarea,
+  .form-select {
+    width: 100%;
+    background: rgba(11, 16, 32, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    color: #e5e7eb;
+    padding: 14px 16px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+  }
+  
+  .form-input:focus,
+  .form-textarea:focus,
+  .form-select:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(11, 16, 32, 0.8);
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  }
+  
+  .form-textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.6;
+  }
+  
+  .form-hint {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+  
+  /* Availability Builder */
+  .availability-builder {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.06));
+    border: 2px dashed rgba(102, 126, 234, 0.3);
+    border-radius: 16px;
+    padding: 24px;
+  }
+  
+  .availability-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+  }
+  
+  @media (max-width: 768px) {
+    .availability-controls {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .availability-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+    min-height: 60px;
+    padding: 16px;
+    background: rgba(11, 16, 32, 0.4);
+    border-radius: 12px;
+  }
+  
+  .availability-chip-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 8px 12px;
+  }
+  
+  .chip-date {
+    font-weight: 700;
+    color: #cbd5e1;
+    font-size: 13px;
+  }
+  
+  .chip-time {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .chip-time:hover {
+    background: linear-gradient(135deg, #ff4fa3, #e74c3c);
+    transform: scale(0.95);
+  }
+  
+  .btn-add-slot {
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  
+  .btn-add-slot:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+  }
+  
+  .quick-add-hint {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: rgba(102, 126, 234, 0.08);
+    border-left: 3px solid #667eea;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #94a3b8;
+  }
+  
+  /* Form Actions */
+  .form-actions {
+    padding: 24px 32px;
+    background: rgba(11, 16, 32, 0.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .btn-group {
+    display: flex;
+    gap: 12px;
+  }
+  
+  .btn {
+    padding: 14px 28px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+  
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  }
+  
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(102, 126, 234, 0.5);
+  }
+  
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Sidebar */
+  .edit-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  .sidebar-card {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 24px;
+  }
+  
+  .sidebar-card h4 {
+    margin: 0 0 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .sidebar-tip {
+    padding: 14px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+    border-left: 3px solid #667eea;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .sidebar-tip-text {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.6;
+    margin: 0;
+  }
 </style>
 
-<section class="dx-premium-hero">
-  <div class="dx-premium-wrap">
-    <h1>Edit “<%= service.title %>”</h1>
-    <p style="margin:6px 0 0;color:#9ca3af">Make high‑impact changes with confidence.</p>
+<div class="edit-service-container">
+  <div class="edit-hero">
+    <div class="edit-hero-content">
+      <div class="edit-hero-icon">✏️</div>
+      <div>
+        <h1>Edit "<%= service.title %>"</h1>
+      </div>
+    </div>
+    <p class="edit-hero-subtitle">Fine-tune your service details and make it shine! ✨</p>
   </div>
-</section>
 
-<div class="dx-premium-wrap">
-  <div class="dx-grid">
-    <form method="POST" action="/services/<%= service.id %>/edit" class="dx-card" style="overflow:hidden">
-      <div class="dx-section"><h3>Core Details</h3></div>
-      <div class="dx-field">
-        <label class="dx-label" for="title">Service Title *</label>
-        <input class="dx-input" type="text" id="title" name="title" required maxlength="100" value="<%= service.title %>">
-      </div>
-      <div class="dx-field">
-        <label class="dx-label" for="category">Category *</label>
-        <select class="dx-input" id="category" name="category" required>
-          <% const __cats = ['Tutoring','Mentorship','Coaching','Workshops','Consulting','Design Services','Development','Writing & Content','Marketing & SEO','Video & Photography','Audio & Music','Business Strategy','Legal Services','Financial Planning','Health & Wellness','Language Learning','Career Services','Data & Analytics','Virtual Assistance','Project Management','Other']; %>
-          <option value="">Select a category</option>
-          <% __cats.forEach(c => { %>
-            <option value="<%- c %>" <%= (service.category||'') === c ? 'selected' : '' %>><%- c %></option>
-          <% }) %>
-        </select>
-      </div>
-      <div class="dx-field">
-        <label class="dx-label" for="description">Description *</label>
-        <textarea class="dx-textarea" id="description" name="description" rows="6" required><%= service.description %></textarea>
-      </div>
-
-      <div class="dx-section"><h3>Session & Availability</h3></div>
-      <div class="dx-field">
-        <label class="dx-label" for="experienceLevel">Experience Level</label>
-        <select class="dx-input" id="experienceLevel" name="experienceLevel">
-          <% const __levels = ['', 'beginner','intermediate','advanced','expert']; const __levelLabels = { '':'Any level', beginner:'Beginner', intermediate:'Intermediate', advanced:'Advanced', expert:'Expert' }; %>
-          <% __levels.forEach(l => { %>
-            <option value="<%- l %>" <%= (service.experience_level||'') === l ? 'selected' : '' %>><%- __levelLabels[l] %></option>
-          <% }) %>
-        </select>
-      </div>
-      <div class="dx-field">
-        <label class="dx-label" for="format">Format *</label>
-        <select class="dx-input" id="format" name="format" required>
-          <% const __formats = ['', 'online','in-person','hybrid']; const __fLabels = { '':'Select format', 'online':'Online', 'in-person':'In-person', 'hybrid':'Hybrid' }; %>
-          <% __formats.forEach(f => { %>
-            <option value="<%- f %>" <%= (service.format||'') === f ? 'selected' : '' %>><%- __fLabels[f] %></option>
-          <% }) %>
-        </select>
-      </div>
-      <div class="dx-field">
-        <label class="dx-label" for="location">Location</label>
-        <input class="dx-input" type="text" id="location" name="location" value="<%= service.location || '' %>">
-      </div>
-      <div class="dx-field">
-        <label class="dx-label">Availability & Time Slots</label>
-        <div id="availabilityBuilder" style="background:linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08));border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:16px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;align-items:end;">
-            <div>
-              <label class="dx-label" style="margin:0 0 6px">Date</label>
-              <input type="date" id="abDate" class="dx-input" />
-            </div>
-            <div>
-              <label class="dx-label" style="margin:0 0 6px">Time</label>
-              <select id="abTime" class="dx-input">
-                <option value="">Select time</option>
-                <option>08:00</option><option>08:30</option>
-                <option>09:00</option><option>09:30</option>
-                <option>10:00</option><option>10:30</option>
-                <option>11:00</option><option>11:30</option>
-                <option>12:00</option><option>12:30</option>
-                <option>13:00</option><option>13:30</option>
-                <option>14:00</option><option>14:30</option>
-                <option>15:00</option><option>15:30</option>
-                <option>16:00</option><option>16:30</option>
-                <option>17:00</option><option>17:30</option>
-                <option>18:00</option><option>18:30</option>
-                <option>19:00</option><option>19:30</option>
-                <option>20:00</option>
-              </select>
-            </div>
-            <div>
-              <label class="dx-label" style="margin:0 0 6px">Quick Add</label>
-              <select id="abQuick" class="dx-input">
-                <option value="">— Common windows —</option>
-                <option value="weekday_evenings">Weekday evenings (Mon-Fri 18:00, 19:00)</option>
-                <option value="weekend_mornings">Weekend mornings (Sat/Sun 10:00, 11:00)</option>
-              </select>
-            </div>
-            <button type="button" id="abAdd" class="dx-btn dx-btn-primary" style="height:48px;">+ Add Slot</button>
+  <div class="edit-grid">
+    <form method="POST" action="/services/<%= service.id %>/edit" class="edit-main">
+      <!-- Core Details Section -->
+      <div class="edit-card">
+        <div class="section-header">
+          <div class="section-icon">📝</div>
+          <h3>Core Details</h3>
+        </div>
+        <div class="form-section">
+          <div class="form-group">
+            <label class="form-label" for="title">
+              <span class="form-label-icon">💎</span>
+              Service Title
+              <span class="required-star">*</span>
+            </label>
+            <input class="form-input" type="text" id="title" name="title" required maxlength="100" value="<%= service.title %>">
+            <div class="form-hint">Make it clear and benefit-focused. Good: "1-on-1 Spanish Tutoring for Beginners"</div>
           </div>
-          <div id="abChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
-          <input type="hidden" id="availability" name="availability" value="" />
-          <small class="hint">Only these dates/times will be available to book.</small>
+          
+          <div class="form-group">
+            <label class="form-label" for="category">
+              <span class="form-label-icon">📂</span>
+              Category
+              <span class="required-star">*</span>
+            </label>
+            <select class="form-select" id="category" name="category" required>
+              <% const __cats = ['Tutoring','Mentorship','Coaching','Workshops','Consulting','Design Services','Development','Writing & Content','Marketing & SEO','Video & Photography','Audio & Music','Business Strategy','Legal Services','Financial Planning','Health & Wellness','Language Learning','Career Services','Data & Analytics','Virtual Assistance','Project Management','Other']; %>
+              <option value="">Select a category</option>
+              <% __cats.forEach(c => { %>
+                <option value="<%- c %>" <%= (service.category||'') === c ? 'selected' : '' %>><%- c %></option>
+              <% }) %>
+            </select>
+            <div class="form-hint">Choose the category that best matches your service offering</div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="description">
+              <span class="form-label-icon">📖</span>
+              Description
+              <span class="required-star">*</span>
+            </label>
+            <textarea class="form-textarea" id="description" name="description" required><%= service.description %></textarea>
+            <div class="form-hint">Describe what you offer, who it's for, and what results they can expect. Use bullet points for easy scanning.</div>
+          </div>
         </div>
       </div>
 
-      <div class="dx-section"><h3>Price & Metadata</h3></div>
-      <div class="dx-field">
-        <label class="dx-label" for="tags">Tags (comma‑separated)</label>
-        <input class="dx-input" type="text" id="tags" name="tags" value="<%= service.tags || '' %>">
-      </div>
-      <div class="dx-field">
-        <label class="dx-label" for="pricePerHour">Price per Hour ($) *</label>
-        <input class="dx-input" type="number" id="pricePerHour" name="pricePerHour" min="5" max="500" step="5" required value="<%= service.price_per_hour %>">
-      </div>
-      <div class="dx-field">
-        <label class="dx-label" for="durationMinutes">Session Duration (minutes) *</label>
-        <input class="dx-input" type="number" id="durationMinutes" name="durationMinutes" min="15" step="15" required value="<%= service.duration_minutes %>">
+      <!-- Session & Delivery Section -->
+      <div class="edit-card" style="margin-top: 32px;">
+        <div class="section-header">
+          <div class="section-icon">🎯</div>
+          <h3>Session & Delivery</h3>
+        </div>
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="format">
+                <span class="form-label-icon">💻</span>
+                Format
+                <span class="required-star">*</span>
+              </label>
+              <select class="form-select" id="format" name="format" required>
+                <% const __formats = ['', 'online','in-person','hybrid']; const __fLabels = { '':'Select format', 'online':'Online', 'in-person':'In-person', 'hybrid':'Hybrid' }; %>
+                <% __formats.forEach(f => { %>
+                  <option value="<%- f %>" <%= (service.format||'') === f ? 'selected' : '' %>><%- __fLabels[f] %></option>
+                <% }) %>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label" for="experienceLevel">
+                <span class="form-label-icon">📊</span>
+                Experience Level
+              </label>
+              <select class="form-select" id="experienceLevel" name="experienceLevel">
+                <% const __levels = ['', 'beginner','intermediate','advanced','expert']; const __levelLabels = { '':'Any level', beginner:'Beginner', intermediate:'Intermediate', advanced:'Advanced', expert:'Expert' }; %>
+                <% __levels.forEach(l => { %>
+                  <option value="<%- l %>" <%= (service.experience_level||'') === l ? 'selected' : '' %>><%- __levelLabels[l] %></option>
+                <% }) %>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="location">
+              <span class="form-label-icon">📍</span>
+              Location
+            </label>
+            <input class="form-input" type="text" id="location" name="location" value="<%= service.location || '' %>">
+            <div class="form-hint">If in-person or hybrid, specify the city or neighborhood (e.g., "College Park, MD")</div>
+          </div>
+        </div>
       </div>
 
-      <div class="dx-actions">
-        <a href="/services/<%= service.id %>" class="dx-btn dx-btn-secondary">Cancel</a>
-        <button type="submit" class="dx-btn dx-btn-primary">Save Changes</button>
+      <!-- Availability Builder Section -->
+      <div class="edit-card" style="margin-top: 32px;">
+        <div class="section-header">
+          <div class="section-icon">📅</div>
+          <h3>Availability & Time Slots</h3>
+        </div>
+        <div class="form-section">
+          <div class="availability-builder">
+            <div class="availability-controls">
+              <div>
+                <label class="form-label" style="margin-bottom: 6px;">
+                  <span class="form-label-icon">📆</span>
+                  Date
+                </label>
+                <input type="date" id="abDate" class="form-input" />
+              </div>
+              <div>
+                <label class="form-label" style="margin-bottom: 6px;">
+                  <span class="form-label-icon">🕐</span>
+                  Time
+                </label>
+                <select id="abTime" class="form-select">
+                  <option value="">Select time</option>
+                  <option>08:00</option><option>08:30</option>
+                  <option>09:00</option><option>09:30</option>
+                  <option>10:00</option><option>10:30</option>
+                  <option>11:00</option><option>11:30</option>
+                  <option>12:00</option><option>12:30</option>
+                  <option>13:00</option><option>13:30</option>
+                  <option>14:00</option><option>14:30</option>
+                  <option>15:00</option><option>15:30</option>
+                  <option>16:00</option><option>16:30</option>
+                  <option>17:00</option><option>17:30</option>
+                  <option>18:00</option><option>18:30</option>
+                  <option>19:00</option><option>19:30</option>
+                  <option>20:00</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label" style="margin-bottom: 6px;">
+                  <span class="form-label-icon">⚡</span>
+                  Quick Add
+                </label>
+                <select id="abQuick" class="form-select">
+                  <option value="">— Presets —</option>
+                  <option value="weekday_evenings">Weekday evenings (Mon-Fri 18:00, 19:00)</option>
+                  <option value="weekend_mornings">Weekend mornings (Sat/Sun 10:00, 11:00)</option>
+                </select>
+              </div>
+              <button type="button" id="abAdd" class="btn-add-slot">➕ Add</button>
+            </div>
+            
+            <div id="abChips" class="availability-chips"></div>
+            <input type="hidden" id="availability" name="availability" value="" />
+            
+            <div class="quick-add-hint">
+              💡 <strong>Tip:</strong> Click on a time chip to remove it. Only selected dates/times will be bookable.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing & Duration Section -->
+      <div class="edit-card" style="margin-top: 32px;">
+        <div class="section-header">
+          <div class="section-icon">💰</div>
+          <h3>Pricing & Duration</h3>
+        </div>
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="pricePerHour">
+                <span class="form-label-icon">💵</span>
+                Price per Hour ($)
+                <span class="required-star">*</span>
+              </label>
+              <input class="form-input" type="number" id="pricePerHour" name="pricePerHour" min="5" max="500" step="5" required value="<%= service.price_per_hour %>">
+              <div class="form-hint">Round numbers work best (e.g., $50, $75, $100)</div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label" for="durationMinutes">
+                <span class="form-label-icon">⏱️</span>
+                Session Duration (minutes)
+                <span class="required-star">*</span>
+              </label>
+              <input class="form-input" type="number" id="durationMinutes" name="durationMinutes" min="15" step="15" required value="<%= service.duration_minutes %>">
+              <div class="form-hint">Common: 30, 60, 90, or 120 minutes</div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="tags">
+              <span class="form-label-icon">🏷️</span>
+              Tags (comma-separated)
+            </label>
+            <input class="form-input" type="text" id="tags" name="tags" value="<%= service.tags || '' %>">
+            <div class="form-hint">Help people find you: "python, coding, data science, beginner-friendly"</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="edit-card" style="margin-top: 32px;">
+        <div class="form-actions">
+          <a href="/services/<%= service.id %>" class="btn btn-secondary">← Cancel</a>
+          <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+        </div>
       </div>
     </form>
 
-    <aside class="dx-card dx-aside">
-      <h3 style="margin:0 0 10px;color:#cbd5e1;font-size:16px">Editor Tips</h3>
-      <p class="hint">Use concise, outcome‑focused titles. Keep descriptions scannable with short paragraphs or bullets. Mention who it’s for and the expected result.</p>
-      <p class="hint">Pricing works best in round numbers. If you offer multiple durations, note that in the description.</p>
-    </aside>
+    <!-- Sidebar -->
+    <div class="edit-sidebar">
+      <div class="sidebar-card">
+        <h4>💡 Pro Tips</h4>
+        <div class="sidebar-tip">
+          <p class="sidebar-tip-text"><strong>Title:</strong> Use clear, benefit-focused language. "Master JavaScript in 8 Weeks" beats "JS Course"</p>
+        </div>
+        <div class="sidebar-tip">
+          <p class="sidebar-tip-text"><strong>Description:</strong> Answer: What will they learn? Who is this for? What makes you qualified?</p>
+        </div>
+        <div class="sidebar-tip">
+          <p class="sidebar-tip-text"><strong>Pricing:</strong> Research competitors. Price reflects perceived value—don't undervalue your expertise!</p>
+        </div>
+        <div class="sidebar-tip" style="margin-bottom: 0;">
+          <p class="sidebar-tip-text"><strong>Availability:</strong> More slots = more bookings. Keep your calendar updated!</p>
+        </div>
+      </div>
+      
+      <div class="sidebar-card">
+        <h4>⚡ Quick Actions</h4>
+        <a href="/services/<%= service.id %>" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-bottom: 12px;">👁️ View Live Service</a>
+        <button type="button" onclick="if(window.showConfirm) showConfirm('Delete this service? This cannot be undone.', () => { fetch('/services/<%= service.id %>/delete', {method:'POST'}).then(() => location.href='/profile'); }); else if(confirm('Delete this service?')) { fetch('/services/<%= service.id %>/delete', {method:'POST'}).then(() => location.href='/profile'); }" class="btn btn-secondary" style="width: 100%; justify-content: center; background: rgba(239, 68, 68, 0.1); border-color: #ef4444; color: #f87171;">🗑️ Delete Service</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <script type="application/json" id="existingAvailability"><%- typeof service.availability === 'string' ? service.availability : JSON.stringify(service.availability || null) %></script>
 <script>
-// Availability builder + hydrate from existing
+// Availability Builder with Enhanced UX
 (function(){
   const abDate = document.getElementById('abDate');
   const abTime = document.getElementById('abTime');
@@ -160,62 +623,155 @@
   function render(){
     abChips.innerHTML = '';
     const dates = Object.keys(slots).sort();
-    dates.forEach(d => {
-      const group = document.createElement('div');
-      group.style.cssText = 'display:flex;align-items:center;gap:8px;background:#0b1020;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 10px;';
-      const title = document.createElement('span');
-      title.textContent = new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
-      title.style.cssText = 'font-weight:700;color:#e5e7eb';
-      group.appendChild(title);
-      (slots[d] || []).sort().forEach(t => {
-        const chip = document.createElement('span');
-        chip.textContent = t;
-        chip.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:999px;padding:4px 10px;font-weight:600;';
-        chip.title = 'Click to remove';
-        chip.style.cursor = 'pointer';
-        chip.addEventListener('click', ()=>{ removeSlot(d,t); });
-        group.appendChild(chip);
+    
+    if (dates.length === 0) {
+      abChips.innerHTML = '<div style="width:100%;text-align:center;color:#64748b;padding:20px 0;">No time slots added yet. Add your first slot above! 👆</div>';
+    } else {
+      dates.forEach(d => {
+        const group = document.createElement('div');
+        group.className = 'availability-chip-group';
+        
+        const title = document.createElement('span');
+        title.className = 'chip-date';
+        title.textContent = new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
+        group.appendChild(title);
+        
+        (slots[d] || []).sort().forEach(t => {
+          const chip = document.createElement('span');
+          chip.className = 'chip-time';
+          chip.textContent = t;
+          chip.title = 'Click to remove';
+          chip.addEventListener('click', ()=>{ removeSlot(d,t); });
+          group.appendChild(chip);
+        });
+        
+        abChips.appendChild(group);
       });
-      abChips.appendChild(group);
-    });
+    }
+    
     const payload = { dates: Object.keys(slots).map(d => ({ date: d, times: (slots[d]||[]).slice().sort() })) };
     hidden.value = JSON.stringify(payload);
   }
 
-  function addSlot(date, time){ if(!date || !time) return; if(!slots[date]) slots[date] = []; if(!slots[date].includes(time)) slots[date].push(time); render(); }
-  function removeSlot(date, time){ if(!slots[date]) return; slots[date] = slots[date].filter(x => x !== time); if(slots[date].length===0) delete slots[date]; render(); }
+  function addSlot(date, time){ 
+    if(!date || !time) return; 
+    if(!slots[date]) slots[date] = []; 
+    if(!slots[date].includes(time)) {
+      slots[date].push(time);
+      if(window.showSuccess) {
+        showSuccess(`Added ${time} on ${new Date(date+'T00:00:00').toLocaleDateString()}!`);
+      }
+    }
+    render(); 
+  }
+  
+  function removeSlot(date, time){ 
+    if(!slots[date]) return; 
+    slots[date] = slots[date].filter(x => x !== time); 
+    if(slots[date].length===0) delete slots[date]; 
+    render(); 
+  }
 
-  abAdd.addEventListener('click', () => addSlot(abDate.value, abTime.value));
+  abAdd.addEventListener('click', () => {
+    if(!abDate.value || !abTime.value) {
+      if(window.showWarning) {
+        showWarning('Please select both a date and time!');
+      } else {
+        alert('Please select both date and time');
+      }
+      return;
+    }
+    addSlot(abDate.value, abTime.value);
+  });
+  
   abQuick.addEventListener('change', () => {
-    const v = abQuick.value; if (!v) return; const now = new Date();
+    const v = abQuick.value; 
+    if (!v) return; 
+    const now = new Date();
+    let count = 0;
+    
     for (let i=0;i<21;i++){
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i);
-      const iso = d.toISOString().slice(0,10); const day = d.getDay();
-      if (v==='weekday_evenings' && day>=1 && day<=5) { addSlot(iso,'18:00'); addSlot(iso,'19:00'); }
-      if (v==='weekend_mornings' && (day===0 || day===6)) { addSlot(iso,'10:00'); addSlot(iso,'11:00'); }
+      const iso = d.toISOString().slice(0,10); 
+      const day = d.getDay();
+      
+      if (v==='weekday_evenings' && day>=1 && day<=5) { 
+        addSlot(iso,'18:00'); 
+        addSlot(iso,'19:00'); 
+        count++;
+      }
+      if (v==='weekend_mornings' && (day===0 || day===6)) { 
+        addSlot(iso,'10:00'); 
+        addSlot(iso,'11:00');
+        count++;
+      }
     }
+    
+    if(count > 0 && window.showSuccess) {
+      showSuccess(`Added ${count} days of availability!`);
+    }
+    
     abQuick.value='';
   });
 
-  // Hydrate existing availability (string or object)
+  // Hydrate existing availability
   try {
     let avRaw = (document.getElementById('existingAvailability')?.textContent || '').trim();
     let av = null;
     if (avRaw) { try { av = JSON.parse(avRaw); } catch(e) { av = null; } }
     if (av && av.dates && Array.isArray(av.dates)) {
-      av.dates.forEach(d => { const date = d.date; const arr = Array.isArray(d.times) ? d.times : []; if (date && arr.length){ slots[date] = Array.from(new Set(arr)); } });
+      av.dates.forEach(d => { 
+        const date = d.date; 
+        const arr = Array.isArray(d.times) ? d.times : []; 
+        if (date && arr.length){ 
+          slots[date] = Array.from(new Set(arr)); 
+        } 
+      });
     }
     render();
-  } catch(e){ render(); }
+  } catch(e){ 
+    render(); 
+  }
 })();
 
-// Save button UX
+// Enhanced Save UX
 (function(){
   const form = document.querySelector('form[action^="/services/"]');
-  const btn = document.querySelector('.dx-btn-primary[type="submit"]');
+  const btn = document.querySelector('.btn-primary[type="submit"]');
   if (!form || !btn) return;
+  
   let saving = false;
-  form.addEventListener('submit', () => { if (saving) return; saving = true; btn.textContent='Saving…'; btn.style.opacity='.8'; });
+  form.addEventListener('submit', (e) => { 
+    if (saving) {
+      e.preventDefault();
+      return;
+    }
+    
+    const availability = document.getElementById('availability').value;
+    try {
+      const av = JSON.parse(availability);
+      if(!av.dates || av.dates.length === 0) {
+        e.preventDefault();
+        if(window.showWarning) {
+          showWarning('Please add at least one availability slot!');
+        } else {
+          alert('Please add at least one availability slot');
+        }
+        return;
+      }
+    } catch(err) {
+      e.preventDefault();
+      if(window.showError) {
+        showError('Availability data is invalid. Please try adding slots again.');
+      }
+      return;
+    }
+    
+    saving = true; 
+    btn.innerHTML = '💾 Saving…'; 
+    btn.style.opacity='.7';
+    btn.style.pointerEvents = 'none';
+  });
 })();
 </script>
 

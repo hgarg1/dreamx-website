@@ -76,6 +76,11 @@ const templates = {
             </ul>
             <p>Thank you for your patience.</p>
             <p>Best regards,<br>Dream X Team</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                You're receiving this email because you have notifications enabled.<br>
+                Dream X © 2025
+            </p>
         `
     }),
 
@@ -91,6 +96,11 @@ const templates = {
             </ul>
             <p>If you have further questions, please contact support.</p>
             <p>Best regards,<br>Dream X Team</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                You're receiving this email because you have notifications enabled.<br>
+                Dream X © 2025
+            </p>
         `
     }),
 
@@ -104,6 +114,11 @@ const templates = {
             <p>You can now access your account normally.</p>
             <p>Thank you for your patience.</p>
             <p>Best regards,<br>Dream X Team</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                You're receiving this email because you have notifications enabled.<br>
+                Dream X © 2025
+            </p>
         `
     }),
 
@@ -119,6 +134,11 @@ const templates = {
             </ul>
             <p>The original decision stands. If you have further questions, please contact support.</p>
             <p>Best regards,<br>Dream X Team</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                You're receiving this email because you have notifications enabled.<br>
+                Dream X © 2025
+            </p>
         `
     }),
 
@@ -143,6 +163,11 @@ const templates = {
             <blockquote style="border-left: 3px solid #007bff; padding-left: 15px; color: #555;">${content}</blockquote>
             <p><a href="${baseUrl}/post/${postId}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">View Post</a></p>
             <p>Best regards,<br>Dream X Team</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                You're receiving this email because you have notifications enabled.<br>
+                Dream X © 2025
+            </p>
         `
     }),
 
@@ -155,6 +180,11 @@ const templates = {
             <blockquote style="border-left: 3px solid #007bff; padding-left: 15px; color: #555;">${content}</blockquote>
             <p><a href="${baseUrl}/post/${postId}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">View Post</a></p>
             <p>Best regards,<br>Dream X Team</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                You're receiving this email because you have notifications enabled.<br>
+                Dream X © 2025
+            </p>
         `
     }),
 
@@ -166,6 +196,11 @@ const templates = {
             <p><strong>${liker.full_name}</strong> liked your comment.</p>
             <p><a href="${baseUrl}/post/${postId}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">View Post</a></p>
             <p>Best regards,<br>Dream X Team</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                You're receiving this email because you have notifications enabled.<br>
+                Dream X © 2025
+            </p>
         `
     }),
 
@@ -179,6 +214,11 @@ const templates = {
             <p><strong>Reason:</strong> ${reason}</p>
             <p>If you believe this is a mistake, you can submit an appeal at <a href="https://dreamx.local/account-appeal">https://dreamx.local/account-appeal</a></p>
             <p>Best regards,<br>Dream X Team</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+            <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                You're receiving this email because you have notifications enabled.<br>
+                Dream X © 2025
+            </p>
         `
     }),
 
@@ -272,6 +312,11 @@ const emailService = {
                 <p>If you did not request this deletion, please contact us immediately at support@dreamx.com</p>
                 <p>We're sorry to see you go. If you change your mind in the future, you're always welcome to create a new account.</p>
                 <p>Best regards,<br>Dream X Team</p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+                <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                    You're receiving this email because you have notifications enabled.<br>
+                    Dream X © 2025
+                </p>
             `
         };
         return await sendEmail(email, template.subject, template.html);
@@ -288,6 +333,11 @@ const emailService = {
                 <p>We have received your application and our HR team will review it carefully.</p>
                 <p>You can expect to hear from us within 5-7 business days regarding the next steps.</p>
                 <p>Best regards,<br>Dream X Recruitment Team</p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+                <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                    You're receiving this email because you have notifications enabled.<br>
+                    Dream X © 2025
+                </p>
             `
         };
         return await sendEmail(applicantEmail, template.subject, template.html);
@@ -310,6 +360,11 @@ const emailService = {
                 <p>${statusMessages[status] || 'Your application status has been updated.'}</p>
                 ${status === 'rejected' ? '<p>We wish you the best in your job search and future endeavors.</p>' : ''}
                 <p>Best regards,<br>Dream X Recruitment Team</p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+                <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                    You're receiving this email because you have notifications enabled.<br>
+                    Dream X © 2025
+                </p>
             `
         };
         return await sendEmail(applicantEmail, template.subject, template.html);
@@ -324,6 +379,11 @@ const emailService = {
                 <p>Dear ${applicantName},</p>
                 ${message.split('\n').map(line => `<p>${line}</p>`).join('')}
                 <p>Best regards,<br>${fromHR}</p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+                <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                    You're receiving this email because you have notifications enabled.<br>
+                    Dream X © 2025
+                </p>
             `
         };
         return await sendEmail(applicantEmail, template.subject, template.html);
@@ -341,6 +401,11 @@ const emailService = {
                 <p>While your privileges are frozen, your services will not be visible to other users and you cannot create new services.</p>
                 <p>If you believe this is a mistake, please contact support at support@dreamx.com</p>
                 <p>Best regards,<br>Dream X Team</p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+                <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                    You're receiving this email because you have notifications enabled.<br>
+                    Dream X © 2025
+                </p>
             `
         };
         return await sendEmail(user.email, template.subject, template.html);
@@ -356,6 +421,87 @@ const emailService = {
                 <p>Your services are now visible again and you can create new services.</p>
                 <p>Thank you for your patience.</p>
                 <p>Best regards,<br>Dream X Team</p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
+                <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
+                    You're receiving this email because you have notifications enabled.<br>
+                    Dream X © 2025
+                </p>
+            `
+        };
+        return await sendEmail(user.email, template.subject, template.html);
+    },
+
+    // Email Verification
+    sendVerificationCode: async (user, code) => {
+        const template = {
+            subject: 'Verify Your Email - Dream X',
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #0b1020 0%, #1a1f3a 100%); }
+                        .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+                        .header { background: linear-gradient(135deg, #667eea, #764ba2); padding: 40px 30px; text-align: center; }
+                        .header h1 { color: white; margin: 0; font-size: 32px; font-weight: 900; }
+                        .header p { color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 16px; }
+                        .content { padding: 40px 30px; }
+                        .greeting { font-size: 18px; color: #1e293b; margin: 0 0 20px; }
+                        .message { color: #475569; line-height: 1.6; margin: 0 0 30px; font-size: 16px; }
+                        .code-container { background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08)); border: 2px dashed #667eea; border-radius: 16px; padding: 30px; text-align: center; margin: 30px 0; }
+                        .code-label { color: #64748b; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px; }
+                        .code { font-size: 48px; font-weight: 900; color: #667eea; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace; }
+                        .expiry { color: #94a3b8; font-size: 14px; margin: 16px 0 0; }
+                        .warning { background: rgba(239,68,68,0.1); border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px; margin: 20px 0; }
+                        .warning p { margin: 0; color: #991b1b; font-size: 14px; }
+                        .footer { background: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0; }
+                        .footer p { margin: 0; color: #64748b; font-size: 14px; line-height: 1.6; }
+                        .footer-brand { color: #667eea; font-weight: 700; font-size: 16px; margin: 16px 0 8px; }
+                        .footer-tagline { font-style: italic; color: #94a3b8; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>✨ Welcome to Dream X!</h1>
+                            <p>Let's verify your email and get started</p>
+                        </div>
+                        <div class="content">
+                            <p class="greeting">Hey ${user.full_name}! 👋</p>
+                            <p class="message">
+                                We're excited to have you join Dream X! Before you dive into building your profile and connecting with amazing people, 
+                                we need to verify your email address.
+                            </p>
+                            <p class="message">
+                                Enter this verification code on the next screen:
+                            </p>
+                            <div class="code-container">
+                                <p class="code-label">Your Verification Code</p>
+                                <p class="code">${code}</p>
+                                <p class="expiry">⏰ Expires in 15 minutes</p>
+                            </div>
+                            <div class="warning">
+                                <p><strong>⚠️ Security Notice:</strong> Never share this code with anyone. Dream X staff will never ask for your verification code.</p>
+                            </div>
+                            <p class="message">
+                                Once verified, you'll complete your onboarding and start your journey toward growth! 🚀
+                            </p>
+                        </div>
+                        <div class="footer">
+                            <p class="footer-brand">Dream X</p>
+                            <p class="footer-tagline">"Addicted to growth."</p>
+                            <p>If you didn't create an account, you can safely ignore this email.</p>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                            <p style="color: #94a3b8; font-size: 13px; margin: 0;">
+                                You're receiving this email because you have notifications enabled.<br>
+                                Dream X © 2025
+                            </p>
+                        </div>
+                    </div>
+                </body>
+                </html>
             `
         };
         return await sendEmail(user.email, template.subject, template.html);

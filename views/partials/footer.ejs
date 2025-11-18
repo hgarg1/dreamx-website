@@ -76,6 +76,7 @@
                     <h3 class="footer-heading">Company</h3>
                     <ul class="footer-links">
                         <li><a href="/about">About</a></li>
+                        <li><a href="/team">Team</a></li>
                         <li><a href="/careers">Careers</a></li>
                         <li><a href="/contact">Contact</a></li>
                     </ul>
@@ -249,7 +250,7 @@
     
     <!-- Global authUser for notifications -->
     <script>
-        window.authUser = { id: <%= authUser.id %> };
+      window.authUser = { id: <%= authUser.id %>, push_notifications: <%= authUser.push_notifications ? 'true' : 'false' %> };
     </script>
     <script src="/js/notifications.js"></script>
     

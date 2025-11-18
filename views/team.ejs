@@ -1,0 +1,553 @@
+<%- include('partials/header') %>
+
+<style>
+  .team-hero {
+    background: linear-gradient(135deg, #0b1020 0%, #1a1f3a 50%, #0f172a 100%);
+    padding: 80px 0 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .team-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(102, 126, 234, 0.15), transparent 60%);
+    pointer-events: none;
+  }
+  
+  .team-hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .team-hero h1 {
+    font-size: 56px;
+    font-weight: 900;
+    margin: 0 0 20px;
+    background: linear-gradient(135deg, #e5e7eb, #cbd5e1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .team-hero-subtitle {
+    font-size: 24px;
+    color: #94a3b8;
+    font-weight: 600;
+    margin: 0 0 16px;
+  }
+  
+  .team-hero-description {
+    font-size: 18px;
+    color: #cbd5e1;
+    line-height: 1.8;
+    margin: 0;
+  }
+  
+  .team-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 80px 24px;
+  }
+  
+  .team-section {
+    margin-bottom: 80px;
+  }
+  
+  .section-header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+  
+  .section-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    padding: 8px 20px;
+    border-radius: 999px;
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  
+  .section-title {
+    font-size: 36px;
+    font-weight: 900;
+    color: #e5e7eb;
+    margin: 0;
+  }
+  
+  .team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 40px;
+  }
+  
+  .team-card {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+  }
+  
+  .team-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(102, 126, 234, 0.3);
+    border-color: rgba(102, 126, 234, 0.3);
+  }
+  
+  .team-card-image-wrapper {
+    position: relative;
+    height: 320px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    overflow: hidden;
+  }
+  
+  .team-card-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.6s ease;
+  }
+  
+  .team-card:hover .team-card-image {
+    transform: scale(1.08);
+  }
+  
+  .team-card-gradient {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.9), transparent);
+  }
+  
+  .team-card-body {
+    padding: 32px;
+  }
+  
+  .member-name {
+    font-size: 24px;
+    font-weight: 900;
+    color: #e5e7eb;
+    margin: 0 0 8px;
+  }
+  
+  .member-role {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+  
+  .member-bio {
+    color: #94a3b8;
+    font-size: 15px;
+    line-height: 1.7;
+    margin: 0 0 24px;
+  }
+  
+  .member-expertise {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  
+  .expertise-tag {
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    color: #94a3b8;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .member-social {
+    display: flex;
+    gap: 12px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  .social-link {
+    width: 40px;
+    height: 40px;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #667eea;
+    text-decoration: none;
+    font-size: 18px;
+    transition: all 0.3s;
+  }
+  
+  .social-link:hover {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    transform: translateY(-2px);
+  }
+  
+  .join-cta {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border: 2px dashed rgba(102, 126, 234, 0.3);
+    border-radius: 24px;
+    padding: 60px 40px;
+    text-align: center;
+    margin-top: 80px;
+  }
+  
+  .join-cta h2 {
+    font-size: 36px;
+    font-weight: 900;
+    color: #e5e7eb;
+    margin: 0 0 16px;
+  }
+  
+  .join-cta p {
+    font-size: 18px;
+    color: #94a3b8;
+    margin: 0 0 32px;
+    line-height: 1.6;
+  }
+  
+  .join-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 16px 40px;
+    border-radius: 16px;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 700;
+    transition: all 0.3s;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+  }
+  
+  .join-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 40px rgba(102, 126, 234, 0.5);
+  }
+  
+  @media (max-width: 768px) {
+    .team-hero h1 {
+      font-size: 40px;
+    }
+    
+    .team-hero-subtitle {
+      font-size: 20px;
+    }
+    
+    .team-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<section class="team-hero">
+  <div class="team-hero-content">
+    <h1>Meet the Dream X Team</h1>
+    <p class="team-hero-subtitle">"Addicted to growth."</p>
+    <p class="team-hero-description">
+      We're a diverse group of builders, creators, and dreamers on a mission to help the world 
+      focus on productive growth. Here are the people making it happen.
+    </p>
+  </div>
+</section>
+
+<div class="team-container">
+  <!-- Leadership Team -->
+  <section class="team-section">
+    <div class="section-header">
+      <span class="section-badge">🚀 Leadership</span>
+      <h2 class="section-title">Executive Team</h2>
+    </div>
+    
+    <div class="team-grid">
+      <!-- CEO -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=600&fit=crop" alt="Marcus Chen">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Marcus Chen</h3>
+          <span class="member-role">CEO & Co-Founder</span>
+          <p class="member-bio">
+            Former product lead at Google, Marcus founded Dream X after witnessing the power of intentional 
+            growth communities. Stanford CS grad with a passion for building tools that help people become 
+            their best selves. When not coding, you'll find him trail running or reading philosophy.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">Product Strategy</span>
+            <span class="expertise-tag">AI/ML</span>
+            <span class="expertise-tag">Growth</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Twitter">𝕏</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+            <a href="#" class="social-link" title="GitHub">💻</a>
+          </div>
+        </div>
+      </div>
+      
+      <!-- CTO -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&h=600&fit=crop" alt="Sarah Mitchell">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Sarah Mitchell</h3>
+          <span class="member-role">CTO & Co-Founder</span>
+          <p class="member-bio">
+            Engineering wizard with 15 years building scalable systems at Meta and Amazon. MIT grad who believes 
+            technology should empower, not distract. Sarah architected Dream X's infrastructure to handle millions 
+            while keeping the experience lightning-fast. Loves jazz music and competitive chess.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">Systems Architecture</span>
+            <span class="expertise-tag">Security</span>
+            <span class="expertise-tag">DevOps</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Twitter">𝕏</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+            <a href="#" class="social-link" title="GitHub">💻</a>
+          </div>
+        </div>
+      </div>
+      
+      <!-- CPO -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=600&h=600&fit=crop" alt="Jamal Washington">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Jamal Washington</h3>
+          <span class="member-role">Chief Product Officer</span>
+          <p class="member-bio">
+            Product visionary who helped scale Spotify's creator tools to 10M+ users. Howard University alum 
+            obsessed with user experience and data-driven design. Jamal ensures every feature we ship solves 
+            real problems. Weekend DJ and coffee connoisseur who's always experimenting with new beans.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">Product Design</span>
+            <span class="expertise-tag">User Research</span>
+            <span class="expertise-tag">Analytics</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Twitter">𝕏</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Key Staff -->
+  <section class="team-section">
+    <div class="section-header">
+      <span class="section-badge">⭐ Key Staff</span>
+      <h2 class="section-title">The Dream Team</h2>
+    </div>
+    
+    <div class="team-grid">
+      <!-- Head of Design -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&h=600&fit=crop" alt="Elena Rodriguez">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Elena Rodriguez</h3>
+          <span class="member-role">Head of Design</span>
+          <p class="member-bio">
+            Design lead from Airbnb with a keen eye for beautiful, functional interfaces. RISD graduate who 
+            believes great design is invisible. Elena crafts Dream X's visual language to be both stunning 
+            and accessible. Passionate about typography, sustainable fashion, and ceramics.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">UI/UX Design</span>
+            <span class="expertise-tag">Brand Identity</span>
+            <span class="expertise-tag">Accessibility</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Instagram">📷</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+            <a href="#" class="social-link" title="Dribbble">🎨</a>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Head of Engineering -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&h=600&fit=crop" alt="Alex Kim">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Alex Kim</h3>
+          <span class="member-role">Head of Engineering</span>
+          <p class="member-bio">
+            Full-stack guru who built real-time collaboration tools at Notion. UC Berkeley CS major who loves 
+            clean code and elegant solutions. Alex leads our engineering team with a focus on quality and speed. 
+            Rock climber, podcast host, and amateur astronomer who owns three telescopes.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">Full-Stack Dev</span>
+            <span class="expertise-tag">Real-time Systems</span>
+            <span class="expertise-tag">Team Leadership</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Twitter">𝕏</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+            <a href="#" class="social-link" title="GitHub">💻</a>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Head of Community -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=600&h=600&fit=crop" alt="Priya Patel">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Priya Patel</h3>
+          <span class="member-role">Head of Community</span>
+          <p class="member-bio">
+            Community builder extraordinaire who grew Reddit's creator program from 0 to 500K members. 
+            Northwestern grad who understands what makes online communities thrive. Priya ensures Dream X 
+            stays authentic and supportive. Yoga instructor, world traveler (47 countries!), and foodie blogger.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">Community Building</span>
+            <span class="expertise-tag">Content Strategy</span>
+            <span class="expertise-tag">Moderation</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Twitter">𝕏</a>
+            <a href="#" class="social-link" title="Instagram">📷</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Head of Growth -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&h=600&fit=crop" alt="Tyler Brooks">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Tyler Brooks</h3>
+          <span class="member-role">Head of Growth</span>
+          <p class="member-bio">
+            Growth hacker who scaled Duolingo's user base by 300% in 18 months. Wharton MBA with a knack for 
+            viral loops and retention. Tyler uses data and creativity to help Dream X reach dreamers worldwide. 
+            Marathon runner, startup advisor, and proud plant dad to 23 succulents.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">Growth Marketing</span>
+            <span class="expertise-tag">Analytics</span>
+            <span class="expertise-tag">Experimentation</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Twitter">𝕏</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Lead AI Engineer -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=600&h=600&fit=crop" alt="Dr. Yuki Tanaka">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Dr. Yuki Tanaka</h3>
+          <span class="member-role">Lead AI Engineer</span>
+          <p class="member-bio">
+            AI researcher with PhD from MIT who worked on OpenAI's GPT projects. Yuki builds Dream X's 
+            recommendation algorithms and Reverse Algorithm™ that surface content you *should* see, not just 
+            what keeps you scrolling. Chess grandmaster and classical pianist who performs at local venues.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">Machine Learning</span>
+            <span class="expertise-tag">NLP</span>
+            <span class="expertise-tag">Recommender Systems</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Twitter">𝕏</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+            <a href="#" class="social-link" title="Research">📚</a>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Head of Trust & Safety -->
+      <div class="team-card">
+        <div class="team-card-image-wrapper">
+          <img class="team-card-image" src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=600&h=600&fit=crop" alt="Maya Thompson">
+          <div class="team-card-gradient"></div>
+        </div>
+        <div class="team-card-body">
+          <h3 class="member-name">Maya Thompson</h3>
+          <span class="member-role">Head of Trust & Safety</span>
+          <p class="member-bio">
+            Former FBI cybersecurity analyst turned platform safety expert. Maya ensures Dream X remains a 
+            welcoming, secure space for authentic growth. Columbia Law grad who balances freedom of expression 
+            with community safety. Kickboxing instructor and mystery novel author with two published books.
+          </p>
+          <div class="member-expertise">
+            <span class="expertise-tag">Content Moderation</span>
+            <span class="expertise-tag">Cybersecurity</span>
+            <span class="expertise-tag">Policy</span>
+          </div>
+          <div class="member-social">
+            <a href="#" class="social-link" title="Twitter">𝕏</a>
+            <a href="#" class="social-link" title="LinkedIn">💼</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Join CTA -->
+  <div class="join-cta">
+    <h2>Want to Join Us? 🚀</h2>
+    <p>
+      We're always looking for talented, passionate people who want to make a difference. 
+      Check out our open positions and help us build the future of productive social networking.
+    </p>
+    <a href="/careers" class="join-btn">View Open Positions</a>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

@@ -495,6 +495,20 @@
         <span class="booking-price-unit">/ hour</span>
       </div>
       
+      <% if (isOwner) { %>
+        <div style="text-align:center;padding:24px 0;">
+          <div style="font-size:48px;margin-bottom:12px;">🎯</div>
+          <h3 style="color:#cbd5e1;margin:0 0 8px;font-size:18px;">This is your service!</h3>
+          <p style="color:#94a3b8;margin:0 0 20px;font-size:14px;">You can't book your own sessions, silly! But you can edit or manage it below.</p>
+          <a href="/services/<%= service.id %>/edit" class="booking-btn booking-btn-primary" style="width:100%;text-decoration:none;margin-bottom:12px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Edit Service
+          </a>
+        </div>
+      <% } else { %>
       <form id="bookingForm">
         <div class="booking-form-group">
           <label class="booking-label" for="sessionLength">
@@ -559,8 +573,9 @@
         
         <p class="booking-note">🔒 Payments are securely processed. Message the provider directly with any questions.</p>
       </form>
+      <% } %>
       
-      <% if (isOwner) { %>
+      <% if (false && isOwner) { %>
         <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.1);">
           <a href="/services/<%= service.id %>/edit" class="booking-btn booking-btn-secondary" style="width:100%;text-decoration:none;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -702,26 +717,30 @@
   }
 
   function moderateReview(reviewId, action) {
-    if (!confirm(`Are you sure you want to ${action} this review?`)) return;
-    
-    fetch(`/api/reviews/${reviewId}/moderate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        showToast(`Review ${action === 'hide' ? 'hidden' : 'deleted'} successfully`, 'success');
-        setTimeout(() => location.reload(), 800);
-      } else {
-        showToast(data.error || 'Failed to moderate review', 'error');
+    showConfirm(
+      `This will ${action} the review. Continue?`,
+      () => {
+        fetch(`/api/reviews/${reviewId}/moderate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            showSuccess(`Review ${action === 'hide' ? 'hidden' : 'deleted'} successfully`, {
+              onConfirm: () => location.reload()
+            });
+          } else {
+            showError(data.error || 'Failed to moderate review');
+          }
+        })
+        .catch(err => {
+          console.error('Moderation error:', err);
+          showError('Failed to moderate review');
+        });
       }
-    })
-    .catch(err => {
-      console.error('Moderation error:', err);
-      showToast('Failed to moderate review', 'error');
-    });
+    );
   }
 
   // Attach event listeners
@@ -764,7 +783,7 @@
       const sessionTime = document.getElementById('sessionTime').value;
       
       if (!sessionDate || !sessionTime) {
-        alert('Please select both date and time for your session.');
+        showWarning('Please select both date and time for your session.');
         return;
       }
       
@@ -779,16 +798,17 @@
         const data = await resp.json();
         
         if (data && data.success) {
-          alert('✅ Booking confirmed! You can now leave a verified review after the session.');
-          window.location.reload();
+          showSuccess('Booking confirmed! You can now leave a verified review after the session.', {
+            onConfirm: () => window.location.reload()
+          });
         } else if (data && data.requirePayment) {
           if (window.openPaymentModal) window.openPaymentModal();
         } else {
-          alert('❌ ' + (data.error || 'Booking failed. Please try again.'));
+          showError(data.error || 'Booking failed. Please try again.');
         }
       } catch (err) {
         console.error('Booking error:', err);
-        alert('❌ Booking failed. Please try again.');
+        showError('Booking failed. Please try again.');
       }
     });
   }
@@ -803,7 +823,7 @@
       const comment = document.getElementById('comment').value;
       
       if (!rating) {
-        alert('Please select a rating.');
+        showWarning('Please select a rating.');
         return;
       }
       
@@ -817,14 +837,15 @@
         const data = await resp.json();
         
         if (data.success) {
-          alert('✅ Review submitted successfully!');
-          window.location.reload();
+          showSuccess('Review submitted successfully!', {
+            onConfirm: () => window.location.reload()
+          });
         } else {
-          alert('❌ ' + (data.error || 'Failed to submit review'));
+          showError(data.error || 'Failed to submit review');
         }
       } catch (err) {
         console.error('Review error:', err);
-        alert('❌ Failed to submit review. Please try again.');
+        showError('Failed to submit review. Please try again.');
       }
     });
   }
@@ -954,27 +975,35 @@
         const expiryYear = document.getElementById('pmExpYear').value;
         const cvv = document.getElementById('pmCvv').value;
         if (!cardType || !cardNumber || !expiryMonth || !expiryYear || !cvv) {
-          alert('Please complete all card fields.'); return;
+          showWarning('Please complete all card fields.');
+          return;
         }
         const res = await fetch('/api/payment-methods/add', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cardType, cardNumber, expiryMonth, expiryYear, setDefault: true })
         });
         const out = await res.json();
-        if (!res.ok || !out.success) { alert(out.error || 'Failed to save card'); return; }
+        if (!res.ok || !out.success) { 
+          showError(out.error || 'Failed to save card');
+          return;
+        }
       } else {
         const bankCountry = document.getElementById('pmBankCountry').value;
         const bankAccount = document.getElementById('pmBankAccount').value;
         const routingNumber = document.getElementById('pmRouting').value;
         if (!bankCountry || !bankAccount || !routingNumber) {
-          alert('Please complete all bank fields.'); return;
+          showWarning('Please complete all bank fields.');
+          return;
         }
         const res = await fetch('/api/banking/save', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ bankCountry, bankAccount, routingNumber })
         });
         const out = await res.json();
-        if (!res.ok || !out.success) { alert(out.error || 'Failed to save bank info'); return; }
+        if (!res.ok || !out.success) { 
+          showError(out.error || 'Failed to save bank info');
+          return;
+        }
       }
       // Retry booking after saving payment method
       closePaymentModal();
@@ -985,15 +1014,16 @@
         });
         const data = await resp.json();
         if (data && data.success) {
-          alert('✅ Booking confirmed!');
-          window.location.reload();
+          showSuccess('Booking confirmed!', {
+            onConfirm: () => window.location.reload()
+          });
         } else {
-          alert(data.error || 'Booking failed. Please try again.');
+          showError(data.error || 'Booking failed. Please try again.');
         }
       }
     } catch (err) {
       console.error('Payment save error:', err);
-      alert('Failed to save payment method. Please try again.');
+      showError('Failed to save payment method. Please try again.');
     }
   });
 </script>
