@@ -23,13 +23,79 @@
   <nav class="admin-tabs grouped" style="display:flex; gap:18px; position:relative;">
     <style>
       .group-wrapper { position:relative; }
-      .group-toggle { background:linear-gradient(135deg,#f9fafb,#f3f4f6); border:1px solid #e5e7eb; padding:10px 18px; border-radius:14px; font-weight:700; font-size:.85rem; letter-spacing:.5px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:.25s; }
-      .group-toggle:hover, .group-toggle.open { background:linear-gradient(135deg,#ff4fa3,#764ba2); color:#fff; border-color:rgba(255,79,163,0.6); box-shadow:0 6px 18px rgba(255,79,163,0.35); }
-      .group-dropdown { position:absolute; top:110%; left:0; background:#fff; padding:14px; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,0.15); display:none; min-width:220px; z-index:50; backdrop-filter:blur(6px); border:1px solid rgba(255,79,163,0.15); }
-      .group-dropdown.open { display:grid; grid-template-columns:1fr; gap:10px; animation:fadeIn .25s ease; }
-      .group-dropdown .tab-btn { width:100%; justify-content:flex-start; }
-      .group-dropdown .tab-btn svg { margin-right:8px; }
-      @keyframes fadeIn { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:translateY(0);} }
+      .group-toggle { 
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15));
+        border: 2px solid rgba(139, 92, 246, 0.4);
+        padding: 12px 20px;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        color: white;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+      }
+      .group-toggle::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+        transition: left 0.6s ease;
+      }
+      .group-toggle:hover::before {
+        left: 100%;
+      }
+      .group-toggle:hover, .group-toggle.open { 
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        color: #fff;
+        border-color: rgba(168, 85, 247, 0.8);
+        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.45), 0 4px 12px rgba(168, 85, 247, 0.3);
+        transform: translateY(-3px);
+      }
+      .group-toggle:active {
+        transform: translateY(-1px);
+      }
+      .group-dropdown { 
+        position: absolute;
+        top: 110%;
+        left: 0;
+        background: linear-gradient(to bottom, #ffffff, #f9fafb);
+        padding: 16px;
+        border-radius: 18px;
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2), 0 5px 15px rgba(99, 102, 241, 0.15);
+        display: none;
+        min-width: 240px;
+        z-index: 50;
+        backdrop-filter: blur(8px);
+        border: 2px solid rgba(99, 102, 241, 0.2);
+      }
+      .group-dropdown.open { 
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .group-dropdown .tab-btn { width: 100%; justify-content: flex-start; }
+      .group-dropdown .tab-btn svg { margin-right: 8px; }
+      @keyframes slideDown { 
+        from { 
+          opacity: 0;
+          transform: translateY(-15px) scale(0.95);
+        }
+        to { 
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
     </style>
     <div class="group-wrapper">
       <button type="button" class="group-toggle" data-group="core">Core ▾</button>
@@ -67,6 +133,10 @@
         <button class="tab-btn" data-tab="services">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           Services
+        </button>
+        <button class="tab-btn" data-tab="refund-requests">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3M9 16h6M7 9h10"></path></svg>
+          Refund Requests
         </button>
       </div>
     </div>
@@ -1276,7 +1346,512 @@
         });
       }
     }
+
+    // Refund request actions
+    function viewRefundRequest(id) {
+      fetch(`/admin/refund-requests/${id}`, { headers: { 'Accept': 'application/json' }})
+        .then(res => {
+          if (!res.ok) throw new Error('Request failed');
+          return res.json();
+        })
+        .then(payload => {
+          const data = payload && (payload.data || payload);
+          if (!data || (payload && payload.success === false)) {
+            throw new Error((payload && payload.error) || 'Invalid response');
+          }
+          const audit = (payload && payload.audit) ? payload.audit : [];
+          const modal = document.createElement('div');
+          modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;';
+          
+          const content = document.createElement('div');
+          content.style.cssText = 'background:white;border-radius:16px;padding:32px;max-width:800px;width:90%;max-height:90vh;overflow-y:auto;';
+          
+          const screenshotPath = data.screenshot
+            ? (data.screenshot.startsWith('uploads/') ? `/${data.screenshot}` : `/uploads/${data.screenshot}`)
+            : '';
+
+          // Build audit trail HTML if available
+          const auditHtml = (audit && audit.length)
+            ? (`<div style="margin-bottom:20px;">
+                <p style="margin:0 0 8px;font-weight:600;">Audit Trail</p>
+                <div style="background:#f9fafb;padding:12px;border-radius:8px;border:1px solid #e5e7eb;max-height:220px;overflow:auto;">
+                  ${audit.map(a => {
+                    let details;
+                    try { details = JSON.parse(a.details || '{}'); } catch(e){ details = {}; }
+                    const status = details.status ? ` — ${String(details.status).toUpperCase()}` : '';
+                    const amount = (details.refundAmount !== undefined && details.refundAmount !== null)
+                      ? ` — Amount: $${parseFloat(details.refundAmount).toFixed(2)}` : '';
+                    const who = a.admin_name || a.admin_email || 'System';
+                    const ts = new Date(a.created_at).toLocaleString();
+                    return `<div style="padding:8px 10px;border-bottom:1px dashed #e5e7eb;font-size:.9rem;">
+                              <div style="font-weight:600;color:#374151;">${a.action.replace(/_/g,' ')}</div>
+                              <div style="color:#6b7280;">${who} — ${ts}${status}${amount}</div>
+                            </div>`;
+                  }).join('')}
+                </div>
+              </div>`)
+            : '';
+
+          content.innerHTML = `
+            <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+              <h2 style="margin:0;">Refund Request #${id}</h2>
+              <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;font-size:32px;color:#6b7280;cursor:pointer;">&times;</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px;">
+              <div>
+                <p style="margin:0 0 4px;font-size:0.85rem;color:#6b7280;font-weight:600;">User</p>
+                <p style="margin:0;font-weight:600;">${data.full_name}</p>
+                <p style="margin:4px 0 0;font-size:0.9rem;color:#6b7280;">${data.email}</p>
+              </div>
+              <div>
+                <p style="margin:0 0 4px;font-size:0.85rem;color:#6b7280;font-weight:600;">Amount</p>
+                <p style="margin:0;font-size:1.5rem;font-weight:700;color:#10b981;">$${parseFloat(data.amount).toFixed(2)}</p>
+              </div>
+              <div>
+                <p style="margin:0 0 4px;font-size:0.85rem;color:#6b7280;font-weight:600;">Order Date</p>
+                <p style="margin:0;">${data.order_date ? new Date(data.order_date).toLocaleDateString() : 'Not provided'}</p>
+              </div>
+              <div>
+                <p style="margin:0 0 4px;font-size:0.85rem;color:#6b7280;font-weight:600;">Transaction ID</p>
+                <p style="margin:0;">${data.transaction_id || 'Not provided'}</p>
+              </div>
+            </div>
+            <div style="margin-bottom:20px;">
+              <p style="margin:0 0 8px;font-weight:600;">Charge Details</p>
+              <div style="background:#f9fafb;padding:16px;border-radius:8px;">
+                ${data.charge_description ? `<p style="margin:0;">${data.charge_description}</p>` : '<p style="margin:0;color:#6b7280;">No linked charge</p>'}
+                ${data.charge_date ? `<p style="margin:8px 0 0;font-size:0.85rem;color:#6b7280;">Charge Date: ${new Date(data.charge_date).toLocaleDateString()}</p>` : ''}
+              </div>
+            </div>
+            <div style="margin-bottom:20px;">
+              <p style="margin:0 0 8px;font-weight:600;">Reason</p>
+              <div style="background:#fef3c7;padding:16px;border-radius:8px;">
+                <p style="margin:0;font-weight:600;color:#78350f;">${data.reason.replace(/_/g, ' ').toUpperCase()}</p>
+                ${data.description ? `<p style="margin:12px 0 0;color:#78350f;">${data.description.replace(/\n/g, '<br>')}</p>` : ''}
+              </div>
+            </div>
+            <div style="margin-bottom:20px;">
+              <p style="margin:0 0 8px;font-weight:600;">Refund Method</p>
+              <div style="background:#f9fafb;padding:16px;border-radius:8px;">
+                <p style="margin:0;">${data.preferred_method.replace(/_/g, ' ').toUpperCase()}</p>
+                ${data.account_email ? `<p style="margin:8px 0 0;font-size:0.9rem;color:#6b7280;">Email: ${data.account_email}</p>` : ''}
+                ${data.account_last_four ? `<p style="margin:8px 0 0;font-size:0.9rem;color:#6b7280;">Last 4 digits: ${data.account_last_four}</p>` : ''}
+              </div>
+            </div>
+            ${screenshotPath ? `
+              <div style="margin-bottom:20px;">
+                <p style="margin:0 0 8px;font-weight:600;">Screenshot</p>
+                <img src="${screenshotPath}" style="max-width:100%;border-radius:8px;border:2px solid #e5e7eb;" />
+              </div>
+            ` : ''}
+            <div style="margin-bottom:20px;">
+              <p style="margin:0 0 8px;font-weight:600;">Status</p>
+              <span class="role-badge role-${data.status}">${data.status.toUpperCase()}</span>
+            </div>
+            ${data.admin_notes ? `
+              <div style="margin-bottom:20px;">
+                <p style="margin:0 0 8px;font-weight:600;">Admin Notes</p>
+                <div style="background:#f9fafb;padding:16px;border-radius:8px;">
+                  <p style="margin:0;">${data.admin_notes.replace(/\n/g, '<br>')}</p>
+                </div>
+              </div>
+            ` : ''}
+            ${auditHtml}
+            <p style="margin:20px 0 8px;font-size:0.85rem;color:#6b7280;">Submitted: ${new Date(data.created_at).toLocaleString()}</p>
+            <div style="display:flex;gap:12px;margin-top:24px;">
+                <button onclick="showRefundDecisionModal(${id}, 'approved', ${parseFloat(''+data.amount).toFixed(2)})" style="padding:12px 24px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Approve</button>
+                <button onclick="showRefundDecisionModal(${id}, 'processing')" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Mark Processing</button>
+                <button onclick="showRefundDecisionModal(${id}, 'denied')" style="padding:12px 24px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Deny</button>
+              <button onclick="this.closest('[style*=fixed]').remove()" style="padding:12px 24px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Close</button>
+            </div>
+          `;
+          
+          modal.appendChild(content);
+          document.body.appendChild(modal);
+          
+          modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+          });
+        })
+        .catch(err => {
+          console.error('Error fetching refund request:', err);
+          if (typeof showError === 'function') {
+            showError('Failed to load refund request details');
+          } else {
+            alert('Failed to load refund request details');
+          }
+        });
+    }
+
+    function updateRefundStatus(id, status, notes, refundAmount) {
+      const formData = new URLSearchParams();
+      formData.append('status', status);
+      if (notes) formData.append('adminNotes', notes);
+      if (refundAmount !== undefined && refundAmount !== null && refundAmount !== '') formData.append('refundAmount', refundAmount);
+
+      return fetch(`/admin/refund-requests/${id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData
+      }).then(res => res.json());
+    }
+
+    function showRefundDecisionModal(id, status, requestedAmount) {
+      let modal = document.getElementById('refund-decision-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'refund-decision-modal';
+        modal.innerHTML = `
+          <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:10001;">
+            <div style="background:#fff;border-radius:16px;max-width:520px;width:92%;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 id="refund-decision-title" style="margin:0;font-size:1.25rem;">Update Refund Request</h3>
+                <button type="button" onclick="document.getElementById('refund-decision-modal').style.display='none'" style="background:none;border:none;font-size:28px;color:#6b7280;cursor:pointer;">&times;</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                  <label style="display:block;font-weight:600;color:#374151;margin-bottom:6px;">Status</label>
+                  <select id="refund-decision-status" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;">
+                    <option value="approved">Approved</option>
+                    <option value="processing">Processing</option>
+                    <option value="denied">Denied</option>
+                  </select>
+                </div>
+                <div id="refund-decision-amount-wrap">
+                  <label style="display:block;font-weight:600;color:#374151;margin-bottom:6px;">Refund Amount</label>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="background:#f3f4f6;border:1px solid #e5e7eb;padding:10px;border-radius:10px;">$</span>
+                    <input id="refund-decision-amount" type="number" step="0.01" min="0" style="flex:1;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;" />
+                  </div>
+                  <small style="color:#6b7280;">Leave blank to use the requested amount.</small>
+                </div>
+                <div>
+                  <label style="display:block;font-weight:600;color:#374151;margin-bottom:6px;">Admin Notes</label>
+                  <textarea id="refund-decision-notes" rows="4" style="width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;resize:vertical;"></textarea>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;">
+                  <button type="button" onclick="document.getElementById('refund-decision-modal').style.display='none'" style="padding:10px 16px;border:1px solid #e5e7eb;background:#fff;border-radius:10px;font-weight:600;cursor:pointer;">Cancel</button>
+                  <button type="button" id="refund-decision-submit" style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;background:#111827;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">
+                    <span class="btn-spinner" style="display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;"></span>
+                    <span class="btn-text">Update</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(modal);
+      }
+
+      // Setup initial state
+      document.getElementById('refund-decision-status').value = status;
+      const amountWrap = document.getElementById('refund-decision-amount-wrap');
+      const amountInput = document.getElementById('refund-decision-amount');
+      amountWrap.style.display = status === 'approved' ? 'block' : 'none';
+      amountInput.value = status === 'approved' && requestedAmount ? requestedAmount : '';
+      document.getElementById('refund-decision-title').textContent = `Update Refund Request — ${status.charAt(0).toUpperCase()+status.slice(1)}`;
+
+      const submitBtn = document.getElementById('refund-decision-submit');
+      const errorBoxId = 'refund-decision-error';
+      let errorBox = document.getElementById(errorBoxId);
+      if (!errorBox) {
+        errorBox = document.createElement('div');
+        errorBox.id = errorBoxId;
+        errorBox.style.cssText = 'display:none;margin-top:8px;padding:10px 12px;border-radius:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;font-weight:600;';
+        submitBtn.parentElement.insertAdjacentElement('beforebegin', errorBox);
+      }
+
+      // Inline validation helpers
+      const ensureValidAmount = () => {
+        const st = document.getElementById('refund-decision-status').value;
+        const valStr = amountInput.value.trim();
+        const err = [];
+        if (st === 'approved') {
+          if (!valStr && (requestedAmount === undefined || requestedAmount === null)) {
+            err.push('Refund amount is required for approval.');
+          } else if (valStr) {
+            const v = parseFloat(valStr);
+            if (isNaN(v) || v <= 0) err.push('Enter an amount greater than 0.');
+          }
+        }
+        return err;
+      };
+
+      // Live validation on amount input
+      amountInput.addEventListener('input', () => {
+        const errs = ensureValidAmount();
+        if (errs.length) {
+          errorBox.textContent = errs[0];
+          errorBox.style.display = 'block';
+        } else {
+          errorBox.style.display = 'none';
+        }
+      });
+
+      submitBtn.onclick = () => {
+        const notes = document.getElementById('refund-decision-notes').value;
+        const amountVal = amountInput.value ? parseFloat(amountInput.value) : undefined;
+
+        errorBox.style.display = 'none';
+        const textSpan = submitBtn.querySelector('.btn-text');
+        const spin = submitBtn.querySelector('.btn-spinner');
+        const prevText = textSpan.textContent;
+        textSpan.textContent = 'Updating...';
+        spin.style.display = 'inline-block';
+        submitBtn.disabled = true;
+
+        // Validate before submit
+        const errs = ensureValidAmount();
+        if (errs.length) {
+          errorBox.textContent = errs[0];
+          errorBox.style.display = 'block';
+          textSpan.textContent = prevText;
+          spin.style.display = 'none';
+          submitBtn.disabled = false;
+          return;
+        }
+
+        updateRefundStatus(id, status, notes, amountVal)
+          .then(data => {
+            if (data && data.success) {
+              if (typeof showSuccess === 'function') { showSuccess('Refund request updated successfully'); }
+              document.getElementById('refund-decision-modal').style.display = 'none';
+              location.reload();
+            } else {
+              throw new Error((data && data.error) || 'Failed to update refund request');
+            }
+          })
+          .catch(err => {
+            errorBox.textContent = err.message || 'Failed to update refund request. Please try again.';
+            errorBox.style.display = 'block';
+          })
+          .finally(() => {
+            textSpan.textContent = prevText;
+            spin.style.display = 'none';
+            submitBtn.disabled = false;
+          });
+      };
+
+      // Toggle amount field on status change
+      document.getElementById('refund-decision-status').onchange = (e) => {
+        const st = e.target.value;
+        amountWrap.style.display = st === 'approved' ? 'block' : 'none';
+      };
+
+      modal.style.display = 'block';
+    }
   </script>
+  <style>
+    @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  </style>
+
+  <!-- Refund Requests Panel -->
+  <section class="admin-panel tab-panel" data-tab="refund-requests" style="display:none;">
+    <style>
+      .refund-status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+      }
+      .refund-status-badge.pending {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        color: #92400e;
+        border: 1px solid #fcd34d;
+      }
+      .refund-status-badge.processing {
+        background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+      }
+      .refund-status-badge.approved {
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        color: #065f46;
+        border: 1px solid #6ee7b7;
+      }
+      .refund-status-badge.denied {
+        background: linear-gradient(135deg, #fee2e2, #fecaca);
+        color: #991b1b;
+        border: 1px solid #fca5a5;
+      }
+      .refund-status-badge.completed {
+        background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+        color: #3730a3;
+        border: 1px solid #a5b4fc;
+      }
+      .refund-amount {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #10b981;
+        text-shadow: 0 1px 2px rgba(16, 185, 129, 0.2);
+      }
+      .refund-reason-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        color: #374151;
+        font-weight: 500;
+        text-transform: capitalize;
+      }
+      .refund-table-header {
+        background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+        border-bottom: 2px solid #e5e7eb;
+      }
+      .refund-table-header th {
+        padding: 16px 12px;
+        font-weight: 700;
+        color: #111827;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.8px;
+      }
+      .refund-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin: 0 4px;
+      }
+      .refund-action-btn.view {
+        background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+        color: #1e40af;
+      }
+      .refund-action-btn.view:hover {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      }
+      .refund-action-btn.approve {
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        color: #065f46;
+      }
+      .refund-action-btn.approve:hover {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+      }
+      .refund-action-btn.deny {
+        background: linear-gradient(135deg, #fee2e2, #fecaca);
+        color: #991b1b;
+      }
+      .refund-action-btn.deny:hover {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+      }
+    </style>
+    <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;">
+      <div>
+        <h2 class="admin-panel-title" style="font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">Refund Requests</h2>
+        <p class="admin-panel-subtitle" style="color:#6b7280;font-size:0.95rem;">Review and process customer refund requests</p>
+      </div>
+      <div class="admin-filter-group" style="display:flex;gap:12px;align-items:center;">
+        <select class="admin-filter" onchange="filterRefundRequests(this.value)" style="padding:10px 16px;border-radius:12px;border:2px solid #e5e7eb;background:white;font-weight:600;color:#374151;cursor:pointer;transition:all 0.2s ease;">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="processing">Processing</option>
+          <option value="approved">Approved</option>
+          <option value="denied">Denied</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+    </header>
+
+    <% if (typeof refundRequests !== 'undefined' && refundRequests && refundRequests.length > 0) { %>
+      <div class="admin-table-container" style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+        <table class="admin-table" style="width:100%;border-collapse:collapse;">
+          <thead class="refund-table-header">
+            <tr>
+              <th>ID</th>
+              <th>User</th>
+              <th>Amount</th>
+              <th>Reason</th>
+              <th>Method</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% refundRequests.forEach(function(req) { %>
+              <tr data-status="<%= req.status %>" style="border-bottom:1px solid #f3f4f6;transition:background 0.15s ease;">
+                <td style="padding:16px 12px;"><span class="table-id" style="font-family:monospace;font-weight:700;color:#6366f1;">#<%= req.id %></span></td>
+                <td style="padding:16px 12px;">
+                  <div class="table-user-info">
+                    <div class="table-user-name" style="font-weight:600;color:#111827;margin-bottom:2px;"><%= req.full_name %></div>
+                    <div class="table-user-email" style="font-size:0.8rem;color:#6b7280;"><%= req.email %></div>
+                  </div>
+                </td>
+                <td style="padding:16px 12px;"><span class="refund-amount">$<%= parseFloat(req.amount).toFixed(2) %></span></td>
+                <td style="padding:16px 12px;">
+                  <span class="refund-reason-badge"><%= req.reason.replace(/_/g, ' ') %></span>
+                  <% if (req.charge_description) { %>
+                    <div style="font-size:0.75rem;color:#9ca3af;margin-top:6px;"><%= req.charge_description.substring(0, 35) %>...</div>
+                  <% } %>
+                </td>
+                <td style="padding:16px 12px;color:#4b5563;font-weight:500;text-transform:capitalize;"><%= req.preferred_method.replace(/_/g, ' ') %></td>
+                <td style="padding:16px 12px;color:#6b7280;font-size:0.85rem;"><%= new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></td>
+                <td style="padding:16px 12px;">
+                  <span class="refund-status-badge <%= req.status %>"><%= req.status %></span>
+                </td>
+                <td style="padding:16px 12px;">
+                  <div class="table-actions" style="display:flex;gap:4px;justify-content:center;">
+                    <button onclick="viewRefundRequest(<%= req.id %>)" class="refund-action-btn view" title="View Details">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                    <% if (req.status === 'pending') { %>
+                      <button onclick="showRefundDecisionModal(<%= req.id %>, 'approved')" class="refund-action-btn approve" title="Approve">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      </button>
+                      <button onclick="showRefundDecisionModal(<%= req.id %>, 'denied')" class="refund-action-btn deny" title="Deny">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      </button>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="admin-empty-state" style="text-align:center;padding:80px 20px;background:linear-gradient(135deg,#f9fafb,#f3f4f6);border-radius:20px;border:2px dashed #d1d5db;">
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5" style="margin:0 auto 20px;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 8v4l3 3M9 16h6M7 9h10"></path>
+        </svg>
+        <h3 style="font-size:1.4rem;font-weight:700;color:#374151;margin-bottom:8px;">No Refund Requests</h3>
+        <p style="color:#6b7280;font-size:0.95rem;">No refund requests have been submitted yet.</p>
+      </div>
+    <% } %>
+
+    <script>
+      function filterRefundRequests(status) {
+        const rows = document.querySelectorAll('[data-tab="refund-requests"] tbody tr');
+        rows.forEach(row => {
+          if (!status || row.getAttribute('data-status') === status) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      }
+    </script>
+  </section>
 
 </main>
 

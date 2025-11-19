@@ -1,0 +1,288 @@
+<%- include('partials/header') %>
+
+<link rel="stylesheet" href="/css/refund-request.css">
+
+<div class="refund-container">
+  <div class="refund-header">
+    <div class="refund-header-content">
+      <svg class="refund-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M12 6v6l4 2"></path>
+      </svg>
+      <h1>Request a Refund</h1>
+      <p class="refund-subtitle">We're sorry for any inconvenience. Let us help make this right.</p>
+    </div>
+  </div>
+
+  <div class="wizard-container">
+    <!-- Progress Steps -->
+    <div class="wizard-steps">
+      <div class="step active" data-step="1">
+        <div class="step-circle">1</div>
+        <div class="step-label">Order Details</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step" data-step="2">
+        <div class="step-circle">2</div>
+        <div class="step-label">Reason</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step" data-step="3">
+        <div class="step-circle">3</div>
+        <div class="step-label">Refund Method</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step" data-step="4">
+        <div class="step-circle">4</div>
+        <div class="step-label">Review</div>
+      </div>
+    </div>
+
+    <form id="refundForm" action="/refund-request" method="POST" enctype="multipart/form-data">
+      <!-- Step 1: Order Details -->
+      <div class="wizard-step active" data-step="1">
+        <div class="step-header">
+          <h2>Order Information</h2>
+          <p class="step-description">We sincerely apologize for any issues you've experienced. Please help us locate your transaction.</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">Order/Transaction Date</label>
+          <input type="date" name="orderDate" class="form-input" required max="<%= new Date().toISOString().split('T')[0] %>" />
+          <small class="form-hint">When was the charge made?</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">Amount Charged</label>
+          <div class="input-with-prefix">
+            <span class="input-prefix">$</span>
+            <input type="number" name="amount" class="form-input" step="0.01" min="0.01" required placeholder="0.00" />
+          </div>
+          <small class="form-hint">Please enter the exact amount you were charged</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Transaction ID (if available)</label>
+          <input type="text" name="transactionId" class="form-input" placeholder="e.g., TXN123456789" />
+          <small class="form-hint">This helps us locate your transaction faster</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Related Charge</label>
+          <select name="chargeId" class="form-input">
+            <option value="">Select a recent charge (optional)</option>
+            <% if (typeof charges !== 'undefined' && charges && charges.length > 0) { %>
+              <% charges.forEach(function(charge) { %>
+                <option value="<%= charge.id %>" <%= charge.hasRecentRefund ? 'disabled' : '' %> data-has-refund="<%= charge.hasRecentRefund %>">
+                  <%= new Date(charge.charge_date).toLocaleDateString() %> - 
+                  <%= charge.description %> - 
+                  $<%= charge.amount.toFixed(2) %>
+                  <% if (charge.hasRecentRefund) { %> (Refund <%= charge.refundStatus %> - wait 5 days)<% } %>
+                </option>
+              <% }); %>
+            <% } %>
+          </select>
+          <small class="form-hint">If you see your charge listed above, select it</small>
+        </div>
+
+        <div class="wizard-actions">
+          <button type="button" class="btn-wizard btn-next">Continue →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Reason -->
+      <div class="wizard-step" data-step="2">
+        <div class="step-header">
+          <h2>What Happened?</h2>
+          <p class="step-description">We truly apologize for the inconvenience. Understanding what went wrong helps us improve our service.</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">Primary Reason for Refund</label>
+          <select name="reason" class="form-input" required>
+            <option value="">Please select a reason</option>
+            <option value="unauthorized_charge">Unauthorized Charge</option>
+            <option value="duplicate_charge">Duplicate Charge</option>
+            <option value="service_not_provided">Service Not Provided</option>
+            <option value="service_unsatisfactory">Service Unsatisfactory</option>
+            <option value="technical_issue">Technical Issue</option>
+            <option value="billing_error">Billing Error</option>
+            <option value="subscription_cancellation">Subscription Already Cancelled</option>
+            <option value="other">Other (please explain)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Please Describe What Happened</label>
+          <textarea name="description" class="form-textarea" rows="6" placeholder="We're sorry for your experience. Please share any details that would help us understand the situation better..."></textarea>
+          <small class="form-hint">Your feedback helps us prevent similar issues in the future</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Supporting Screenshot (Optional)</label>
+          <div class="file-upload-area" id="screenshotUploadArea">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p>Click to upload or drag and drop</p>
+            <small>PNG, JPG up to 5MB</small>
+            <input type="file" name="screenshot" id="screenshotInput" accept="image/*" style="display:none;" />
+          </div>
+          <div id="screenshotPreview" class="file-preview"></div>
+          <small class="form-hint">Screenshots of error messages or receipts can help expedite your request</small>
+        </div>
+
+        <div class="wizard-actions">
+          <button type="button" class="btn-wizard btn-prev">← Back</button>
+          <button type="button" class="btn-wizard btn-next">Continue →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Refund Method -->
+      <div class="wizard-step" data-step="3">
+        <div class="step-header">
+          <h2>Refund Method</h2>
+          <p class="step-description">We apologize for the hassle. Please let us know how you'd like to receive your refund.</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label required">Preferred Refund Method</label>
+          <div class="radio-group">
+            <label class="radio-card">
+              <input type="radio" name="preferredMethod" value="original_payment" required />
+              <div class="radio-content">
+                <div class="radio-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                    <line x1="1" y1="10" x2="23" y2="10"></line>
+                  </svg>
+                </div>
+                <div>
+                  <div class="radio-title">Original Payment Method</div>
+                  <div class="radio-description">Refund to the card or account used for payment (3-5 business days)</div>
+                </div>
+              </div>
+            </label>
+
+            <label class="radio-card">
+              <input type="radio" name="preferredMethod" value="account_credit" />
+              <div class="radio-content">
+                <div class="radio-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                </div>
+                <div>
+                  <div class="radio-title">Account Credit</div>
+                  <div class="radio-description">Add funds to your Dream X account (instant processing)</div>
+                </div>
+              </div>
+            </label>
+
+            <label class="radio-card">
+              <input type="radio" name="preferredMethod" value="paypal" />
+              <div class="radio-content">
+                <div class="radio-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path>
+                    <path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path>
+                    <line x1="18" y1="12" x2="18.01" y2="12"></line>
+                  </svg>
+                </div>
+                <div>
+                  <div class="radio-title">PayPal</div>
+                  <div class="radio-description">Receive refund via PayPal (1-2 business days)</div>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="accountEmailGroup" style="display:none;">
+          <label class="form-label">PayPal Email</label>
+          <input type="email" name="accountEmail" class="form-input" placeholder="your@email.com" />
+          <small class="form-hint">The email associated with your PayPal account</small>
+        </div>
+
+        <div class="form-group" id="accountDetailsGroup" style="display:none;">
+          <label class="form-label">Last 4 Digits of Original Payment Method</label>
+          <input type="text" name="accountLastFour" class="form-input" maxlength="4" pattern="[0-9]{4}" placeholder="1234" />
+          <small class="form-hint">For verification purposes</small>
+        </div>
+
+        <div class="wizard-actions">
+          <button type="button" class="btn-wizard btn-prev">← Back</button>
+          <button type="button" class="btn-wizard btn-next">Continue →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Review -->
+      <div class="wizard-step" data-step="4">
+        <div class="step-header">
+          <h2>Review Your Request</h2>
+          <p class="step-description">We sincerely apologize for any inconvenience. Please review your refund request before submission.</p>
+        </div>
+
+        <div class="review-card">
+          <h3 class="review-section-title">Order Information</h3>
+          <div class="review-grid">
+            <div class="review-item">
+              <span class="review-label">Order Date:</span>
+              <span class="review-value" id="review-orderDate">-</span>
+            </div>
+            <div class="review-item">
+              <span class="review-label">Amount:</span>
+              <span class="review-value" id="review-amount">-</span>
+            </div>
+            <div class="review-item">
+              <span class="review-label">Transaction ID:</span>
+              <span class="review-value" id="review-transactionId">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="review-card">
+          <h3 class="review-section-title">Refund Details</h3>
+          <div class="review-grid">
+            <div class="review-item">
+              <span class="review-label">Reason:</span>
+              <span class="review-value" id="review-reason">-</span>
+            </div>
+            <div class="review-item full-width">
+              <span class="review-label">Description:</span>
+              <span class="review-value" id="review-description">-</span>
+            </div>
+            <div class="review-item">
+              <span class="review-label">Preferred Method:</span>
+              <span class="review-value" id="review-method">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="apology-box">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <p><strong>We truly apologize for this experience.</strong> Your refund request will be carefully reviewed by our team, and we'll do our best to resolve this promptly. You'll receive an email confirmation and updates on the status of your request.</p>
+        </div>
+
+        <div class="wizard-actions">
+          <button type="button" class="btn-wizard btn-prev">← Back</button>
+          <button type="submit" class="btn-wizard btn-submit">Submit Refund Request</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Pass recent refunds data to JavaScript for duplicate detection
+  window.recentRefunds = <%- JSON.stringify(recentRefunds || []) %>;
+</script>
+<script src="/js/refund-request.js"></script>
+
+<%- include('partials/footer') %>

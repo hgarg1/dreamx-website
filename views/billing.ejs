@@ -90,7 +90,96 @@
       </div>
     </div>
     <div class="billing-actions" style="margin-top: 1.5rem;">
-      <button class="billing-btn billing-btn-outline">+ Add new payment method</button>
+      <button class="billing-btn billing-btn-outline" onclick="openAddPaymentModal()">+ Add new payment method</button>
+    </div>
+  </div>
+
+  <!-- Add Payment Method Modal -->
+  <div id="addPaymentMethodModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;overflow-y:auto;padding:20px 0;">
+    <div class="payment-modal-container" style="background:white;border-radius:20px;padding:32px;max-width:520px;width:90%;box-shadow:0 25px 80px rgba(0,0,0,0.35);position:relative;margin:auto;max-height:calc(100vh - 40px);overflow-y:auto;">
+      <!-- Animated gradient background -->
+      <div class="payment-modal-bg" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0.03;pointer-events:none;background:linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ff4fa3 100%);"></div>
+      
+      <div style="position:relative;z-index:1;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <h3 style="margin:0;font-size:28px;font-weight:700;background:linear-gradient(135deg, #667eea, #ff4fa3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Add Payment Method</h3>
+          <button onclick="closeAddPaymentModal()" style="background:none;border:none;font-size:32px;color:#6b7280;cursor:pointer;line-height:1;transition:all 0.2s;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">&times;</button>
+        </div>
+        
+        <p style="margin-bottom:24px;color:#6b7280;line-height:1.6;">
+          Add a new payment method for your Dream X subscription.
+        </p>
+        
+        <form id="addPaymentForm" onsubmit="handleAddPayment(event)">
+          <!-- Card preview area with dynamic styling -->
+          <div id="cardPreview" class="card-preview" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:16px;padding:24px;margin-bottom:24px;color:white;min-height:180px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 30px rgba(0,0,0,0.2);transition:all 0.4s cubic-bezier(0.4, 0, 0.2, 1);position:relative;overflow:hidden;">
+            <!-- Card shine effect -->
+            <div style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);transform:translateX(-100%);animation:cardShine 3s infinite;"></div>
+            
+            <div style="position:relative;z-index:1;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;">
+                <div id="cardChip" style="width:50px;height:38px;background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);border-radius:8px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.2);"></div>
+                <div id="cardTypeIcon" style="font-size:32px;font-weight:700;text-shadow:0 2px 4px rgba(0,0,0,0.2);">💳</div>
+              </div>
+              <div id="cardNumberDisplay" style="font-size:22px;font-weight:600;letter-spacing:3px;margin-bottom:20px;text-shadow:0 2px 4px rgba(0,0,0,0.2);font-family:monospace;">•••• •••• •••• ••••</div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+                <div>
+                  <div style="font-size:10px;opacity:0.7;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;">Card Holder</div>
+                  <div id="cardHolderDisplay" style="font-size:16px;font-weight:600;text-shadow:0 2px 4px rgba(0,0,0,0.2);">YOUR NAME</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;opacity:0.7;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;">Expires</div>
+                  <div id="cardExpiryDisplay" style="font-size:16px;font-weight:600;text-shadow:0 2px 4px rgba(0,0,0,0.2);">MM/YY</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card number input -->
+          <div style="margin-bottom:20px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">Card Number</label>
+            <div style="position:relative;">
+              <input type="text" id="cardNumberInput" name="cardNumber" maxlength="19" placeholder="1234 5678 9012 3456" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-family:monospace;font-size:16px;letter-spacing:2px;transition:all 0.3s;padding-right:50px;" oninput="handleCardNumberInput(event)" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+              <div id="cardTypeIndicator" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:24px;transition:all 0.3s;">💳</div>
+            </div>
+            <div id="cardTypeLabel" style="font-size:12px;margin-top:6px;color:#6b7280;font-weight:600;"></div>
+          </div>
+
+          <!-- Cardholder name -->
+          <div style="margin-bottom:20px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">Cardholder Name</label>
+            <input type="text" id="cardHolderInput" name="cardHolder" placeholder="JOHN DOE" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-transform:uppercase;" oninput="handleCardHolderInput(event)" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+          </div>
+
+          <!-- Expiry and CVV row -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px;">
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">Expiry Month</label>
+              <input type="text" id="expiryMonthInput" name="expiryMonth" maxlength="2" placeholder="MM" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="handleExpiryInput(event)" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">Expiry Year</label>
+              <input type="text" id="expiryYearInput" name="expiryYear" maxlength="2" placeholder="YY" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="handleExpiryInput(event)" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">CVV</label>
+              <input type="text" id="cvvInput" name="cvv" maxlength="4" placeholder="123" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+            </div>
+          </div>
+
+          <!-- Set as default checkbox -->
+          <label style="display:flex;align-items:center;gap:10px;margin-bottom:24px;cursor:pointer;padding:12px;border-radius:12px;transition:all 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='transparent'">
+            <input type="checkbox" name="setDefault" checked style="width:20px;height:20px;cursor:pointer;accent-color:#667eea;" />
+            <span style="font-weight:600;color:#374151;">Set as default payment method</span>
+          </label>
+
+          <!-- Action buttons -->
+          <div style="display:flex;gap:12px;justify-content:flex-end;">
+            <button type="button" onclick="closeAddPaymentModal()" style="padding:14px 28px;background:#f3f4f6;color:#374151;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:all 0.2s;font-size:15px;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
+            <button type="submit" style="padding:14px 28px;background:linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ff4fa3 100%);color:white;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 14px rgba(102, 126, 234, 0.4);font-size:15px;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.5)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 14px rgba(102, 126, 234, 0.4)'">Add Payment Method</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -502,4 +591,225 @@
       closeCancelModal();
     }
   });
+
+  // ============================================
+  // ADD PAYMENT METHOD MODAL & CARD DETECTION
+  // ============================================
+  
+  // Card type detection patterns
+  const cardPatterns = {
+    visa: {
+      pattern: /^4/,
+      icon: '💳',
+      color: 'linear-gradient(135deg, #1a1f71 0%, #0d47a1 100%)',
+      name: 'Visa'
+    },
+    mastercard: {
+      pattern: /^5[1-5]/,
+      icon: '💳',
+      color: 'linear-gradient(135deg, #eb001b 0%, #f79e1b 100%)',
+      name: 'Mastercard'
+    },
+    amex: {
+      pattern: /^3[47]/,
+      icon: '💳',
+      color: 'linear-gradient(135deg, #006fcf 0%, #00a2e2 100%)',
+      name: 'American Express'
+    },
+    discover: {
+      pattern: /^6(?:011|5)/,
+      icon: '💳',
+      color: 'linear-gradient(135deg, #ff6600 0%, #ff9500 100%)',
+      name: 'Discover'
+    },
+    default: {
+      icon: '💳',
+      color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      name: 'Unknown'
+    }
+  };
+
+  function detectCardType(number) {
+    const cleanNumber = number.replace(/\s/g, '');
+    
+    for (const [type, data] of Object.entries(cardPatterns)) {
+      if (type !== 'default' && data.pattern.test(cleanNumber)) {
+        return { type, ...data };
+      }
+    }
+    
+    return { type: 'default', ...cardPatterns.default };
+  }
+
+  function formatCardNumber(value) {
+    const cleaned = value.replace(/\s/g, '');
+    const chunks = cleaned.match(/.{1,4}/g);
+    return chunks ? chunks.join(' ') : cleaned;
+  }
+
+  function handleCardNumberInput(event) {
+    const input = event.target;
+    let value = input.value.replace(/\s/g, '');
+    
+    // Only allow numbers
+    value = value.replace(/[^0-9]/g, '');
+    
+    // Format with spaces
+    const formatted = formatCardNumber(value);
+    input.value = formatted;
+    
+    // Detect card type
+    const cardInfo = detectCardType(value);
+    
+    // Update card preview
+    const cardPreview = document.getElementById('cardPreview');
+    const cardTypeIcon = document.getElementById('cardTypeIcon');
+    const cardTypeIndicator = document.getElementById('cardTypeIndicator');
+    const cardTypeLabel = document.getElementById('cardTypeLabel');
+    const cardNumberDisplay = document.getElementById('cardNumberDisplay');
+    
+    // Animate card background change
+    cardPreview.style.background = cardInfo.color;
+    cardTypeIcon.textContent = cardInfo.icon;
+    cardTypeIndicator.textContent = cardInfo.icon;
+    
+    // Update card type label
+    if (cardInfo.type !== 'default' && value.length >= 2) {
+      cardTypeLabel.textContent = `${cardInfo.name} detected`;
+      cardTypeLabel.style.color = '#059669';
+    } else {
+      cardTypeLabel.textContent = '';
+    }
+    
+    // Update card number display
+    if (formatted.length > 0) {
+      const masked = formatted.split('').map((char, idx) => {
+        if (char === ' ') return ' ';
+        return formatted.length < 19 ? char : (idx < formatted.length - 4 ? '•' : char);
+      }).join('');
+      cardNumberDisplay.textContent = masked;
+    } else {
+      cardNumberDisplay.textContent = '•••• •••• •••• ••••';
+    }
+  }
+
+  function handleCardHolderInput(event) {
+    const input = event.target;
+    const cardHolderDisplay = document.getElementById('cardHolderDisplay');
+    const value = input.value.toUpperCase();
+    input.value = value;
+    cardHolderDisplay.textContent = value || 'YOUR NAME';
+  }
+
+  function handleExpiryInput(event) {
+    const input = event.target;
+    // Only allow numbers
+    input.value = input.value.replace(/[^0-9]/g, '');
+    
+    const month = document.getElementById('expiryMonthInput').value;
+    const year = document.getElementById('expiryYearInput').value;
+    const cardExpiryDisplay = document.getElementById('cardExpiryDisplay');
+    
+    if (month || year) {
+      cardExpiryDisplay.textContent = `${month.padStart(2, '0')}/${year.padStart(2, '0')}`;
+    } else {
+      cardExpiryDisplay.textContent = 'MM/YY';
+    }
+  }
+
+  function openAddPaymentModal() {
+    const modal = document.getElementById('addPaymentMethodModal');
+    if (modal) {
+      modal.style.display = 'flex';
+      // Reset form
+      document.getElementById('addPaymentForm').reset();
+      document.getElementById('cardNumberDisplay').textContent = '•••• •••• •••• ••••';
+      document.getElementById('cardHolderDisplay').textContent = 'YOUR NAME';
+      document.getElementById('cardExpiryDisplay').textContent = 'MM/YY';
+      document.getElementById('cardPreview').style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      document.getElementById('cardTypeIcon').textContent = '💳';
+      document.getElementById('cardTypeIndicator').textContent = '💳';
+      document.getElementById('cardTypeLabel').textContent = '';
+    }
+  }
+
+  function closeAddPaymentModal() {
+    const modal = document.getElementById('addPaymentMethodModal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  }
+
+  async function handleAddPayment(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const data = {
+      cardNumber: formData.get('cardNumber').replace(/\s/g, ''),
+      cardHolder: formData.get('cardHolder'),
+      expiryMonth: formData.get('expiryMonth'),
+      expiryYear: formData.get('expiryYear'),
+      cvv: formData.get('cvv'),
+      setDefault: formData.get('setDefault') === 'on'
+    };
+    
+    // Validate expiry
+    const currentYear = new Date().getFullYear() % 100;
+    const currentMonth = new Date().getMonth() + 1;
+    const expYear = parseInt(data.expiryYear);
+    const expMonth = parseInt(data.expiryMonth);
+    
+    if (expMonth < 1 || expMonth > 12) {
+      alert('Invalid expiry month. Please enter a value between 01 and 12.');
+      return;
+    }
+    
+    if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+      alert('Card has expired. Please enter a valid expiry date.');
+      return;
+    }
+    
+    // Detect card type
+    const cardInfo = detectCardType(data.cardNumber);
+    data.cardType = cardInfo.type;
+    
+    try {
+      const res = await fetch('/api/payment/add-method', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      
+      const result = await res.json();
+      
+      if (res.ok && result.success) {
+        alert('Payment method added successfully!');
+        closeAddPaymentModal();
+        window.location.reload();
+      } else {
+        alert(result.error || 'Failed to add payment method. Please try again.');
+      }
+    } catch (err) {
+      console.error('Add payment error:', err);
+      alert('Network error. Please try again.');
+    }
+  }
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (e) => {
+    const modal = document.getElementById('addPaymentMethodModal');
+    if (modal && e.target === modal) {
+      closeAddPaymentModal();
+    }
+  });
+
+  // Add card shine animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes cardShine {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+  `;
+  document.head.appendChild(style);
 </script>

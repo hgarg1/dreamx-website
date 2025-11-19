@@ -705,6 +705,52 @@ CREATE INDEX IF NOT EXISTS idx_livestreams_status ON livestreams(status);
 CREATE INDEX IF NOT EXISTS idx_livestreams_stream_key ON livestreams(stream_key);
 `);
 
+// Billing charges table
+db.exec(`CREATE TABLE IF NOT EXISTS billing_charges (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  description TEXT NOT NULL,
+  charge_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  status TEXT DEFAULT 'completed',
+  tier TEXT,
+  invoice_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (invoice_id) REFERENCES invoices(id)
+);
+CREATE INDEX IF NOT EXISTS idx_billing_charges_user ON billing_charges(user_id);
+CREATE INDEX IF NOT EXISTS idx_billing_charges_status ON billing_charges(status);
+`);
+
+// Refund requests table
+db.exec(`CREATE TABLE IF NOT EXISTS refund_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  charge_id INTEGER,
+  amount REAL NOT NULL,
+  reason TEXT NOT NULL,
+  description TEXT,
+  order_date TEXT,
+  transaction_id TEXT,
+  preferred_method TEXT NOT NULL,
+  account_email TEXT,
+  account_last_four TEXT,
+  screenshot TEXT,
+  status TEXT DEFAULT 'pending',
+  reviewed_by INTEGER,
+  admin_notes TEXT,
+  refund_amount REAL,
+  reviewed_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (charge_id) REFERENCES billing_charges(id),
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_user ON refund_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status);
+`);
+
 // Livestream viewers tracking
 db.exec(`CREATE TABLE IF NOT EXISTS livestream_viewers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -731,6 +777,22 @@ db.exec(`CREATE TABLE IF NOT EXISTS livestream_chat (
 );
 CREATE INDEX IF NOT EXISTS idx_livestream_chat_stream ON livestream_chat(stream_id);
 `);
+
+// Admin notes on user accounts
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS user_admin_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    admin_id INTEGER NOT NULL,
+    note TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (admin_id) REFERENCES users(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_user_admin_notes_user ON user_admin_notes(user_id);
+  CREATE INDEX IF NOT EXISTS idx_user_admin_notes_admin ON user_admin_notes(admin_id);
+  `);
+} catch (e) {}
 
 module.exports = {
   db,
@@ -2176,5 +2238,122 @@ module.exports = {
       ORDER BY lc.created_at DESC
       LIMIT ? OFFSET ?
     `).all(streamId, limit, offset);
+  },
+
+  // Billing charges functions
+  createCharge: ({ userId, amount, description, chargeDate, status = 'completed', tier, invoiceId }) => {
+    const stmt = db.prepare(`
+      INSERT INTO billing_charges (user_id, amount, description, charge_date, status, tier, invoice_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(userId, amount, description, chargeDate || new Date().toISOString(), status, tier || null, invoiceId || null);
+    return result.lastInsertRowid;
+  },
+
+  getUserCharges: ({ userId, limit = 50, offset = 0 }) => {
+    return db.prepare(`
+      SELECT * FROM billing_charges
+      WHERE user_id = ?
+      ORDER BY charge_date DESC
+      LIMIT ? OFFSET ?
+    `).all(userId, limit, offset);
+  },
+
+  getAllCharges: ({ limit = 100, offset = 0, status }) => {
+    let sql = `SELECT bc.*, u.full_name, u.email FROM billing_charges bc JOIN users u ON u.id = bc.user_id WHERE 1=1`;
+    const params = [];
+    if (status) { sql += ` AND bc.status = ?`; params.push(status); }
+    sql += ` ORDER BY bc.charge_date DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    return db.prepare(sql).all(...params);
+  },
+
+  // Refund request functions
+  createRefundRequest: ({ userId, chargeId, amount, reason, description, orderDate, transactionId, preferredMethod, accountEmail, accountLastFour, screenshot, status = 'pending' }) => {
+    const stmt = db.prepare(`
+      INSERT INTO refund_requests (user_id, charge_id, amount, reason, description, order_date, transaction_id, preferred_method, account_email, account_last_four, screenshot, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(userId, chargeId || null, amount, reason, description || null, orderDate || null, transactionId || null, preferredMethod, accountEmail || null, accountLastFour || null, screenshot || null, status);
+    return result.lastInsertRowid;
+  },
+
+  getRefundRequest: (requestId) => {
+    return db.prepare(`
+      SELECT rr.*, u.full_name, u.email, u.profile_picture,
+             bc.description as charge_description, bc.charge_date,
+             rev.full_name as reviewer_name
+      FROM refund_requests rr
+      JOIN users u ON u.id = rr.user_id
+      LEFT JOIN billing_charges bc ON bc.id = rr.charge_id
+      LEFT JOIN users rev ON rev.id = rr.reviewed_by
+      WHERE rr.id = ?
+    `).get(requestId);
+  },
+
+  getUserRefundRequests: (userId) => {
+    return db.prepare(`
+      SELECT rr.*, bc.description as charge_description
+      FROM refund_requests rr
+      LEFT JOIN billing_charges bc ON bc.id = rr.charge_id
+      WHERE rr.user_id = ?
+      ORDER BY rr.created_at DESC
+    `).all(userId);
+  },
+
+  getAllRefundRequests: ({ limit = 50, offset = 0, status }) => {
+    let sql = `
+      SELECT rr.*, u.full_name, u.email,
+             bc.description as charge_description,
+             rev.full_name as reviewer_name
+      FROM refund_requests rr
+      JOIN users u ON u.id = rr.user_id
+      LEFT JOIN billing_charges bc ON bc.id = rr.charge_id
+      LEFT JOIN users rev ON rev.id = rr.reviewed_by
+      WHERE 1=1
+    `;
+    const params = [];
+    if (status) { sql += ` AND rr.status = ?`; params.push(status); }
+    sql += ` ORDER BY rr.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    return db.prepare(sql).all(...params);
+  },
+
+  // User admin notes
+  addUserAdminNote: ({ userId, adminId, note }) => {
+    const stmt = db.prepare(`INSERT INTO user_admin_notes (user_id, admin_id, note) VALUES (?, ?, ?)`);
+    const info = stmt.run(userId, adminId, note);
+    return info.lastInsertRowid;
+  },
+  getUserAdminNotes: (userId) => {
+    return db.prepare(`
+      SELECT n.*, a.full_name as admin_name, a.email as admin_email
+      FROM user_admin_notes n
+      JOIN users a ON a.id = n.admin_id
+      WHERE n.user_id = ?
+      ORDER BY n.created_at DESC
+    `).all(userId);
+  },
+
+  updateRefundRequestStatus: ({ requestId, status, reviewerId, adminNotes, refundAmount }) => {
+    const stmt = db.prepare(`
+      UPDATE refund_requests
+      SET status = ?, reviewed_by = ?, admin_notes = ?, refund_amount = ?, reviewed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    const result = stmt.run(status, reviewerId || null, adminNotes || null, refundAmount || null, requestId);
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      reviewerId,
+      'review_refund_request',
+      JSON.stringify({ requestId, status, refundAmount })
+    );
+    return result.changes > 0;
+  },
+
+  getRefundRequestCounts: () => {
+    const all = db.prepare(`SELECT COUNT(*) as c FROM refund_requests`).get().c;
+    const pending = db.prepare(`SELECT COUNT(*) as c FROM refund_requests WHERE status = 'pending'`).get().c;
+    const approved = db.prepare(`SELECT COUNT(*) as c FROM refund_requests WHERE status = 'approved'`).get().c;
+    return { all, pending, approved };
   }
 };

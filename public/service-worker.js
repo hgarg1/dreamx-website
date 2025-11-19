@@ -3,7 +3,7 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_VERSION = 'dreamx-v1.1.5';
+const CACHE_VERSION = 'dreamx-v1.3.1';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
@@ -14,6 +14,7 @@ const STATIC_ASSETS = [
   '/css/style.css',
   '/css/polish.css',
   '/css/feed.css',
+  '/css/post-card.css',
   '/css/mobile.css',
   '/css/notifications.css',
   '/css/enhanced-animations.css',
@@ -80,6 +81,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Skip authenticated pages that require session data
+  // DO NOT CACHE these pages as they contain user-specific content
   if (url.pathname === '/' ||
       url.pathname === '/feed' ||
       url.pathname === '/profile' ||
@@ -87,16 +89,54 @@ self.addEventListener('fetch', (event) => {
       url.pathname === '/messages' ||
       url.pathname === '/settings' ||
       url.pathname === '/onboarding' ||
+      url.pathname === '/onboarding-empty-state' ||
+      url.pathname === '/verify-email' ||
       url.pathname === '/welcome' ||
       url.pathname === '/services' ||
       url.pathname.startsWith('/services/') ||
+      url.pathname === '/create-service' ||
+      url.pathname.startsWith('/edit-service/') ||
       url.pathname === '/billing' ||
       url.pathname === '/pricing' ||
       url.pathname === '/help' ||
+      url.pathname === '/help-center' ||
       url.pathname === '/hr' ||
       url.pathname.startsWith('/post/') ||
-      url.pathname.startsWith('/admin')) {
-    return;
+      url.pathname.startsWith('/admin') ||
+      url.pathname === '/search' ||
+      url.pathname === '/notifications' ||
+      url.pathname === '/refund-request' ||
+      url.pathname === '/account-status' ||
+      url.pathname === '/account-appeal' ||
+      url.pathname === '/content-appeal') {
+    return; // Skip service worker, always fetch from network
+  }
+  
+  // Allow caching of static marketing/info pages (these are public and don't change often)
+  const allowCachePaths = [
+      '/terms',
+      '/privacy',
+      '/community-guidelines',
+      '/about',
+      '/contact',
+      '/careers',
+      '/team',
+      '/features'
+  ];
+  
+  // If it's not in the allow list, skip caching for safety
+  if (!allowCachePaths.includes(url.pathname)) {
+    // For CSS, JS, and images, we can cache
+    if (!url.pathname.startsWith('/css/') && 
+        !url.pathname.startsWith('/js/') && 
+        !url.pathname.startsWith('/img/') &&
+        !url.pathname.startsWith('/uploads/') &&
+        !url.pathname.startsWith('/fonts/') &&
+        request.destination !== 'image' &&
+        request.destination !== 'style' &&
+        request.destination !== 'script') {
+      return; // Skip caching for unknown authenticated routes
+    }
   }
 
   // Skip socket.io and API requests

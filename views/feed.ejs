@@ -11,25 +11,27 @@
       <div id="reelsBubbles" class="reels-bubbles" aria-live="polite">
         <% if (activeReels && activeReels.length) { %>
           <% activeReels.forEach(function(r){ %>
-            <div class="reel-bubble" onclick="viewUserReels(<%= r.user_id %>)">
-              <% if (r.profile_picture) { %>
-                <img src="/uploads/<%= r.profile_picture %>" alt="<%= r.full_name %>" class="reel-bubble-avatar" />
-              <% } else { %>
-                <div class="reel-bubble-avatar" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:700;font-size:1.4rem;">
-                  <%= (r.full_name||'U').charAt(0) %>
-                </div>
-              <% } %>
-              <span class="reel-bubble-name"><%= r.full_name || 'User' %></span>
+            <div class="reel-bubble" data-user-id="<%= r.user_id %>">
+              <div class="reel-bubble-avatar-wrapper" onclick="viewUserReels(<%= r.user_id %>)">
+                <% if (r.profile_picture) { %>
+                  <img src="/uploads/<%= r.profile_picture %>" alt="<%= r.full_name %>" class="reel-bubble-avatar" />
+                <% } else { %>
+                  <div class="reel-bubble-avatar" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:700;font-size:1.4rem;">
+                    <%= (r.full_name||'U').charAt(0) %>
+                  </div>
+                <% } %>
+              </div>
+              <span class="reel-bubble-name" onclick="window.location.href='/profile/<%= r.user_id %>'" style="cursor:pointer;"><%= r.full_name || 'User' %></span>
               <span class="reel-bubble-count"><%= r.reelCount %> reel<%= r.reelCount === 1 ? '' : 's' %></span>
             </div>
           <% }); %>
         <% } else { %>
-          <p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:8px 0;">No active reels</p>
+          <p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:8px 0;">No active reels from people you follow</p>
         <% } %>
       </div>
-      <div class="reels-bubbles-footer">
-        <button id="reelsPrevBtn" class="bubble-btn">Prev</button>
-        <button id="reelsNextBtn" class="bubble-btn">Next</button>
+      <div class="reels-bubbles-footer" style="display:flex;gap:8px;margin-top:12px;">
+        <button id="reelsPrevBtn" class="bubble-btn" style="flex:1;">← Prev</button>
+        <button id="reelsNextBtn" class="bubble-btn" style="flex:1;">Next →</button>
       </div>
     </div>
     <div style="margin-top: 24px; border-top: 2px solid rgba(255,79,163,0.1); padding-top: 24px;">
@@ -83,11 +85,11 @@
     </section>
 
     <!-- Post Composer Modal -->
-    <div id="postComposerModal" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);animation:fadeIn 0.3s ease;">
-      <div style="background:white;border-radius:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.35);animation:slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);">
+    <div id="postComposerModal" class="modal-backdrop" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);" onclick="if(event.target.classList.contains('modal-backdrop')) closePostComposer();">
+      <div class="modal-content" onclick="event.stopPropagation()" style="background:white;border-radius:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.35);">
         <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg, rgba(255,79,163,0.05) 0%, rgba(118,75,162,0.05) 100%);">
           <h3 style="margin:0;font-size:1.75rem;font-weight:800;background:linear-gradient(135deg, #ff4fa3, #764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Create Post</h3>
-          <button type="button" onclick="closePostComposer()" style="background:rgba(107,114,128,0.1);border:none;font-size:2rem;cursor:pointer;color:#6b7280;line-height:1;width:40px;height:40px;border-radius:50%;transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(239,68,68,0.1)';this.style.color='#ef4444';this.style.transform='rotate(90deg)'" onmouseout="this.style.background='rgba(107,114,128,0.1)';this.style.color='#6b7280';this.style.transform='rotate(0deg)'">&times;</button>
+          <button type="button" onclick="event.preventDefault(); closePostComposer();" style="background:rgba(107,114,128,0.1);border:none;font-size:2rem;cursor:pointer;color:#6b7280;line-height:1;width:40px;height:40px;border-radius:50%;transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(239,68,68,0.1)';this.style.color='#ef4444';this.style.transform='rotate(90deg)'" onmouseout="this.style.background='rgba(107,114,128,0.1)';this.style.color='#6b7280';this.style.transform='rotate(0deg)'">&times;</button>
         </div>
         <form id="postForm" action="/feed/post" method="POST" enctype="multipart/form-data" style="padding:32px;">
           <input type="hidden" id="postContentType" name="contentType" value="text">
@@ -144,11 +146,20 @@
         from { transform: translateY(30px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
+      .modal-backdrop { animation: fadeIn 0.3s ease; }
+      .modal-content { animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 
     <script>
+      // Global functions need to be outside DOMContentLoaded
       function openPostComposer(type = 'text') {
-        document.getElementById('postComposerModal').style.display = 'flex';
+        const modal = document.getElementById('postComposerModal');
+        if (!modal) {
+          console.error('Modal not found!');
+          return;
+        }
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
         document.getElementById('postContentType').value = type;
         const mediaSection = document.getElementById('mediaUploadSection');
         const mediaInput = document.getElementById('mediaInput');
@@ -169,7 +180,10 @@
       }
 
       function closePostComposer() {
-        document.getElementById('postComposerModal').style.display = 'none';
+        const modal = document.getElementById('postComposerModal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        document.body.style.overflow = ''; // Restore scrolling
         document.getElementById('postForm').reset();
         document.getElementById('mediaPreview').innerHTML = '';
         clearAudioUpload();
@@ -178,11 +192,26 @@
       function clearAudioUpload() {
         const audioInput = document.getElementById('audioInput');
         const audioPreview = document.getElementById('audioPreview');
-        audioInput.value = '';
-        audioPreview.style.display = 'none';
+        if (audioInput) audioInput.value = '';
+        if (audioPreview) audioPreview.style.display = 'none';
       }
 
-      document.getElementById('mediaInput').addEventListener('change', function(e) {
+      // Wait for DOM to be ready before adding event listeners
+      document.addEventListener('DOMContentLoaded', function() {
+        // Escape key handler
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') {
+            const modal = document.getElementById('postComposerModal');
+            if (modal && modal.style.display === 'flex') {
+              closePostComposer();
+            }
+          }
+        });
+
+        // Media input change handler
+        const mediaInput = document.getElementById('mediaInput');
+        if (mediaInput) {
+          mediaInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         const preview = document.getElementById('mediaPreview');
         preview.innerHTML = '';
@@ -214,18 +243,23 @@
           };
           reader.readAsDataURL(file);
         }
-      });
+          });
+        }
       
-      // Audio preview
-      document.getElementById('audioInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        const audioPreview = document.getElementById('audioPreview');
-        const audioFileName = document.getElementById('audioFileName');
-        if (file) {
-          audioFileName.textContent = file.name;
-          audioPreview.style.display = 'block';
-        } else {
-          audioPreview.style.display = 'none';
+        // Audio preview handler
+        const audioInput = document.getElementById('audioInput');
+        if (audioInput) {
+          audioInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const audioPreview = document.getElementById('audioPreview');
+            const audioFileName = document.getElementById('audioFileName');
+            if (file) {
+              audioFileName.textContent = file.name;
+              audioPreview.style.display = 'block';
+            } else {
+              audioPreview.style.display = 'none';
+            }
+          });
         }
       });
     </script>
@@ -310,24 +344,31 @@
 
     <h2 class="sidebar-title">Suggested Creators to Follow</h2>
     <div class="suggested-creators">
-      <% suggestions.forEach(function(s){ %>
-        <div class="creator-card">
-          <% if (s.id && s.profile_picture) { %>
-            <img src="/uploads/<%= s.profile_picture %>" alt="<%= s.user %>" class="avatar avatar-sm" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
-          <% } else { %>
-            <div class="avatar avatar-sm"><%= s.user.charAt(0) %></div>
-          <% } %>
-          <div class="creator-info">
-            <span class="creator-name"><%= s.user %></span>
-            <span class="creator-passion"><%= s.passion %></span>
+      <% if (suggestions && suggestions.length > 0) { %>
+        <% suggestions.forEach(function(s){ %>
+          <div class="creator-card">
+            <% if (s.id && s.profile_picture) { %>
+              <img src="/uploads/<%= s.profile_picture %>" alt="<%= s.user %>" class="avatar avatar-sm" style="width:40px;height:40px;border-radius:50%;object-fit:cover;cursor:pointer;" onclick="window.location.href='/profile/<%= s.id %>'">
+            <% } else { %>
+              <div class="avatar avatar-sm" style="cursor:pointer;" onclick="<% if (s.id) { %>window.location.href='/profile/<%= s.id %>'<% } %>"><%= s.user.charAt(0) %></div>
+            <% } %>
+            <div class="creator-info">
+              <span class="creator-name" style="cursor:pointer;" onclick="<% if (s.id) { %>window.location.href='/profile/<%= s.id %>'<% } %>"><%= s.user %></span>
+              <span class="creator-passion"><%= s.passion %></span>
+            </div>
+            <% if (s.id) { %>
+              <button type="button" class="follow-btn" onclick="followCreator(<%= s.id %>, this)">Follow</button>
+            <% } else { %>
+              <button type="button" class="follow-btn" disabled style="opacity:0.5;">Follow</button>
+            <% } %>
           </div>
-          <% if (s.id) { %>
-            <button type="button" class="follow-btn" onclick="followCreator(<%= s.id %>, this)">Follow</button>
-          <% } else { %>
-            <button type="button" class="follow-btn" disabled style="opacity:0.5;">Follow</button>
-          <% } %>
+        <% }); %>
+      <% } else { %>
+        <div style="padding:16px;text-align:center;color:#9ca3af;font-size:.85rem;">
+          <p style="margin:0;">No suggestions available right now.</p>
+          <p style="margin:8px 0 0 0;font-size:0.75rem;">Check back later!</p>
         </div>
-      <% }); %>
+      <% } %>
     </div>
 
     <script>
@@ -396,31 +437,44 @@
         grid-template-columns: repeat(auto-fill,minmax(78px,1fr));
         gap: 16px;
         padding: 10px 0;
-        max-height: 480px;
-        overflow-y: auto;
+        min-height: 120px;
         scrollbar-width: thin;
       }
       .reels-bubbles::-webkit-scrollbar { width:6px; }
       .reels-bubbles::-webkit-scrollbar-track { background:transparent; }
       .reels-bubbles::-webkit-scrollbar-thumb { background:#e5e7eb; border-radius:4px; }
-      .reel-bubble { display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; transition:.25s; }
+      .reel-bubble { display:flex; flex-direction:column; align-items:center; gap:6px; transition:.25s; }
       .reel-bubble:hover { transform:translateY(-3px); }
-      .reel-bubble-avatar { width:64px; height:64px; border-radius:50%; object-fit:cover; padding:3px; background:linear-gradient(135deg,#ff4fa3,#764ba2); box-shadow:0 4px 12px rgba(255,79,163,.25); }
-      .reel-bubble-name { font-size:.75rem; font-weight:600; color:#374151; max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+      .reel-bubble-avatar-wrapper { cursor:pointer; }
+      .reel-bubble-avatar { width:64px; height:64px; border-radius:50%; object-fit:cover; padding:3px; background:linear-gradient(135deg,#ff4fa3,#764ba2); box-shadow:0 4px 12px rgba(255,79,163,.25); transition:all .3s ease; }
+      .reel-bubble-avatar-wrapper:hover .reel-bubble-avatar { transform:scale(1.08); box-shadow:0 6px 16px rgba(255,79,163,.35); }
+      .reel-bubble-name { font-size:.75rem; font-weight:600; color:#374151; max-width:78px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; transition:color .2s; }
+      .reel-bubble-name:hover { color:#ff4fa3; text-decoration:underline; }
       .reel-bubble-count { font-size:.65rem; color:#ff4fa3; font-weight:700; }
       .reels-bubbles-footer { display:flex; gap:8px; margin-top:4px; }
-      .bubble-btn { flex:1; padding:8px 10px; font-size:.7rem; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:8px; cursor:pointer; font-weight:600; transition:.25s; }
-      .bubble-btn:hover { background:#e5e7eb; }
-      .bubble-btn:disabled { opacity:.4; cursor:not-allowed; }
+      .bubble-btn { flex:1; padding:10px 12px; font-size:.75rem; background:linear-gradient(135deg, rgba(255,79,163,0.08), rgba(118,75,162,0.08)); border:1px solid rgba(255,79,163,0.2); border-radius:10px; cursor:pointer; font-weight:700; transition:.25s; color:#374151; }
+      .bubble-btn:hover:not(:disabled) { background:linear-gradient(135deg, rgba(255,79,163,0.15), rgba(118,75,162,0.15)); border-color:rgba(255,79,163,0.4); transform:translateY(-1px); }
+      .bubble-btn:disabled { opacity:.35; cursor:not-allowed; background:#f3f4f6; border-color:#e5e7eb; }
     </style>
     
     <script>
       // Load reels bubbles on page load
       let reelsPage = 1;
-      const reelsPageSize = 24;
+      const reelsPageSize = 12; // Show 12 at a time for cleaner grid
       async function loadReelsBubbles(initial=false) {
         try {
           const res = await fetch(`/api/users/following/reels?page=${reelsPage}&pageSize=${reelsPageSize}`);
+          
+          // Check for HTTP errors
+          if (!res.ok) {
+            console.error('Failed to load reels:', res.status, res.statusText);
+            const container = document.getElementById('reelsBubbles');
+            if (container) {
+              container.innerHTML = '<p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:20px 0;">Unable to load reels. Try again later.</p>';
+            }
+            return;
+          }
+          
           const data = await res.json();
           const users = data.users || [];
           const container = document.getElementById('reelsBubbles');
@@ -430,19 +484,34 @@
           if (users.length === 0 && data.page === 1) {
             container.innerHTML = '<p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:20px 0;">No active reels from people you follow</p>';
           } else {
-            container.innerHTML = users.map(user => `
-              <div class=\"reel-bubble\" onclick=\"viewUserReels(${user.id})\">
-                ${user.profile_picture ? `<img src=\"/uploads/${user.profile_picture}\" alt=\"${user.full_name}\" class=\"reel-bubble-avatar\">` : `<div class=\"reel-bubble-avatar\" style=\"display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:700;font-size:1.4rem;\">${(user.full_name||'U').charAt(0)}</div>`}
-                <span class=\"reel-bubble-name\">${user.full_name || 'User'}</span>
-                <span class=\"reel-bubble-count\">${user.reelCount} reel${user.reelCount === 1 ? '' : 's'}</span>
-              </div>`).join('');
+            container.innerHTML = users.map(user => {
+              const escapedName = (user.full_name || 'User').replace(/'/g, "\\'");
+              return `
+              <div class="reel-bubble" data-user-id="${user.id}">
+                <div class="reel-bubble-avatar-wrapper" onclick="viewUserReels(${user.id})">
+                  ${user.profile_picture ? `<img src="/uploads/${user.profile_picture}" alt="${escapedName}" class="reel-bubble-avatar">` : `<div class="reel-bubble-avatar" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:700;font-size:1.4rem;">${(user.full_name||'U').charAt(0)}</div>`}
+                </div>
+                <span class="reel-bubble-name" onclick="window.location.href='/profile/${user.id}'" style="cursor:pointer;">${escapedName}</span>
+                <span class="reel-bubble-count">${user.reelCount} reel${user.reelCount === 1 ? '' : 's'}</span>
+              </div>`;
+            }).join('');
           }
           // Update controls
-          document.getElementById('reelsPageInfo').textContent = `Page ${data.page} / ${data.totalPages}`;
-          document.getElementById('reelsPrevBtn').disabled = reelsPage <= 1;
-          document.getElementById('reelsNextBtn').disabled = reelsPage >= data.totalPages;
+          const pageInfo = document.getElementById('reelsPageInfo');
+          const prevBtn = document.getElementById('reelsPrevBtn');
+          const nextBtn = document.getElementById('reelsNextBtn');
+          
+          if (data.totalPages > 0) {
+            pageInfo.textContent = `Page ${data.page}/${data.totalPages}`;
+          } else {
+            pageInfo.textContent = '';
+          }
+          
+          prevBtn.disabled = reelsPage <= 1;
+          nextBtn.disabled = reelsPage >= data.totalPages || data.totalPages === 0;
         } catch (err) {
           console.error('Failed to load reels bubbles:', err);
+          document.getElementById('reelsBubbles').innerHTML = '<p style="color:#ef4444;font-size:0.85rem;text-align:center;padding:16px 0;">Failed to load reels</p>';
         }
       }
       function viewUserReels(userId){ window.location.href = `/profile/${userId}?viewReels=true`; }

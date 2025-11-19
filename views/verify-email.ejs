@@ -554,6 +554,31 @@
     }
   });
   
+  // Auto-send verification code on page load if user was redirected from another page
+  // Check if this is a redirect (not from register page)
+  const isRedirect = document.referrer && !document.referrer.includes('/register');
+  
+  if (isRedirect) {
+    // User was redirected from another page, auto-send verification code
+    console.log('User redirected to verification page, auto-sending code...');
+    fetch('/resend-verification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        console.log('Verification code auto-sent on page load');
+        if (window.showSuccess) {
+          showSuccess('Verification code sent to your email');
+        }
+      }
+    })
+    .catch(err => {
+      console.error('Auto-send verification code error:', err);
+    });
+  }
+  
   // Start initial timer
   startResendTimer();
 })();

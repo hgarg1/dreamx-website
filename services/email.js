@@ -47,6 +47,20 @@ const createTransporter = async () => {
 
 // Fallback to basic SMTP
 const createBasicTransporter = () => {
+    // Check if basic SMTP credentials are available
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+        console.error('❌ Email service not configured - missing GMAIL_USER or GMAIL_APP_PASSWORD');
+        // Return a mock transporter that logs instead of sending
+        return {
+            sendMail: async (mailOptions) => {
+                console.log('📧 [Email Mock] Would send email to:', mailOptions.to);
+                console.log('📧 [Email Mock] Subject:', mailOptions.subject);
+                console.log('📧 [Email Mock] Email service is not configured in production');
+                return { messageId: 'mock-' + Date.now() };
+            }
+        };
+    }
+    
     return nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -62,7 +76,7 @@ async function sendEmail(to, subject, htmlContent, textContent = null) {
         const transporter = await createTransporter();
         
         const mailOptions = {
-            from: `Dream X <${process.env.GMAIL_USER}>`,
+            from: `Dream X <${process.env.GMAIL_USER || 'noreply@dreamx.app'}>`,
             to: to,
             subject: subject,
             text: textContent || htmlContent.replace(/<[^>]*>/g, ''), // Strip HTML for text fallback
@@ -73,8 +87,9 @@ async function sendEmail(to, subject, htmlContent, textContent = null) {
         console.log(`✅ Email sent to ${to}: ${subject}`);
         return { success: true, messageId: result.messageId };
     } catch (error) {
-        console.error(`❌ Error sending email to ${to}:`, error);
-        return { success: false, error: error.message };
+        console.error(`❌ Error sending email to ${to}:`, error.message || error);
+        // Don't throw - return error so app continues running
+        return { success: false, error: error.message || 'Email service unavailable' };
     }
 }
 

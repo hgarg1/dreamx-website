@@ -22,7 +22,7 @@ const socketIo = require('socket.io');
 let webpush;
 
 // Import email service
-const emailService = require('./services/email');
+const emailService = require('./services/emailService');
 
 // Import payment service
 const paymentService = require('./services/payments');
@@ -79,7 +79,11 @@ const {
     // User blocks and reports
     blockUser, unblockUser, isUserBlocked, getBlockedUsers,
     reportUser, getUserReports, updateReportStatus,
-    lockUserBlockFunctionality, unlockUserBlockFunctionality, getUserModerationStatus, getAllBlocksAndReports
+    lockUserBlockFunctionality, unlockUserBlockFunctionality, getUserModerationStatus, getAllBlocksAndReports,
+    // Billing & Refunds
+    getUserCharges, createRefundRequest, getRefundRequest, getUserRefundRequests, updateRefundRequestStatus,
+    // Admin notes
+    addUserAdminNote, getUserAdminNotes
  } = require('./db');
 let fetch;
 try {
@@ -123,7 +127,16 @@ function getCallbackURL(path) {
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    cors: {
+        origin: process.env.BASE_URL || 'http://localhost:3000',
+        methods: ['GET', 'POST'],
+        credentials: true
+    },
+    path: '/socket.io/',
+    transports: ['polling', 'websocket'],
+    allowEIO3: true
+});
 const PORT = 3000;
 
 // Configure multer for file uploads
@@ -168,6 +181,27 @@ const chatUpload = multer({
     }
     cb(new Error('Unsupported file type for chat'));
   }
+});
+
+// Refund request uploads (screenshots/receipts - images only)
+const refundStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = path.join(__dirname, 'public', 'uploads', 'refunds');
+        try { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); } catch (e) {}
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'refund-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const refundUpload = multer({
+    storage: refundStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB for screenshots
+    fileFilter: (req, file, cb) => {
+        if ((file.mimetype || '').toLowerCase().startsWith('image/')) return cb(null, true);
+        return cb(new Error('Only image files are allowed for screenshots'));
+    }
 });
 
 // Posts/media uploads (supports images for image posts, videos/GIFs for reels)
@@ -1022,6 +1056,27 @@ app.get('/admin', requireAdmin, (req, res) => {
         if (accountAppeals.length > qLimit) { aaHasMore = true; accountAppeals = accountAppeals.slice(0, qLimit); }
     } catch(e) { console.warn('Queue fetch error:', e.message); }
 
+    // Get refund requests with pagination
+    const rPage = Math.max(parseInt(req.query.rPage || '1', 10) || 1, 1);
+    const rStatus = (req.query.rStatus || '').toLowerCase() || undefined;
+    const rOffset = (rPage - 1) * qLimit;
+    let refundRequests = [];
+    let rHasMore = false;
+    try {
+        const dbm = require('./db');
+        refundRequests = dbm.getAllRefundRequests({ 
+            limit: qLimit + 1, 
+            offset: rOffset, 
+            status: rStatus 
+        }) || [];
+        if (refundRequests.length > qLimit) { 
+            rHasMore = true; 
+            refundRequests = refundRequests.slice(0, qLimit); 
+        }
+    } catch(e) { 
+        console.warn('Refund requests fetch error:', e.message); 
+    }
+
     res.render('admin-consolidated', {
         title: 'Admin Dashboard - Dream X',
         currentPage: 'admin',
@@ -1036,9 +1091,10 @@ app.get('/admin', requireAdmin, (req, res) => {
         careers,
         contentAppeals,
         accountAppeals,
-        cPage, caPage, aaPage,
-        cHasMore, caHasMore, aaHasMore,
-        cStatus, caStatus, aaStatus,
+        refundRequests,
+        cPage, caPage, aaPage, rPage,
+        cHasMore, caHasMore, aaHasMore, rHasMore,
+        cStatus, caStatus, aaStatus, rStatus,
         error: req.query.error,
         success: req.query.success
     });
@@ -1509,6 +1565,130 @@ app.post('/admin/appeals/account/:id/status', requireAdmin, async (req, res) => 
     res.redirect('/admin?success=Account+appeal+updated');
 });
 
+// Admin: Get refund request details (for modal)
+app.get('/admin/refund-requests/:id', requireAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    
+    try {
+        const refundRequest = getRefundRequest(id);
+        
+        if (!refundRequest) {
+            return res.status(404).json({ success: false, error: 'Refund request not found' });
+        }
+        // Fetch audit trail for this refund from audit_logs
+        let audit = [];
+        try {
+            audit = db.prepare(`
+              SELECT a.created_at, a.action, a.details, u.full_name AS admin_name, u.email AS admin_email
+              FROM audit_logs a
+              LEFT JOIN users u ON u.id = a.user_id
+              WHERE a.action IN ('review_refund_request','refund_request_update')
+                AND (a.details LIKE ? OR a.details LIKE ?)
+              ORDER BY a.created_at DESC
+            `).all(`%"requestId":${id}%`, `%"id":${id}%`);
+        } catch (e) {
+            console.warn('Audit trail fetch failed:', e.message);
+        }
+
+        res.json({ success: true, data: refundRequest, audit });
+    } catch (error) {
+        console.error('Error fetching refund request:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch refund request' });
+    }
+});
+
+// Admin: Update refund request status
+app.post('/admin/refund-requests/:id/update', requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { status, adminNotes, refundAmount } = req.body;
+    
+    const valid = ['pending', 'processing', 'approved', 'denied', 'refunded'];
+    if (!valid.includes(status)) {
+        return res.json({ success: false, error: 'Invalid status' });
+    }
+    
+    try {
+        // Get refund request details for notifications
+        const refundRequest = getRefundRequest(id);
+        
+        if (!refundRequest) {
+            return res.json({ success: false, error: 'Refund request not found' });
+        }
+        
+        // Update the refund request
+        updateRefundRequestStatus({
+            id,
+            status,
+            reviewedBy: req.session.userId,
+            adminNotes: adminNotes || null,
+            refundAmount: refundAmount ? parseFloat(refundAmount) : null
+        });
+        
+        // Add audit log
+        try {
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'refund_request_update',
+                details: JSON.stringify({ id, status, refundAmount })
+            });
+        } catch(e) {
+            console.warn('Audit log failed:', e);
+        }
+        
+        // Send email notification to user
+        const user = await getUserById(refundRequest.user_id);
+        if (user && user.email) {
+            try {
+                // TODO: Implement refund status email templates
+                if (status === 'approved') {
+                    // await emailService.sendRefundApprovedEmail(user.email, refundRequest, refundAmount);
+                    console.log('📧 Would send approval email to:', user.email);
+                } else if (status === 'denied') {
+                    // await emailService.sendRefundDeniedEmail(user.email, refundRequest, adminNotes);
+                    console.log('📧 Would send denial email to:', user.email);
+                }
+            } catch (emailError) {
+                console.error('Email notification failed:', emailError);
+            }
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating refund request:', error);
+        res.json({ success: false, error: 'Failed to update refund request' });
+    }
+});
+
+// Admin: User account notes
+app.get('/admin/users/:id/notes', requireAdmin, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    try {
+        const notes = getUserAdminNotes(userId) || [];
+        res.json({ success: true, notes });
+    } catch (e) {
+        console.error('Error fetching user notes:', e);
+        res.status(500).json({ success: false, error: 'Failed to load notes' });
+    }
+});
+
+app.post('/admin/users/:id/notes', requireAdmin, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    const adminId = req.session.userId;
+    const { note } = req.body;
+    if (!note || !note.trim()) {
+        return res.status(400).json({ success: false, error: 'Note is required' });
+    }
+    try {
+        const id = addUserAdminNote({ userId, adminId, note: note.trim() });
+        addAuditLog({ userId: adminId, action: 'add_user_note', details: JSON.stringify({ targetUserId: userId, noteId: id }) });
+        const created = getUserAdminNotes(userId)[0];
+        res.json({ success: true, note: created });
+    } catch (e) {
+        console.error('Error adding user note:', e);
+        res.status(500).json({ success: false, error: 'Failed to add note' });
+    }
+});
+
 // Registration page
 app.get('/register', (req, res) => {
     if (req.session.userId) return res.redirect('/onboarding');
@@ -1869,6 +2049,14 @@ app.post('/login', async (req, res) => {
             if (saveErr) {
                 console.error('Session save error:', saveErr);
             }
+            // Auto-verify and complete onboarding for admin/HR accounts
+            if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || user.role === 'hr') {
+                if (user.email_verified !== 1 || user.onboarding_completed !== 1) {
+                    db.prepare('UPDATE users SET email_verified = 1, onboarding_completed = 1 WHERE id = ?').run(user.id);
+                    console.log(`✅ Auto-verified and completed onboarding for ${user.role} account: ${user.email}`);
+                }
+            }
+            
             // If email not verified, force verification immediately
             if (user.email_verified !== 1) {
                 return res.redirect('/verify-email');
@@ -1903,6 +2091,10 @@ app.get('/logout', (req, res) => {
 // Feed page (main social feed)
 app.get('/feed', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
+    // Prevent caching of feed to ensure fresh content
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const posts = getFeedPosts({ limit: 50, offset: 0 }).map(p => {
         try {
             p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
@@ -1944,11 +2136,78 @@ app.get('/feed', (req, res) => {
         })).filter(r => r.reelCount > 0).sort((a,b) => b.reelCount - a.reelCount);
     } catch(e) { activeReels = []; }
     
-    // Get real suggested users with fallback to dummy data
+    // Get real suggested users with smart fallback logic
     let suggestions = [];
     try {
-        const suggestedUsers = getSuggestedUsers({ currentUserId: req.session.userId, limit: 4 });
-        suggestions = suggestedUsers.map(u => {
+        // First, try to get users based on recent post activity (last 7 days)
+        const activeUsersQuery = db.prepare(`
+            SELECT DISTINCT u.id, u.full_name, u.email, u.profile_picture, u.categories,
+                   COUNT(p.id) as recent_posts
+            FROM users u
+            LEFT JOIN posts p ON u.id = p.user_id AND p.created_at >= datetime('now', '-7 days')
+            WHERE u.id != ?
+              AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
+              AND u.account_status = 'active'
+            GROUP BY u.id
+            ORDER BY recent_posts DESC, u.created_at DESC
+            LIMIT 10
+        `);
+        const activeUsers = activeUsersQuery.all(req.session.userId, req.session.userId);
+        
+        // If we got active users, pick top 3-4 based on post count
+        if (activeUsers.length >= 3) {
+            // On busy days (users with 3+ posts), use higher threshold
+            const busyUsers = activeUsers.filter(u => u.recent_posts >= 3);
+            const moderateUsers = activeUsers.filter(u => u.recent_posts >= 1 && u.recent_posts < 3);
+            
+            if (busyUsers.length >= 3) {
+                // Busy day - pick users with most posts
+                suggestions = busyUsers.slice(0, 3);
+            } else if (busyUsers.length > 0 && moderateUsers.length > 0) {
+                // Mixed activity - combine busy and moderate users
+                suggestions = [...busyUsers.slice(0, 2), ...moderateUsers.slice(0, 2)];
+            } else {
+                // Light day - pick any users with recent activity
+                suggestions = activeUsers.slice(0, 3);
+            }
+        }
+        
+        // If still not enough suggestions, get users with most total posts ever
+        if (suggestions.length < 3) {
+            const topCreatorsQuery = db.prepare(`
+                SELECT u.id, u.full_name, u.email, u.profile_picture, u.categories,
+                       COUNT(p.id) as total_posts
+                FROM users u
+                LEFT JOIN posts p ON u.id = p.user_id
+                WHERE u.id != ?
+                  AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
+                  AND u.account_status = 'active'
+                GROUP BY u.id
+                HAVING total_posts > 0
+                ORDER BY total_posts DESC
+                LIMIT ?
+            `);
+            const needed = 3 - suggestions.length;
+            const topCreators = topCreatorsQuery.all(req.session.userId, req.session.userId, needed);
+            suggestions = [...suggestions, ...topCreators];
+        }
+        
+        // Last resort: if still empty, get ANY real users (newest first)
+        if (suggestions.length === 0) {
+            const anyUsersQuery = db.prepare(`
+                SELECT u.id, u.full_name, u.email, u.profile_picture, u.categories
+                FROM users u
+                WHERE u.id != ?
+                  AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
+                  AND u.account_status = 'active'
+                ORDER BY u.created_at DESC
+                LIMIT 3
+            `);
+            suggestions = anyUsersQuery.all(req.session.userId, req.session.userId);
+        }
+        
+        // Transform to expected format
+        suggestions = suggestions.map(u => {
             let passion = 'Community Member';
             if (u.categories) {
                 try {
@@ -1965,7 +2224,8 @@ app.get('/feed', (req, res) => {
                 passion: passion,
                 profile_picture: u.profile_picture
             };
-        });
+        }).slice(0, 3); // Ensure we show exactly 3 (or fewer if not available)
+        
     } catch (error) {
         console.error('Error fetching suggested users:', error);
         suggestions = [];
@@ -2431,6 +2691,10 @@ app.post('/api/comments/:commentId/star', async (req, res) => {
 // Profile page (current user)
 app.get('/profile', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
+    // Prevent caching of profile to ensure fresh content
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
     const passions = row.categories ? JSON.parse(row.categories) : [];
@@ -2518,6 +2782,9 @@ app.get('/profile/:id(\\d+)', (req, res) => {
         return p;
     });
     
+    // Check if viewing own profile
+    const viewingOwnProfile = (uid === req.session.userId);
+    
     const followerCount = getFollowerCount(uid);
     const followingCount = getFollowingCount(uid);
     const isFollowingUser = isFollowing({ followerId: req.session.userId, followingId: uid });
@@ -2561,7 +2828,7 @@ app.get('/profile/:id(\\d+)', (req, res) => {
         userPosts,
         profileUserId: uid,
         profilePicture: row.profile_picture || null,
-        isOwnProfile: false,
+        isOwnProfile: viewingOwnProfile,
         isFollowing: isFollowingUser,
         isSuperAdmin
     });
@@ -2971,6 +3238,10 @@ app.post('/services/:id/book', ensureAuthenticated, (req, res) => {
 // Messages page - Real messaging with database
 app.get('/messages', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
+    // Prevent caching of messages to ensure fresh content
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     
     const conversations = getUserConversations(req.session.userId);
     let currentConversation = null;
@@ -3401,6 +3672,10 @@ app.get('/api/messages/:messageId/reactions', (req, res) => {
 // Settings page with full functionality
 app.get('/settings', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
+    // Prevent caching of settings to ensure fresh content
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const row = getUserById(req.session.userId);
     if (!row) return res.redirect('/login');
     const authUser = { 
@@ -3437,6 +3712,10 @@ app.get('/settings', (req, res) => {
     const paymentMethods = getPaymentMethods(req.session.userId) || [];
     const invoices = getInvoices(req.session.userId) || [];
     
+    // Get billing charges
+    const { getUserCharges } = require('./db');
+    const charges = getUserCharges({ userId: req.session.userId, limit: 50, offset: 0 }) || [];
+    
     res.render('settings', {
         title: 'Settings - Dream X',
         currentPage: 'settings',
@@ -3446,7 +3725,9 @@ app.get('/settings', (req, res) => {
         subscription,
         paymentMethods,
         invoices,
+        charges,
         success: req.query.success,
+        refund_submitted: req.query.refund_submitted === 'true',
         error: req.query.error
     });
 });
@@ -4230,6 +4511,21 @@ app.post('/settings/delete-account', ensureAuthenticated, async (req, res) => {
             db.prepare('DELETE FROM notifications WHERE user_id = ?').run(uid);
             db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(uid);
             
+            // User blocks and reports
+            db.prepare('DELETE FROM user_blocks WHERE blocker_id = ? OR blocked_id = ?').run(uid, uid);
+            db.prepare('DELETE FROM user_reports WHERE reporter_id = ? OR reported_user_id = ?').run(uid, uid);
+            db.prepare('DELETE FROM user_moderation WHERE user_id = ?').run(uid);
+            
+            // Livestreams and related data
+            db.prepare('DELETE FROM livestream_chat WHERE livestream_id IN (SELECT id FROM livestreams WHERE user_id = ?)').run(uid);
+            db.prepare('DELETE FROM livestream_viewers WHERE livestream_id IN (SELECT id FROM livestreams WHERE user_id = ?)').run(uid);
+            db.prepare('DELETE FROM livestream_viewers WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM livestream_chat WHERE user_id = ?').run(uid);
+            db.prepare('DELETE FROM livestreams WHERE user_id = ?').run(uid);
+            
+            // Payment customers
+            db.prepare('DELETE FROM payment_customers WHERE user_id = ?').run(uid);
+            
             // Auth and credentials
             db.prepare('DELETE FROM webauthn_credentials WHERE user_id = ?').run(uid);
             db.prepare('DELETE FROM oauth_accounts WHERE user_id = ?').run(uid);
@@ -4495,18 +4791,19 @@ app.get('/privacy', (req, res) => {
 
 // Terms of Service page
 app.get('/terms', (req, res) => {
-    res.render('feed', {
+    res.render('terms', {
         title: 'Terms of Service - Dream X',
-        currentPage: 'terms'
+        currentPage: 'terms',
+        authUser: req.session.userId ? db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId) : null
     });
 });
 
 // Community Guidelines page
 app.get('/community-guidelines', (req, res) => {
     res.render('community-guidelines', { 
-        activeReels,
         title: 'Community Guidelines - Dream X',
-        currentPage: 'community-guidelines'
+        currentPage: 'community-guidelines',
+        authUser: req.session.userId ? db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId) : null
     });
 });
 
@@ -4524,6 +4821,145 @@ app.get('/account-appeal', (req, res) => {
         title: 'Account Appeal - Dream X',
         currentPage: 'account-appeal'
     });
+});
+
+// Refund Request page
+app.get('/refund-request', async (req, res) => {
+    if (!req.session.userId) {
+        return res.redirect('/login');
+    }
+
+    try {
+        // Get user's charges to populate the form
+        const charges = getUserCharges({ 
+            userId: req.session.userId, 
+            limit: 100, 
+            offset: 0 
+        }) || [];
+
+        // Get user's recent refund requests for spam prevention
+        const recentRefunds = getUserRefundRequests(req.session.userId) || [];
+
+        // Mark charges that have pending/recent refund requests
+        const fiveDaysAgo = new Date();
+        fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
+        charges.forEach(charge => {
+            const recentRefund = recentRefunds.find(refund => {
+                const refundDate = new Date(refund.created_at);
+                return refund.charge_id === charge.id && refundDate > fiveDaysAgo;
+            });
+            charge.hasRecentRefund = !!recentRefund;
+            charge.refundStatus = recentRefund?.status;
+        });
+
+        const user = await getUserById(req.session.userId);
+
+        res.render('refund-request', {
+            title: 'Refund Request - Dream X',
+            currentPage: 'refund-request',
+            charges: charges,
+            recentRefunds: recentRefunds,
+            user: user
+        });
+    } catch (error) {
+        console.error('Error loading refund request page:', error);
+        res.status(500).send('Error loading refund request page');
+    }
+});
+
+// Handle refund request submission
+app.post('/refund-request', refundUpload.single('screenshot'), (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
+    const {
+        charge_id,
+        chargeId,
+        amount,
+        reason,
+        description,
+        order_date,
+        orderDate,
+        transaction_id,
+        transactionId,
+        preferred_method,
+        preferredMethod,
+        account_email,
+        accountEmail,
+        account_last_four,
+        accountLastFour
+    } = req.body;
+
+    const finalChargeId = (charge_id || chargeId) ? parseInt(charge_id || chargeId) : null;
+    const finalTransactionId = transaction_id || transactionId;
+
+    // Check for recent duplicate refund requests (spam prevention)
+    try {
+        const recentRefunds = getUserRefundRequests(req.session.userId);
+        const fiveDaysAgo = new Date();
+        fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
+        // Check for duplicate based on charge_id or transaction_id
+        const duplicateRefund = recentRefunds.find(refund => {
+            const refundDate = new Date(refund.created_at);
+            const isRecent = refundDate > fiveDaysAgo;
+            
+            // Check if same charge_id or transaction_id within 5 days
+            if (isRecent) {
+                if (finalChargeId && refund.charge_id === finalChargeId) {
+                    return true;
+                }
+                if (finalTransactionId && refund.transaction_id === finalTransactionId) {
+                    return true;
+                }
+            }
+            return false;
+        });
+
+        if (duplicateRefund) {
+            const daysSince = Math.ceil((new Date() - new Date(duplicateRefund.created_at)) / (1000 * 60 * 60 * 24));
+            const daysRemaining = 5 - daysSince;
+            return res.status(429).json({ 
+                success: false, 
+                error: `You have already submitted a refund request for this transaction. Please wait ${daysRemaining} more day(s) before submitting another request.`,
+                waitDays: daysRemaining
+            });
+        }
+
+        // Get screenshot path if uploaded
+        let screenshotPath = null;
+        if (req.file) {
+            // Store under /uploads/refunds for static serving
+            screenshotPath = 'uploads/refunds/' + req.file.filename;
+        }
+
+        // Create refund request
+        const refundRequestId = createRefundRequest({
+            userId: req.session.userId,
+            chargeId: finalChargeId,
+            amount: parseFloat(amount),
+            reason: reason,
+            description: description,
+            orderDate: order_date || orderDate,
+            transactionId: finalTransactionId,
+            preferredMethod: preferred_method || preferredMethod,
+            accountEmail: account_email || accountEmail || null,
+            accountLastFour: account_last_four || accountLastFour || null,
+            screenshot: screenshotPath
+        });
+
+        console.log('✅ Refund request created:', refundRequestId);
+
+        // TODO: Send confirmation email to user
+        // TODO: Send notification to admin
+
+        res.json({ success: true, message: 'Refund request submitted successfully', requestId: refundRequestId });
+    } catch (error) {
+        console.error('Error creating refund request:', error);
+        res.status(500).json({ success: false, error: 'Failed to submit refund request. Please try again.' });
+    }
 });
 
 // Login page
@@ -4606,6 +5042,23 @@ app.post('/onboarding', onboardingUpload, (req, res) => {
 });
 
 // === NOTIFICATION API ROUTES ===
+// Get user profile counts (posts, services)
+app.get('/api/users/:userId/profile-counts', (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId, 10);
+        const postsCount = db.prepare('SELECT COUNT(*) as count FROM posts WHERE user_id = ?').get(userId).count;
+        const servicesCount = db.prepare('SELECT COUNT(*) as count FROM services WHERE user_id = ?').get(userId).count;
+        res.json({ 
+            success: true,
+            posts: postsCount,
+            services: servicesCount
+        });
+    } catch (error) {
+        console.error('Error fetching profile counts:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch counts' });
+    }
+});
+
 // Get user notifications
 app.get('/api/notifications', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
@@ -4853,16 +5306,35 @@ app.get('/api/users/following/reels', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     try {
         const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-        const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '24', 10), 1), 200); // cap
-        const rawFollowing = getFollowing(req.session.userId, 500); // fetch up to 500
+        const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '12', 10), 1), 200); // cap
+        
+        let rawFollowing;
+        try {
+            rawFollowing = getFollowing(req.session.userId, 500);
+        } catch (err) {
+            console.error('Error getting following list:', err);
+            rawFollowing = null;
+        }
+        
+        // Handle case when user follows no one or following fetch failed
+        if (!rawFollowing || !Array.isArray(rawFollowing) || rawFollowing.length === 0) {
+            return res.json({ users: [], page: 1, pageSize, total: 0, totalPages: 0 });
+        }
         
         // Map users with reel counts and filter out users with no active reels
-        const usersWithReels = rawFollowing.map(u => ({
-            id: u.id,
-            full_name: u.full_name,
-            profile_picture: u.profile_picture,
-            reelCount: require('./db').getActiveReelCount(u.id)
-        })).filter(u => u.reelCount > 0); // Only include users with active reels
+        const usersWithReels = rawFollowing.map(u => {
+            try {
+                return {
+                    id: u.id,
+                    full_name: u.full_name,
+                    profile_picture: u.profile_picture,
+                    reelCount: require('./db').getActiveReelCount(u.id) || 0
+                };
+            } catch (err) {
+                console.error(`Error getting reel count for user ${u.id}:`, err);
+                return null;
+            }
+        }).filter(u => u !== null && u.reelCount > 0); // Only include users with active reels
         
         // Sort by reel count (descending) so most active are first
         usersWithReels.sort((a, b) => b.reelCount - a.reelCount);
@@ -4871,8 +5343,9 @@ app.get('/api/users/following/reels', (req, res) => {
         const startIndex = (page - 1) * pageSize;
         const users = usersWithReels.slice(startIndex, startIndex + pageSize);
         const total = usersWithReels.length;
+        const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
         
-        res.json({ users, page, pageSize, total, totalPages: Math.ceil(total / pageSize) });
+        res.json({ users, page, pageSize, total, totalPages });
     } catch (error) {
         console.error('Get following reels error:', error);
         res.status(500).json({ error: 'Failed to retrieve following reels' });

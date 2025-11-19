@@ -136,25 +136,27 @@
   </div>
   <footer class="post-footer" style="padding-top:1.25rem;margin-top:1.25rem;border-top:2px solid rgba(229,231,235,0.5);">
     <div class="reactions-row">
-      <% const rx = post.reactions || {}; const ur = post.user_reaction; %>
-      <button type="button" class="rx-btn<%= ur==='like' ? ' active' : '' %>" data-type="like">
-        <span>👍</span><span class="rx-count" data-type="like"><%= rx.like || 0 %></span>
-      </button>
-      <button type="button" class="rx-btn<%= ur==='love' ? ' active' : '' %>" data-type="love">
-        <span>❤️</span><span class="rx-count" data-type="love"><%= rx.love || 0 %></span>
-      </button>
-      <button type="button" class="rx-btn<%= ur==='clap' ? ' active' : '' %>" data-type="clap">
-        <span>👏</span><span class="rx-count" data-type="clap"><%= rx.clap || 0 %></span>
-      </button>
-      <button type="button" class="rx-btn<%= ur==='fire' ? ' active' : '' %>" data-type="fire">
-        <span>🔥</span><span class="rx-count" data-type="fire"><%= rx.fire || 0 %></span>
-      </button>
-      <button type="button" class="rx-btn<%= ur==='rocket' ? ' active' : '' %>" data-type="rocket">
-        <span>🚀</span><span class="rx-count" data-type="rocket"><%= rx.rocket || 0 %></span>
-      </button>
-      <button type="button" class="rx-btn<%= ur==='celebrate' ? ' active' : '' %>" data-type="celebrate">
-        <span>🎉</span><span class="rx-count" data-type="celebrate"><%= rx.celebrate || 0 %></span>
-      </button>
+      <div class="reactions-container">
+        <% const rx = post.reactions || {}; const ur = post.user_reaction; %>
+        <button type="button" class="rx-btn<%= ur==='like' ? ' active' : '' %>" data-type="like">
+          <span>👍</span><span class="rx-count" data-type="like"><%= rx.like || 0 %></span>
+        </button>
+        <button type="button" class="rx-btn<%= ur==='love' ? ' active' : '' %>" data-type="love">
+          <span>❤️</span><span class="rx-count" data-type="love"><%= rx.love || 0 %></span>
+        </button>
+        <button type="button" class="rx-btn<%= ur==='clap' ? ' active' : '' %>" data-type="clap">
+          <span>👏</span><span class="rx-count" data-type="clap"><%= rx.clap || 0 %></span>
+        </button>
+        <button type="button" class="rx-btn<%= ur==='fire' ? ' active' : '' %>" data-type="fire">
+          <span>🔥</span><span class="rx-count" data-type="fire"><%= rx.fire || 0 %></span>
+        </button>
+        <button type="button" class="rx-btn<%= ur==='rocket' ? ' active' : '' %>" data-type="rocket">
+          <span>🚀</span><span class="rx-count" data-type="rocket"><%= rx.rocket || 0 %></span>
+        </button>
+        <button type="button" class="rx-btn<%= ur==='celebrate' ? ' active' : '' %>" data-type="celebrate">
+          <span>🎉</span><span class="rx-count" data-type="celebrate"><%= rx.celebrate || 0 %></span>
+        </button>
+      </div>
       <button type="button" class="comment-toggle">
         Show comments (<span class="comment-count"><%= post.comments_count || 0 %></span>)
       </button>
@@ -193,24 +195,57 @@
           if (!data.success) return; H.updateReactions(article, data.counts, type, data.status);
         });
       });
+      
+      // Mobile long-press for reaction menu
+      if (window.innerWidth <= 768) {
+        const container = article.querySelector('.reactions-container');
+        const firstBtn = container.querySelector('.rx-btn:first-child');
+        let pressTimer;
+        
+        firstBtn.addEventListener('touchstart', (e) => {
+          pressTimer = setTimeout(() => {
+            // Show all reactions on long press
+            container.classList.add('expanded');
+            e.preventDefault();
+          }, 500);
+        });
+        
+        firstBtn.addEventListener('touchend', () => {
+          clearTimeout(pressTimer);
+        });
+        
+        firstBtn.addEventListener('touchmove', () => {
+          clearTimeout(pressTimer);
+        });
+        
+        // Close expanded reactions when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!container.contains(e.target) && container.classList.contains('expanded')) {
+            container.classList.remove('expanded');
+          }
+        });
+      }
       const toggleBtn = article.querySelector('.comment-toggle');
       const panel = article.querySelector('.comments-panel');
       let open = false;
       toggleBtn.addEventListener('click', async ()=>{
         if (!open) {
           await H.loadComments(article, postId);
-          panel.style.opacity = '0'; panel.style.maxHeight = '0px';
+          panel.style.maxHeight = '0px';
+          panel.style.opacity = '0';
+          panel.style.overflow = 'hidden';
           requestAnimationFrame(() => {
-            panel.style.opacity = '1';
             panel.style.maxHeight = '280px';
+            panel.style.opacity = '1';
             panel.style.overflowY = 'auto';
           });
+          open = true;
         } else {
-          panel.style.opacity = '0';
           panel.style.maxHeight = '0px';
-          panel.style.overflowY = 'hidden';
+          panel.style.opacity = '0';
+          panel.style.overflow = 'hidden';
+          open = false;
         }
-        open = !open;
         setToggleLabel(open);
       });
       const cancel = article.querySelector('.cancel-reply');

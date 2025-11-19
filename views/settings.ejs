@@ -5,6 +5,13 @@
 
   <!-- Toast Notification (replaces bulky inline success/error banners) -->
   <!-- Toasts now provided globally via footer include -->
+  
+  <% if (typeof refund_submitted !== 'undefined' && refund_submitted) { %>
+    <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:12px;margin-bottom:24px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+      <h3 style="margin:0 0 8px;font-size:1.2rem;font-weight:700;">✓ Refund Request Submitted</h3>
+      <p style="margin:0;font-size:0.95rem;opacity:0.95;">Your refund request has been successfully submitted. Our team will review it within 3-5 business days and notify you via email.</p>
+    </div>
+  <% } %>
 
   <!-- Account Section -->
   <div class="settings-card">
@@ -378,6 +385,7 @@
     <div style="display:flex;gap:16px;flex-wrap:wrap;">
       <button onclick="document.getElementById('paymentMethodsModal').style.display='flex'" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;">Payment methods →</button>
       <button onclick="document.getElementById('invoicesModal').style.display='flex'" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;">View invoices →</button>
+      <button onclick="document.getElementById('chargesModal').style.display='flex'" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;">Billing history →</button>
     </div>
   </div>
 
@@ -400,6 +408,96 @@
       <button type="button" onclick="document.getElementById('subscriptionModal').style.display='none'" class="settings-btn" style="background:#eee;width:100%;">Close</button>
     </div>
   </div>
+
+  <!-- Billing History Modal -->
+  <div id="chargesModal" style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+    <div style="background:white;padding:32px;border-radius:16px;max-width:800px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+        <h3 style="margin:0;font-size:1.5rem;font-weight:700;">Billing History & Charges</h3>
+        <a href="/refund-request" class="settings-btn" style="background:linear-gradient(135deg,#ff4fa3,#764ba2);color:white;text-decoration:none;padding:10px 20px;font-size:0.9rem;">Request Refund</a>
+      </div>
+      
+      <% if (charges && charges.length > 0) { %>
+        <div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:16px;border-radius:8px;margin-bottom:24px;">
+          <p style="margin:0;font-size:0.9rem;color:#92400e;">
+            <strong>💡 Need help?</strong> If you have any issues with a charge, you can request a refund using the button above.
+          </p>
+        </div>
+        
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f9fafb;">
+                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;">Date</th>
+                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;font-weight:600;">Description</th>
+                <th style="padding:12px;text-align:right;border-bottom:2px solid #e5e7eb;font-weight:600;">Amount</th>
+                <th style="padding:12px;text-align:center;border-bottom:2px solid #e5e7eb;font-weight:600;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% charges.forEach(function(charge) { %>
+                <tr>
+                  <td style="padding:12px;border-bottom:1px solid #e5e7eb;"><%= new Date(charge.charge_date).toLocaleDateString() %></td>
+                  <td style="padding:12px;border-bottom:1px solid #e5e7eb;">
+                    <%= charge.description %>
+                    <% if (charge.tier) { %>
+                      <span style="display:inline-block;margin-left:8px;padding:2px 8px;background:#dbeafe;color:#1e40af;font-size:0.75rem;border-radius:4px;"><%= charge.tier.replace('-', ' ') %></span>
+                    <% } %>
+                  </td>
+                  <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">$<%= charge.amount.toFixed(2) %></td>
+                  <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:center;">
+                    <span class="charge-status <%= charge.status === 'completed' ? 'completed' : (charge.status === 'pending' ? 'pending' : 'refunded') %>"><%= charge.status %></span>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <div style="text-align:center;padding:40px 20px;">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2" style="margin:0 auto 16px;">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          <p style="color:#6b7280;margin:0;">No charges yet. Your billing history will appear here.</p>
+        </div>
+      <% } %>
+      
+      <!-- Upcoming Charges -->
+      <% if (subscription && subscription.tier !== 'free' && subscription.status === 'active' && subscription.auto_renew && subscription.ends_at) { %>
+        <div style="margin-top:32px;padding-top:24px;border-top:2px solid #e5e7eb;">
+          <h4 style="font-size:1.1rem;font-weight:700;margin:0 0 16px;">Upcoming Charges</h4>
+          <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);padding:20px;border-radius:12px;border:1px solid #bae6fd;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <p style="margin:0 0 4px;font-weight:600;color:#0c4a6e;"><%= subscription.tier.replace('-', ' ') %> Plan Renewal</p>
+                <p style="margin:0;font-size:0.85rem;color:#0369a1;">Next billing date: <%= new Date(subscription.ends_at).toLocaleDateString() %></p>
+              </div>
+              <div style="text-align:right;">
+                <p style="margin:0;font-size:1.25rem;font-weight:700;color:#0c4a6e;">
+                  $<%=
+                    subscription.tier === 'pro' ? '9.99' :
+                    subscription.tier === 'pro-seller' ? '19.99' :
+                    subscription.tier === 'elite-seller' ? '49.99' :
+                    subscription.tier === 'enterprise' ? '99.99' : '0.00'
+                  %>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% } %>
+      
+      <button type="button" onclick="document.getElementById('chargesModal').style.display='none'" class="settings-btn" style="background:#eee;width:100%;margin-top:20px;">Close</button>
+    </div>
+  </div>
+
+  <style>
+    .charge-status{display:inline-block;padding:4px 12px;border-radius:12px;font-weight:600;text-transform:capitalize;font-size:0.85rem;background:#f3f4f6;color:#111827;}
+    .charge-status.completed{background:#d1fae5;color:#065f46;}
+    .charge-status.pending{background:#fef3c7;color:#92400e;}
+    .charge-status.refunded{background:#dbeafe;color:#1e40af;}
+  </style>
 
   <!-- Payment Methods Modal -->
   <div id="paymentMethodsModal" style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
@@ -510,10 +608,11 @@
   </div>
 
   <style>
-    #subscriptionModal, #paymentMethodsModal, #invoicesModal { display: none; }
+    #subscriptionModal, #paymentMethodsModal, #invoicesModal, #chargesModal { display: none; }
     #subscriptionModal[style*="display:flex"], #subscriptionModal[style*="display: flex"],
     #paymentMethodsModal[style*="display:flex"], #paymentMethodsModal[style*="display: flex"],
-    #invoicesModal[style*="display:flex"], #invoicesModal[style*="display: flex"] { 
+    #invoicesModal[style*="display:flex"], #invoicesModal[style*="display: flex"],
+    #chargesModal[style*="display:flex"], #chargesModal[style*="display: flex"] { 
       display: flex !important; 
     }
     .status-badge{font-weight:600;text-transform:capitalize;}

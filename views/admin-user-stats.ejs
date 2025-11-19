@@ -197,6 +197,27 @@
             background: #fce4ec;
             color: #c2185b;
         }
+
+        /* Admin Notes UI */
+        .notes-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        .notes-header { display:flex; align-items:center; justify-content:space-between; margin-bottom: 1rem; }
+        .notes-list { display:flex; flex-direction:column; gap:.75rem; max-height: 320px; overflow:auto; }
+        .note-item { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:.75rem .9rem; }
+        .note-meta { color:#6b7280; font-size:.8rem; margin-bottom:.25rem; }
+        .note-text { color:#111827; white-space:pre-wrap; }
+        .note-form { display:flex; flex-direction:column; gap:.5rem; margin-top:1rem; }
+        .note-textarea { width:100%; padding:.75rem .9rem; border:1px solid #e5e7eb; border-radius:10px; resize:vertical; min-height:90px; }
+        .note-actions { display:flex; gap:.5rem; justify-content:flex-end; }
+        .btn { padding:.6rem 1rem; border-radius:10px; font-weight:700; cursor:pointer; border:none; }
+        .btn-secondary { background:#fff; border:1px solid #e5e7eb; }
+        .btn-primary { background:#111827; color:#fff; }
+        .inline-error { display:none; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; border-radius:10px; padding:.5rem .75rem; font-weight:600; }
     </style>
 </head>
 <body>
@@ -282,6 +303,25 @@
             <% } %>
         </div>
 
+        <!-- Admin Notes -->
+        <div class="notes-card">
+            <div class="notes-header">
+                <h2 style="margin:0">Admin Account Notes</h2>
+                <span title="Visible to Admins, Super Admins, Global Admins only" style="color:#6b7280;font-size:.9rem;">Private</span>
+            </div>
+            <div id="notes-list" class="notes-list">
+                <!-- Filled by JS -->
+            </div>
+            <div class="note-form">
+                <div id="notes-error" class="inline-error"></div>
+                <textarea id="note-text" class="note-textarea" placeholder="Add a private note about this user (visible to admins only)"></textarea>
+                <div class="note-actions">
+                    <button id="note-cancel" class="btn btn-secondary" type="button">Clear</button>
+                    <button id="note-submit" class="btn btn-primary" type="button">Add Note</button>
+                </div>
+            </div>
+        </div>
+
         <a href="/admin?highlight=<%= targetUser.id %>" class="back-button">
             ← Back to Users Table
         </a>
@@ -304,6 +344,48 @@
                 }
             }, 300);
         }
+
+                // Admin notes functionality
+                const userId = <%= targetUser.id %>;
+                const notesList = document.getElementById('notes-list');
+                const noteTextarea = document.getElementById('note-text');
+                const noteSubmit = document.getElementById('note-submit');
+                const noteCancel = document.getElementById('note-cancel');
+                const notesError = document.getElementById('notes-error');
+
+                function renderNotes(notes){
+                        notesList.innerHTML = notes.map(n => `
+                            <div class="note-item">
+                                <div class="note-meta">By ${n.admin_name || n.admin_email} • ${new Date(n.created_at).toLocaleString()}</div>
+                                <div class="note-text">${(n.note||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                            </div>
+                        `).join('') || '<div class="no-posts">No notes yet</div>';
+                }
+
+                function loadNotes(){
+                        fetch(`/admin/users/${userId}/notes`).then(r=>r.json()).then(d=>{
+                            if(d.success){ renderNotes(d.notes);} else { throw new Error(d.error||'Failed to load notes'); }
+                        }).catch(err=>{
+                            notesError.textContent = err.message; notesError.style.display='block';
+                        });
+                }
+
+                noteCancel.onclick = ()=>{ noteTextarea.value=''; notesError.style.display='none'; };
+                noteSubmit.onclick = ()=>{
+                    const text = noteTextarea.value.trim();
+                    if(!text){ notesError.textContent = 'Note is required.'; notesError.style.display='block'; return; }
+                    notesError.style.display='none';
+                    const prev = noteSubmit.textContent; noteSubmit.textContent='Saving...'; noteSubmit.disabled=true;
+                    fetch(`/admin/users/${userId}/notes`, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ note: text }) })
+                        .then(r=>r.json()).then(d=>{
+                            if(d.success){ noteTextarea.value=''; loadNotes(); if (typeof showSuccess==='function') showSuccess('Note added'); }
+                            else { throw new Error(d.error||'Failed to add note'); }
+                        }).catch(err=>{
+                            notesError.textContent = err.message; notesError.style.display='block';
+                        }).finally(()=>{ noteSubmit.textContent=prev; noteSubmit.disabled=false; });
+                };
+
+                loadNotes();
     </script>
 </body>
 </html>

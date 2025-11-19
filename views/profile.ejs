@@ -1,5 +1,7 @@
 <%- include('partials/header') %>
 
+
+
 <div style="position:relative;width:100%;">
   <div style="position:relative;height:240px;background:linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);overflow:hidden;border-radius:16px;">
     <% if (user.bannerImage) { %>
@@ -387,7 +389,11 @@
       </span>
     </button>
     <button class="tab-btn" data-tab="projects">Projects</button>
-    <button class="tab-btn" data-tab="services">Services</button>
+    <button class="tab-btn" data-tab="services">Services
+      <span class="tab-badge" style="margin-left:6px;background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:700;">
+        <%= (Array.isArray(services) ? services.length : 0) %>
+      </span>
+    </button>
   </nav>
 
   <div class="tab-panels">
@@ -536,6 +542,32 @@
     let reelsData = [];
     let currentReelIndex = 0;
     const tzOffset = new Date().getTimezoneOffset();
+    
+    // Update profile counts live
+    async function updateProfileCounts() {
+      try {
+        const res = await fetch(`/api/users/<%= profileUserId %>/profile-counts`);
+        const data = await res.json();
+        if (data.success) {
+          // Update posts count
+          const postsCountBadge = document.querySelector('[data-tab="posts"] .tab-badge');
+          if (postsCountBadge) {
+            postsCountBadge.textContent = data.posts;
+          }
+          // Update services count
+          const servicesCountBadge = document.querySelector('[data-tab="services"] .tab-badge');
+          if (servicesCountBadge) {
+            servicesCountBadge.textContent = data.services;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to update profile counts:', e);
+      }
+    }
+    
+    // Call on page load and set up periodic updates
+    updateProfileCounts();
+    setInterval(updateProfileCounts, 30000); // Update every 30 seconds
     
     async function checkReels(){
       try {

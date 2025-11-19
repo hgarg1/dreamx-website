@@ -234,34 +234,9 @@
     }
 
     // ===================================
-    // ENHANCED COMMENT TOGGLE
+    // ENHANCED COMMENT TOGGLE - Removed (handled in post-card.ejs)
     // ===================================
-    function initCommentToggle() {
-        document.querySelectorAll('.comment-toggle').forEach(toggle => {
-            toggle.addEventListener('click', function() {
-                // Comments panel moved outside footer; find at article scope
-                const article = this.closest('article.post-card');
-                const panel = article ? article.querySelector('.comments-panel') : null;
-                if (!panel) return; // Safety guard prevents null style access
-                const isOpen = panel.style.maxHeight && panel.style.maxHeight !== '0px';
-                
-                if (!isOpen) {
-                    panel.style.maxHeight = '400px';
-                    panel.style.opacity = '1';
-                    panel.style.overflow = 'auto';
-                    
-                    // Animate comment input
-                    const input = panel.querySelector('.comment-input');
-                    setTimeout(() => input.focus(), 300);
-                } else {
-                    panel.style.maxHeight = '0';
-                    panel.style.opacity = '0';
-                    panel.style.overflow = 'hidden';
-                }
-            });
-        });
-    }
-
+    
     // ===================================
     // TYPING INDICATOR
     // ===================================
@@ -371,36 +346,37 @@
             return;
         }
 
-        // Initialize features
+        const isMobile = window.innerWidth <= 768;
+        
+        // Always initialize essential features
         initStaggeredAnimations();
         initHoverEffects();
         initReactionAnimations();
         initSmoothScroll();
         initLazyLoading();
-        initFloatingAvatars();
-        initCommentToggle();
-        initTypingIndicator();
         
-        // Optional: Only init particle background on desktop
-        if (window.innerWidth > 1024) {
-            initParticleBackground();
-        }
-        
-        // Optional: Only init parallax on desktop
-        if (window.innerWidth > 768) {
+        // Desktop-only heavy animations
+        if (!isMobile) {
+            initFloatingAvatars();
+            initTypingIndicator();
             initParallax();
-        }
-        
-        // Add confetti on celebrate reaction
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.rx-btn[data-type="celebrate"]')) {
-                const btn = e.target.closest('.rx-btn');
-                const rect = btn.getBoundingClientRect();
-                createConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            
+            // Only on large screens
+            if (window.innerWidth > 1024) {
+                initParticleBackground();
             }
-        });
+            
+            // Add confetti on celebrate reaction (desktop only)
+            document.addEventListener('click', (e) => {
+                if (e.target.closest('.rx-btn[data-type="celebrate"]')) {
+                    const btn = e.target.closest('.rx-btn');
+                    const rect = btn.getBoundingClientRect();
+                    createConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                }
+            });
+        }
 
-        console.log('✨ Dream X Feed animations initialized!');
+        console.log(isMobile ? '📱 Dream X Feed (mobile mode)' : '✨ Dream X Feed animations initialized!');
     }
 
     // Auto-initialize
