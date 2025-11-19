@@ -338,11 +338,22 @@
         if (!btn || !window.SimpleWebAuthnBrowser) return;
         btn.addEventListener('click', async () => {
           try {
-            const optsRes = await fetch('/webauthn/registration/options');
+            const optsRes = await fetch('/webauthn/registration/options', { credentials: 'same-origin' });
+            if (!optsRes.ok) {
+              const err = await optsRes.json().catch(() => ({}));
+              const msg = err && err.error ? err.error : `Failed to get registration options (${optsRes.status})`;
+              alert(msg);
+              return;
+            }
             const opts = await optsRes.json();
+            if (!opts || !opts.challenge) {
+              console.error('Invalid registration options:', opts);
+              alert('Passkey setup unavailable: invalid options received.');
+              return;
+            }
             const attResp = await SimpleWebAuthnBrowser.startRegistration(opts);
             const verifyRes = await fetch('/webauthn/registration/verify', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attResp)
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(attResp)
             });
             const out = await verifyRes.json();
             if (out.verified) {

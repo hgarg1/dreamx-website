@@ -21,6 +21,15 @@ const {
 const socketIo = require('socket.io');
 let webpush;
 
+// Trust proxy for correct HTTPS detection and secure cookies in production
+try {
+    // Render and other PaaS set X-Forwarded-* headers; trust the first proxy
+    const appSetTrustProxy = process.env.TRUST_PROXY !== 'false';
+    if (appSetTrustProxy && typeof app?.set === 'function') {
+        app.set('trust proxy', 1);
+    }
+} catch(_) {}
+
 // Import email service
 const emailService = require('./services/emailService');
 
@@ -83,7 +92,9 @@ const {
     // Billing & Refunds
     getUserCharges, createRefundRequest, getRefundRequest, getUserRefundRequests, updateRefundRequestStatus,
     // Admin notes
-    addUserAdminNote, getUserAdminNotes
+    addUserAdminNote, getUserAdminNotes,
+    // User locations for MapBox
+    saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation
  } = require('./db');
 let fetch;
 try {
@@ -126,6 +137,8 @@ function getCallbackURL(path) {
 
 // Initialize Express app
 const app = express();
+// Trust proxy headers (needed on Render/other proxies for correct host/proto)
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
@@ -297,16 +310,17 @@ app.use(express.json());
 
 // Session configuration (SQLiteStore for production safety)
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.sqlite3' }),
-  secret: process.env.SESSION_SECRET || 'your secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
-    httpOnly: true,
-    secure: false, // Set to true in production with HTTPS
-    sameSite: 'lax'
-  }
+    store: new SQLiteStore({ db: 'sessions.sqlite3' }),
+    secret: process.env.SESSION_SECRET || 'your secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+        httpOnly: true,
+        // Secure cookies in production or when BASE_URL is https
+        secure: (process.env.NODE_ENV === 'production') || (process.env.BASE_URL || '').startsWith('https://'),
+        sameSite: 'lax'
+    }
 }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -742,8 +756,16 @@ const requireAdminOrHR = (req, res, next) => {
 // ---------- WebAuthn (Passkeys) ----------
 function rpIDFromReq(req){
     try {
-        const host = (req.headers.host || '').split(':')[0];
-        return host || 'localhost';
+        // Prefer forwarded host when behind proxies
+        const xfHost = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+        const rawHost = xfHost || req.headers.host || '';
+        const hostname = rawHost.split(':')[0].trim();
+        if (hostname) return hostname;
+        // Fallback to BASE_URL host if available
+        if (process.env.BASE_URL) {
+            try { return new URL(process.env.BASE_URL).hostname; } catch(_) {}
+        }
+        return 'localhost';
     } catch { return 'localhost'; }
 }
 
@@ -754,13 +776,10 @@ app.get('/webauthn/registration/options', (req, res) => {
     const rpID = rpIDFromReq(req);
     const existingCreds = getCredentialsForUser(user.id);
     
-    // Convert user ID to Uint8Array as required by @simplewebauthn/server v9+
-    const userIDBuffer = Buffer.from(String(user.id), 'utf-8');
-    
     const options = generateRegistrationOptions({
         rpName: 'Dream X',
         rpID,
-        userID: userIDBuffer,
+        userID: String(user.id),
         userName: user.email,
         userDisplayName: user.full_name,
         attestationType: 'none',
@@ -791,7 +810,8 @@ app.post('/webauthn/registration/verify', async (req, res) => {
                 `https://${rpID}`,
                 `http://${rpID}`,
                 'http://localhost:3000',
-                'http://127.0.0.1:3000'
+                'http://127.0.0.1:3000',
+                'https://dreamx-website.onrender.com'
             ],
             expectedRPID: rpID,
         });
@@ -846,7 +866,8 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
                 `https://${rpID}`,
                 `http://${rpID}`,
                 'http://localhost:3000',
-                'http://127.0.0.1:3000'
+                'http://127.0.0.1:3000',
+                'https://dreamx-website.onrender.com'
             ],
             expectedRPID: rpID,
             authenticator,

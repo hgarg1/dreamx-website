@@ -63,11 +63,22 @@
                                                         if (!btn || !window.SimpleWebAuthnBrowser) return;
                                                         btn.addEventListener('click', async () => {
                                                             try {
-                                                                const optsRes = await fetch('/webauthn/authentication/options');
+                                                                const optsRes = await fetch('/webauthn/authentication/options', { credentials: 'same-origin' });
+                                                                if (!optsRes.ok) {
+                                                                    const err = await optsRes.json().catch(() => ({}));
+                                                                    const msg = err && err.error ? err.error : `Failed to get authentication options (${optsRes.status})`;
+                                                                    alert(msg);
+                                                                    return;
+                                                                }
                                                                 const opts = await optsRes.json();
+                                                                if (!opts || !opts.challenge) {
+                                                                    console.error('Invalid authentication options:', opts);
+                                                                    alert('Passkey sign-in unavailable: invalid options received.');
+                                                                    return;
+                                                                }
                                                                 const asseResp = await SimpleWebAuthnBrowser.startAuthentication(opts);
                                                                 const verifyRes = await fetch('/webauthn/authentication/verify', {
-                                                                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(asseResp)
+                                                                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(asseResp)
                                                                 });
                                                                 const out = await verifyRes.json();
                                                                 if (out.verified) {

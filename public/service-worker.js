@@ -142,6 +142,7 @@ self.addEventListener('fetch', (event) => {
   // Skip socket.io and API requests
   if (url.pathname.includes('/socket.io') || 
       url.pathname.startsWith('/api/') ||
+      url.pathname.startsWith('/webauthn/') ||
       url.pathname.startsWith('/admin/') ||
       url.pathname.startsWith('/hr')) {
     return;
