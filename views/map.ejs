@@ -1,0 +1,842 @@
+<%- include('partials/header') %>
+
+<style>
+    .map-container {
+        max-width: 1400px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .map-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px 20px 0 0;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    .map-header h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+
+    .map-header p {
+        margin: 0;
+        font-size: 1.1rem;
+        opacity: 0.95;
+    }
+
+    .map-wrapper {
+        background: white;
+        border-radius: 0 0 20px 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        overflow: hidden;
+    }
+
+    #map {
+        width: 100%;
+        height: 600px;
+        border-radius: 0 0 20px 20px;
+    }
+
+    .location-prompt {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        margin: 2rem auto;
+        max-width: 800px;
+        border-radius: 15px;
+        box-shadow: 0 8px 25px rgba(245, 87, 108, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        animation: slideIn 0.5s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .location-prompt-content {
+        flex: 1;
+    }
+
+    .location-prompt h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.3rem;
+    }
+
+    .location-prompt p {
+        margin: 0;
+        opacity: 0.95;
+    }
+
+    .location-prompt-actions {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .btn-location {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+
+    .btn-primary-loc {
+        background: white;
+        color: #f5576c;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-primary-loc:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-secondary-loc {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid white;
+    }
+
+    .btn-secondary-loc:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+    }
+
+    /* Custom MapBox marker */
+    .custom-marker {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        background: #667eea;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+
+    .custom-marker:hover {
+        transform: scale(1.2);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+    }
+
+    .custom-marker img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* User modal */
+    .user-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+        backdrop-filter: blur(5px);
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    .user-modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .user-modal-content {
+        background: white;
+        border-radius: 25px;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: scaleIn 0.3s ease;
+        overflow: hidden;
+    }
+
+    @keyframes scaleIn {
+        from {
+            transform: scale(0.9);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    .user-modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        text-align: center;
+        position: relative;
+    }
+
+    .user-modal-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        font-size: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .user-modal-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(90deg);
+    }
+
+    .user-modal-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 5px solid white;
+        margin: 0 auto 1rem;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        color: #667eea;
+    }
+
+    .user-modal-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .user-modal-name {
+        color: white;
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .user-modal-body {
+        padding: 2rem;
+    }
+
+    .user-info-item {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .user-info-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .user-info-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .user-info-icon svg,
+    .user-info-icon i {
+        color: white;
+        font-size: 1.2rem;
+    }
+
+    .user-info-content {
+        flex: 1;
+    }
+
+    .user-info-label {
+        font-size: 0.85rem;
+        color: #666;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .user-info-value {
+        font-size: 1.1rem;
+        color: #333;
+        line-height: 1.5;
+    }
+
+    .user-modal-footer {
+        padding: 1.5rem 2rem;
+        background: #f8f9fa;
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .btn-modal {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-modal-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-modal-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    /* Location form modal */
+    .location-form-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 10001;
+        animation: fadeIn 0.3s ease;
+        backdrop-filter: blur(5px);
+    }
+
+    .location-form-modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .location-form-content {
+        background: white;
+        border-radius: 20px;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: scaleIn 0.3s ease;
+    }
+
+    .location-form-header {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 1.5rem 2rem;
+        border-radius: 20px 20px 0 0;
+        color: white;
+    }
+
+    .location-form-header h2 {
+        margin: 0;
+        font-size: 1.8rem;
+    }
+
+    .location-form-body {
+        padding: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .location-form-footer {
+        padding: 1.5rem 2rem;
+        background: #f8f9fa;
+        display: flex;
+        gap: 1rem;
+        border-radius: 0 0 20px 20px;
+    }
+
+    .btn-form {
+        flex: 1;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+
+    .btn-form-primary {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+    }
+
+    .btn-form-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+    }
+
+    .btn-form-secondary {
+        background: #e0e0e0;
+        color: #333;
+    }
+
+    .btn-form-secondary:hover {
+        background: #d0d0d0;
+    }
+
+    .location-status {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+
+    .location-status.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .location-status.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 768px) {
+        .map-header h1 {
+            font-size: 1.8rem;
+        }
+
+        .map-header p {
+            font-size: 1rem;
+        }
+
+        #map {
+            height: 450px;
+        }
+
+        .location-prompt {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .location-prompt-actions {
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .btn-location {
+            width: 100%;
+        }
+
+        .user-modal-content {
+            margin: 1rem;
+        }
+
+        .user-modal-body {
+            padding: 1.5rem;
+        }
+    }
+
+    /* Map controls custom styling */
+    .mapboxgl-ctrl-group {
+        border-radius: 10px !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .mapboxgl-ctrl-group button {
+        border-radius: 10px !important;
+    }
+
+    .mapboxgl-popup-content {
+        border-radius: 15px !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2) !important;
+        padding: 1rem !important;
+    }
+</style>
+
+<div class="map-container">
+    <div class="map-header">
+        <h1>🗺️ Community Map</h1>
+        <p>Discover where our amazing community members are located around the world</p>
+    </div>
+
+    <% if (needsLocationUpdate) { %>
+    <div class="location-prompt">
+        <div class="location-prompt-content">
+            <h3>📍 Update Your Location</h3>
+            <p>Help others discover you by sharing your location on the map</p>
+        </div>
+        <div class="location-prompt-actions">
+            <button class="btn-location btn-primary-loc" onclick="detectLocation()">
+                📡 Auto-Detect
+            </button>
+            <button class="btn-location btn-secondary-loc" onclick="openLocationForm()">
+                ✏️ Enter Manually
+            </button>
+        </div>
+    </div>
+    <% } %>
+
+    <div class="map-wrapper">
+        <div id="map"></div>
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div id="userModal" class="user-modal">
+    <div class="user-modal-content">
+        <div class="user-modal-header">
+            <button class="user-modal-close" onclick="closeUserModal()">&times;</button>
+            <div class="user-modal-avatar" id="modalAvatar"></div>
+            <h2 class="user-modal-name" id="modalName"></h2>
+        </div>
+        <div class="user-modal-body" id="modalBody">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+        <div class="user-modal-footer">
+            <a href="#" id="modalProfileLink" class="btn-modal btn-modal-primary">View Profile</a>
+        </div>
+    </div>
+</div>
+
+<!-- Location Form Modal -->
+<div id="locationFormModal" class="location-form-modal">
+    <div class="location-form-content">
+        <div class="location-form-header">
+            <h2>📍 Set Your Location</h2>
+        </div>
+        <form id="locationForm" class="location-form-body">
+            <div class="form-group">
+                <label for="city">City *</label>
+                <input type="text" id="city" name="city" placeholder="e.g., San Francisco" required>
+            </div>
+            <div class="form-group">
+                <label for="latitude">Latitude</label>
+                <input type="number" id="latitude" name="latitude" step="any" placeholder="e.g., 37.7749" readonly>
+            </div>
+            <div class="form-group">
+                <label for="longitude">Longitude</label>
+                <input type="number" id="longitude" name="longitude" step="any" placeholder="e.g., -122.4194" readonly>
+            </div>
+            <div id="locationStatus" class="location-status" style="display: none;"></div>
+        </form>
+        <div class="location-form-footer">
+            <button type="button" class="btn-form btn-form-secondary" onclick="closeLocationForm()">Cancel</button>
+            <button type="button" class="btn-form btn-form-primary" onclick="submitLocation()">Save Location</button>
+        </div>
+    </div>
+</div>
+
+<!-- MapBox GL JS -->
+<link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+<script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
+
+<!-- Dream X MapBox Utilities -->
+<script src='/js/mapbox-utils.js'></script>
+
+<script>
+    const mapboxToken = '<%= mapboxToken %>';
+    const userLocations = <%- userLocations %>;
+    const currentUserLocation = <%- currentUserLocation %>;
+    
+    // Initialize Dream X MapBox utilities
+    const mapUtils = new DreamXMapUtils(mapboxToken);
+    
+    // Create map with 3D terrain and buildings enabled
+    const map = mapUtils.createMap({
+        containerId: 'map',
+        center: currentUserLocation ? [currentUserLocation.longitude, currentUserLocation.latitude] : [-98.5795, 39.8283],
+        zoom: currentUserLocation ? 10 : 3,
+        enable3D: true, // Enable 3D terrain and buildings
+        navigationControl: true,
+        fullscreenControl: true,
+        geolocateControl: true // Add user location button
+    });
+
+    // Add user markers using the utility
+    map.on('load', function() {
+        mapUtils.addUserMarkers(map, userLocations, showUserModal);
+        
+        // If there are multiple locations, fit bounds to show all
+        if (userLocations.length > 1) {
+            const coordinates = userLocations.map(loc => [loc.longitude, loc.latitude]);
+            mapUtils.fitBounds(map, coordinates, { padding: 100, maxZoom: 10 });
+        }
+    });
+
+    // Show user details modal
+    function showUserModal(location) {
+        const modal = document.getElementById('userModal');
+        const avatar = document.getElementById('modalAvatar');
+        const name = document.getElementById('modalName');
+        const body = document.getElementById('modalBody');
+        const profileLink = document.getElementById('modalProfileLink');
+        
+        // Set avatar
+        avatar.innerHTML = '';
+        if (location.profile_picture) {
+            const img = document.createElement('img');
+            img.src = '/uploads/' + location.profile_picture;
+            img.alt = location.full_name;
+            avatar.appendChild(img);
+        } else {
+            avatar.textContent = location.full_name.charAt(0).toUpperCase();
+        }
+        
+        // Set name
+        name.textContent = location.full_name;
+        
+        // Set body content
+        let bodyHTML = '';
+        
+        if (location.city) {
+            bodyHTML += `
+                <div class="user-info-item">
+                    <div class="user-info-icon">📍</div>
+                    <div class="user-info-content">
+                        <div class="user-info-label">Location</div>
+                        <div class="user-info-value">${escapeHtml(location.city)}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (location.bio) {
+            bodyHTML += `
+                <div class="user-info-item">
+                    <div class="user-info-icon">📝</div>
+                    <div class="user-info-content">
+                        <div class="user-info-label">Bio</div>
+                        <div class="user-info-value">${escapeHtml(location.bio)}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (location.last_updated) {
+            const updatedDate = new Date(location.last_updated);
+            bodyHTML += `
+                <div class="user-info-item">
+                    <div class="user-info-icon">🕐</div>
+                    <div class="user-info-content">
+                        <div class="user-info-label">Last Updated</div>
+                        <div class="user-info-value">${updatedDate.toLocaleDateString()}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        body.innerHTML = bodyHTML || '<p style="text-align: center; color: #666;">No additional information available.</p>';
+        
+        // Set profile link
+        profileLink.href = '/profile/' + location.user_id;
+        
+        // Show modal
+        modal.classList.add('active');
+    }
+
+    function closeUserModal() {
+        document.getElementById('userModal').classList.remove('active');
+    }
+
+    // Location form functions
+    function openLocationForm() {
+        document.getElementById('locationFormModal').classList.add('active');
+    }
+
+    function closeLocationForm() {
+        document.getElementById('locationFormModal').classList.remove('active');
+        document.getElementById('locationForm').reset();
+        document.getElementById('locationStatus').style.display = 'none';
+    }
+
+    function detectLocation() {
+        openLocationForm();
+        showLocationStatus('Detecting your location...', 'info');
+
+        // Use the utility's getCurrentLocation method
+        mapUtils.getCurrentLocation()
+            .then(async (location) => {
+                const lat = location.latitude;
+                const lon = location.longitude;
+                
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lon;
+                
+                // Use utility's reverse geocode method
+                try {
+                    const result = await mapUtils.reverseGeocode([lon, lat]);
+                    document.getElementById('city').value = result.city || result.placeName;
+                    showLocationStatus('Location detected! Please review and save.', 'success');
+                } catch (error) {
+                    console.error('Geocoding error:', error);
+                    showLocationStatus('Location detected, but city lookup failed. Please enter city manually.', 'error');
+                }
+            })
+            .catch((error) => {
+                console.error('Geolocation error:', error);
+                showLocationStatus('Failed to detect location. Please enter manually.', 'error');
+            });
+    }
+
+    async function submitLocation() {
+        const city = document.getElementById('city').value.trim();
+        const latitude = document.getElementById('latitude').value;
+        const longitude = document.getElementById('longitude').value;
+
+        if (!city) {
+            showLocationStatus('Please enter a city name.', 'error');
+            return;
+        }
+
+        // If no coordinates, try to geocode the city using utility
+        if (!latitude || !longitude) {
+            showLocationStatus('Looking up coordinates...', 'info');
+            try {
+                const result = await mapUtils.geocode(city);
+                const [lon, lat] = result.coordinates;
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lon;
+            } catch (error) {
+                console.error('Geocoding error:', error);
+                showLocationStatus('Failed to look up city coordinates.', 'error');
+                return;
+            }
+        }
+
+        // Submit to server
+        showLocationStatus('Saving location...', 'info');
+        
+        try {
+            const response = await fetch('/location', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    city: document.getElementById('city').value,
+                    latitude: parseFloat(document.getElementById('latitude').value),
+                    longitude: parseFloat(document.getElementById('longitude').value)
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                showLocationStatus('Location saved successfully!', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showLocationStatus(result.error || 'Failed to save location', 'error');
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            showLocationStatus('Failed to save location', 'error');
+        }
+    }
+
+    function showLocationStatus(message, type) {
+        const status = document.getElementById('locationStatus');
+        status.textContent = message;
+        status.className = 'location-status ' + type;
+        status.style.display = 'block';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Close modals on background click
+    document.getElementById('userModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeUserModal();
+        }
+    });
+
+    document.getElementById('locationFormModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeLocationForm();
+        }
+    });
+</script>
+
+<%- include('partials/footer') %>
