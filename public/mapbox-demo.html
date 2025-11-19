@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapBox Utilities Demo - Dream X</title>
+    
+    <!-- MapBox GL JS -->
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        p {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .demo-section {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .demo-section h2 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .map-container {
+            width: 100%;
+            height: 500px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .code {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Dream X MapBox Utilities Demo</h1>
+        <p>Quick examples showing how easy it is to add maps to any page</p>
+
+        <!-- Example 1: Basic 3D Map -->
+        <div class="demo-section">
+            <h2>1. Basic 3D Map with Terrain</h2>
+            <div id="map1" class="map-container"></div>
+            <div class="controls">
+                <button class="btn" onclick="flyToSF()">Fly to San Francisco</button>
+                <button class="btn" onclick="flyToNY()">Fly to New York</button>
+                <button class="btn" onclick="flyToChicago()">Fly to Chicago</button>
+            </div>
+            <div class="code">
+// 3 lines of code to create a 3D map!
+const mapUtils = new DreamXMapUtils('YOUR_TOKEN');
+const map = mapUtils.createMap({
+    containerId: 'map1',
+    enable3D: true,
+    geolocateControl: true
+});
+            </div>
+        </div>
+
+        <!-- Example 2: Map with Markers -->
+        <div class="demo-section">
+            <h2>2. Map with Custom Markers</h2>
+            <div id="map2" class="map-container"></div>
+            <div class="controls">
+                <button class="btn" onclick="addDemoMarkers()">Add Markers</button>
+                <button class="btn" onclick="fitToMarkers()">Fit to All</button>
+            </div>
+            <div class="code">
+// Add markers with one line!
+mapUtils.addMarker(map2, {
+    coordinates: [-122.4194, 37.7749],
+    popup: { title: 'San Francisco', content: 'Tech hub' }
+});
+            </div>
+        </div>
+    </div>
+
+    <!-- Dream X MapBox Utilities -->
+    <script src='/js/mapbox-utils.js'></script>
+    
+    <script>
+        // Initialize utilities (in production, get token from server)
+        const mapUtils = new DreamXMapUtils('pk.test.demo');
+        
+        // Example 1: Create 3D map
+        const map1 = mapUtils.createMap({
+            containerId: 'map1',
+            center: [-98.5795, 39.8283],
+            zoom: 4,
+            enable3D: true,
+            geolocateControl: true
+        });
+
+        function flyToSF() {
+            mapUtils.flyTo(map1, [-122.4194, 37.7749], 14, 60);
+        }
+
+        function flyToNY() {
+            mapUtils.flyTo(map1, [-73.9857, 40.7484], 14, 60);
+        }
+
+        function flyToChicago() {
+            mapUtils.flyTo(map1, [-87.6298, 41.8781], 14, 60);
+        }
+
+        // Example 2: Map with markers
+        const map2 = mapUtils.createMap({
+            containerId: 'map2',
+            center: [-98.5795, 39.8283],
+            zoom: 4
+        });
+
+        const markerLocations = [
+            { name: 'San Francisco', coords: [-122.4194, 37.7749], desc: 'Tech innovation hub' },
+            { name: 'New York', coords: [-73.9857, 40.7484], desc: 'Financial center' },
+            { name: 'Chicago', coords: [-87.6298, 41.8781], desc: 'Architecture & culture' }
+        ];
+
+        let markers = [];
+
+        function addDemoMarkers() {
+            // Clear existing markers
+            markers.forEach(m => m.remove());
+            markers = [];
+
+            // Add new markers
+            markerLocations.forEach(loc => {
+                const marker = mapUtils.addMarker(map2, {
+                    coordinates: loc.coords,
+                    color: '#667eea',
+                    popup: {
+                        title: loc.name,
+                        content: loc.desc
+                    }
+                });
+                markers.push(marker);
+            });
+        }
+
+        function fitToMarkers() {
+            const coords = markerLocations.map(l => l.coords);
+            mapUtils.fitBounds(map2, coords, { padding: 100 });
+        }
+    </script>
+</body>
+</html>
