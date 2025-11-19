@@ -262,6 +262,22 @@ try {
   `);
 } catch (e) { /* table may already exist */ }
 
+// User locations table for MapBox integration
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_locations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL UNIQUE,
+      city TEXT,
+      latitude REAL,
+      longitude REAL,
+      last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_locations_user ON user_locations(user_id);
+  `);
+} catch (e) { /* table may already exist */ }
+
 // Migration: Add new columns if they don't exist
 try {
   db.exec(`ALTER TABLE users ADD COLUMN profile_picture TEXT;`);
@@ -2355,5 +2371,51 @@ module.exports = {
     const pending = db.prepare(`SELECT COUNT(*) as c FROM refund_requests WHERE status = 'pending'`).get().c;
     const approved = db.prepare(`SELECT COUNT(*) as c FROM refund_requests WHERE status = 'approved'`).get().c;
     return { all, pending, approved };
+  },
+
+  // User Location functions for MapBox
+  saveUserLocation: ({ userId, city, latitude, longitude }) => {
+    const existing = db.prepare(`SELECT id FROM user_locations WHERE user_id = ?`).get(userId);
+    
+    if (existing) {
+      // Update existing location
+      db.prepare(`
+        UPDATE user_locations 
+        SET city = ?, latitude = ?, longitude = ?, last_updated = CURRENT_TIMESTAMP 
+        WHERE user_id = ?
+      `).run(city, latitude, longitude, userId);
+    } else {
+      // Insert new location
+      db.prepare(`
+        INSERT INTO user_locations (user_id, city, latitude, longitude, last_updated)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).run(userId, city, latitude, longitude);
+    }
+  },
+
+  getUserLocation: (userId) => {
+    return db.prepare(`SELECT * FROM user_locations WHERE user_id = ?`).get(userId);
+  },
+
+  getAllUserLocations: () => {
+    return db.prepare(`
+      SELECT ul.*, u.full_name, u.profile_picture, u.bio
+      FROM user_locations ul
+      JOIN users u ON u.id = ul.user_id
+      WHERE ul.latitude IS NOT NULL AND ul.longitude IS NOT NULL
+        AND u.account_status = 'active'
+    `).all();
+  },
+
+  shouldUpdateLocation: (userId) => {
+    const location = db.prepare(`SELECT last_updated FROM user_locations WHERE user_id = ?`).get(userId);
+    if (!location) return true; // No location set
+    
+    // Check if location is older than 7 days
+    const lastUpdate = new Date(location.last_updated);
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    return lastUpdate < weekAgo;
   }
 };

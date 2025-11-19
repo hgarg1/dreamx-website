@@ -3669,6 +3669,72 @@ app.get('/api/messages/:messageId/reactions', (req, res) => {
     res.json({ reactions, userReaction });
 });
 
+// Map page - authenticated users only
+app.get('/map', ensureAuthenticated, (req, res) => {
+    const authUser = getUserById(req.session.userId);
+    if (!authUser) return res.redirect('/login');
+    
+    // Check if user needs to update their location
+    const needsLocationUpdate = shouldUpdateLocation(req.session.userId);
+    
+    // Get all user locations for the map
+    const userLocations = getAllUserLocations();
+    
+    // Get current user's location
+    const userLocation = getUserLocation(req.session.userId);
+    
+    res.render('map', {
+        title: 'Map - Dream X',
+        currentPage: 'map',
+        authUser: {
+            ...authUser,
+            displayName: authUser.full_name,
+            role: authUser.role
+        },
+        unreadMessageCount: getUnreadMessageCount(req.session.userId),
+        userLocations: JSON.stringify(userLocations),
+        currentUserLocation: userLocation ? JSON.stringify(userLocation) : null,
+        needsLocationUpdate,
+        mapboxToken: process.env.MAPBOX_ACCESS_TOKEN || ''
+    });
+});
+
+// Save user location
+app.post('/location', ensureAuthenticated, (req, res) => {
+    try {
+        const { city, latitude, longitude } = req.body;
+        
+        // Basic validation
+        if (!city || !latitude || !longitude) {
+            return res.status(400).json({ error: 'City, latitude, and longitude are required' });
+        }
+        
+        // Validate latitude/longitude ranges
+        const lat = parseFloat(latitude);
+        const lon = parseFloat(longitude);
+        
+        if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            return res.status(400).json({ error: 'Invalid latitude or longitude values' });
+        }
+        
+        // Sanitize city name
+        const sanitizedCity = city.trim().substring(0, 100);
+        
+        // Save location
+        saveUserLocation({
+            userId: req.session.userId,
+            city: sanitizedCity,
+            latitude: lat,
+            longitude: lon
+        });
+        
+        res.json({ success: true, message: 'Location saved successfully' });
+    } catch (error) {
+        console.error('Error saving location:', error);
+        res.status(500).json({ error: 'Failed to save location' });
+    }
+});
+
 // Settings page with full functionality
 app.get('/settings', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');

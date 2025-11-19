@@ -191,6 +191,7 @@
                                 <% if(authUser){ %>
                                     <li><a href="/feed" class="<%= currentPage === 'feed' ? 'active' : '' %>">Feed</a></li>
                                     <li><a href="/services" class="<%= currentPage === 'services' ? 'active' : '' %>">Services</a></li>
+                                    <li><a href="/map" class="<%= currentPage === 'map' ? 'active' : '' %>">Map</a></li>
                                     <li><a href="/pricing" class="<%= currentPage === 'pricing' ? 'active' : '' %>">Pricing</a></li>
                                     <li><a href="/billing" class="<%= currentPage === 'billing' ? 'active' : '' %>">Billing</a></li>
                                     <li style="position:relative;"><a href="/messages" class="<%= currentPage === 'messages' ? 'active' : '' %>">Messages</a><% if(unreadMessageCount > 0){ %><span style="position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);"><%= unreadMessageCount %></span><% } %></li>
