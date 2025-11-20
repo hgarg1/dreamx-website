@@ -887,6 +887,10 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
         const body = req.body;
         const credIdB64 = body.id;
         const stored = getCredentialById(credIdB64);
+        if (!stored) {
+            req.session.webauthnChallenge = null;
+            return res.status(404).json({ verified: false, error: 'Passkey not found. Please sign in normally and re-register your passkey.' });
+        }
         const authenticator = stored ? {
             credentialID: Buffer.from(stored.credential_id, 'base64url'),
             credentialPublicKey: Buffer.from(stored.public_key, 'base64url'),
@@ -917,16 +921,19 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
                         return res.status(500).json({ error: 'Login failed' });
                     }
                     req.session.userId = stored.user_id;
+                    req.session.webauthnChallenge = null;
                     return res.json({ verified: true });
                 });
             } else {
                 return res.status(400).json({ verified: false, error: 'User not found' });
             }
         } else {
+            req.session.webauthnChallenge = null;
             return res.status(400).json({ verified: false });
         }
     } catch (e) {
         console.error('WebAuthn authentication verify error', e);
+        req.session.webauthnChallenge = null;
         return res.status(400).json({ error: 'Verification failed' });
     }
 });
