@@ -152,6 +152,8 @@
 
     <script>
       // Global functions need to be outside DOMContentLoaded
+      let composerJustOpened = false;
+
       function openPostComposer(type = 'text') {
         const modal = document.getElementById('postComposerModal');
         if (!modal) {
@@ -159,6 +161,8 @@
           return;
         }
         modal.style.display = 'flex';
+        composerJustOpened = true;
+        setTimeout(() => { composerJustOpened = false; }, 50);
         document.body.style.overflow = 'hidden'; // Prevent background scrolling
         document.getElementById('postContentType').value = type;
         const mediaSection = document.getElementById('mediaUploadSection');
@@ -273,6 +277,7 @@
 
         // Backdrop click closes modal only if clicked outside content
         document.getElementById('postComposerModal').addEventListener('click', function(e) {
+          if (composerJustOpened) return;
           if (e.target === this) closePostComposer();
         });
 
