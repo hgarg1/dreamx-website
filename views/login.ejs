@@ -66,7 +66,11 @@
                                                         if (!btn || !window.SimpleWebAuthnBrowser) return;
                                                         btn.addEventListener('click', async () => {
                                                             try {
-                                                                const optsRes = await fetch('/webauthn/authentication/options', { credentials: 'same-origin' });
+                                                                const emailInput = document.getElementById('email');
+                                                                const emailVal = (emailInput && emailInput.value ? emailInput.value : '').trim();
+                                                                const query = emailVal ? `?email=${encodeURIComponent(emailVal)}` : '';
+
+                                                                const optsRes = await fetch(`/webauthn/authentication/options${query}`, { credentials: 'same-origin' });
                                                                 if (!optsRes.ok) {
                                                                     const err = await optsRes.json().catch(() => ({}));
                                                                     const msg = err && err.error ? err.error : `Failed to get authentication options (${optsRes.status})`;

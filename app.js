@@ -855,11 +855,14 @@ app.post('/webauthn/registration/verify', async (req, res) => {
                 transports: (req.body.response && req.body.response.transports) ? JSON.stringify(req.body.response.transports) : null,
             });
             req.session.webauthnChallenge = null;
+            req.session.webauthnUserId = null;
             return res.json({ verified: true });
         }
+        req.session.webauthnUserId = null;
         return res.status(400).json({ verified: false });
     } catch (e) {
         console.error('WebAuthn registration verify error', e);
+        req.session.webauthnUserId = null;
         return res.status(400).json({ error: 'Verification failed' });
     }
 });
@@ -867,12 +870,38 @@ app.post('/webauthn/registration/verify', async (req, res) => {
 // Begin Authentication (username-less)
 app.get('/webauthn/authentication/options', async (req, res) => {
     const rpID = rpIDFromReq(req);
+    const email = (req.query.email || '').trim().toLowerCase();
+    let allowCredentials = [];
+    let hintedUserId = null;
+
     try {
+        if (email) {
+            const user = getUserByEmail(email);
+            if (!user) {
+                return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
+            }
+
+            const creds = getCredentialsForUser(user.id);
+            if (!creds || creds.length === 0) {
+                return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
+            }
+
+            allowCredentials = creds.map((c) => ({
+                id: Buffer.from(c.credential_id, 'base64url'),
+                type: 'public-key',
+                transports: c.transports ? JSON.parse(c.transports) : undefined,
+            }));
+            hintedUserId = user.id;
+        }
+
         const options = await generateAuthenticationOptions({
             rpID,
             userVerification: 'preferred',
+            allowCredentials,
         });
+
         req.session.webauthnChallenge = options.challenge;
+        req.session.webauthnUserId = hintedUserId;
         res.json(options);
     } catch (err) {
         console.error('WebAuthn authentication options error:', err);
@@ -882,6 +911,7 @@ app.get('/webauthn/authentication/options', async (req, res) => {
 
 app.post('/webauthn/authentication/verify', async (req, res) => {
     const expectedChallenge = req.session.webauthnChallenge;
+    const hintedUserId = req.session.webauthnUserId;
     const rpID = rpIDFromReq(req);
     if (!expectedChallenge) return res.status(400).json({ error: 'No auth in progress' });
     try {
@@ -891,8 +921,16 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
         if (!stored) {
             // Return a soft failure so the client can show a helpful message instead of a 404 page
             req.session.webauthnChallenge = null;
+            req.session.webauthnUserId = null;
             return res.status(200).json({ verified: false, error: 'Passkey not found. Please sign in normally and re-register your passkey.' });
         }
+
+        if (hintedUserId && Number(stored.user_id) !== Number(hintedUserId)) {
+            req.session.webauthnChallenge = null;
+            req.session.webauthnUserId = null;
+            return res.status(400).json({ verified: false, error: 'Passkey does not belong to that account.' });
+        }
+
         const authenticator = stored ? {
             credentialID: Buffer.from(stored.credential_id, 'base64url'),
             credentialPublicKey: Buffer.from(stored.public_key, 'base64url'),
@@ -924,6 +962,7 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
                     }
                     req.session.userId = stored.user_id;
                     req.session.webauthnChallenge = null;
+                    req.session.webauthnUserId = null;
                     return res.json({ verified: true });
                 });
             } else {
@@ -931,11 +970,13 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
             }
         } else {
             req.session.webauthnChallenge = null;
+            req.session.webauthnUserId = null;
             return res.status(400).json({ verified: false });
         }
     } catch (e) {
         console.error('WebAuthn authentication verify error', e);
         req.session.webauthnChallenge = null;
+        req.session.webauthnUserId = null;
         return res.status(400).json({ error: 'Verification failed' });
     }
 });
