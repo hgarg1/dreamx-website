@@ -541,7 +541,48 @@
     let hasReels = false;
     let reelsData = [];
     let currentReelIndex = 0;
+    let reelAudio = null;
+    let reelAudioSrc = '';
     const tzOffset = new Date().getTimezoneOffset();
+
+    function normalizeMediaPath(url){
+      if (!url) return '';
+      if (/^https?:\/\//i.test(url)) return url;
+      return url.startsWith('/') ? url : '/' + url.replace(/^\/+/, '');
+    }
+
+    function stopReelAudio(){
+      if (reelAudio) {
+        reelAudio.pause();
+        reelAudio.currentTime = 0;
+        reelAudio = null;
+        reelAudioSrc = '';
+      }
+    }
+
+    function playReelAudio(src){
+      const normalized = normalizeMediaPath(src);
+      if (!normalized) { stopReelAudio(); return; }
+      if (!reelAudio || reelAudioSrc !== normalized) {
+        stopReelAudio();
+        reelAudio = new Audio(normalized);
+        reelAudio.loop = true;
+        reelAudio.volume = 0.6;
+        reelAudioSrc = normalized;
+      }
+      reelAudio.play().catch(err => console.warn('Reel audio play blocked', err));
+    }
+
+    function pauseVisibleReelMedia(){
+      document.querySelectorAll('#reelsContainer video').forEach(v => {
+        try {
+          v.pause();
+          v.currentTime = 0;
+        } catch (_) {}
+      });
+    }
+
+    window.normalizeMediaPath = normalizeMediaPath;
     
     // Update profile counts live
     async function updateProfileCounts() {
@@ -600,6 +641,7 @@
           if (existingBadge) existingBadge.remove();
           const overlay = document.getElementById('reelsOverlay');
           if (overlay) overlay.style.display = 'none';
+          stopReelAudio();
           return;
         }
         const c = document.getElementById('reelsContainer');
@@ -618,10 +660,11 @@
       if (!c || !reelsData.length) return;
       const r = reelsData[currentReelIndex];
       const isGif = (r.media_url || '').toLowerCase().endsWith('.gif');
-      const mediaHtml = r.media_url
+      const normalizedMedia = normalizeMediaPath(r.media_url);
+      const mediaHtml = normalizedMedia
         ? (isGif
-            ? `<img id="reelImage" src="${r.media_url}" alt="Reel" style="max-width:100%;max-height:100%;cursor:pointer;"/>`
-            : `<video id="reelVideo" src="${r.media_url}" playsinline autoplay loop muted style="max-width:100%;max-height:100%;cursor:pointer;"></video>`)
+            ? `<img id="reelImage" src="${normalizedMedia}" alt="Reel" style="max-width:100%;max-height:100%;cursor:pointer;"/>`
+            : `<video id="reelVideo" src="${normalizedMedia}" playsinline autoplay loop muted style="max-width:100%;max-height:100%;cursor:pointer;"></video>`)
         : '';
       const prevBtn = currentReelIndex > 0 ? `<button onclick="window.prevReel()" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:50%;width:48px;height:48px;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;z-index:10;">‹</button>` : '';
       const nextBtn = currentReelIndex < reelsData.length - 1 ? `<button onclick="window.nextReel()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:50%;width:48px;height:48px;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;z-index:10;">›</button>` : '';
@@ -638,7 +681,9 @@
           <div id="pauseIndicator" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;background:rgba(0,0,0,0.7);border-radius:50%;align-items:center;justify-content:center;font-size:40px;color:#fff;pointer-events:none;">⏸</div>
         </div>
       `;
-      
+
+      playReelAudio(r.audio_url);
+
       // Add hold-to-pause functionality
       const video = document.getElementById('reelVideo');
       const pauseIndicator = document.getElementById('pauseIndicator');
@@ -649,6 +694,7 @@
           e.preventDefault();
           isHolding = true;
           video.pause();
+          if (reelAudio) reelAudio.pause();
           if (pauseIndicator) pauseIndicator.style.display = 'flex';
         };
         
@@ -657,6 +703,9 @@
             e.preventDefault();
             isHolding = false;
             video.play();
+            if (reelAudio) {
+              reelAudio.play().catch(err => console.warn('Resume reel audio failed', err));
+            }
             if (pauseIndicator) pauseIndicator.style.display = 'none';
           }
         };
@@ -692,15 +741,22 @@
       }
     };
     
-    function openReels(e){ 
-      if (!hasReels) return; 
+    function openReels(e){
+      if (!hasReels) return;
       if (e) e.preventDefault();
       const overlay = document.getElementById('reelsOverlay');
       if (!overlay) return;
       overlay.style.display = 'flex';
-      loadReels(); 
+      loadReels();
     }
-    
+
+    window.closeReelsOverlay = function(){
+      pauseVisibleReelMedia();
+      stopReelAudio();
+      const overlay = document.getElementById('reelsOverlay');
+      if (overlay) overlay.style.display = 'none';
+    };
+
     function openAvatar(){
       const overlay = document.getElementById('avatarOverlay');
       if (!overlay) return;
@@ -769,7 +825,7 @@
         if (data.reels && data.reels.length > 0) {
           countBadge.textContent = data.reels.length;
           reelsGrid.innerHTML = data.reels.map(reel => `
-            <div class="reel-card" onclick="openReelFromGrid('${reel.media_url}')" style="position:relative;border-radius:12px;overflow:hidden;cursor:pointer;aspect-ratio:9/16;background:#000;">
+            <div class="reel-card" onclick="openReelFromGrid(${JSON.stringify(reel.media_url || '')}, ${JSON.stringify(reel.audio_url || '')})" style="position:relative;border-radius:12px;overflow:hidden;cursor:pointer;aspect-ratio:9/16;background:#000;">
               ${String(reel.media_url || '').toLowerCase().endsWith('.gif')
                 ? `<img src="${reel.media_url}" alt="Reel" style="width:100%;height:100%;object-fit:cover;"/>`
                 : `<video src="${reel.media_url}" muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>`}
@@ -792,35 +848,43 @@
       }
     }
     
-    window.openReelFromGrid = function(mediaUrl) {
+    window.openReelFromGrid = function(mediaUrl, audioUrl = '') {
       const overlay = document.getElementById('reelsOverlay');
       if (!overlay) return;
-      
+
       const container = document.getElementById('reelsContainer');
-      const isGif = String(mediaUrl || '').toLowerCase().endsWith('.gif');
+      const normalizedMedia = normalizeMediaPath(mediaUrl);
+      const normalizedAudio = normalizeMediaPath(audioUrl);
+      const isGif = String(normalizedMedia || '').toLowerCase().endsWith('.gif');
       container.innerHTML = `
         <div style="position:relative;width:100%;max-width:500px;height:90vh;background:#000;border-radius:12px;overflow:hidden;">
           ${isGif
-            ? `<img id="gridReelImage" src="${mediaUrl}" alt="Reel" style="width:100%;height:100%;object-fit:contain;"/>`
-            : `<video id="gridReelVideo" src="${mediaUrl}" playsinline muted autoplay loop style="width:100%;height:100%;object-fit:contain;"></video>`}
+            ? `<img id="gridReelImage" src="${normalizedMedia}" alt="Reel" style="width:100%;height:100%;object-fit:contain;"/>`
+            : `<video id="gridReelVideo" src="${normalizedMedia}" playsinline muted autoplay loop style="width:100%;height:100%;object-fit:contain;"></video>`}
           <div id="pauseIndicator" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4rem;color:white;text-shadow:0 4px 12px rgba(0,0,0,0.5);pointer-events:none;user-select:none;">⏸</div>
         </div>
       `;
-      
+
       overlay.style.display = 'flex';
-      
+
       const video = document.getElementById('gridReelVideo');
       const pauseIndicator = document.getElementById('pauseIndicator');
-      
+
+      playReelAudio(normalizedAudio);
+
       // Hold-to-pause functionality
       function handlePause(e) {
         e.preventDefault();
         if (video && video.paused) {
           video.play();
+          if (reelAudio) {
+            reelAudio.play().catch(err => console.warn('Resume reel audio failed', err));
+          }
           pauseIndicator.style.display = 'none';
         } else {
           if (video) {
             video.pause();
+            if (reelAudio) reelAudio.pause();
             pauseIndicator.style.display = 'block';
             setTimeout(() => { pauseIndicator.style.display = 'none'; }, 600);
           }
