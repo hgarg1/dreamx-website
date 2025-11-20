@@ -690,10 +690,10 @@ app.use((req, res, next) => {
         if (user.email_verified === 1 && Number(user.onboarding_completed) !== 1) {
             const p = req.path || '';
             const isStatic = p.startsWith('/css/') || p.startsWith('/js/') || p.startsWith('/img/') || p.startsWith('/uploads/') || p.startsWith('/fonts/') || p === '/favicon.ico' || p === '/robots.txt' || p.startsWith('/manifest') || p.startsWith('/service-worker');
-            const allowedExact = new Set(['/onboarding', '/logout', '/verify-email', '/onboarding-empty-state']);
+            const allowedExact = new Set(['/onboarding', '/logout', '/verify-email', '/onboarding-empty']);
             const isAuthPath = p === '/login' || p === '/register' || p.startsWith('/auth/') || p.startsWith('/webauthn/');
             if (!isStatic && !isAuthPath && !allowedExact.has(p) && !req.session.seenOnboardingPrompt) {
-                return res.redirect('/onboarding-empty-state');
+                return res.redirect('/onboarding-empty');
             }
         }
         return next();
@@ -703,16 +703,16 @@ app.use((req, res, next) => {
 });
 
 // Onboarding reminder page (sets session flag so we don't loop in same session)
-app.get('/onboarding-empty-state', (req, res) => {
+app.get('/onboarding-empty', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const user = getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
     // If they already finished, just go to feed
     if (Number(user.onboarding_completed) === 1) return res.redirect('/feed');
     req.session.seenOnboardingPrompt = true;
-    res.render('onboarding-empty-state', {
-        title: 'Complete Your Onboarding - Dream X',
-        currentPage: 'onboarding-empty-state'
+    res.render('onboarding-empty', {
+        title: 'Onboarding - Let\'s Get Started | Dream X',
+        currentPage: 'onboarding-empty'
     });
 });
 

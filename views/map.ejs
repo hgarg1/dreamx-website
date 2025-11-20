@@ -126,7 +126,7 @@
         border: 3px solid white;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
         overflow: hidden;
         background: #667eea;
         display: flex;
@@ -135,6 +135,8 @@
         color: white;
         font-weight: bold;
         font-size: 1.2rem;
+        will-change: transform;
+        z-index: 1;
     }
 
     .custom-marker:hover {
@@ -543,10 +545,10 @@
             <p>Help others discover you by sharing your location on the map</p>
         </div>
         <div class="location-prompt-actions">
-            <button class="btn-location btn-primary-loc" onclick="detectLocation()">
+            <button id="btnAutoDetect" class="btn-location btn-primary-loc">
                 📡 Auto-Detect
             </button>
-            <button class="btn-location btn-secondary-loc" onclick="openLocationForm()">
+            <button id="btnEnterManual" class="btn-location btn-secondary-loc">
                 ✏️ Enter Manually
             </button>
         </div>
@@ -607,14 +609,17 @@
 <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
 <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
 
+
 <!-- Dream X MapBox Utilities -->
 <script src='/js/mapbox-utils.js'></script>
 
-<script>
+
+<!--ensure script loads after dom loads-->
+<script defer>
     // ===== INITIALIZE MAP UTILITIES AND DATA =====
     const mapboxToken = '<%= mapboxToken %>';
     const userLocations = <%- userLocations %>;
-    const currentUserLocation = <%- currentUserLocation || 'null' %>;
+    const currentUserLocation = (<%- currentUserLocation || 'null' %>);
     
     // Initialize Dream X MapBox utilities globally
     window.mapUtils = new DreamXMapUtils(mapboxToken);
@@ -847,6 +852,17 @@
             window.closeLocationForm();
         }
     });
+
+// Attach event listeners for location buttons after DOM is loaded
+    const btnAutoDetect = document.getElementById('btnAutoDetect');
+    const btnEnterManual = document.getElementById('btnEnterManual');
+    if (btnAutoDetect) {
+        btnAutoDetect.addEventListener('click', window.detectLocation);
+    }
+    if (btnEnterManual) {
+        btnEnterManual.addEventListener('click', window.openLocationForm);
+    }
+    
 </script>
 
 <%- include('partials/footer') %>

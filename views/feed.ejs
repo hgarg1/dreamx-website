@@ -69,27 +69,27 @@
         <% } else { %>
           <div class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);cursor:pointer;"><%= (authUser.displayName || 'Y').charAt(0) %></div>
         <% } %>
-        <button type="button" onclick="openPostComposer()" class="prompt" style="flex:1;background:#f9fafb;border:2px solid #e5e7eb;border-radius:28px;padding:14px 24px;text-align:left;color:#9ca3af;cursor:pointer;font-size:1.05rem;font-weight:500;transition:all 0.3s ease;" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.03)';this.style.color='#6b7280'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb';this.style.color='#9ca3af'">Share a productive update...</button>
+        <button type="button" id="openPostComposerBtn" class="prompt" style="flex:1;background:#f9fafb;border:2px solid #e5e7eb;border-radius:28px;padding:14px 24px;text-align:left;color:#9ca3af;cursor:pointer;font-size:1.05rem;font-weight:500;transition:all 0.3s ease;" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.03)';this.style.color='#6b7280'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb';this.style.color='#9ca3af'">Share a productive update...</button>
       </div>
       <div style="display:flex;gap:10px;padding-top:14px;border-top:1px solid rgba(229,231,235,0.6);">
-        <button type="button" onclick="openPostComposer('image')" style="flex:1;background:linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05));border:1px solid rgba(255,79,163,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(255,79,163,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+        <button type="button" id="openImageComposerBtn" style="flex:1;background:linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05));border:1px solid rgba(255,79,163,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(255,79,163,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
           <span style="font-size:1.4rem;">📸</span> <span>Photo</span>
         </button>
-        <button type="button" onclick="openPostComposer('video')" style="flex:1;background:linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05));border:1px solid rgba(102,126,234,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(102,126,234,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'" title="Reel (no images, videos/GIFs only)">
+        <button type="button" id="openVideoComposerBtn" style="flex:1;background:linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05));border:1px solid rgba(102,126,234,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(102,126,234,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'" title="Reel (no images, videos/GIFs only)">
           <span style="font-size:1.4rem;">🎬</span> <span>Reel</span>
         </button>
-        <button type="button" onclick="openPostComposer('text')" style="flex:1;background:linear-gradient(135deg, rgba(124,58,237,0.05), rgba(139,92,246,0.05));border:1px solid rgba(124,58,237,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(124,58,237,0.15), rgba(139,92,246,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(124,58,237,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(124,58,237,0.05), rgba(139,92,246,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+        <button type="button" id="openTextComposerBtn" style="flex:1;background:linear-gradient(135deg, rgba(124,58,237,0.05), rgba(139,92,246,0.05));border:1px solid rgba(124,58,237,0.2);padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;color:#374151;font-weight:600;border-radius:12px;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.background='linear-gradient(135deg, rgba(124,58,237,0.15), rgba(139,92,246,0.15))';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(124,58,237,0.2)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(124,58,237,0.05), rgba(139,92,246,0.05))';this.style.transform='translateY(0)';this.style.boxShadow='none'">
           <span style="font-size:1.4rem;">✍️</span> <span>Text</span>
         </button>
       </div>
     </section>
 
     <!-- Post Composer Modal -->
-    <div id="postComposerModal" class="modal-backdrop" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);" onclick="if(event.target.classList.contains('modal-backdrop')) closePostComposer();">
-      <div class="modal-content" onclick="event.stopPropagation()" style="background:white;border-radius:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.35);">
+    <div id="postComposerModal" class="modal-backdrop" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);">
+      <div class="modal-content" style="background:white;border-radius:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.35);">
         <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg, rgba(255,79,163,0.05) 0%, rgba(118,75,162,0.05) 100%);">
           <h3 style="margin:0;font-size:1.75rem;font-weight:800;background:linear-gradient(135deg, #ff4fa3, #764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Create Post</h3>
-          <button type="button" onclick="event.preventDefault(); closePostComposer();" style="background:rgba(107,114,128,0.1);border:none;font-size:2rem;cursor:pointer;color:#6b7280;line-height:1;width:40px;height:40px;border-radius:50%;transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(239,68,68,0.1)';this.style.color='#ef4444';this.style.transform='rotate(90deg)'" onmouseout="this.style.background='rgba(107,114,128,0.1)';this.style.color='#6b7280';this.style.transform='rotate(0deg)'">&times;</button>
+          <button type="button" id="closePostComposerBtn" style="background:rgba(107,114,128,0.1);border:none;font-size:2rem;cursor:pointer;color:#6b7280;line-height:1;width:40px;height:40px;border-radius:50%;transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(239,68,68,0.1)';this.style.color='#ef4444';this.style.transform='rotate(90deg)'" onmouseout="this.style.background='rgba(107,114,128,0.1)';this.style.color='#6b7280';this.style.transform='rotate(0deg)'">&times;</button>
         </div>
         <form id="postForm" action="/feed/post" method="POST" enctype="multipart/form-data" style="padding:32px;">
           <input type="hidden" id="postContentType" name="contentType" value="text">
@@ -130,7 +130,7 @@
           </div>
 
           <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:20px;border-top:1px solid #e5e7eb;">
-            <button type="button" onclick="closePostComposer()" style="padding:12px 28px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;color:#374151;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
+            <button type="button" id="cancelPostComposerBtn" style="padding:12px 28px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;color:#374151;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
             <button type="submit" style="padding:12px 32px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 16px rgba(255,79,163,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(255,79,163,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.3)'">✨ Publish Post</button>
           </div>
         </form>
@@ -212,37 +212,38 @@
         const mediaInput = document.getElementById('mediaInput');
         if (mediaInput) {
           mediaInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        const preview = document.getElementById('mediaPreview');
-        preview.innerHTML = '';
-        
-        if (file) {
-          const type = document.getElementById('postContentType').value;
-          // Enforce: if Reel, disallow static images (allow GIF via image/gif)
-          if (type === 'video' && file.type.startsWith('image/') && file.type !== 'image/gif') {
-            alert('Reels cannot include images. Please upload a video or GIF.');
-            e.target.value = '';
-            return;
-          }
-          const reader = new FileReader();
-          reader.onload = function(ev) {
-            if (file.type.startsWith('image/')) {
-              const img = document.createElement('img');
-              img.src = ev.target.result;
-              img.style.maxWidth = '100%';
-              img.style.borderRadius = '8px';
-              preview.appendChild(img);
-            } else if (file.type.startsWith('video/')) {
-              const video = document.createElement('video');
-              video.src = ev.target.result;
-              video.controls = true;
-              video.style.maxWidth = '100%';
-              video.style.borderRadius = '8px';
-              preview.appendChild(video);
+            const file = e.target.files[0];
+            const preview = document.getElementById('mediaPreview');
+            preview.innerHTML = '';
+          
+          
+            if (file) {
+              const type = document.getElementById('postContentType').value;
+              // Enforce: if Reel, disallow static images (allow GIF via image/gif)
+              if (type === 'video' && file.type.startsWith('image/') && file.type !== 'image/gif') {
+                alert('Reels cannot include images. Please upload a video or GIF.');
+                e.target.value = '';
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = function(ev) {
+                if (file.type.startsWith('image/')) {
+                  const img = document.createElement('img');
+                  img.src = ev.target.result;
+                  img.style.maxWidth = '100%';
+                  img.style.borderRadius = '8px';
+                  preview.appendChild(img);
+                } else if (file.type.startsWith('video/')) {
+                  const video = document.createElement('video');
+                  video.src = ev.target.result;
+                  video.controls = true;
+                  video.style.maxWidth = '100%';
+                  video.style.borderRadius = '8px';
+                  preview.appendChild(video);
+                }
+              };
+              reader.readAsDataURL(file);
             }
-          };
-          reader.readAsDataURL(file);
-        }
           });
         }
       
@@ -261,6 +262,24 @@
             }
           });
         }
+        document.getElementById('openPostComposerBtn').addEventListener('click', function() { openPostComposer('text'); });
+        document.getElementById('openImageComposerBtn').addEventListener('click', function() { openPostComposer('image'); });
+        document.getElementById('openVideoComposerBtn').addEventListener('click', function() { openPostComposer('video'); });
+        document.getElementById('openTextComposerBtn').addEventListener('click', function() { openPostComposer('text'); });
+
+        // Close modal
+        document.getElementById('closePostComposerBtn').addEventListener('click', function(e) { e.preventDefault(); closePostComposer(); });
+        document.getElementById('cancelPostComposerBtn').addEventListener('click', function(e) { e.preventDefault(); closePostComposer(); });
+
+        // Backdrop click closes modal only if clicked outside content
+        document.getElementById('postComposerModal').addEventListener('click', function(e) {
+          if (e.target === this) closePostComposer();
+        });
+
+        // Prevent modal-content click from closing modal
+        document.querySelector('#postComposerModal .modal-content').addEventListener('click', function(e) {
+          e.stopPropagation();
+        });
       });
     </script>
 

@@ -214,6 +214,7 @@ class DreamXMapUtils {
                 return;
             }
 
+
             // Create custom marker element
             const el = document.createElement('div');
             el.className = 'custom-marker';
@@ -224,7 +225,7 @@ class DreamXMapUtils {
                 border: 3px solid white;
                 box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
                 cursor: pointer;
-                transition: all 0.3s ease;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
                 overflow: hidden;
                 background: #667eea;
                 display: flex;
@@ -233,6 +234,8 @@ class DreamXMapUtils {
                 color: white;
                 font-weight: bold;
                 font-size: 1.2rem;
+                will-change: transform;
+                z-index: 1;
             `;
 
             if (user.profile_picture) {
@@ -245,13 +248,12 @@ class DreamXMapUtils {
                 el.textContent = (user.full_name || 'U').charAt(0).toUpperCase();
             }
 
-            // Add hover effect
+            // Stable hover effect
             el.addEventListener('mouseenter', () => {
                 el.style.transform = 'scale(1.2)';
                 el.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.4)';
                 el.style.zIndex = '1000';
             });
-
             el.addEventListener('mouseleave', () => {
                 el.style.transform = 'scale(1)';
                 el.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
