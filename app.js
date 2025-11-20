@@ -807,10 +807,11 @@ app.get('/webauthn/registration/options', async (req, res) => {
             userName: user.email,
             userDisplayName: user.full_name,
             attestationType: 'none',
+            // Require discoverable credentials so sign-in can work without a username prompt
             authenticatorSelection: {
-                residentKey: 'preferred',
+                residentKey: 'required',
                 userVerification: 'preferred',
-                requireResidentKey: false,
+                requireResidentKey: true,
             },
             excludeCredentials: existingCreds.map(c => ({
                 id: Buffer.from(c.credential_id, 'base64url'),
