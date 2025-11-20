@@ -889,8 +889,9 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
         const credIdB64 = body.id;
         const stored = getCredentialById(credIdB64);
         if (!stored) {
+            // Return a soft failure so the client can show a helpful message instead of a 404 page
             req.session.webauthnChallenge = null;
-            return res.status(404).json({ verified: false, error: 'Passkey not found. Please sign in normally and re-register your passkey.' });
+            return res.status(200).json({ verified: false, error: 'Passkey not found. Please sign in normally and re-register your passkey.' });
         }
         const authenticator = stored ? {
             credentialID: Buffer.from(stored.credential_id, 'base64url'),
