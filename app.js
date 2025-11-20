@@ -21,15 +21,6 @@ const {
 const socketIo = require('socket.io');
 let webpush;
 
-// Trust proxy for correct HTTPS detection and secure cookies in production
-try {
-    // Render and other PaaS set X-Forwarded-* headers; trust the first proxy
-    const appSetTrustProxy = process.env.TRUST_PROXY !== 'false';
-    if (appSetTrustProxy && typeof app?.set === 'function') {
-        app.set('trust proxy', 1);
-    }
-} catch(_) {}
-
 // Import email service
 const emailService = require('./services/emailService');
 
@@ -2420,6 +2411,75 @@ app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name
         isReel
     });
     res.redirect('/feed');
+});
+
+// Get following users with reel counts (MUST be before /api/users/:id/reels to avoid route collision)
+app.get('/api/users/following/reels', (req, res) => {
+    console.log('🎬 Reels endpoint hit - Session userId:', req.session.userId);
+    if (!req.session.userId) {
+        console.log('❌ Reels endpoint: No session userId, returning 401');
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+        const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+        const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '12', 10), 1), 200); // cap
+        console.log('🎬 Reels query params - page:', page, 'pageSize:', pageSize);
+        
+        let rawFollowing;
+        try {
+            console.log('🎬 Fetching following list for user:', req.session.userId);
+            rawFollowing = getFollowing(req.session.userId, 500);
+            console.log('🎬 Following list count:', rawFollowing ? rawFollowing.length : 0);
+        } catch (err) {
+            console.error('❌ Error getting following list:', err);
+            console.error('❌ Stack:', err.stack);
+            rawFollowing = null;
+        }
+        
+        // Handle case when user follows no one or following fetch failed
+        if (!rawFollowing || !Array.isArray(rawFollowing) || rawFollowing.length === 0) {
+            console.log('🎬 No following users found, returning empty result');
+            return res.json({ users: [], page: 1, pageSize, total: 0, totalPages: 0 });
+        }
+        
+        // Map users with reel counts and filter out users with no active reels
+        console.log('🎬 Processing reel counts for', rawFollowing.length, 'users');
+        const usersWithReels = rawFollowing.map(u => {
+            try {
+                const reelCount = require('./db').getActiveReelCount(u.id) || 0;
+                if (reelCount > 0) {
+                    console.log(`  ✓ User ${u.id} (${u.full_name}): ${reelCount} reels`);
+                }
+                return {
+                    id: u.id,
+                    full_name: u.full_name,
+                    profile_picture: u.profile_picture,
+                    reelCount
+                };
+            } catch (err) {
+                console.error(`❌ Error getting reel count for user ${u.id}:`, err);
+                return null;
+            }
+        }).filter(u => u !== null && u.reelCount > 0); // Only include users with active reels
+        
+        console.log('🎬 Users with active reels:', usersWithReels.length);
+        
+        // Sort by reel count (descending) so most active are first
+        usersWithReels.sort((a, b) => b.reelCount - a.reelCount);
+        
+        // Paginate the filtered results
+        const startIndex = (page - 1) * pageSize;
+        const users = usersWithReels.slice(startIndex, startIndex + pageSize);
+        const total = usersWithReels.length;
+        const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
+        
+        console.log('🎬 Returning', users.length, 'users, page', page, 'of', totalPages);
+        res.json({ users, page, pageSize, total, totalPages });
+    } catch (error) {
+        console.error('❌ Get following reels error:', error);
+        console.error('❌ Stack:', error.stack);
+        res.status(500).json({ error: 'Failed to retrieve following reels' });
+    }
 });
 
 // API: get reels for a user, filtering 24h expiry based on client timezone offset
@@ -5385,57 +5445,6 @@ app.get('/api/users/:id/is-blocked', (req, res) => {
     } catch (error) {
         console.error('Check blocked error:', error);
         res.status(500).json({ error: 'Failed to check block status' });
-    }
-});
-
-// Get following users with reel counts
-app.get('/api/users/following/reels', (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-        const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-        const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '12', 10), 1), 200); // cap
-        
-        let rawFollowing;
-        try {
-            rawFollowing = getFollowing(req.session.userId, 500);
-        } catch (err) {
-            console.error('Error getting following list:', err);
-            rawFollowing = null;
-        }
-        
-        // Handle case when user follows no one or following fetch failed
-        if (!rawFollowing || !Array.isArray(rawFollowing) || rawFollowing.length === 0) {
-            return res.json({ users: [], page: 1, pageSize, total: 0, totalPages: 0 });
-        }
-        
-        // Map users with reel counts and filter out users with no active reels
-        const usersWithReels = rawFollowing.map(u => {
-            try {
-                return {
-                    id: u.id,
-                    full_name: u.full_name,
-                    profile_picture: u.profile_picture,
-                    reelCount: require('./db').getActiveReelCount(u.id) || 0
-                };
-            } catch (err) {
-                console.error(`Error getting reel count for user ${u.id}:`, err);
-                return null;
-            }
-        }).filter(u => u !== null && u.reelCount > 0); // Only include users with active reels
-        
-        // Sort by reel count (descending) so most active are first
-        usersWithReels.sort((a, b) => b.reelCount - a.reelCount);
-        
-        // Paginate the filtered results
-        const startIndex = (page - 1) * pageSize;
-        const users = usersWithReels.slice(startIndex, startIndex + pageSize);
-        const total = usersWithReels.length;
-        const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
-        
-        res.json({ users, page, pageSize, total, totalPages });
-    } catch (error) {
-        console.error('Get following reels error:', error);
-        res.status(500).json({ error: 'Failed to retrieve following reels' });
     }
 });
 

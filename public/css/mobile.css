@@ -179,12 +179,9 @@
      MESSAGES & FEED
      ============================= */
   .messages-layout {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 60px);
-    padding: 0;
-    margin: 0;
-    gap: 0;
+    grid-template-columns: 1fr;
+    padding: 0 var(--spacing-sm);
+    margin: var(--spacing-md) auto;
     max-width: 100%;
   }
 
@@ -195,8 +192,9 @@
     border-bottom: 1px solid var(--border-color);
     max-height: 35vh;
     overflow-y: auto;
-    border-radius: 0;
+    border-radius: var(--radius-md);
     padding: 1rem;
+    margin-bottom: var(--spacing-sm);
   }
 
   .conversations-title {
@@ -234,18 +232,21 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 0;
+    min-height: 400px;
     overflow: hidden;
-    border-radius: 0;
-    padding: 0;
-    border-left: none;
-    border-right: none;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    border: 2px solid var(--border-color);
+    background: var(--bg-white);
   }
 
   .chat-header {
-    padding: var(--spacing-sm) 1rem;
+    padding: var(--spacing-sm) var(--spacing-sm);
     flex-shrink: 0;
     border-bottom: 1px solid var(--border-color);
+    margin: 0 calc(-1 * var(--spacing-sm));
+    padding-left: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
   }
 
   .chat-header-left {
@@ -280,8 +281,11 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: var(--spacing-sm) 1rem;
+    padding: var(--spacing-sm);
     min-height: 0;
+    margin: 0 calc(-1 * var(--spacing-sm));
+    padding-left: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
   }
 
   .chat-bubble {
@@ -306,10 +310,13 @@
   }
 
   .chat-input-row {
-    padding: var(--spacing-xs) 1rem;
+    padding: var(--spacing-sm);
     gap: var(--spacing-xs);
     flex-shrink: 0;
     border-top: 1px solid var(--border-color);
+    margin: 0 calc(-1 * var(--spacing-sm));
+    padding-left: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
   }
 
   .chat-attach-btn {

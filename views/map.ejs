@@ -611,37 +611,138 @@
 <script src='/js/mapbox-utils.js'></script>
 
 <script>
+    // ===== INITIALIZE MAP UTILITIES AND DATA =====
     const mapboxToken = '<%= mapboxToken %>';
     const userLocations = <%- userLocations %>;
-    const currentUserLocation = <%- currentUserLocation %>;
+    const currentUserLocation = <%- currentUserLocation || 'null' %>;
     
-    // Initialize Dream X MapBox utilities
-    const mapUtils = new DreamXMapUtils(mapboxToken);
-    
-    // Create map with 3D terrain and buildings enabled
-    const map = mapUtils.createMap({
-        containerId: 'map',
-        center: currentUserLocation ? [currentUserLocation.longitude, currentUserLocation.latitude] : [-98.5795, 39.8283],
-        zoom: currentUserLocation ? 10 : 3,
-        enable3D: true, // Enable 3D terrain and buildings
-        navigationControl: true,
-        fullscreenControl: true,
-        geolocateControl: true // Add user location button
-    });
+    // Initialize Dream X MapBox utilities globally
+    window.mapUtils = new DreamXMapUtils(mapboxToken);
 
-    // Add user markers using the utility
-    map.on('load', function() {
-        mapUtils.addUserMarkers(map, userLocations, showUserModal);
-        
-        // If there are multiple locations, fit bounds to show all
-        if (userLocations.length > 1) {
-            const coordinates = userLocations.map(loc => [loc.longitude, loc.latitude]);
-            mapUtils.fitBounds(map, coordinates, { padding: 100, maxZoom: 10 });
+    // ===== GLOBAL FUNCTION DECLARATIONS (for onclick handlers) =====
+    
+    // Helper function to escape HTML
+    window.escapeHtml = function(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Show location status message
+    window.showLocationStatus = function(message, type) {
+        const status = document.getElementById('locationStatus');
+        status.textContent = message;
+        status.className = 'location-status ' + type;
+        status.style.display = 'block';
+    }
+
+    // Open location form modal
+    window.openLocationForm = function() {
+        document.getElementById('locationFormModal').classList.add('active');
+    }
+
+    // Close location form modal
+    window.closeLocationForm = function() {
+        document.getElementById('locationFormModal').classList.remove('active');
+        document.getElementById('locationForm').reset();
+        document.getElementById('locationStatus').style.display = 'none';
+    }
+
+    // Close user modal
+    window.closeUserModal = function() {
+        document.getElementById('userModal').classList.remove('active');
+    }
+
+    // Detect user's location automatically
+    window.detectLocation = function() {
+        window.openLocationForm();
+        window.showLocationStatus('Detecting your location...', 'info');
+
+        // Use the utility's getCurrentLocation method
+        window.mapUtils.getCurrentLocation()
+            .then(async (location) => {
+                const lat = location.latitude;
+                const lon = location.longitude;
+                
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lon;
+                
+                // Use utility's reverse geocode method
+                try {
+                    const result = await window.mapUtils.reverseGeocode([lon, lat]);
+                    document.getElementById('city').value = result.city || result.placeName;
+                    window.showLocationStatus('Location detected! Please review and save.', 'success');
+                } catch (error) {
+                    console.error('Geocoding error:', error);
+                    window.showLocationStatus('Location detected, but city lookup failed. Please enter city manually.', 'error');
+                }
+            })
+            .catch((error) => {
+                console.error('Geolocation error:', error);
+                window.showLocationStatus('Failed to detect location. Please enter manually.', 'error');
+            });
+    }
+
+    // Submit location to server
+    window.submitLocation = async function() {
+        const city = document.getElementById('city').value.trim();
+        const latitude = document.getElementById('latitude').value;
+        const longitude = document.getElementById('longitude').value;
+
+        if (!city) {
+            window.showLocationStatus('Please enter a city name.', 'error');
+            return;
         }
-    });
+
+        // If no coordinates, try to geocode the city using utility
+        if (!latitude || !longitude) {
+            window.showLocationStatus('Looking up coordinates...', 'info');
+            try {
+                const result = await window.mapUtils.geocode(city);
+                const [lon, lat] = result.coordinates;
+                document.getElementById('latitude').value = lat;
+                document.getElementById('longitude').value = lon;
+            } catch (error) {
+                console.error('Geocoding error:', error);
+                window.showLocationStatus('Failed to look up city coordinates.', 'error');
+                return;
+            }
+        }
+
+        // Submit to server
+        window.showLocationStatus('Saving location...', 'info');
+        
+        try {
+            const response = await fetch('/location', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    city: document.getElementById('city').value,
+                    latitude: parseFloat(document.getElementById('latitude').value),
+                    longitude: parseFloat(document.getElementById('longitude').value)
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                window.showLocationStatus('Location saved successfully!', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                window.showLocationStatus(result.error || 'Failed to save location', 'error');
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            window.showLocationStatus('Failed to save location', 'error');
+        }
+    }
 
     // Show user details modal
-    function showUserModal(location) {
+    window.showUserModal = function(location) {
         const modal = document.getElementById('userModal');
         const avatar = document.getElementById('modalAvatar');
         const name = document.getElementById('modalName');
@@ -711,130 +812,39 @@
         modal.classList.add('active');
     }
 
-    function closeUserModal() {
-        document.getElementById('userModal').classList.remove('active');
-    }
+    // ===== MAP INITIALIZATION =====
+    // Create map with 3D terrain and buildings enabled
+    const map = window.mapUtils.createMap({
+        containerId: 'map',
+        center: currentUserLocation ? [currentUserLocation.longitude, currentUserLocation.latitude] : [-98.5795, 39.8283],
+        zoom: currentUserLocation ? 10 : 3,
+        enable3D: true, // Enable 3D terrain and buildings
+        navigationControl: true,
+        fullscreenControl: true,
+        geolocateControl: true // Add user location button
+    });
 
-    // Location form functions
-    function openLocationForm() {
-        document.getElementById('locationFormModal').classList.add('active');
-    }
-
-    function closeLocationForm() {
-        document.getElementById('locationFormModal').classList.remove('active');
-        document.getElementById('locationForm').reset();
-        document.getElementById('locationStatus').style.display = 'none';
-    }
-
-    function detectLocation() {
-        openLocationForm();
-        showLocationStatus('Detecting your location...', 'info');
-
-        // Use the utility's getCurrentLocation method
-        mapUtils.getCurrentLocation()
-            .then(async (location) => {
-                const lat = location.latitude;
-                const lon = location.longitude;
-                
-                document.getElementById('latitude').value = lat;
-                document.getElementById('longitude').value = lon;
-                
-                // Use utility's reverse geocode method
-                try {
-                    const result = await mapUtils.reverseGeocode([lon, lat]);
-                    document.getElementById('city').value = result.city || result.placeName;
-                    showLocationStatus('Location detected! Please review and save.', 'success');
-                } catch (error) {
-                    console.error('Geocoding error:', error);
-                    showLocationStatus('Location detected, but city lookup failed. Please enter city manually.', 'error');
-                }
-            })
-            .catch((error) => {
-                console.error('Geolocation error:', error);
-                showLocationStatus('Failed to detect location. Please enter manually.', 'error');
-            });
-    }
-
-    async function submitLocation() {
-        const city = document.getElementById('city').value.trim();
-        const latitude = document.getElementById('latitude').value;
-        const longitude = document.getElementById('longitude').value;
-
-        if (!city) {
-            showLocationStatus('Please enter a city name.', 'error');
-            return;
-        }
-
-        // If no coordinates, try to geocode the city using utility
-        if (!latitude || !longitude) {
-            showLocationStatus('Looking up coordinates...', 'info');
-            try {
-                const result = await mapUtils.geocode(city);
-                const [lon, lat] = result.coordinates;
-                document.getElementById('latitude').value = lat;
-                document.getElementById('longitude').value = lon;
-            } catch (error) {
-                console.error('Geocoding error:', error);
-                showLocationStatus('Failed to look up city coordinates.', 'error');
-                return;
-            }
-        }
-
-        // Submit to server
-        showLocationStatus('Saving location...', 'info');
+    // Add user markers using the utility
+    map.on('load', function() {
+        window.mapUtils.addUserMarkers(map, userLocations, window.showUserModal);
         
-        try {
-            const response = await fetch('/location', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    city: document.getElementById('city').value,
-                    latitude: parseFloat(document.getElementById('latitude').value),
-                    longitude: parseFloat(document.getElementById('longitude').value)
-                })
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                showLocationStatus('Location saved successfully!', 'success');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            } else {
-                showLocationStatus(result.error || 'Failed to save location', 'error');
-            }
-        } catch (error) {
-            console.error('Save error:', error);
-            showLocationStatus('Failed to save location', 'error');
+        // If there are multiple locations, fit bounds to show all
+        if (userLocations.length > 1) {
+            const coordinates = userLocations.map(loc => [loc.longitude, loc.latitude]);
+            window.mapUtils.fitBounds(map, coordinates, { padding: 100, maxZoom: 10 });
         }
-    }
-
-    function showLocationStatus(message, type) {
-        const status = document.getElementById('locationStatus');
-        status.textContent = message;
-        status.className = 'location-status ' + type;
-        status.style.display = 'block';
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    });
 
     // Close modals on background click
     document.getElementById('userModal').addEventListener('click', function(e) {
         if (e.target === this) {
-            closeUserModal();
+            window.closeUserModal();
         }
     });
 
     document.getElementById('locationFormModal').addEventListener('click', function(e) {
         if (e.target === this) {
-            closeLocationForm();
+            window.closeLocationForm();
         }
     });
 </script>

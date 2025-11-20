@@ -3,7 +3,7 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_VERSION = 'dreamx-v1.3.1';
+const CACHE_VERSION = 'dreamx-v1.3.4';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
@@ -84,6 +84,7 @@ self.addEventListener('fetch', (event) => {
   // DO NOT CACHE these pages as they contain user-specific content
   if (url.pathname === '/' ||
       url.pathname === '/feed' ||
+      url.pathname === '/map' ||
       url.pathname === '/profile' ||
       url.pathname.startsWith('/profile/') ||
       url.pathname === '/messages' ||

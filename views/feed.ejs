@@ -470,7 +470,11 @@
             console.error('Failed to load reels:', res.status, res.statusText);
             const container = document.getElementById('reelsBubbles');
             if (container) {
-              container.innerHTML = '<p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:20px 0;">Unable to load reels. Try again later.</p>';
+              if (res.status === 401) {
+                container.innerHTML = '<p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:20px 0;">Please log in to view reels</p>';
+              } else {
+                container.innerHTML = '<p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:20px 0;">Unable to load reels. Try again later.</p>';
+              }
             }
             return;
           }
