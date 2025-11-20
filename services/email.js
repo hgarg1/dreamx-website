@@ -8,7 +8,7 @@ const OAuth2 = google.auth.OAuth2;
 // Create OAuth2 client
 const createTransporter = async () => {
     // Check if OAuth credentials are configured
-    if (!process.env.GMAIL_CLIENT_ID || !process.env.GMAIL_CLIENT_SECRET || !process.env.GMAIL_REFRESH_TOKEN) {
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_CLIENT_ID || !process.env.GMAIL_CLIENT_SECRET || !process.env.GMAIL_REFRESH_TOKEN) {
         console.warn('⚠️ Gmail OAuth not configured, using basic SMTP');
         return createBasicTransporter();
     }
@@ -26,6 +26,14 @@ const createTransporter = async () => {
     try {
         const accessToken = await oauth2Client.getAccessToken();
 
+        // googleapis may return a string or an object depending on version/config
+        const resolvedAccessToken = typeof accessToken === 'string' ? accessToken : accessToken?.token;
+
+        if (!resolvedAccessToken) {
+            console.error('⚠️ Unable to resolve Gmail OAuth access token, falling back to basic SMTP');
+            return createBasicTransporter();
+        }
+
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -34,7 +42,7 @@ const createTransporter = async () => {
                 clientId: process.env.GMAIL_CLIENT_ID,
                 clientSecret: process.env.GMAIL_CLIENT_SECRET,
                 refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-                accessToken: accessToken.token
+                accessToken: resolvedAccessToken
             }
         });
 
