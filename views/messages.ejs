@@ -1,65 +1,48 @@
 <%- include('partials/header') %>
 
-<div class="messages-page">
+<% const isAdminUserFlag = authUser && ['admin','super_admin','global_admin'].includes(authUser.role); %>
+<div class="messages-page <%= isAdminUserFlag ? 'admin-mode' : '' %>">
   <% const participantCount = (typeof participants !== 'undefined' && participants ? participants.length : 0); %>
   <% const conversationCount = (typeof conversations !== 'undefined' && conversations ? conversations.length : 0); %>
-  <div class="messages-hero">
-    <div class="messages-hero-card">
-      <div class="hero-eyebrow-row">
-        <div class="hero-eyebrow">DreamX Circles</div>
-        <span class="hero-badge live">Live presence</span>
-        <span class="hero-badge glow">Polished gradients</span>
-        <span class="hero-badge muted">PWA ready</span>
+  <div class="messages-header">
+    <div class="messages-header-left">
+      <p class="messages-kicker">Inbox</p>
+      <div class="messages-title-row">
+        <h1 class="messages-title">Messages</h1>
+        <span class="header-chip live">Live</span>
+        <span class="header-chip muted">No overflow</span>
+        <% if (isAdminUserFlag) { %>
+          <span class="header-chip admin-chip">Admin view</span>
+        <% } %>
       </div>
-      <div class="messages-hero-grid">
-        <div class="hero-copy">
-          <h1>Messaging that feels on-theme</h1>
-          <p>Group chats, reactions, and replies — all wrapped in a soft neon gradient. Build momentum with your community.</p>
-          <div class="hero-meta">
-            <span>✨ Real-time presence</span>
-            <span>🧵 Threaded replies</span>
-            <span>📎 Rich attachments</span>
-            <span>🛡️ Safety-first controls</span>
-          </div>
-          <div class="messages-hero-checklist">
-            <span>Gradient-safe surfaces for bright avatars</span>
-            <span>Curated paddings to keep the inbox airy</span>
-            <span>Mobile-friendly spacing out of the box</span>
-          </div>
-        </div>
-        <div class="messages-hero-stats">
-          <div class="hero-stat">
-            <p class="stat-label">Active members</p>
-            <div class="stat-value"><%= participantCount || 3 %></div>
-            <small>Connected across your latest chat</small>
-          </div>
-          <div class="hero-stat">
-            <p class="stat-label">Conversations</p>
-            <div class="stat-value"><%= conversationCount %></div>
-            <small>Inbox kept tidy with soft cards</small>
-          </div>
-          <div class="hero-stat highlight">
-            <p class="stat-label">Fresh styles</p>
-            <div class="stat-value">New</div>
-            <small>Glassy gradients and refined controls</small>
-          </div>
-        </div>
-        <div class="hero-gradient-orb" aria-hidden="true"></div>
+      <div class="messages-meta-row">
+        <span><strong><%= participantCount || 0 %></strong> active members</span>
+        <span><strong><%= conversationCount || 0 %></strong> conversations</span>
+        <span class="meta-pill">Reactions ready</span>
+        <% if (isAdminUserFlag) { %>
+          <span class="meta-pill strong">Admin controls unlocked</span>
+        <% } %>
       </div>
+    </div>
+    <div class="messages-header-actions">
+      <button type="button" class="header-btn" id="shareConversationBtn" onclick="shareConversation()" <%= currentConversation ? '' : 'disabled' %>>Share</button>
+      <button type="button" class="header-btn secondary" id="headerTipsBtn" onclick="showPinnedTips()" <%= currentConversation && currentConversation.is_group ? '' : 'disabled' %>>Tips</button>
+      <button type="button" class="header-btn primary" id="headerAddBtn" onclick="toggleInlineAddMember()" <%= currentConversation && currentConversation.is_group ? '' : 'disabled' %>>Add people</button>
     </div>
   </div>
 
-  <div class="messages-toolbar">
-    <div class="toolbar-left">
-      <div class="toolbar-pill">Smooth inbox • <span class="pill-accent">Optimized padding</span></div>
-      <div class="toolbar-status"><span class="status-dot"></span> Synced &amp; secure</div>
+  <% if (isAdminUserFlag) { %>
+    <div class="admin-banner">
+      <div class="admin-banner-copy">
+        <strong>Admin tools enabled.</strong>
+        <span>Review, flag, or jump to latest messages without leaving this screen.</span>
+      </div>
+      <div class="admin-banner-actions">
+        <button type="button" class="header-btn secondary" onclick="scrollToBottom()">Jump to latest</button>
+        <button type="button" class="header-btn" onclick="toggleAdminMenu(event)">Open admin menu</button>
+      </div>
     </div>
-    <div class="toolbar-actions">
-      <span class="toolbar-chip">Ready for reactions</span>
-      <span class="toolbar-chip subdued">Enhanced contrast</span>
-      <span class="toolbar-chip">Cache freshly reset</span>
-    </div>
-  </div>
+  <% } %>
 
   <section class="messages-layout">
   <!-- Conversations Column -->
@@ -121,6 +104,7 @@
             <div class="chat-partner-info">
               <span class="chat-partner-name"><%= currentConversation.group_name || 'Group Chat' %></span>
               <span class="chat-partner-passion" style="background:#667eea;"><%= participants.length %> members</span>
+              <span class="chat-partner-sub" aria-live="polite">Share, add people, and tips are wired</span>
             </div>
           <% } else { %>
             <% if (currentConversation.other_user_picture) { %>
@@ -157,6 +141,7 @@
           </div>
           <% if (authUser && ['admin','super_admin','global_admin'].includes(authUser.role)) { %>
             <div class="chat-admin">
+              <span class="admin-mode-pill" title="Admin controls active">Admin</span>
               <button type="button" class="icon-button" aria-label="Admin actions" onclick="toggleAdminMenu(event)">⋮</button>
               <div class="safety-menu" id="adminMenu">
                 <div class="safety-menu-header">Admin actions</div>
@@ -194,8 +179,8 @@
             <% } %>
           </div>
           <div class="group-meta-actions">
-            <button type="button" class="ghost-pill" onclick="toggleInlineAddMember()">➕ Add people</button>
-            <button type="button" class="ghost-pill" onclick="showPinnedTips()">📌 Tips</button>
+            <button type="button" class="ghost-pill" id="inlineAddBtn" onclick="toggleInlineAddMember()" aria-expanded="false">➕ Add people</button>
+            <button type="button" class="ghost-pill" id="tipsToggleBtn" onclick="showPinnedTips()" aria-expanded="false">📌 Tips</button>
           </div>
         </div>
         <div id="inlineAddMember" class="inline-add-member" style="display:none;">
@@ -215,7 +200,7 @@
       <div class="chat-history" id="chatHistory" aria-live="polite">
         <% if(messages && messages.length > 0) { %>
           <% messages.forEach(function(msg){ %>
-            <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>" data-created-at="<%= msg.created_at %>" data-sender-name="<%= msg.sender_name %>" data-reply-preview="<%= (msg.content || (msg.attachment_url ? 'Attachment' : '')) %>" data-reply-has-attachment="<%= msg.attachment_url ? 'true' : 'false' %>">
+            <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>" data-created-at="<%= msg.created_at %>" data-sender-name="<%= msg.sender_name %>" data-reply-preview="<%= (msg.content || (msg.attachment_url ? 'Attachment' : '')) %>" data-reply-has-attachment="<%= msg.attachment_url ? 'true' : 'false' %>" data-reaction-counts='<%- JSON.stringify(msg.reaction_counts || {}) %>'>
               <div class="chat-bubble-container" style="position:relative;display:inline-block;">
                 <div class="chat-bubble">
                   <% if (msg.reply_to_message_id) { %>
@@ -290,7 +275,7 @@
         <% } %>
       </div>
 
-      <div id="fileStatusIndicator" style="display:none;padding:.75rem;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:.5rem;">
+      <div id="fileStatusIndicator" style="display:none;padding:.75rem;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;font-weight:600;align-items:center;gap:.5rem;">
         <span id="fileStatusIcon">📎</span>
         <span id="fileStatusText">Ready to send</span>
       </div>
@@ -333,6 +318,7 @@
   const authUserId = <%= authUser ? authUser.id : 'null' %>;
   const authUserName = '<%= authUser ? (authUser.full_name || '').replace(/'/g, "\\'") : '' %>';
   const isGroupConversation = <%= currentConversation && currentConversation.is_group ? 'true' : 'false' %>;
+  const currentConversationMeta = <%= currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
   const conversationParticipants = <%= currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
   const isAdminUser = <%= authUser && ['admin','super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
 
@@ -431,25 +417,82 @@
   function copyGroupShare() {
     if (!isGroupConversation || !currentConversationId) return;
     const link = `${window.location.origin}/messages?conversation=${currentConversationId}`;
+    const shareData = { title: 'Join my DreamX group chat', text: 'Jump into this conversation on DreamX.', url: link };
+
+    if (navigator.share) {
+      navigator.share(shareData)
+        .then(() => notify('Share invite sent'))
+        .catch((err) => {
+          if (err && err.name === 'AbortError') return;
+          navigator.clipboard?.writeText(link)
+            .then(() => notify('Share link copied'))
+            .catch(() => alert('Copied group link: ' + link));
+        });
+      return;
+    }
+
     navigator.clipboard?.writeText(link)
       .then(() => notify('Share link copied'))
       .catch(() => alert('Copied group link: ' + link));
   }
 
+  function shareConversation() {
+    if (!currentConversationId) {
+      notify('Pick a conversation to share.');
+      return;
+    }
+
+    const title = isGroupConversation ? `Join ${(currentConversationMeta && currentConversationMeta.group_name) || 'my DreamX group'}` : 'Chat with me on DreamX';
+    const text = isGroupConversation ? 'Jump into this group conversation on DreamX.' : 'Continue our chat on DreamX.';
+    const link = `${window.location.origin}/messages?conversation=${currentConversationId}`;
+
+    if (navigator.share) {
+      navigator.share({ title, text, url: link })
+        .then(() => notify('Share sent'))
+        .catch((err) => {
+          if (err?.name === 'AbortError') return;
+          navigator.clipboard?.writeText(link)
+            .then(() => notify('Share link copied'))
+            .catch(() => alert('Copied conversation link: ' + link));
+        });
+      return;
+    }
+
+    navigator.clipboard?.writeText(link)
+      .then(() => notify('Share link copied'))
+      .catch(() => alert('Copied conversation link: ' + link));
+  }
+
   function toggleInlineAddMember() {
     const panel = document.getElementById('inlineAddMember');
+    const toggleBtn = document.getElementById('inlineAddBtn');
     if (!panel) return;
     const isHidden = panel.style.display === 'none' || panel.style.display === '';
     panel.style.display = isHidden ? 'block' : 'none';
+    panel.classList.toggle('active', isHidden);
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+      toggleBtn.textContent = isHidden ? '➖ Hide add panel' : '➕ Add people';
+    }
     if (isHidden) {
       document.getElementById('inlineAddMemberInput')?.focus();
+    } else {
+      document.getElementById('inlineAddMemberResults').innerHTML = '';
+      const inlineInput = document.getElementById('inlineAddMemberInput');
+      if (inlineInput) inlineInput.value = '';
     }
   }
 
   function showPinnedTips() {
     const tips = document.getElementById('groupTips');
+    const toggleBtn = document.getElementById('tipsToggleBtn');
     if (!tips) return;
-    tips.style.display = tips.style.display === 'none' || tips.style.display === '' ? 'block' : 'none';
+    const shouldShow = tips.style.display === 'none' || tips.style.display === '';
+    tips.style.display = shouldShow ? 'block' : 'none';
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+      toggleBtn.textContent = shouldShow ? '📌 Hide tips' : '📌 Tips';
+    }
   }
 
   // Inline add member search
@@ -695,6 +738,7 @@
     wrapper.setAttribute('data-sender-name', msg.sender_name || (isOutgoing ? authUserName : 'Member'));
     wrapper.setAttribute('data-reply-preview', msg.content || (msg.attachment_url ? 'Attachment' : ''));
     wrapper.setAttribute('data-reply-has-attachment', msg.attachment_url ? 'true' : 'false');
+    wrapper.setAttribute('data-reaction-counts', JSON.stringify(msg.reaction_counts || msg.reactions || {}));
 
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
@@ -795,6 +839,8 @@
     bubble.appendChild(time);
     wrapper.appendChild(bubble);
     chatHistory.appendChild(wrapper);
+
+    updateMessageReactions(msg.id, msg.reaction_counts || msg.reactions || {});
   }
 
   // Mark all outgoing messages with id <= lastId as seen (double check)
@@ -997,6 +1043,28 @@
     thumbsup: '👍'
   };
 
+  function parseReactionCounts(raw) {
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function hydrateInitialReactions() {
+    document.querySelectorAll('.chat-message-wrapper').forEach(wrapper => {
+      const counts = parseReactionCounts(wrapper.getAttribute('data-reaction-counts'));
+      const messageId = wrapper.getAttribute('data-message-id');
+      if (Object.keys(counts).length > 0) {
+        updateMessageReactions(messageId, counts);
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', hydrateInitialReactions);
+
   // Show quick react button on hover
   document.addEventListener('mouseover', (e) => {
     const wrapper = e.target.closest('.chat-message-wrapper');
@@ -1120,22 +1188,23 @@
   function updateMessageReactions(messageId, counts) {
     const wrapper = document.querySelector(`.chat-message-wrapper[data-message-id="${messageId}"]`);
     if (!wrapper) return;
-    
+
     const reactionsDiv = wrapper.querySelector('.message-reactions');
     if (!reactionsDiv) return;
-    
-    const hasReactions = Object.values(counts).some(c => c > 0);
+
+    const safeCounts = counts || {};
+    const hasReactions = Object.values(safeCounts).some(c => c > 0);
     if (!hasReactions) {
       reactionsDiv.style.display = 'none';
       reactionsDiv.innerHTML = '';
       return;
     }
-    
+
     reactionsDiv.style.display = 'flex';
-    reactionsDiv.innerHTML = Object.entries(counts)
+    reactionsDiv.innerHTML = Object.entries(safeCounts)
       .filter(([_, count]) => count > 0)
       .map(([type, count]) => `
-        <span style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;padding:2px 8px;font-size:0.85rem;display:inline-flex;align-items:center;gap:4px;">
+        <span class="message-reaction-chip">
           ${reactionEmojis[type] || '❤️'} ${count}
         </span>
       `).join('');
