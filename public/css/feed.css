@@ -931,9 +931,23 @@
 
 .reel-bubble:hover .reel-bubble-avatar {
     transform: scale(1.1) rotate(5deg);
-    box-shadow: 
+    box-shadow:
         0 8px 24px rgba(255, 79, 163, 0.35),
         0 0 0 6px rgba(255, 79, 163, 0.15);
+}
+
+.reels-empty-state {
+    color: #9ca3af;
+    font-size: 0.95rem;
+    text-align: center;
+    padding: 16px;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(255, 79, 163, 0.02), rgba(118, 75, 162, 0.02));
+    border: 1px dashed rgba(255, 79, 163, 0.2);
+    border-radius: 16px;
 }
 
 /* === RESPONSIVE DESIGN === */

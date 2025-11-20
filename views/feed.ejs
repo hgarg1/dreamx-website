@@ -26,7 +26,7 @@
             </div>
           <% }); %>
         <% } else { %>
-          <p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:8px 0;">No active reels from people you follow</p>
+          <div class="reels-empty-state">No active reels from people you follow</div>
         <% } %>
       </div>
       <div class="reels-bubbles-footer" style="display:flex;gap:8px;margin-top:12px;">
@@ -516,7 +516,7 @@
             container.innerHTML = '';
           }
           if (users.length === 0 && data.page === 1) {
-            container.innerHTML = '<p style="color:#9ca3af;font-size:0.9rem;text-align:center;padding:20px 0;">No active reels from people you follow</p>';
+            container.innerHTML = '<div class="reels-empty-state">No active reels from people you follow</div>';
           } else {
             container.innerHTML = users.map(user => {
               const escapedName = (user.full_name || 'User').replace(/'/g, "\\'");
