@@ -3649,6 +3649,7 @@ app.get('/messages', (req, res) => {
     let currentConversation = null;
     let messages = [];
     let participants = [];
+    let moderationTarget = null;
 
     if (conversations.length > 0) {
         const requestedId = parseInt(req.query.conversation || '', 10);
@@ -3660,6 +3661,19 @@ app.get('/messages', (req, res) => {
         messages = getConversationMessages(currentConversation.id);
         if (currentConversation.is_group) {
             participants = getConversationParticipants(currentConversation.id);
+        }
+        if (!currentConversation.is_group) {
+            const otherParticipantId = currentConversation.other_user_id || (currentConversation.user1_id === req.session.userId ? currentConversation.user2_id : currentConversation.user1_id);
+            const otherUser = getUserById(otherParticipantId);
+            if (otherUser) {
+                moderationTarget = {
+                    id: otherUser.id,
+                    full_name: otherUser.full_name,
+                    account_status: otherUser.account_status || 'active',
+                    suspension_until: otherUser.suspension_until || null,
+                    chat_privileges_frozen: otherUser.chat_privileges_frozen === 1
+                };
+            }
         }
         // Mark messages as read
         markMessagesAsRead({ conversationId: currentConversation.id, userId: req.session.userId });
@@ -3692,6 +3706,7 @@ app.get('/messages', (req, res) => {
         currentConversation,
         messages,
         participants,
+        moderationTarget,
         currentUserId: req.session.userId
     });
 });
@@ -3851,6 +3866,13 @@ app.get('/api/users/search', (req, res) => {
 // Send message API (supports optional single or multiple file attachments)
 app.post('/api/messages/send', chatUpload.any(), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const sender = getUserById(req.session.userId);
+        if (sender && sender.chat_privileges_frozen === 1) {
+            return res.status(403).json({ error: 'Chat privileges are currently frozen by an admin.' });
+        }
+    } catch (e) { /* ignore and continue */ }
 
     const conversationId = parseInt(req.body.conversationId, 10);
     const replyToMessageId = req.body.replyToMessageId ? parseInt(req.body.replyToMessageId, 10) : null;
@@ -5088,6 +5110,42 @@ app.post('/admin/users/:id/freeze-seller', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Freeze seller error:', error);
         res.redirect('/admin?error=Failed+to+update+seller+status');
+    }
+});
+
+// Admin: Freeze/unfreeze chat privileges for a user
+app.post('/admin/users/:id/freeze-chat', requireAdmin, (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    const { action, reason } = req.body;
+    const freeze = action === 'freeze' ? 1 : 0;
+
+    try {
+        const user = getUserById(userId);
+        if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+        db.prepare('UPDATE users SET chat_privileges_frozen = ? WHERE id = ?').run(freeze, userId);
+
+        try {
+            addAuditLog({
+                userId: req.session.userId,
+                action: freeze ? 'freeze_chat' : 'unfreeze_chat',
+                details: JSON.stringify({ targetUserId: userId, reason: reason || null })
+            });
+        } catch (e) {}
+
+        const message = freeze ? 'Chat privileges frozen' : 'Chat privileges restored';
+
+        if (req.headers.accept && req.headers.accept.includes('application/json')) {
+            return res.json({ success: true, frozen: !!freeze, message });
+        }
+
+        return res.redirect(`/profile/${userId}?success=${encodeURIComponent(message)}`);
+    } catch (e) {
+        console.error('freeze-chat error', e);
+        if (req.headers.accept && req.headers.accept.includes('application/json')) {
+            return res.status(500).json({ success: false, error: 'Failed to update chat privileges' });
+        }
+        return res.redirect(`/profile/${userId}?error=Unable+to+update+chat+privileges`);
     }
 });
 
