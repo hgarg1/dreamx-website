@@ -790,14 +790,14 @@ function rpIDFromReq(req){
 }
 
 // Begin Registration (user must be logged in or provide email via body)
-app.get('/webauthn/registration/options', (req, res) => {
+app.get('/webauthn/registration/options', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Login required to create a passkey' });
     const user = getUserById(req.session.userId);
     const rpID = rpIDFromReq(req);
     const existingCreds = getCredentialsForUser(user.id);
 
     try {
-        const options = generateRegistrationOptions({
+        const options = await generateRegistrationOptions({
             rpName: 'Dream X',
             rpID,
             userID: Buffer.from(String(user.id)),
@@ -810,7 +810,7 @@ app.get('/webauthn/registration/options', (req, res) => {
                 requireResidentKey: false,
             },
             excludeCredentials: existingCreds.map(c => ({
-                id: c.credential_id,
+                id: Buffer.from(c.credential_id, 'base64url'),
                 type: 'public-key',
             })),
         });
@@ -861,10 +861,10 @@ app.post('/webauthn/registration/verify', async (req, res) => {
 });
 
 // Begin Authentication (username-less)
-app.get('/webauthn/authentication/options', (req, res) => {
+app.get('/webauthn/authentication/options', async (req, res) => {
     const rpID = rpIDFromReq(req);
     try {
-        const options = generateAuthenticationOptions({
+        const options = await generateAuthenticationOptions({
             rpID,
             userVerification: 'preferred',
         });
