@@ -129,6 +129,20 @@ function getCallbackURL(path) {
     return `${baseUrl}${path}`;
 }
 
+// Resolve the best-effort base URL for links sent to users (prefers the request host)
+function getRequestBaseUrl(req) {
+    const configuredBaseUrl = (process.env.BASE_URL || '').trim();
+    if (configuredBaseUrl) return configuredBaseUrl;
+
+    const host = req?.get ? req.get('host') : req?.headers?.host;
+    if (!host) return 'http://localhost:3000';
+
+    const forwardedProto = req?.headers?.['x-forwarded-proto'];
+    const protocol = (forwardedProto ? forwardedProto.split(',')[0].trim() : req?.protocol) || 'http';
+
+    return `${protocol}://${host}`;
+}
+
 // Initialize Express app
 const app = express();
 // Trust proxy headers (needed on Render/other proxies for correct host/proto)
@@ -1282,7 +1296,7 @@ app.post('/admin/services/:id/hide', requireAdmin, async (req, res) => {
                     const owner = getUserById(s.user_id);
                     if (owner && owner.email_notifications === 1) {
                         const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                        await emailService.sendServiceModerationEmail(owner, s, 'hidden', null, baseUrl);
+                        await emailService.sendServiceModerationEmail(owner, s, 'hidden', null, baseUrl, req);
                     } else {
                         emailSuppressed = true;
                     }
@@ -1317,7 +1331,7 @@ app.post('/admin/services/:id/unhide', requireAdmin, async (req, res) => {
                     const owner = getUserById(s.user_id);
                     if (owner && owner.email_notifications === 1) {
                         const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                        await emailService.sendServiceModerationEmail(owner, s, 'restored', null, baseUrl);
+                        await emailService.sendServiceModerationEmail(owner, s, 'restored', null, baseUrl, req);
                     } else {
                         emailSuppressed = true;
                     }
@@ -1353,7 +1367,7 @@ app.post('/admin/services/:id/delete', requireAdmin, async (req, res) => {
                     const owner = getUserById(s.user_id);
                     if (owner && owner.email_notifications === 1) {
                         const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                        await emailService.sendServiceModerationEmail(owner, s, 'deleted', reason, baseUrl);
+                        await emailService.sendServiceModerationEmail(owner, s, 'deleted', reason, baseUrl, req);
                     } else {
                         emailSuppressed = true;
                     }
@@ -1395,7 +1409,7 @@ app.post('/admin/services/:id/edit', requireSuperAdmin, async (req, res) => {
             if (req.body.notifyEmail) {
                 if (owner && owner.email_notifications === 1) {
                     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                    await emailService.sendServiceEditedByAdminEmail(owner, { ...s, ...fields }, baseUrl);
+                    await emailService.sendServiceEditedByAdminEmail(owner, { ...s, ...fields }, baseUrl, req);
                 } else {
                     emailSuppressed = true;
                 }
@@ -1576,7 +1590,8 @@ app.post('/hr/send-email', requireHR, async (req, res) => {
             applicantName,
             subject,
             message,
-            fromHR
+            fromHR,
+            req
         );
         
         // Log the action
@@ -1646,7 +1661,8 @@ app.post('/admin/careers/:id/status', requireAdminOrHR, async (req, res) => {
                 application.email,
                 application.name,
                 application.position,
-                status
+                status,
+                req
             );
         } catch (emailError) {
             console.error('Failed to send career status email:', emailError);
@@ -1673,9 +1689,9 @@ app.post('/admin/appeals/content/:id/status', requireAdmin, async (req, res) => 
     // Send email notification for approved/denied appeals
     if (appeal && (status === 'approved' || status === 'denied')) {
         if (status === 'approved') {
-            await emailService.sendContentApprovalEmail(appeal.email, appeal);
+            await emailService.sendContentApprovalEmail(appeal.email, appeal, req);
         } else {
-            await emailService.sendContentDenialEmail(appeal.email, appeal);
+            await emailService.sendContentDenialEmail(appeal.email, appeal, req);
         }
     }
     
@@ -1696,9 +1712,9 @@ app.post('/admin/appeals/account/:id/status', requireAdmin, async (req, res) => 
     // Send email notification for approved/denied appeals
     if (appeal && (status === 'approved' || status === 'denied')) {
         if (status === 'approved') {
-            await emailService.sendAccountApprovalEmail(appeal.email, appeal);
+            await emailService.sendAccountApprovalEmail(appeal.email, appeal, req);
         } else {
-            await emailService.sendAccountDenialEmail(appeal.email, appeal);
+            await emailService.sendAccountDenialEmail(appeal.email, appeal, req);
         }
     }
     
@@ -2001,7 +2017,7 @@ app.post('/register', async (req, res) => {
         // Send verification email
         const user = getUserById(userId);
         try {
-            await emailService.sendVerificationCode(user, verificationCode);
+            await emailService.sendVerificationCode(user, verificationCode, req);
             console.log(`✅ Verification email sent to ${user.email}`);
         } catch (emailErr) {
             console.error('Failed to send verification email:', emailErr);
@@ -2124,7 +2140,7 @@ app.post('/resend-verification', async (req, res) => {
         });
         
         // Send email
-        await emailService.sendVerificationCode(user, verificationCode);
+        await emailService.sendVerificationCode(user, verificationCode, req);
         
         return res.json({ success: true, message: 'New verification code sent!' });
     } catch (err) {
@@ -2147,7 +2163,7 @@ app.get('/forgot-password', (req, res) => {
 
 app.post('/forgot-password', async (req, res) => {
     const email = (req.body.email || '').trim().toLowerCase();
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = getRequestBaseUrl(req);
     const successMessage = 'If an account exists for that email, we\'ve sent reset instructions to your inbox.';
 
     if (!email) {
@@ -2190,14 +2206,14 @@ app.post('/forgot-password', async (req, res) => {
         });
 
         const resetLink = `${baseUrl}/reset-password?token=${token}`;
-        const emailResult = await emailService.sendPasswordReset(user, resetLink);
+        const emailResult = await emailService.sendPasswordReset(user, resetLink, req);
 
         if (!emailResult?.success) {
             console.error('Password reset email reported failure', {
                 userId: user.id,
                 email: user.email,
                 resetLink,
-                redirectUri: emailService.getGmailRedirectUri ? emailService.getGmailRedirectUri() : 'unknown',
+                redirectUri: emailService.getGmailRedirectUri ? emailService.getGmailRedirectUri(req) : 'unknown',
                 error: emailResult?.error || 'Unknown error'
             });
         }
@@ -2215,7 +2231,7 @@ app.post('/forgot-password', async (req, res) => {
             userId: user?.id,
             email: user?.email,
             resetLink,
-            redirectUri: emailService.getGmailRedirectUri ? emailService.getGmailRedirectUri() : 'unknown'
+            redirectUri: emailService.getGmailRedirectUri ? emailService.getGmailRedirectUri(req) : 'unknown'
         });
         return res.status(500).render('forgot-password', {
             title: 'Forgot Password - Dream X',
@@ -2919,7 +2935,7 @@ app.post('/api/posts/:postId/react', async (req, res) => {
             const author = getUserById(post.user_id);
             if (author && author.email_notifications === 1) {
                 const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                await emailService.sendPostReactionEmail(author, reactor, type, postId, baseUrl);
+                await emailService.sendPostReactionEmail(author, reactor, type, postId, baseUrl, req);
             }
         }
         
@@ -3007,7 +3023,7 @@ app.post('/api/posts/:postId/comments', async (req, res) => {
             const author = getUserById(post.user_id);
             if (author && author.email_notifications === 1) {
                 const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                await emailService.sendPostCommentEmail(author, commenter, content, postId, baseUrl);
+                await emailService.sendPostCommentEmail(author, commenter, content, postId, baseUrl, req);
             }
         }
         
@@ -3033,7 +3049,7 @@ app.post('/api/posts/:postId/comments', async (req, res) => {
             const parentAuthor = getUserById(parentAuthorId);
             if (parentAuthor && parentAuthor.email_notifications === 1) {
                 const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                await emailService.sendCommentReplyEmail(parentAuthor, commenter, content, postId, baseUrl);
+                await emailService.sendCommentReplyEmail(parentAuthor, commenter, content, postId, baseUrl, req);
             }
         }
         
@@ -3078,7 +3094,7 @@ app.post('/api/comments/:commentId/star', async (req, res) => {
             const author = getUserById(comment.user_id);
             if (author && author.email_notifications === 1) {
                 const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                await emailService.sendCommentLikeEmail(author, liker, comment.post_id, baseUrl);
+                await emailService.sendCommentLikeEmail(author, liker, comment.post_id, baseUrl, req);
             }
         }
         
@@ -3548,7 +3564,7 @@ app.post('/api/services/:id/reviews', ensureAuthenticated, async (req, res) => {
             });
             if (owner && owner.email_notifications === 1) {
                 const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-                await emailService.sendServiceReviewEmail(owner, reviewer, service, r, (comment || ''), baseUrl);
+                await emailService.sendServiceReviewEmail(owner, reviewer, service, r, (comment || ''), baseUrl, req);
             }
         } catch (e) { /* noop */ }
 
@@ -5050,7 +5066,7 @@ app.post('/settings/delete-account', ensureAuthenticated, async (req, res) => {
         
         // Send confirmation email
         if (user && user.email) {
-            await emailService.sendAccountDeletionEmail(user.email, user.full_name);
+            await emailService.sendAccountDeletionEmail(user.email, user.full_name, req);
         }
         
         // Destroy session
@@ -5096,9 +5112,9 @@ app.post('/admin/users/:id/freeze-seller', requireAdmin, async (req, res) => {
         if (user) {
             try {
                 if (action === 'freeze') {
-                    await emailService.sendSellerFreezeEmail(user, reason || 'Policy violation');
+                    await emailService.sendSellerFreezeEmail(user, reason || 'Policy violation', req);
                 } else {
-                    await emailService.sendSellerUnfreezeEmail(user);
+                    await emailService.sendSellerUnfreezeEmail(user, req);
                 }
             } catch (emailError) {
                 console.error('Failed to send seller status email:', emailError);
@@ -5698,7 +5714,7 @@ app.post('/api/careers/apply', careerUpload.fields([{ name: 'resumeFile', maxCou
         
         // Send confirmation email
         try {
-            await emailService.sendCareerApplicationEmail(email, name, position);
+            await emailService.sendCareerApplicationEmail(email, name, position, req);
         } catch (emailError) {
             console.error('Failed to send career application confirmation:', emailError);
         }
@@ -5930,7 +5946,7 @@ app.post('/admin/users/:id/ban', requireSuperAdmin, async (req, res) => {
         
         // Send email notification if requested
         if (notifyUser && targetUser && targetUser.email) {
-            await emailService.sendAccountBannedEmail(targetUser, banReason);
+            await emailService.sendAccountBannedEmail(targetUser, banReason, req);
         }
         
         // Create in-app notification
@@ -6042,10 +6058,10 @@ app.post('/admin/users/:id/suspend', requireSuperAdmin, async (req, res) => {
             reason: suspendReason, 
             suspendedBy: req.session.userId 
         });
-        
+
         // Send email notification if requested
         if (notifyUser && targetUser && targetUser.email) {
-            await emailService.sendAccountSuspendedEmail(targetUser, suspendReason, until, durationText);
+            await emailService.sendAccountSuspendedEmail(targetUser, suspendReason, until, durationText, req);
         }
         
         // Create in-app notification

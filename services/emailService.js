@@ -13,49 +13,33 @@ const maskValue = (value, visible = 4) => {
     return `${stringValue.slice(0, visible)}***${stringValue.slice(-visible)}`;
 };
 
-// Dynamically resolve the redirect URI for Gmail OAuth depending on environment
-const isProduction = process.env.NODE_ENV === 'production';
-const redirectUriOptions = [
-    'https://developers.google.com/oauthplayground',
-    'https://localhost:3000',
-    'https://dreamx-website.onrender.com'
-];
+// Dynamically resolve the redirect URI for Gmail OAuth based on the incoming request
+const redirectUriOptions = {
+    fallback: 'https://developers.google.com/oauthplayground',
+    local: 'https://localhost:3000',
+    production: 'https://dreamx-website.onrender.com'
+};
 
-function normalizeBaseUrl(url) {
-    return (url || '').trim().replace(/\/$/, '');
-}
-
-function getGmailRedirectUri() {
+function getGmailRedirectUri(req) {
     const configured = process.env.GMAIL_REDIRECT_URI && process.env.GMAIL_REDIRECT_URI.trim();
     if (configured) {
         return configured;
     }
 
-    const normalizedBaseUrl = normalizeBaseUrl(process.env.BASE_URL);
-    const preferredEnvironmentUrl = normalizedBaseUrl
-        || (isProduction ? redirectUriOptions[2] : redirectUriOptions[1]);
+    const hostHeader = (req?.get ? req.get('host') : req?.headers?.host || '').toLowerCase();
+    const isLocalHost = hostHeader.includes('localhost') || hostHeader.includes('127.0.0.1');
+    const resolvedRedirect = isLocalHost ? redirectUriOptions.local : redirectUriOptions.production;
 
-    const candidates = [
-        preferredEnvironmentUrl,
-        isProduction ? redirectUriOptions[2] : redirectUriOptions[1],
-        redirectUriOptions[0] // Absolute fallback per Gmail configuration
-    ].filter(Boolean);
-
-    for (const candidate of candidates) {
-        if (redirectUriOptions.includes(candidate)) {
-            return candidate;
-        }
-    }
-
-    return redirectUriOptions[0];
+    return resolvedRedirect || redirectUriOptions.fallback;
 }
 
-// Create OAuth2 client
-const createTransporter = async () => {
+// Create OAuth2 client (uses request host to resolve redirect URI)
+const createTransporter = async (req) => {
+    const redirectUri = getGmailRedirectUri(req);
     const oauth2Client = new OAuth2(
         process.env.GMAIL_CLIENT_ID,
         process.env.GMAIL_CLIENT_SECRET,
-        getGmailRedirectUri()
+        redirectUri
     );
 
     oauth2Client.setCredentials({
@@ -63,7 +47,7 @@ const createTransporter = async () => {
     });
 
     console.log('[EmailService] Creating Gmail OAuth2 transporter', {
-        redirectUri: getGmailRedirectUri(),
+        redirectUri,
         env: process.env.NODE_ENV || 'development',
         gmailUser: process.env.GMAIL_USER,
         clientId: maskValue(process.env.GMAIL_CLIENT_ID),
@@ -109,17 +93,17 @@ const createTransporter = async () => {
     }
 };
 
-// Generic email sender
-async function sendEmail(to, subject, htmlContent, textContent = null) {
+// Generic email sender (optionally uses the request to resolve redirect URI)
+async function sendEmail(to, subject, htmlContent, textContent = null, req) {
     try {
         console.log('[EmailService] Preparing to send email', {
             to,
             subject,
             usingGmailUser: process.env.GMAIL_USER,
-            redirectUri: getGmailRedirectUri()
+            redirectUri: getGmailRedirectUri(req)
         });
 
-        const transporter = await createTransporter();
+        const transporter = await createTransporter(req);
 
         const mailOptions = {
             from: `Dream X <${process.env.GMAIL_USER}>`,
@@ -320,65 +304,65 @@ const emailService = {
     send: sendEmail,
 
     // Appeal emails
-    sendContentApprovalEmail: async (email, appeal) => {
+    sendContentApprovalEmail: async (email, appeal, req) => {
         const template = templates.contentApproved(appeal);
-        return await sendEmail(email, template.subject, template.html);
+        return await sendEmail(email, template.subject, template.html, null, req);
     },
 
-    sendContentDenialEmail: async (email, appeal) => {
+    sendContentDenialEmail: async (email, appeal, req) => {
         const template = templates.contentDenied(appeal);
-        return await sendEmail(email, template.subject, template.html);
+        return await sendEmail(email, template.subject, template.html, null, req);
     },
 
-    sendAccountApprovalEmail: async (email, appeal) => {
+    sendAccountApprovalEmail: async (email, appeal, req) => {
         const template = templates.accountApproved(appeal);
-        return await sendEmail(email, template.subject, template.html);
+        return await sendEmail(email, template.subject, template.html, null, req);
     },
 
-    sendAccountDenialEmail: async (email, appeal) => {
+    sendAccountDenialEmail: async (email, appeal, req) => {
         const template = templates.accountDenied(appeal);
-        return await sendEmail(email, template.subject, template.html);
+        return await sendEmail(email, template.subject, template.html, null, req);
     },
 
     // Post interaction emails
-    sendPostReactionEmail: async (author, reactor, type, postId, baseUrl = 'http://localhost:3000') => {
+    sendPostReactionEmail: async (author, reactor, type, postId, baseUrl = 'http://localhost:3000', req) => {
         if (!author.email) return { success: false, error: 'No email address' };
         const template = templates.postReaction(author, reactor, type, postId, baseUrl);
-        return await sendEmail(author.email, template.subject, template.html);
+        return await sendEmail(author.email, template.subject, template.html, null, req);
     },
 
-    sendPostCommentEmail: async (author, commenter, content, postId, baseUrl = 'http://localhost:3000') => {
+    sendPostCommentEmail: async (author, commenter, content, postId, baseUrl = 'http://localhost:3000', req) => {
         if (!author.email) return { success: false, error: 'No email address' };
         const template = templates.postComment(author, commenter, content, postId, baseUrl);
-        return await sendEmail(author.email, template.subject, template.html);
+        return await sendEmail(author.email, template.subject, template.html, null, req);
     },
 
-    sendCommentReplyEmail: async (parentAuthor, commenter, content, postId, baseUrl = 'http://localhost:3000') => {
+    sendCommentReplyEmail: async (parentAuthor, commenter, content, postId, baseUrl = 'http://localhost:3000', req) => {
         if (!parentAuthor.email) return { success: false, error: 'No email address' };
         const template = templates.commentReply(parentAuthor, commenter, content, postId, baseUrl);
-        return await sendEmail(parentAuthor.email, template.subject, template.html);
+        return await sendEmail(parentAuthor.email, template.subject, template.html, null, req);
     },
 
-    sendCommentLikeEmail: async (author, liker, postId, baseUrl = 'http://localhost:3000') => {
+    sendCommentLikeEmail: async (author, liker, postId, baseUrl = 'http://localhost:3000', req) => {
         if (!author.email) return { success: false, error: 'No email address' };
         const template = templates.commentLike(author, liker, postId, baseUrl);
-        return await sendEmail(author.email, template.subject, template.html);
+        return await sendEmail(author.email, template.subject, template.html, null, req);
     },
 
     // Account moderation emails
-    sendAccountBannedEmail: async (user, reason) => {
+    sendAccountBannedEmail: async (user, reason, req) => {
         if (!user.email) return { success: false, error: 'No email address' };
         const template = templates.accountBanned(user, reason);
-        return await sendEmail(user.email, template.subject, template.html);
+        return await sendEmail(user.email, template.subject, template.html, null, req);
     },
 
-    sendAccountSuspendedEmail: async (user, reason, until, durationText) => {
+    sendAccountSuspendedEmail: async (user, reason, until, durationText, req) => {
         if (!user.email) return { success: false, error: 'No email address' };
         const template = templates.accountSuspended(user, reason, until, durationText);
-        return await sendEmail(user.email, template.subject, template.html);
+        return await sendEmail(user.email, template.subject, template.html, null, req);
     },
 
-    sendAccountDeletionEmail: async (email, userName) => {
+    sendAccountDeletionEmail: async (email, userName, req) => {
         const template = {
             subject: 'Your Account Has Been Deleted - Dream X',
             html: `
@@ -396,11 +380,11 @@ const emailService = {
                 </p>
             `
         };
-        return await sendEmail(email, template.subject, template.html);
+        return await sendEmail(email, template.subject, template.html, null, req);
     },
 
     // Career application emails
-    sendCareerApplicationEmail: async (applicantEmail, applicantName, position) => {
+    sendCareerApplicationEmail: async (applicantEmail, applicantName, position, req) => {
         const template = {
             subject: `Application Received: ${position} - Dream X`,
             html: `
@@ -417,10 +401,10 @@ const emailService = {
                 </p>
             `
         };
-        return await sendEmail(applicantEmail, template.subject, template.html);
+        return await sendEmail(applicantEmail, template.subject, template.html, null, req);
     },
 
-    sendCareerStatusUpdateEmail: async (applicantEmail, applicantName, position, status) => {
+    sendCareerStatusUpdateEmail: async (applicantEmail, applicantName, position, status, req) => {
         const statusMessages = {
             'under_review': 'Your application is currently under review by our team.',
             'accepted': 'Congratulations! We would like to move forward with your application. Our HR team will contact you soon to schedule an interview.',
@@ -444,11 +428,11 @@ const emailService = {
                 </p>
             `
         };
-        return await sendEmail(applicantEmail, template.subject, template.html);
+        return await sendEmail(applicantEmail, template.subject, template.html, null, req);
     },
 
     // HR contact email
-    sendHRContactEmail: async (applicantEmail, applicantName, subject, message, fromHR = 'Dream X HR Team') => {
+    sendHRContactEmail: async (applicantEmail, applicantName, subject, message, fromHR = 'Dream X HR Team', req) => {
         const template = {
             subject: subject,
             html: `
@@ -463,11 +447,11 @@ const emailService = {
                 </p>
             `
         };
-        return await sendEmail(applicantEmail, template.subject, template.html);
+        return await sendEmail(applicantEmail, template.subject, template.html, null, req);
     },
 
     // Seller privilege freeze notification
-    sendSellerFreezeEmail: async (user, reason = 'Policy violation') => {
+    sendSellerFreezeEmail: async (user, reason = 'Policy violation', req) => {
         const template = {
             subject: 'Seller Privileges Frozen - Dream X',
             html: `
@@ -485,10 +469,10 @@ const emailService = {
                 </p>
             `
         };
-        return await sendEmail(user.email, template.subject, template.html);
+        return await sendEmail(user.email, template.subject, template.html, null, req);
     },
 
-    sendSellerUnfreezeEmail: async (user) => {
+    sendSellerUnfreezeEmail: async (user, req) => {
         const template = {
             subject: 'Seller Privileges Restored - Dream X',
             html: `
@@ -505,11 +489,11 @@ const emailService = {
                 </p>
             `
         };
-        return await sendEmail(user.email, template.subject, template.html);
+        return await sendEmail(user.email, template.subject, template.html, null, req);
     },
 
     // Password reset
-    sendPasswordReset: async (user, resetLink) => {
+    sendPasswordReset: async (user, resetLink, req) => {
         const template = {
             subject: 'Reset Your Password - Dream X',
             html: `
@@ -564,11 +548,11 @@ const emailService = {
             `
         };
 
-        return await sendEmail(user.email, template.subject, template.html);
+        return await sendEmail(user.email, template.subject, template.html, null, req);
     },
 
     // Email Verification
-    sendVerificationCode: async (user, code) => {
+    sendVerificationCode: async (user, code, req) => {
         const template = {
             subject: 'Verify Your Email - Dream X',
             html: `
@@ -640,7 +624,7 @@ const emailService = {
                 </html>
             `
         };
-        return await sendEmail(user.email, template.subject, template.html);
+        return await sendEmail(user.email, template.subject, template.html, null, req);
     },
 
     // Expose redirect resolver for diagnostics
