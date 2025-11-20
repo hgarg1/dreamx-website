@@ -5,46 +5,29 @@ require('dotenv').config();
 
 const OAuth2 = google.auth.OAuth2;
 
-// Dynamically resolve the redirect URI for Gmail OAuth depending on environment
-const isProduction = process.env.NODE_ENV === 'production';
-const redirectUriOptions = [
-    'https://developers.google.com/oauthplayground',
-    'https://localhost:3000',
-    'https://dreamx-website.onrender.com'
-];
+// Dynamically resolve the redirect URI for Gmail OAuth based on the incoming request
+const redirectUriOptions = {
+    fallback: 'https://developers.google.com/oauthplayground',
+    local: 'https://localhost:3000',
+    production: 'https://dreamx-website.onrender.com'
+};
 
-function normalizeBaseUrl(url) {
-    return (url || '').trim().replace(/\/$/, '');
-}
-
-function getGmailRedirectUri() {
+function getGmailRedirectUri(req) {
     const configured = process.env.GMAIL_REDIRECT_URI && process.env.GMAIL_REDIRECT_URI.trim();
     if (configured) {
         return configured;
     }
 
-    const normalizedBaseUrl = normalizeBaseUrl(process.env.BASE_URL);
-    const preferredEnvironmentUrl = normalizedBaseUrl
-        || (isProduction ? redirectUriOptions[2] : redirectUriOptions[1]);
-
-    const candidates = [
-        preferredEnvironmentUrl,
-        isProduction ? redirectUriOptions[2] : redirectUriOptions[1],
-        redirectUriOptions[0] // Absolute fallback per Gmail configuration
-    ].filter(Boolean);
-
-    for (const candidate of candidates) {
-        if (redirectUriOptions.includes(candidate)) {
-            return candidate;
-        }
-    }
+    const hostHeader = (req?.get ? req.get('host') : req?.headers?.host || '').toLowerCase();
+    const isLocalHost = hostHeader.includes('localhost') || hostHeader.includes('127.0.0.1');
+    const resolvedRedirect = isLocalHost ? redirectUriOptions.local : redirectUriOptions.production;
 
     // Final safety net
-    return redirectUriOptions[0];
+    return resolvedRedirect || redirectUriOptions.fallback;
 }
 
-// Create OAuth2 client
-const createTransporter = async () => {
+// Create OAuth2 client (uses request host to resolve redirect URI)
+const createTransporter = async (req) => {
     // Check if OAuth credentials are configured
     if (!process.env.GMAIL_USER || !process.env.GMAIL_CLIENT_ID || !process.env.GMAIL_CLIENT_SECRET || !process.env.GMAIL_REFRESH_TOKEN) {
         console.warn('⚠️ Gmail OAuth not configured, using basic SMTP');
@@ -54,7 +37,7 @@ const createTransporter = async () => {
     const oauth2Client = new OAuth2(
         process.env.GMAIL_CLIENT_ID,
         process.env.GMAIL_CLIENT_SECRET,
-        getGmailRedirectUri()
+        getGmailRedirectUri(req)
     );
 
     oauth2Client.setCredentials({
@@ -117,9 +100,9 @@ const createBasicTransporter = () => {
 };
 
 // Generic email sender
-async function sendEmail(to, subject, htmlContent, textContent = null) {
+async function sendEmail(to, subject, htmlContent, textContent = null, req) {
     try {
-        const transporter = await createTransporter();
+        const transporter = await createTransporter(req);
         
         const mailOptions = {
             from: `Dream X <${process.env.GMAIL_USER || 'noreply@dreamx.app'}>`,
