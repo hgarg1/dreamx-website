@@ -16,7 +16,7 @@ const maskValue = (value, visible = 4) => {
 // Dynamically resolve the redirect URI for Gmail OAuth based on the incoming request
 const redirectUriOptions = {
     fallback: 'https://developers.google.com/oauthplayground',
-    local: 'https://localhost:3000',
+    local: 'http://localhost:3000',
     production: 'https://dreamx-website.onrender.com'
 };
 
@@ -29,7 +29,11 @@ function getGmailRedirectUri(req) {
     const hostHeader = (req?.get ? req.get('host') : req?.headers?.host || '').toLowerCase();
     const isLocalHost = hostHeader.includes('localhost') || hostHeader.includes('127.0.0.1');
     const resolvedRedirect = isLocalHost ? redirectUriOptions.local : redirectUriOptions.production;
-
+    console.log('[EmailService] Resolved Gmail redirect URI based on request host', {
+        hostHeader,
+        isLocalHost,
+        resolvedRedirect
+    });
     return resolvedRedirect || redirectUriOptions.fallback;
 }
 

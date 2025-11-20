@@ -55,9 +55,9 @@
     <ul class="conversation-list" role="list">
       <% if(conversations && conversations.length > 0) { %>
         <% conversations.forEach(function(conv){ %>
-          <li class="conversation-item <%= currentConversation && currentConversation.id === conv.id ? 'active' : '' %>" data-conversation-id="<%= conv.id %>" onclick="switchConversation(<%= conv.id %>)">
+          <li class="conversation-item <%= currentConversation && currentConversation.id === conv.id ? 'active' : '' %>" data-conversation-id="<%= conv.id %>" onclick="switchConversation('<%= conv.id %>')">
             <% if (conv.other_user_picture) { %>
-              <img src="/uploads/<%= conv.other_user_picture %>" alt="<%= conv.other_user_name %>" class="conversation-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;cursor:pointer;" ondblclick="event.stopPropagation();window.location.href='/profile/<%= conv.other_user_id %>'"
+              <img src="/uploads/<%= conv.other_user_picture %>" alt="<%= conv.other_user_name %>" class="conversation-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;cursor:pointer;" ondblclick="event.stopPropagation();window.location.href='/profile/<%= conv.other_user_id %>'">
             <% } else { %>
               <div class="conversation-avatar" style="cursor:pointer;" ondblclick="event.stopPropagation();window.location.href='/profile/<%= conv.other_user_id %>'"><%= (conv.other_user_name || 'U').charAt(0) %></div>
             <% } %>
@@ -99,7 +99,7 @@
             </div>
           <% } else { %>
             <% if (currentConversation.other_user_picture) { %>
-              <img src="/uploads/<%= currentConversation.other_user_picture %>" alt="<%= currentConversation.other_user_name %>" class="chat-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;cursor:pointer;" ondblclick="window.location.href='/profile/<%= currentConversation.other_user_id %>'"
+              <img src="/uploads/<%= currentConversation.other_user_picture %>" alt="<%= currentConversation.other_user_name %>" class="chat-avatar" style="object-fit:cover;border-radius:50%;width:48px;height:48px;cursor:pointer;" ondblclick="window.location.href='/profile/<%= currentConversation.other_user_id %>'">
             <% } else { %>
               <div class="chat-avatar" style="cursor:pointer;" ondblclick="window.location.href='/profile/<%= currentConversation.other_user_id %>'"><%= (currentConversation.other_user_name || 'U').charAt(0) %></div>
             <% } %>
@@ -124,7 +124,7 @@
               <div class="safety-menu-header">Safety controls</div>
               <button type="button" class="safety-item" onclick="reportConversation()">⚠️ Report conversation</button>
               <% if (!currentConversation.is_group) { %>
-                <button type="button" class="safety-item danger" onclick="blockConversationUser(<%= currentConversation.other_user_id %>)">🚫 Block <%= currentConversation.other_user_name %></button>
+                <button type="button" class="safety-item danger" onclick="blockConversationUser('<%= currentConversation.other_user_id %>')">🚫 Block <%= currentConversation.other_user_name %></button>
               <% } else { %>
                 <button type="button" class="safety-item" onclick="toggleInlineAddMember()">➕ Add people</button>
               <% } %>
@@ -305,12 +305,13 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  const socket = io();
-  const currentConversationId = <%= currentConversation ? currentConversation.id : 'null' %>;
-  const authUserId = <%= authUser ? authUser.id : 'null' %>;
-  const authUserName = '<%= authUser ? (authUser.full_name || '').replace(/'/g, "\\'") : '' %>';
-  const isGroupConversation = <%= currentConversation && currentConversation.is_group ? 'true' : 'false' %>;
-  const currentConversationMeta = <%= currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
+  const socket = io(); // Initialize the socket connection
+
+  const currentConversationId = '<%= currentConversation ? currentConversation.id : "null" %>';
+  const authUserId = '<%= authUser ? authUser.id : "null" %>';
+  const authUserName = '<%= authUser ? (authUser.full_name || "").replace(/\'/g, "\\'") : "" %>';
+  const isGroupConversation = '<%= currentConversation && currentConversation.is_group ? "true" : "false" %>';
+  const currentConversationMeta = <%= currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_id: currentConversation.other_user_id }) : "null" %>;
   const conversationParticipants = <%= currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
   const isAdminUser = <%= authUser && ['admin','super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
   const moderationTarget = <%- JSON.stringify(moderationTarget || null) %>;
@@ -349,9 +350,10 @@
 
   function closeFloatingMenus(skip = []) {
     ['safetyMenu', 'adminMenu'].forEach(id => {
-      if (skip.includes(id)) return;
-      const el = document.getElementById(id);
-      if (el) el.classList.remove('open');
+      if (!skip.includes(id)) {
+        const menu = document.getElementById(id);
+        if (menu) menu.classList.add('hidden');
+      }
     });
   }
 
@@ -868,6 +870,7 @@
   // Helper: Scroll to bottom
   function scrollToBottom() {
     const chatHistory = document.getElementById('chatHistory');
+    if (!chatHistory) return; // Ensure chatHistory exists before accessing its properties
     chatHistory.scrollTop = chatHistory.scrollHeight;
   }
 
