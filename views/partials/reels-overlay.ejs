@@ -1,7 +1,7 @@
 <!-- Reels overlay partial -->
 <div id="reelsOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:3000;align-items:center;justify-content:center;">
   <div role="dialog" aria-label="Reels" style="max-width:420px;width:100%;aspect-ratio:9/16;background:#000;border-radius:16px;overflow:hidden;position:relative;">
-    <button type="button" onclick="document.getElementById('reelsOverlay').style.display='none'" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:999px;padding:8px 12px;cursor:pointer;z-index:10;">Close</button>
+    <button type="button" onclick="closeReelsOverlay()" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:999px;padding:8px 12px;cursor:pointer;z-index:10;">Close</button>
     <div id="reelsContainer" style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;">
       Loading reels…
     </div>
