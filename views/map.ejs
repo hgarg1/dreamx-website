@@ -122,11 +122,20 @@
     .custom-marker {
         width: 40px;
         height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+    }
+
+    .custom-marker-inner {
+        width: 100%;
+        height: 100%;
         border-radius: 50%;
         border: 3px solid white;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         cursor: pointer;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
         overflow: hidden;
         background: #667eea;
         display: flex;
@@ -139,13 +148,13 @@
         z-index: 1;
     }
 
-    .custom-marker:hover {
-        transform: scale(1.2);
+    .custom-marker:hover .custom-marker-inner {
+        transform: scale(1.1);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
         z-index: 1000;
     }
 
-    .custom-marker img {
+    .custom-marker-inner img {
         width: 100%;
         height: 100%;
         object-fit: cover;

@@ -157,7 +157,8 @@ class DreamXMapUtils {
             color = '#667eea',
             element,
             onClick,
-            popup
+            popup,
+            anchor
         } = options;
 
         if (!coordinates || coordinates.length !== 2) {
@@ -169,6 +170,9 @@ class DreamXMapUtils {
             markerOptions.element = element;
         } else if (color) {
             markerOptions.color = color;
+        }
+        if (anchor) {
+            markerOptions.anchor = anchor;
         }
 
         const marker = new mapboxgl.Marker(markerOptions)
@@ -218,14 +222,17 @@ class DreamXMapUtils {
             // Create custom marker element
             const el = document.createElement('div');
             el.className = 'custom-marker';
-            el.style.cssText = `
+
+            const inner = document.createElement('div');
+            inner.className = 'custom-marker-inner';
+            inner.style.cssText = `
                 width: 40px;
                 height: 40px;
                 border-radius: 50%;
                 border: 3px solid white;
                 box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
                 cursor: pointer;
-                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                transition: transform 0.25s ease, box-shadow 0.25s ease;
                 overflow: hidden;
                 background: #667eea;
                 display: flex;
@@ -243,27 +250,18 @@ class DreamXMapUtils {
                 img.src = user.profile_picture.startsWith('/') ? user.profile_picture : '/uploads/' + user.profile_picture;
                 img.alt = user.full_name;
                 img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
-                el.appendChild(img);
+                inner.appendChild(img);
             } else {
-                el.textContent = (user.full_name || 'U').charAt(0).toUpperCase();
+                inner.textContent = (user.full_name || 'U').charAt(0).toUpperCase();
             }
 
-            // Stable hover effect
-            el.addEventListener('mouseenter', () => {
-                el.style.transform = 'scale(1.2)';
-                el.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.4)';
-                el.style.zIndex = '1000';
-            });
-            el.addEventListener('mouseleave', () => {
-                el.style.transform = 'scale(1)';
-                el.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
-                el.style.zIndex = '1';
-            });
+            el.appendChild(inner);
 
             const marker = this.addMarker(map, {
                 coordinates: [user.longitude, user.latitude],
                 element: el,
-                onClick: onMarkerClick ? () => onMarkerClick(user) : null
+                onClick: onMarkerClick ? () => onMarkerClick(user) : null,
+                anchor: 'center'
             });
 
             markers.push(marker);
