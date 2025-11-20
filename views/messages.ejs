@@ -1,6 +1,7 @@
 <%- include('partials/header') %>
 
-<div class="messages-page">
+<% const isAdminUserFlag = authUser && ['admin','super_admin','global_admin'].includes(authUser.role); %>
+<div class="messages-page <%= isAdminUserFlag ? 'admin-mode' : '' %>">
   <% const participantCount = (typeof participants !== 'undefined' && participants ? participants.length : 0); %>
   <% const conversationCount = (typeof conversations !== 'undefined' && conversations ? conversations.length : 0); %>
   <div class="messages-header">
@@ -10,11 +11,17 @@
         <h1 class="messages-title">Messages</h1>
         <span class="header-chip live">Live</span>
         <span class="header-chip muted">No overflow</span>
+        <% if (isAdminUserFlag) { %>
+          <span class="header-chip admin-chip">Admin view</span>
+        <% } %>
       </div>
       <div class="messages-meta-row">
         <span><strong><%= participantCount || 0 %></strong> active members</span>
         <span><strong><%= conversationCount || 0 %></strong> conversations</span>
         <span class="meta-pill">Reactions ready</span>
+        <% if (isAdminUserFlag) { %>
+          <span class="meta-pill strong">Admin controls unlocked</span>
+        <% } %>
       </div>
     </div>
     <div class="messages-header-actions">
@@ -23,6 +30,19 @@
       <button type="button" class="header-btn primary" id="headerAddBtn" onclick="toggleInlineAddMember()" <%= currentConversation && currentConversation.is_group ? '' : 'disabled' %>>Add people</button>
     </div>
   </div>
+
+  <% if (isAdminUserFlag) { %>
+    <div class="admin-banner">
+      <div class="admin-banner-copy">
+        <strong>Admin tools enabled.</strong>
+        <span>Review, flag, or jump to latest messages without leaving this screen.</span>
+      </div>
+      <div class="admin-banner-actions">
+        <button type="button" class="header-btn secondary" onclick="scrollToBottom()">Jump to latest</button>
+        <button type="button" class="header-btn" onclick="toggleAdminMenu(event)">Open admin menu</button>
+      </div>
+    </div>
+  <% } %>
 
   <section class="messages-layout">
   <!-- Conversations Column -->
