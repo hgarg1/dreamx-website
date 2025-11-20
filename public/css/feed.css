@@ -959,21 +959,30 @@
 }
 
 @media (max-width: 1024px) {
+    /* Stack the columns into rows on tablets and smaller to prevent overlap */
     .feed-layout {
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
     }
-    
-    .feed-sidebar.left-sidebar {
-        grid-column: 1;
-    }
-    
-    .feed-main {
-        grid-column: 2;
-    }
-    
+
+    .feed-sidebar.left-sidebar,
+    .feed-main,
     .feed-sidebar.right-sidebar {
-        grid-column: 2;
-        margin-top: 1.5rem;
+        grid-column: auto;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .feed-sidebar.left-sidebar {
+        position: static;
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+    }
+
+    .feed-sidebar.right-sidebar {
+        margin-top: 0;
     }
 }
 
