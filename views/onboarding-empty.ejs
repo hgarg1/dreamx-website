@@ -155,6 +155,10 @@
             margin-top: 0.5rem;
         }
 
+        .button-group form {
+            margin: 0;
+        }
+
         .btn-hero {
             padding: 1rem 2.5rem;
             font-size: 1.05rem;
@@ -302,9 +306,11 @@
 
         <!-- Action Buttons -->
         <div class="button-group">
-            <a href="/onboarding" class="btn-hero btn-primary-hero">
-                <span>✨ Start Onboarding</span>
-            </a>
+            <form action="/onboarding/start" method="POST">
+                <button type="submit" class="btn-hero btn-primary-hero">
+                    <span>✨ Start Onboarding</span>
+                </button>
+            </form>
             <a href="/feed" class="btn-hero btn-secondary-hero">
                 <span>Explore Feed 🏠</span>
             </a>
