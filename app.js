@@ -2163,7 +2163,17 @@ app.post('/forgot-password', async (req, res) => {
         });
 
         const resetLink = `${baseUrl}/reset-password?token=${token}`;
-        await emailService.sendPasswordReset(user, resetLink);
+        const emailResult = await emailService.sendPasswordReset(user, resetLink);
+
+        if (!emailResult?.success) {
+            console.error('Password reset email reported failure', {
+                userId: user.id,
+                email: user.email,
+                resetLink,
+                redirectUri: emailService.getGmailRedirectUri ? emailService.getGmailRedirectUri() : 'unknown',
+                error: emailResult?.error || 'Unknown error'
+            });
+        }
 
         return res.render('forgot-password', {
             title: 'Forgot Password - Dream X',
@@ -2172,7 +2182,14 @@ app.post('/forgot-password', async (req, res) => {
             success: successMessage
         });
     } catch (err) {
-        console.error('Failed to start password reset:', err);
+        console.error('Failed to start password reset:', {
+            message: err?.message || err,
+            stack: err?.stack,
+            userId: user?.id,
+            email: user?.email,
+            resetLink,
+            redirectUri: emailService.getGmailRedirectUri ? emailService.getGmailRedirectUri() : 'unknown'
+        });
         return res.status(500).render('forgot-password', {
             title: 'Forgot Password - Dream X',
             currentPage: 'forgot-password',

@@ -15,18 +15,39 @@ const maskValue = (value, visible = 4) => {
 
 // Dynamically resolve the redirect URI for Gmail OAuth depending on environment
 const isProduction = process.env.NODE_ENV === 'production';
-const inferredBaseUrl = process.env.BASE_URL || (isProduction
-    ? 'https://dreamx-website.onrender.com'
-    : 'http://localhost:3000');
+const redirectUriOptions = [
+    'https://developers.google.com/oauthplayground',
+    'https://localhost:3000',
+    'https://dreamx-website.onrender.com'
+];
+
+function normalizeBaseUrl(url) {
+    return (url || '').trim().replace(/\/$/, '');
+}
 
 function getGmailRedirectUri() {
-    if (process.env.GMAIL_REDIRECT_URI && process.env.GMAIL_REDIRECT_URI.trim()) {
-        return process.env.GMAIL_REDIRECT_URI.trim();
+    const configured = process.env.GMAIL_REDIRECT_URI && process.env.GMAIL_REDIRECT_URI.trim();
+    if (configured) {
+        return configured;
     }
 
-    return isProduction
-        ? `${inferredBaseUrl.replace(/\/$/, '')}/auth/google/callback`
-        : 'https://developers.google.com/oauthplayground';
+    const normalizedBaseUrl = normalizeBaseUrl(process.env.BASE_URL);
+    const preferredEnvironmentUrl = normalizedBaseUrl
+        || (isProduction ? redirectUriOptions[2] : redirectUriOptions[1]);
+
+    const candidates = [
+        preferredEnvironmentUrl,
+        isProduction ? redirectUriOptions[2] : redirectUriOptions[1],
+        redirectUriOptions[0] // Absolute fallback per Gmail configuration
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+        if (redirectUriOptions.includes(candidate)) {
+            return candidate;
+        }
+    }
+
+    return redirectUriOptions[0];
 }
 
 // Create OAuth2 client
@@ -620,7 +641,10 @@ const emailService = {
             `
         };
         return await sendEmail(user.email, template.subject, template.html);
-    }
+    },
+
+    // Expose redirect resolver for diagnostics
+    getGmailRedirectUri
 };
 
 module.exports = emailService;
