@@ -2114,8 +2114,7 @@ main {
      MESSAGES PAGE STYLES
      ============================= */
 
-.messages-page { background: radial-gradient(circle at 10% 10%, rgba(255,79,163,0.06), transparent 35%), radial-gradient(circle at 85% 20%, rgba(102,126,234,0.06), transparent 32%); padding-bottom: 3rem; overflow-x: hidden; }
-.messages-page.admin-mode { background: radial-gradient(circle at 12% 12%, rgba(124,58,237,0.08), transparent 38%), radial-gradient(circle at 88% 8%, rgba(16,185,129,0.08), transparent 35%); }
+.messages-page { background: radial-gradient(circle at 10% 10%, rgba(255,79,163,0.06), transparent 35%), radial-gradient(circle at 85% 20%, rgba(102,126,234,0.06), transparent 32%); padding-bottom: 3rem; overflow-x: hidden; padding-top: 0.5rem; }
 .messages-header { max-width: 1200px; margin: 1.5rem auto 0; padding: 1rem var(--spacing-md); border-radius: 18px; background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(247,248,255,0.95)); border:1px solid rgba(124,58,237,0.12); display:flex; align-items:center; justify-content:space-between; gap:1.25rem; box-shadow:0 12px 28px rgba(0,0,0,0.06); }
 .messages-header-left { display:flex; flex-direction:column; gap:.35rem; }
 .messages-kicker { margin:0; text-transform:uppercase; letter-spacing:0.1em; font-size:.72rem; color:var(--text-light); font-weight:800; }
@@ -2139,16 +2138,17 @@ main {
 .header-btn.secondary { background: rgba(102,126,234,0.08); border-color: rgba(102,126,234,0.18); color:#4b5563; }
 .header-btn.primary { background: linear-gradient(135deg, #ff4fa3, #7c3aed); color:#fff; border-color: transparent; box-shadow:0 10px 24px rgba(255,79,163,0.25); }
 
-.messages-layout { max-width: 1240px; margin: 2.5rem auto 3rem; padding: 0 var(--spacing-md); display: grid; grid-template-columns: minmax(310px, 360px) minmax(0, 1fr); gap: 1.75rem; align-items: stretch; }
+.messages-layout { max-width: 1240px; margin: 2.5rem auto 3rem; padding: 0 var(--spacing-md); display: grid; grid-template-columns: minmax(310px, 360px) minmax(0, 1fr); gap: 1.75rem; align-items: stretch; height: calc(100vh - 140px); min-height: 560px; }
+.messages-layout > * { min-height: 0; }
 
-.conversations-column { background: linear-gradient(160deg, rgba(255,255,255,0.96), rgba(255,255,255,0.9)); border-radius: var(--radius-lg); border: 1px solid rgba(255,79,163,0.12); padding: 1.5rem 1.5rem 1.25rem; box-shadow: 0 15px 40px rgba(0,0,0,0.08); min-height: calc(100vh - 240px); max-height: none; display: flex; flex-direction: column; }
+.conversations-column { background: linear-gradient(160deg, rgba(255,255,255,0.98), rgba(255,255,255,0.92)); border-radius: var(--radius-lg); border: 1px solid rgba(255,79,163,0.16); padding: 1.5rem 1.5rem 1.25rem; box-shadow: 0 15px 40px rgba(15,23,42,0.08); height: 100%; min-height: 0; display: flex; flex-direction: column; }
 .conversations-header { display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem; margin-bottom:1rem; }
 .conversations-title { font-size: 1rem; font-weight: 800; letter-spacing: 0.04em; margin:0; }
 .conversations-kicker { margin:0; text-transform:uppercase; letter-spacing:0.12em; font-size:.72rem; color:var(--text-light); font-weight:700; }
 .conversation-actions { display:flex; gap:.5rem; align-items:center; }
 .compact-button { background: linear-gradient(135deg, #ff4fa3, #7c3aed); color: #fff; border: none; padding: .55rem .85rem; border-radius: 14px; font-size: .8rem; font-weight: 800; cursor: pointer; box-shadow: 0 8px 18px rgba(255,79,163,0.25); transition: transform var(--transition-fast), box-shadow var(--transition-fast); }
 .compact-button:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(124,58,237,0.28); }
-.conversation-search { margin-bottom: 1rem; display:flex; align-items:center; gap:.5rem; background: var(--bg-light); border:1px solid var(--border-color); padding:.55rem .75rem; border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+.conversation-search { margin-bottom: 1rem; display:flex; align-items:center; gap:.5rem; background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(247,248,255,0.9)); border:1px solid rgba(124,58,237,0.18); padding:.55rem .75rem; border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.9); }
 .conversation-search-icon { font-size:.95rem; opacity:.65; }
 
 .conversation-search-input {
@@ -2174,6 +2174,7 @@ main {
     padding: 0;
     overflow-y: auto;
     flex: 1;
+    min-height: 0;
 }
 
 
@@ -2226,17 +2227,18 @@ main {
 }
 
 .chat-surface {
-    background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,248,255,0.9) 100%);
+    background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(247,248,255,0.94) 100%);
     border-radius: var(--radius-lg);
     padding: 1.1rem 1.25rem 1.6rem;
     border: 1px solid rgba(102,126,234,0.25);
-    box-shadow: 0 24px 60px rgba(0,0,0,0.08);
-    min-height: calc(100vh - 320px);
+    box-shadow: 0 24px 60px rgba(15,23,42,0.12);
     height: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(8px);
     position: relative;
+    overflow: hidden;
 }
 
 .chat-surface::before { content:""; position:absolute; inset:0; border-radius:var(--radius-lg); padding:1px; background: linear-gradient(135deg, rgba(255,79,163,0.15), rgba(102,126,234,0.18)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events:none; opacity:0.7; }
@@ -2289,8 +2291,8 @@ main {
     display: flex;
     flex-direction: column;
     box-shadow: 0 6px 20px rgba(0,0,0,0.05);
-    min-height: calc(100vh - 240px);
-    height: auto;
+    height: 100%;
+    min-height: 0;
 }
 
 .chat-header {
@@ -2369,7 +2371,9 @@ main {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: .35rem;
+    gap: .5rem;
+    min-height: 0;
+    scroll-behavior: smooth;
 }
 
 .chat-empty { text-align:center; padding:2.5rem 1rem; color: var(--text-light); }
