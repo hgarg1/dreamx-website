@@ -70,18 +70,62 @@
             <button type="button" onclick="openGroupSettings()" style="background:none;border:1px solid var(--border-color);padding:.5rem 1rem;border-radius:20px;font-size:.8rem;font-weight:600;cursor:pointer;color:var(--text-color);transition:all .2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
               ⚙️ Group Settings
             </button>
+            <button type="button" class="ghost-pill" onclick="copyGroupShare()">🔗 Share group</button>
           <% } else { %>
             <a href="/profile/<%= currentConversation.other_user_id %>" class="chat-view-profile">View Profile →</a>
           <% } %>
         </div>
       </header>
 
+      <% if (currentConversation.is_group) { %>
+        <div class="group-meta-bar">
+          <div class="group-avatar-stack">
+            <% participants.slice(0,6).forEach(function(p){ %>
+              <% if (p.profile_picture) { %>
+                <img src="/uploads/<%= p.profile_picture %>" alt="<%= p.full_name %>" />
+              <% } else { %>
+                <div class="group-initial"><%= p.full_name.charAt(0) %></div>
+              <% } %>
+            <% }); %>
+            <% if (participants.length > 6) { %>
+              <div class="group-more">+<%= participants.length - 6 %></div>
+            <% } %>
+          </div>
+          <div class="group-meta-actions">
+            <button type="button" class="ghost-pill" onclick="toggleInlineAddMember()">➕ Add people</button>
+            <button type="button" class="ghost-pill" onclick="showPinnedTips()">📌 Tips</button>
+          </div>
+        </div>
+        <div id="inlineAddMember" class="inline-add-member" style="display:none;">
+          <input type="text" id="inlineAddMemberInput" placeholder="Search people to invite" aria-label="Add member" />
+          <div id="inlineAddMemberResults"></div>
+        </div>
+        <div id="groupTips" class="group-tips" style="display:none;">
+          <p class="tips-title">Group superpowers</p>
+          <ul>
+            <li>Reply in-thread to keep context.</li>
+            <li>Long-press or hover for quick reactions.</li>
+            <li>Use the share link to bring teammates in fast.</li>
+          </ul>
+        </div>
+      <% } %>
+
       <div class="chat-history" id="chatHistory" aria-live="polite">
         <% if(messages && messages.length > 0) { %>
           <% messages.forEach(function(msg){ %>
-            <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>" data-created-at="<%= msg.created_at %>">
+            <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>" data-created-at="<%= msg.created_at %>" data-sender-name="<%= msg.sender_name %>" data-reply-preview="<%= (msg.content || (msg.attachment_url ? 'Attachment' : '')) %>" data-reply-has-attachment="<%= msg.attachment_url ? 'true' : 'false' %>">
               <div class="chat-bubble-container" style="position:relative;display:inline-block;">
                 <div class="chat-bubble">
+                  <% if (msg.reply_to_message_id) { %>
+                    <div class="reply-context">
+                      <div class="reply-author"><%= msg.reply_sender_name || 'Reply' %></div>
+                      <% if (msg.reply_attachment_url) { %>
+                        <div class="reply-preview">📎 <%= msg.reply_content && msg.reply_content.length ? msg.reply_content.substring(0,80) : 'Attachment' %></div>
+                      <% } else { %>
+                        <div class="reply-preview"><%= (msg.reply_content || 'Replied message') %></div>
+                      <% } %>
+                    </div>
+                  <% } %>
                   <% if (msg.content) { %>
                     <p class="chat-text"><%= msg.content %></p>
                   <% } else if (msg.attachment_url) { %>
@@ -103,9 +147,9 @@
                       <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">Download attachment</a>
                     <% } %>
                   <% } %>
-                  <span class="chat-time"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %></span>
+                  <span class="chat-time" data-read="<%= msg.read %>"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %><% if (!currentConversation.is_group && msg.sender_id === authUser.id && msg.read) { %> <span class="chat-status">✓✓</span><% } %></span>
                 </div>
-                
+
                 <!-- Message action menu button (only for incoming messages from other user) -->
                 <% if (msg.sender_id !== authUser.id && currentConversation && !currentConversation.is_group) { %>
                 <button type="button" class="msg-action-btn" data-message-id="<%= msg.id %>" data-sender-id="<%= msg.sender_id %>" onclick="toggleMessageActions('<%= msg.id %>')" style="position:absolute;top:6px;right:6px;background:white;border:1px solid #e5e7eb;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.2s,background 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:5;font-size:14px;font-weight:700;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">⋮</button>
@@ -114,7 +158,9 @@
                   <button onclick="blockChatUser('<%= msg.sender_id %>')" style="width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#dc3545;border-top:1px solid #e5e7eb;border-radius:8px;transition:background 0.2s;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">🚫 Block User</button>
                 </div>
                 <% } %>
-                
+
+                <button type="button" class="reply-btn" data-message-id="<%= msg.id %>" title="Reply" aria-label="Reply">↩️</button>
+
                 <!-- Quick reaction button (long-press for more options) -->
                 <button type="button" class="quick-react-btn" data-message-id="<%= msg.id %>" style="position:absolute;bottom:6px;right:6px;left:auto;background:white;border:1px solid #e5e7eb;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:5;">❤️</button>
                 <!-- Reaction picker (shown on long-press) -->
@@ -147,6 +193,13 @@
         <span id="fileStatusText">Ready to send</span>
       </div>
       <div id="typingIndicator" style="display:none;margin-bottom:.25rem;color:var(--text-light);font-size:.85rem;font-weight:600;">Typing...</div>
+      <div id="replyPreviewBar" class="reply-preview-bar" style="display:none;">
+        <div class="reply-preview-text">
+          <div class="replying-to"></div>
+          <div class="replying-body"></div>
+        </div>
+        <button type="button" class="reply-cancel" onclick="clearReplyTarget()">✕</button>
+      </div>
       <form id="messageForm" class="chat-input-row" enctype="multipart/form-data">
         <label class="chat-attach-btn" for="fileInput" title="Attach file" aria-label="Attach file">📎</label>
         <input type="file" id="fileInput" name="files" accept="image/*,video/*,audio/*,.pdf,.txt" multiple style="display:none" />
@@ -173,6 +226,11 @@
   const socket = io();
   const currentConversationId = <%= currentConversation ? currentConversation.id : 'null' %>;
   const authUserId = <%= authUser ? authUser.id : 'null' %>;
+  const authUserName = '<%= authUser ? (authUser.full_name || '').replace(/'/g, "\\'") : '' %>';
+  const isGroupConversation = <%= currentConversation && currentConversation.is_group ? 'true' : 'false' %>;
+  const conversationParticipants = <%= currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
+
+  let replyToMessageId = null;
 
   // Join current conversation room
   if (currentConversationId) {
@@ -191,6 +249,64 @@
     }
   });
 
+  function notify(message) {
+    if (typeof showToast === 'function') return showToast(message);
+    alert(message);
+  }
+
+  function copyGroupShare() {
+    if (!isGroupConversation || !currentConversationId) return;
+    const link = `${window.location.origin}/messages?conversation=${currentConversationId}`;
+    navigator.clipboard?.writeText(link)
+      .then(() => notify('Share link copied'))
+      .catch(() => alert('Copied group link: ' + link));
+  }
+
+  function toggleInlineAddMember() {
+    const panel = document.getElementById('inlineAddMember');
+    if (!panel) return;
+    const isHidden = panel.style.display === 'none' || panel.style.display === '';
+    panel.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+      document.getElementById('inlineAddMemberInput')?.focus();
+    }
+  }
+
+  function showPinnedTips() {
+    const tips = document.getElementById('groupTips');
+    if (!tips) return;
+    tips.style.display = tips.style.display === 'none' || tips.style.display === '' ? 'block' : 'none';
+  }
+
+  // Inline add member search
+  const inlineAddInput = document.getElementById('inlineAddMemberInput');
+  let inlineSearchTimeout = null;
+  inlineAddInput?.addEventListener('input', () => {
+    clearTimeout(inlineSearchTimeout);
+    const q = (inlineAddInput.value || '').trim();
+    if (!q) {
+      document.getElementById('inlineAddMemberResults').innerHTML = '';
+      return;
+    }
+    inlineSearchTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        const existingIds = conversationParticipants.map(p => p.id);
+        const filtered = (data.results || []).filter(u => !existingIds.includes(u.id));
+        const html = filtered.length === 0 ? '<div class="inline-empty">No people found</div>' : filtered.map(u => `
+          <div class="inline-result" onclick="addGroupMember(${u.id}, '${u.full_name.replace(/'/g, "\\'")}', '${u.profile_picture || ''}')">
+            ${u.profile_picture ? `<img src="/uploads/${u.profile_picture}" alt="${u.full_name}">` : `<div class="inline-avatar">${u.full_name.charAt(0)}</div>`}
+            <div class="inline-copy">${u.full_name}${u.handle ? ` <span>@${u.handle}</span>` : ''}</div>
+          </div>
+        `).join('');
+        document.getElementById('inlineAddMemberResults').innerHTML = html;
+      } catch (err) {
+        document.getElementById('inlineAddMemberResults').innerHTML = '<div class="inline-empty">Search failed</div>';
+      }
+    }, 250);
+  });
+
   // Read receipts: mark outgoing messages as seen up to a given ID
   socket.on('read-receipt', (payload) => {
     try {
@@ -201,6 +317,15 @@
     } catch (e) { console.error('read-receipt handling error', e); }
   });
 
+  // Reply-to helpers
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.reply-btn');
+    if (btn) {
+      const wrapper = btn.closest('.chat-message-wrapper');
+      if (wrapper) setReplyTarget(wrapper);
+    }
+  });
+
   // Send message form handler (with optional file + drag-drop + progress)
   let selectedFiles = [];
   const fileInput = document.getElementById('fileInput');
@@ -209,6 +334,9 @@
   const progressBar = document.getElementById('progressBar');
   const sendBtn = document.getElementById('sendBtn');
   const typingIndicator = document.getElementById('typingIndicator');
+  const replyBar = document.getElementById('replyPreviewBar');
+  const replyToText = document.querySelector('.replying-to');
+  const replyBodyText = document.querySelector('.replying-body');
 
   fileInput?.addEventListener('change', (e) => {
     selectedFiles = e.target.files ? Array.from(e.target.files) : [];
@@ -259,6 +387,23 @@
     updateFilePreview();
   };
 
+  function setReplyTarget(wrapper) {
+    replyToMessageId = parseInt(wrapper.getAttribute('data-message-id'), 10);
+    const sender = wrapper.getAttribute('data-sender-name') || 'A member';
+    const preview = wrapper.getAttribute('data-reply-preview') || 'Message';
+    const hasAttachment = wrapper.getAttribute('data-reply-has-attachment') === 'true';
+    if (replyBar && replyToText && replyBodyText) {
+      replyToText.textContent = `Replying to ${sender}`;
+      replyBodyText.textContent = `${hasAttachment ? '📎 ' : ''}${preview}`;
+      replyBar.style.display = 'flex';
+    }
+  }
+
+  window.clearReplyTarget = function() {
+    replyToMessageId = null;
+    if (replyBar) replyBar.style.display = 'none';
+  }
+
   // Drag-and-drop support
   const chatHistory = document.getElementById('chatHistory');
   chatHistory?.addEventListener('dragover', (e) => {
@@ -287,7 +432,7 @@
 
   document.getElementById('messageForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const input = document.getElementById('messageInput');
     const content = (input.value || '').trim();
     
@@ -311,6 +456,9 @@
       const form = new FormData();
       form.append('conversationId', currentConversationId);
       form.append('content', content);
+      if (replyToMessageId) {
+        form.append('replyToMessageId', replyToMessageId);
+      }
       if (selectedFiles && selectedFiles.length > 0) {
         selectedFiles.forEach(f => form.append('files', f));
       }
@@ -332,6 +480,7 @@
           input.value = '';
           input.style.height = 'auto';
           clearFile();
+          clearReplyTarget();
           uploadProgress.style.display = 'none';
           statusIndicator.style.display = 'none';
           sendBtn.disabled = false;
@@ -362,16 +511,37 @@
   function appendMessage(msg) {
     const chatHistory = document.getElementById('chatHistory');
     const isOutgoing = msg.sender_id === authUserId;
-    
+
     const wrapper = document.createElement('div');
     wrapper.className = `chat-message-wrapper ${isOutgoing ? 'outgoing' : 'incoming'}`;
     wrapper.setAttribute('data-message-id', msg.id);
     if (msg.created_at) {
       wrapper.setAttribute('data-created-at', msg.created_at);
     }
-    
+    wrapper.setAttribute('data-sender-name', msg.sender_name || (isOutgoing ? authUserName : 'Member'));
+    wrapper.setAttribute('data-reply-preview', msg.content || (msg.attachment_url ? 'Attachment' : ''));
+    wrapper.setAttribute('data-reply-has-attachment', msg.attachment_url ? 'true' : 'false');
+
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
+
+    if (msg.reply_to_message_id) {
+      const ctx = document.createElement('div');
+      ctx.className = 'reply-context';
+      const author = document.createElement('div');
+      author.className = 'reply-author';
+      author.textContent = msg.reply_sender_name || 'Reply';
+      const preview = document.createElement('div');
+      preview.className = 'reply-preview';
+      if (msg.reply_attachment_url) {
+        preview.textContent = `📎 ${msg.reply_content && msg.reply_content.length ? msg.reply_content.substring(0,80) : 'Attachment'}`;
+      } else {
+        preview.textContent = msg.reply_content || 'Replied message';
+      }
+      ctx.appendChild(author);
+      ctx.appendChild(preview);
+      bubble.appendChild(ctx);
+    }
 
     if (msg.content) {
       const text = document.createElement('p');
@@ -436,11 +606,18 @@
         bubble.appendChild(link);
       }
     }
-    
+
     const time = document.createElement('span');
     time.className = 'chat-time';
+    time.setAttribute('data-read', msg.read || 0);
     time.textContent = new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    
+    if (!isGroupConversation && isOutgoing && msg.read) {
+      const status = document.createElement('span');
+      status.className = 'chat-status';
+      status.textContent = ' ✓✓';
+      time.appendChild(status);
+    }
+
     bubble.appendChild(time);
     wrapper.appendChild(bubble);
     chatHistory.appendChild(wrapper);
@@ -456,6 +633,7 @@
         const bubble = w.querySelector('.chat-bubble');
         const timeEl = bubble?.querySelector('.chat-time');
         if (!timeEl) return;
+        timeEl.setAttribute('data-read', '1');
         if (!timeEl.querySelector('.chat-status')) {
           const status = document.createElement('span');
           status.className = 'chat-status';
