@@ -431,6 +431,65 @@ const emailService = {
         return await sendEmail(user.email, template.subject, template.html);
     },
 
+    // Password reset
+    sendPasswordReset: async (user, resetLink) => {
+        const template = {
+            subject: 'Reset Your Password - Dream X',
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #0b1020 0%, #1a1f3a 100%); }
+                        .container { max-width: 640px; margin: 40px auto; background: #0f172a; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border: 1px solid rgba(255, 255, 255, 0.08); color: #e2e8f0; }
+                        .header { background: linear-gradient(135deg, #667eea, #764ba2); padding: 36px 32px; text-align: center; }
+                        .header h1 { margin: 0; font-size: 28px; font-weight: 900; color: #fff; }
+                        .header p { margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 16px; }
+                        .content { padding: 32px; }
+                        .greeting { font-size: 18px; margin: 0 0 16px; font-weight: 700; }
+                        .message { line-height: 1.7; margin: 0 0 24px; color: #cbd5e1; }
+                        .cta { text-align: center; margin: 32px 0; }
+                        .button { display: inline-block; padding: 16px 28px; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border-radius: 14px; font-weight: 800; letter-spacing: 0.3px; text-decoration: none; box-shadow: 0 12px 30px rgba(102,126,234,0.45); }
+                        .meta { background: rgba(102,126,234,0.1); padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); color: #a5b4fc; font-weight: 600; text-align: center; }
+                        .footer { background: #0b1223; padding: 20px 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.08); color: #94a3b8; font-size: 13px; }
+                        .footer hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 20px 0; }
+                        .warning { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #fecdd3; padding: 16px; border-radius: 12px; margin-bottom: 24px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>Reset your password</h1>
+                            <p>Let's secure your Dream X account</p>
+                        </div>
+                        <div class="content">
+                            <p class="greeting">Hi ${user.full_name},</p>
+                            <p class="message">We received a request to reset the password for your Dream X account. Click the button below to choose a new password.</p>
+                            <div class="cta">
+                                <a class="button" href="${resetLink}">Create a new password</a>
+                            </div>
+                            <p class="meta">This link expires in 60 minutes for security.</p>
+                            <div class="warning">
+                                <p style="margin:0;">If you didn't request this, you can ignore this email—your password will stay the same.</p>
+                            </div>
+                            <p class="message" style="font-size:14px; color:#94a3b8;">If the button doesn't work, copy and paste this URL into your browser:<br><span style="color:#a5b4fc;">${resetLink}</span></p>
+                        </div>
+                        <div class="footer">
+                            <p>Dream X · Addicted to growth.</p>
+                            <hr />
+                            <p>You're receiving this email because a password reset was requested for your account.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        return await sendEmail(user.email, template.subject, template.html);
+    },
+
     // Email Verification
     sendVerificationCode: async (user, code) => {
         const template = {
