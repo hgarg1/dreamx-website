@@ -1,17 +1,63 @@
 <%- include('partials/header') %>
 
 <div class="messages-page">
+  <% const participantCount = (typeof participants !== 'undefined' && participants ? participants.length : 0); %>
+  <% const conversationCount = (typeof conversations !== 'undefined' && conversations ? conversations.length : 0); %>
   <div class="messages-hero">
     <div class="messages-hero-card">
-      <div class="hero-eyebrow">DreamX Circles</div>
-      <h1>Messaging that feels on-theme</h1>
-      <p>Group chats, reactions, and replies — all wrapped in a soft neon gradient. Build momentum with your community.</p>
-      <div class="hero-meta">
-        <span>✨ Real-time presence</span>
-        <span>🧵 Threaded replies</span>
-        <span>📎 Rich attachments</span>
-        <span>🛡️ Safety-first controls</span>
+      <div class="hero-eyebrow-row">
+        <div class="hero-eyebrow">DreamX Circles</div>
+        <span class="hero-badge live">Live presence</span>
+        <span class="hero-badge glow">Polished gradients</span>
+        <span class="hero-badge muted">PWA ready</span>
       </div>
+      <div class="messages-hero-grid">
+        <div class="hero-copy">
+          <h1>Messaging that feels on-theme</h1>
+          <p>Group chats, reactions, and replies — all wrapped in a soft neon gradient. Build momentum with your community.</p>
+          <div class="hero-meta">
+            <span>✨ Real-time presence</span>
+            <span>🧵 Threaded replies</span>
+            <span>📎 Rich attachments</span>
+            <span>🛡️ Safety-first controls</span>
+          </div>
+          <div class="messages-hero-checklist">
+            <span>Gradient-safe surfaces for bright avatars</span>
+            <span>Curated paddings to keep the inbox airy</span>
+            <span>Mobile-friendly spacing out of the box</span>
+          </div>
+        </div>
+        <div class="messages-hero-stats">
+          <div class="hero-stat">
+            <p class="stat-label">Active members</p>
+            <div class="stat-value"><%= participantCount || 3 %></div>
+            <small>Connected across your latest chat</small>
+          </div>
+          <div class="hero-stat">
+            <p class="stat-label">Conversations</p>
+            <div class="stat-value"><%= conversationCount %></div>
+            <small>Inbox kept tidy with soft cards</small>
+          </div>
+          <div class="hero-stat highlight">
+            <p class="stat-label">Fresh styles</p>
+            <div class="stat-value">New</div>
+            <small>Glassy gradients and refined controls</small>
+          </div>
+        </div>
+        <div class="hero-gradient-orb" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="messages-toolbar">
+    <div class="toolbar-left">
+      <div class="toolbar-pill">Smooth inbox • <span class="pill-accent">Optimized padding</span></div>
+      <div class="toolbar-status"><span class="status-dot"></span> Synced &amp; secure</div>
+    </div>
+    <div class="toolbar-actions">
+      <span class="toolbar-chip">Ready for reactions</span>
+      <span class="toolbar-chip subdued">Enhanced contrast</span>
+      <span class="toolbar-chip">Cache freshly reset</span>
     </div>
   </div>
 
@@ -126,6 +172,12 @@
           <% } %>
         </div>
       </header>
+
+      <div class="chat-top-badges">
+        <span class="pill-soft">Threaded replies are on</span>
+        <span class="pill-soft">Reactions ready</span>
+        <span class="pill-soft pill-muted">Glassy gradient surface</span>
+      </div>
 
       <% if (currentConversation.is_group) { %>
         <div class="group-meta-bar">
