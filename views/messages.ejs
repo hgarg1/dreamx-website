@@ -1,5 +1,18 @@
 <%- include('partials/header') %>
 
+<div class="messages-hero">
+  <div class="messages-hero-card">
+    <div class="hero-eyebrow">DreamX Circles</div>
+    <h1>Messaging that feels on-theme</h1>
+    <p>Group chats, reactions, and replies — all wrapped in a soft neon gradient. Build momentum with your community.</p>
+    <div class="hero-meta">
+      <span>✨ Real-time presence</span>
+      <span>🧵 Threaded replies</span>
+      <span>📎 Rich attachments</span>
+    </div>
+  </div>
+</div>
+
 <section class="messages-layout">
   <!-- Conversations Column -->
   <aside class="conversations-column">
@@ -27,6 +40,7 @@
                 <span class="conversation-last empty">No messages yet</span>
               <% } %>
             </div>
+            <div class="conversation-pill <%= conv.is_group ? 'pill-group' : 'pill-direct' %>"><%= conv.is_group ? 'Group' : 'Direct' %></div>
             <div class="conversation-time"><%= conv.last_message_time || '' %></div>
             <% if(conv.unread_count > 0){ %>
               <span class="conversation-unread"><%= conv.unread_count %></span>
@@ -44,6 +58,7 @@
 
   <!-- Chat Column -->
   <div class="chat-column">
+    <div class="chat-surface">
     <% if(currentConversation) { %>
       <header class="chat-header">
         <div class="chat-header-left">
@@ -218,6 +233,7 @@
         Select a conversation to start messaging
       </div>
     <% } %>
+    </div>
   </div>
 </section>
 
@@ -744,38 +760,54 @@
   // New Group modal - basic setup
   document.getElementById('newGroupBtn')?.addEventListener('click', () => {
     document.getElementById('groupModal').style.display = 'flex';
+    renderSelectedUsers();
   });
+
+  // Keep a richer shape so we can re-render chips beautifully
+  window.selectedUsers = [];
+
   window.closeGroupModal = () => {
     document.getElementById('groupModal').style.display = 'none';
     document.getElementById('groupUserSearch').value = '';
     document.getElementById('groupUserResults').innerHTML = '';
-    document.getElementById('selectedUsers').innerHTML = '';
-    window.selectedUserIds = [];
+    window.selectedUsers = [];
+    renderSelectedUsers();
   };
-  window.selectedUserIds = [];
+
+  function renderSelectedUsers() {
+    const target = document.getElementById('selectedUsers');
+    if (!target) return;
+
+    if (!window.selectedUsers.length) {
+      target.innerHTML = '<div class="empty-selected">Add a couple of people to kick off the vibe.</div>';
+      return;
+    }
+
+    target.innerHTML = window.selectedUsers.map(u => `
+      <div class="group-chip" data-id="${u.id}">
+        ${u.pic ? `<img src="/uploads/${u.pic}" alt="${u.name}">` : `<span>${u.name.charAt(0)}</span>`}
+        <span class="chip-name">${u.name}</span>
+        <button type="button" onclick="removeUserFromGroup(${u.id})" aria-label="Remove ${u.name}">✕</button>
+      </div>
+    `).join('');
+  }
 
   window.addUserToGroup = (id, name, pic) => {
-    if (window.selectedUserIds.includes(id)) return;
-    window.selectedUserIds.push(id);
-    const chip = document.createElement('div');
-    chip.style.cssText = 'display:inline-flex;align-items:center;gap:.35rem;background:var(--primary-color);color:#fff;padding:.35rem .6rem;border-radius:20px;font-size:.65rem;font-weight:700;';
-    chip.innerHTML = `${name} <button type="button" onclick="removeUserFromGroup(${id})" style="background:none;border:none;color:#fff;cursor:pointer;font-weight:700;padding:0;margin-left:.15rem;">✕</button>`;
-    document.getElementById('selectedUsers').appendChild(chip);
+    if (window.selectedUsers.find(u => u.id === id)) return;
+    window.selectedUsers.push({ id, name, pic });
+    renderSelectedUsers();
     document.getElementById('groupUserSearch').value = '';
     document.getElementById('groupUserResults').innerHTML = '';
   };
+
   window.removeUserFromGroup = (id) => {
-    window.selectedUserIds = window.selectedUserIds.filter(uid => uid !== id);
+    window.selectedUsers = window.selectedUsers.filter(u => u.id !== id);
     renderSelectedUsers();
   };
-  function renderSelectedUsers() {
-    // Re-render would require storing names; simpler to rebuild via data attribute or global map
-    // For now, user must re-add if removed
-  }
 
   window.createGroup = async () => {
     const groupName = document.getElementById('groupNameInput').value.trim() || 'Group Chat';
-    if (window.selectedUserIds.length === 0) {
+    if (window.selectedUsers.length === 0) {
       alert('Add at least one participant');
       return;
     }
@@ -783,7 +815,7 @@
       const res = await fetch('/messages/group/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ participantIds: window.selectedUserIds, groupName })
+        body: JSON.stringify({ participantIds: window.selectedUsers.map(u => u.id), groupName })
       });
       const data = await res.json();
       if (data.success) {
@@ -983,7 +1015,7 @@
             document.getElementById('groupUserResults').innerHTML = '<div style="padding:.75rem;text-align:center;color:#ef4444;font-size:.8rem;">Search failed. Please try again.</div>';
             return;
           }
-          const users = (data.results || []).filter(u => !window.selectedUserIds.includes(u.id));
+          const users = (data.results || []).filter(u => !window.selectedUsers.find(sel => sel.id === u.id));
           if (users.length === 0) {
             document.getElementById('groupUserResults').innerHTML = '<div style="padding:.75rem;text-align:center;color:var(--text-light);font-size:.8rem;">No users found</div>';
             return;

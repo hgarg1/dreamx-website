@@ -2113,6 +2113,59 @@ main {
 /* =============================
      MESSAGES PAGE STYLES
      ============================= */
+.messages-hero {
+    max-width: 1200px;
+    margin: 2rem auto 0;
+    padding: 0 var(--spacing-md);
+}
+
+.messages-hero-card {
+    background: radial-gradient(circle at 10% 20%, rgba(255,79,163,0.18), transparent 40%),
+      radial-gradient(circle at 80% 0%, rgba(102,126,234,0.18), transparent 45%),
+      linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.75));
+    border: 1px solid rgba(255,79,163,0.15);
+    border-radius: 20px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+}
+
+.messages-hero-card h1 {
+    margin: 0 0 0.35rem;
+    font-size: 1.6rem;
+    letter-spacing: -0.01em;
+}
+
+.hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: var(--primary-color);
+    font-weight: 800;
+}
+
+.messages-hero-card p {
+    margin: 0 0 0.75rem;
+    color: var(--text-light);
+}
+
+.hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.hero-meta span {
+    background: rgba(255,79,163,0.12);
+    color: var(--primary-color);
+    padding: 0.4rem 0.65rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
 .messages-layout {
     max-width: 1200px;
     margin: 2.5rem auto 3rem;
@@ -2123,11 +2176,11 @@ main {
 }
 
 .conversations-column {
-    background: var(--bg-white);
+    background: linear-gradient(160deg, rgba(255,255,255,0.92), rgba(255,255,255,0.86));
     border-radius: var(--radius-lg);
-    border: 2px solid var(--border-color);
+    border: 1px solid rgba(255,79,163,0.1);
     padding: 1.5rem 1.5rem 1.25rem;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.08);
     height: calc(100vh - 200px);
     max-height: 800px;
     min-height: 500px;
@@ -2174,7 +2227,8 @@ main {
 }
 
 .conversation-item:hover {
-    background: var(--bg-light);
+    background: linear-gradient(90deg, rgba(255,79,163,0.06), rgba(102,126,234,0.05));
+    transform: translateX(3px);
 }
 
 .conversation-item.active {
@@ -2217,6 +2271,39 @@ main {
 .conversation-last.empty {
     font-style: italic;
     opacity: 0.9;
+}
+
+.conversation-pill {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    font-weight: 700;
+    border: 1px solid rgba(0,0,0,0.05);
+    background: #f8fafc;
+}
+
+.conversation-pill.pill-group {
+    color: #7c3aed;
+    border-color: rgba(124,58,237,0.25);
+    background: rgba(124,58,237,0.08);
+}
+
+.conversation-pill.pill-direct {
+    color: #0f172a;
+    border-color: rgba(15,23,42,0.08);
+}
+
+.chat-column {
+    position: relative;
+}
+
+.chat-surface {
+    background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,248,255,0.9) 100%);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem 1.5rem;
+    border: 1px solid rgba(102,126,234,0.15);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+    min-height: 700px;
 }
 
 .conversation-time {
@@ -2273,6 +2360,10 @@ main {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 16px;
+    background: linear-gradient(90deg, rgba(255,79,163,0.12), rgba(102,126,234,0.12));
+    border: 1px solid rgba(255,79,163,0.12);
 }
 
 .chat-header-left {
@@ -2282,15 +2373,16 @@ main {
 }
 
 .chat-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg,var(--primary-color),#764ba2);
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg,#ff4fa3,#7c3aed);
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-weight: 700;
+    font-weight: 800;
+    box-shadow: 0 10px 24px rgba(124,58,237,0.25);
 }
 
 .chat-partner-name {
@@ -2301,6 +2393,13 @@ main {
 .chat-partner-passion {
     font-size: 0.8rem;
     color: var(--text-light);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    background: rgba(255,79,163,0.12);
+    border-radius: 999px;
+    font-weight: 700;
 }
 
 .chat-history {
@@ -2387,6 +2486,11 @@ main {
 .inline-add-member { border:1px dashed var(--border-color); padding:.75rem; border-radius:12px; margin: .35rem 0 1rem; background: #f9fafb; }
 .inline-add-member input { width:100%; border:1px solid var(--border-color); border-radius:10px; padding:.55rem .7rem; margin-bottom:.5rem; }
 .inline-add-member #inlineAddMemberResults { max-height:180px; overflow-y:auto; display:grid; gap:.4rem; }
+.group-chip { display:inline-flex; align-items:center; gap:.4rem; padding:0.35rem 0.6rem; background:linear-gradient(135deg, rgba(255,79,163,0.16), rgba(102,126,234,0.14)); border:1px solid rgba(255,79,163,0.2); border-radius:999px; margin:0.2rem; box-shadow:0 6px 16px rgba(124,58,237,0.12); }
+.group-chip img { width:26px; height:26px; border-radius:50%; object-fit:cover; }
+.group-chip span { font-weight:700; font-size:0.8rem; color:var(--text-dark); }
+.group-chip button { background:none; border:none; color:var(--text-dark); cursor:pointer; font-weight:800; }
+.empty-selected { color: var(--text-light); font-size: 0.85rem; padding: 0.35rem 0; }
 .inline-result { display:flex; align-items:center; gap:.55rem; background:#fff; border:1px solid var(--border-color); border-radius:10px; padding:.5rem; cursor:pointer; transition:transform .15s ease, box-shadow .15s ease; }
 .inline-result:hover { transform: translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,0.06); }
 .inline-result img, .inline-avatar { width:32px; height:32px; border-radius:50%; object-fit:cover; background: var(--primary-color); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
@@ -2469,26 +2573,30 @@ main {
 .chat-input-row {
     display: flex;
     gap: 0.75rem;
-    border-top: 1px solid var(--border-color);
-    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,79,163,0.15);
+    padding-top: 0.85rem;
+    align-items: center;
 }
 
 .chat-input {
     flex: 1;
-    border-radius: var(--radius-md);
-    border: 2px solid var(--border-color);
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem;
+    border-radius: 14px;
+    border: 2px solid rgba(102,126,234,0.2);
+    padding: 0.65rem 0.85rem;
+    font-size: 0.95rem;
+    background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(247,248,255,0.95));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
 }
 
 .chat-send-btn {
-    background: var(--primary-color);
+    background: linear-gradient(135deg,#ff4fa3,#7c3aed);
     color: #fff;
     border: none;
     border-radius: 999px;
-    padding: 0.5rem 1.25rem;
-    font-weight: 600;
+    padding: 0.65rem 1.35rem;
+    font-weight: 700;
     cursor: pointer;
+    box-shadow: 0 12px 30px rgba(124,58,237,0.35);
 }
 
 @media (max-width: 900px) {
