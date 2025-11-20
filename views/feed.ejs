@@ -148,10 +148,13 @@
       }
       .modal-backdrop { animation: fadeIn 0.3s ease; }
       .modal-content { animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+      body.modal-open { overflow: hidden; }
+      .audio-visual .bar-visual span { transition: opacity 0.3s ease, transform 0.3s ease; }
+      .audio-visual.playing .bar-visual span { opacity: 0.92 !important; transform: scaleY(1.08); }
     </style>
 
     <div id="audioTrimModal" class="modal-backdrop feed-modal" style="display:none;position:fixed;z-index:4100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:96px 20px 28px;backdrop-filter:blur(10px);">
-      <div class="modal-content" style="background:white;border-radius:20px;max-width:620px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.35);">
+      <div class="modal-content" style="background:white;border-radius:20px;max-width:660px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.35);overflow:hidden;">
         <div style="padding:22px 26px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, rgba(255,79,163,0.06) 0%, rgba(118,75,162,0.06) 100%);">
           <div>
             <div style="font-weight:800;color:#111827;font-size:1.1rem;">✨ Select the perfect audio moment</div>
@@ -159,7 +162,38 @@
           </div>
           <button type="button" id="closeAudioTrimBtn" aria-label="Close" style="background:transparent;border:none;font-size:1.4rem;font-weight:700;color:#6b7280;cursor:pointer;">×</button>
         </div>
-        <div style="padding:22px 26px;display:flex;flex-direction:column;gap:18px;">
+        <div class="audio-trim-body" style="padding:22px 26px;display:flex;flex-direction:column;gap:18px;background:linear-gradient(180deg, #fff 0%, #fff5fb 100%);">
+          <div class="audio-meta-row" style="display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div style="display:flex;gap:12px;align-items:center;">
+              <div class="pill" style="background:rgba(255,79,163,0.1);color:#e63e8f;font-weight:800;font-size:0.78rem;padding:6px 12px;border-radius:999px;">Live audio editor</div>
+              <div id="trimFileName" style="font-weight:800;color:#111827;min-width:160px;">Select an audio file</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <button type="button" id="trimPreviewPlayBtn" style="padding:10px 14px;border:none;border-radius:10px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(255,79,163,0.25);display:flex;align-items:center;gap:8px;">
+                <span id="trimPreviewPlayLabel">▶</span> Preview clip
+              </button>
+              <button type="button" id="trimPreviewBackBtn" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;color:#374151;font-weight:700;cursor:pointer;">Back</button>
+            </div>
+          </div>
+
+          <div class="audio-visual" style="background:linear-gradient(135deg, rgba(255,79,163,0.08), rgba(118,75,162,0.08));border:1px solid rgba(255,79,163,0.12);border-radius:14px;padding:14px;box-shadow:0 10px 24px rgba(0,0,0,0.04);">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="display:flex;flex-direction:column;gap:6px;flex:1;">
+                <div id="trimFileStats" style="color:#6b7280;font-size:0.9rem;">Waiting for audio...</div>
+                <div class="bar-visual" id="trimWave" style="display:grid;grid-template-columns:repeat(24,1fr);gap:4px;align-items:end;min-height:60px;">
+                  <% for (let i = 0; i < 24; i++) { %>
+                    <span style="display:block;height:<%= 20 + (i % 6) * 6 %>px;background:linear-gradient(180deg, rgba(255,79,163,0.7), rgba(118,75,162,0.8));border-radius:6px;opacity:0.35;"></span>
+                  <% } %>
+                </div>
+              </div>
+              <div style="min-width:120px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+                <label for="trimPreviewVolume" style="font-weight:700;color:#111827;font-size:0.9rem;">Preview volume</label>
+                <input id="trimPreviewVolume" type="range" min="0" max="1" step="0.05" value="0.7" style="accent-color:#ff4fa3;width:120px;">
+              </div>
+            </div>
+            <audio id="trimPreviewPlayer" preload="metadata" style="width:100%;margin-top:10px;display:block;border-radius:10px;overflow:hidden;background:white;"></audio>
+          </div>
+
           <div style="display:flex;align-items:center;gap:10px;">
             <div style="flex:1;">
               <div style="font-weight:700;color:#111827;">Start time</div>
@@ -175,7 +209,7 @@
           <div style="padding:14px;border-radius:12px;background:linear-gradient(135deg, rgba(255,79,163,0.08), rgba(118,75,162,0.08));border:1px solid rgba(255,79,163,0.15);color:#374151;">
             <strong>Pro tip:</strong> If your video is longer than the audio, we’ll seamlessly loop your chosen segment to keep the vibe going.
           </div>
-          <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;">
             <button type="button" id="cancelAudioTrimBtn" style="padding:10px 18px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;color:#374151;font-weight:700;cursor:pointer;">Cancel</button>
             <button type="button" id="confirmAudioTrimBtn" style="padding:10px 22px;border:none;border-radius:10px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;font-weight:800;cursor:pointer;box-shadow:0 10px 20px rgba(255,79,163,0.35);">Save Clip</button>
           </div>
@@ -188,7 +222,19 @@
       let backdropPointerDown = false;
       let selectedVideoDuration = null;
       let pendingAudioFile = null;
+      let audioPreviewUrl = null;
+      let audioPreviewLoopHandler = null;
       let audioTrimState = { duration: 0, maxDuration: 15, start: 0, file: null };
+
+      function lockBodyScroll() {
+        document.body.style.overflow = 'hidden';
+        document.body.classList.add('modal-open');
+      }
+
+      function unlockBodyScroll() {
+        document.body.style.overflow = '';
+        document.body.classList.remove('modal-open');
+      }
 
       function openPostComposer(type = 'text') {
         const modal = document.getElementById('postComposerModal');
@@ -196,12 +242,13 @@
           console.error('Modal not found!');
           return;
         }
+        modal.dataset.wasOpen = 'true';
         modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        lockBodyScroll(); // Prevent background scrolling
         document.getElementById('postContentType').value = type;
         const mediaSection = document.getElementById('mediaUploadSection');
         const mediaInput = document.getElementById('mediaInput');
-        
+
         if (type === 'image') {
           mediaSection.style.display = 'block';
           mediaInput.accept = 'image/*';
@@ -224,7 +271,7 @@
         delete modal.dataset.wasOpen;
         const audioTrim = document.getElementById('audioTrimModal');
         if (!audioTrim || audioTrim.style.display !== 'flex') {
-          document.body.style.overflow = ''; // Restore scrolling
+          unlockBodyScroll(); // Restore scrolling
         }
         document.getElementById('postForm').reset();
         document.getElementById('mediaPreview').innerHTML = '';
@@ -244,12 +291,12 @@
         if (modal && modal.dataset.wasOpen === 'true') {
           modal.style.display = 'flex';
           delete modal.dataset.wasOpen;
-          document.body.style.overflow = 'hidden';
+          lockBodyScroll();
           return true;
         }
         return false;
       }
-      
+
       function clearAudioUpload() {
         const audioInput = document.getElementById('audioInput');
         const audioPreview = document.getElementById('audioPreview');
@@ -257,6 +304,8 @@
         if (audioPreview) audioPreview.style.display = 'none';
         const audioDurationHint = document.getElementById('audioDurationHint');
         if (audioDurationHint) audioDurationHint.textContent = 'Audio will loop in background at 30% volume';
+        updateAudioTrimMeta(null, 0);
+        stopAudioPreviewPlayback();
         pendingAudioFile = null;
         audioTrimState = { duration: 0, maxDuration: 15, start: 0, file: null };
       }
@@ -353,21 +402,143 @@
         return buffer;
       }
 
+      function stopAudioPreviewPlayback(resetLabel = true) {
+        const player = document.getElementById('trimPreviewPlayer');
+        const visual = document.querySelector('.audio-visual');
+        if (player) {
+          if (audioPreviewLoopHandler) {
+            player.removeEventListener('timeupdate', audioPreviewLoopHandler);
+            audioPreviewLoopHandler = null;
+          }
+          player.pause();
+          if (audioTrimState.start && !Number.isNaN(audioTrimState.start)) {
+            player.currentTime = audioTrimState.start;
+          }
+        }
+        if (resetLabel) {
+          const label = document.getElementById('trimPreviewPlayLabel');
+          if (label) label.textContent = '▶';
+        }
+        if (visual) visual.classList.remove('playing');
+        if (audioPreviewUrl) {
+          URL.revokeObjectURL(audioPreviewUrl);
+          audioPreviewUrl = null;
+        }
+      }
+
+      function updateAudioTrimMeta(file, duration) {
+        const fileNameLabel = document.getElementById('trimFileName');
+        const fileStats = document.getElementById('trimFileStats');
+        const prettySize = (file?.size || 0) / (1024 * 1024);
+        if (fileNameLabel) fileNameLabel.textContent = file ? file.name : 'Select an audio file';
+        if (fileStats) {
+          fileStats.textContent = file
+            ? `${formatTime(duration)} total • ${prettySize.toFixed(2)} MB`
+            : 'Waiting for audio...';
+        }
+        const waveBars = document.querySelectorAll('#trimWave span');
+        waveBars.forEach((bar, idx) => {
+          const height = 18 + ((duration || 1) % (idx + 4)) * 1.5 + (idx % 5) * 3;
+          bar.style.height = `${Math.min(height, 72)}px`;
+          bar.style.opacity = file ? 0.65 : 0.35;
+        });
+      }
+
+      function updateTrimLabels() {
+        const trimStartLabel = document.getElementById('trimStartLabel');
+        const trimEndLabel = document.getElementById('trimEndLabel');
+        const trimClipLength = document.getElementById('trimClipLength');
+        const start = audioTrimState.start || 0;
+        const end = start + audioTrimState.maxDuration;
+        if (trimStartLabel) trimStartLabel.textContent = formatTime(start);
+        if (trimEndLabel) trimEndLabel.textContent = formatTime(end);
+        if (trimClipLength) trimClipLength.textContent = `${audioTrimState.maxDuration.toFixed(0)}s`;
+      }
+
+      function syncPreviewWithTrim() {
+        const player = document.getElementById('trimPreviewPlayer');
+        updateTrimLabels();
+        if (player && player.src) {
+          player.currentTime = Math.min(audioTrimState.start, Math.max(player.duration - audioTrimState.maxDuration, 0));
+        }
+      }
+
+      function setPreviewSource(file) {
+        const player = document.getElementById('trimPreviewPlayer');
+        if (!player || !file) return;
+        stopAudioPreviewPlayback(false);
+        audioPreviewUrl = URL.createObjectURL(file);
+        player.src = audioPreviewUrl;
+        player.currentTime = audioTrimState.start || 0;
+        player.volume = Number(document.getElementById('trimPreviewVolume')?.value || 0.7);
+      }
+
+      function togglePreviewPlayback(forcePlay = null) {
+        const player = document.getElementById('trimPreviewPlayer');
+        const playLabel = document.getElementById('trimPreviewPlayLabel');
+        const visual = document.querySelector('.audio-visual');
+        if (!player || !player.src) return;
+        const shouldPlay = forcePlay === null ? player.paused : forcePlay;
+        if (shouldPlay) {
+          player.currentTime = audioTrimState.start || 0;
+          const loopEnd = (audioTrimState.start || 0) + audioTrimState.maxDuration;
+          audioPreviewLoopHandler = () => {
+            if (player.currentTime >= loopEnd - 0.05) {
+              player.currentTime = audioTrimState.start || 0;
+            }
+          };
+          player.addEventListener('timeupdate', audioPreviewLoopHandler);
+          player.play().then(() => {
+            if (playLabel) playLabel.textContent = '⏸';
+            if (visual) visual.classList.add('playing');
+          }).catch(() => {});
+        } else {
+          player.pause();
+          if (playLabel) playLabel.textContent = '▶';
+          if (visual) visual.classList.remove('playing');
+          if (audioPreviewLoopHandler) {
+            player.removeEventListener('timeupdate', audioPreviewLoopHandler);
+            audioPreviewLoopHandler = null;
+          }
+        }
+      }
+
       function openAudioTrimModal() {
         const modal = document.getElementById('audioTrimModal');
         if (!modal) return;
         suspendPostComposerForAudio();
         modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
+        lockBodyScroll();
       }
 
-      function closeAudioTrimModal() {
+      function closeAudioTrimModal({ clearAudio = false } = {}) {
         const modal = document.getElementById('audioTrimModal');
         if (!modal) return;
         modal.style.display = 'none';
+        stopAudioPreviewPlayback();
+        if (!clearAudio && audioTrimState.file) {
+          setAudioInputFile(audioTrimState.file);
+          const audioPreview = document.getElementById('audioPreview');
+          const audioFileName = document.getElementById('audioFileName');
+          const audioDurationHint = document.getElementById('audioDurationHint');
+          const audioInputEl = document.getElementById('audioInput');
+          if (audioPreview) audioPreview.style.display = 'block';
+          if (audioFileName) audioFileName.textContent = audioTrimState.file.name;
+          if (audioDurationHint) {
+            const hintDuration = Math.min(audioTrimState.duration || audioTrimState.maxDuration, audioTrimState.maxDuration);
+            audioDurationHint.textContent = `Will loop seamlessly • ${formatTime(hintDuration)}`;
+          }
+          if (audioInputEl) {
+            audioInputEl.dataset.trimStart = (audioTrimState.start || 0).toString();
+            audioInputEl.dataset.trimEnd = (audioTrimState.start + audioTrimState.maxDuration).toFixed(2);
+          }
+        }
+        if (clearAudio) {
+          clearAudioUpload();
+        }
         const postComposerVisible = resumePostComposerAfterAudio();
         if (!postComposerVisible) {
-          document.body.style.overflow = '';
+          unlockBodyScroll();
         }
       }
 
@@ -393,20 +564,18 @@
             // Configure modal
             const trimRange = document.getElementById('audioTrimRange');
             const trimMaxLabel = document.getElementById('trimMaxSeconds');
-            const trimStartLabel = document.getElementById('trimStartLabel');
-            const trimEndLabel = document.getElementById('trimEndLabel');
-            const trimClipLength = document.getElementById('trimClipLength');
             const maxStart = Math.max(duration - maxDuration, 0);
             if (trimRange) {
               trimRange.max = maxStart.toFixed(1);
               trimRange.value = Math.min(parseFloat(trimRange.value) || 0, maxStart).toString();
             }
-            if (trimMaxLabel) trimMaxLabel.textContent = maxDuration.toFixed(0);
-            if (trimClipLength) trimClipLength.textContent = `${maxDuration.toFixed(0)}s`;
             const selectedStart = Math.min(Number(trimRange?.value || 0), maxStart);
             audioTrimState.start = selectedStart;
-            if (trimStartLabel) trimStartLabel.textContent = formatTime(selectedStart);
-            if (trimEndLabel) trimEndLabel.textContent = formatTime(selectedStart + maxDuration);
+            if (trimMaxLabel) trimMaxLabel.textContent = maxDuration.toFixed(0);
+            updateTrimLabels();
+            updateAudioTrimMeta(file, duration);
+            setPreviewSource(file);
+            togglePreviewPlayback(false);
             openAudioTrimModal();
             return; // Wait for user confirmation before setting preview
           }
@@ -418,6 +587,7 @@
             const prettyDuration = formatTime(Math.min(duration, maxDuration));
             audioDurationHint.textContent = `Will loop seamlessly • ${prettyDuration} max`;
           }
+          updateAudioTrimMeta(file, duration);
         } catch (err) {
           console.error('Audio analysis failed', err);
           if (!forceRecheck) alert('Unable to read audio file. Please try another file.');
@@ -536,22 +706,24 @@
             const end = start + audioTrimState.maxDuration;
             if (trimStartLabel) trimStartLabel.textContent = formatTime(start);
             if (trimEndLabel) trimEndLabel.textContent = formatTime(end);
+            if (trimClipLength) trimClipLength.textContent = `${audioTrimState.maxDuration.toFixed(0)}s`;
+            syncPreviewWithTrim();
           });
         }
-
-        document.getElementById('closeAudioTrimBtn').addEventListener('click', () => {
-          closeAudioTrimModal();
-          clearAudioUpload();
-        });
+        const closeTrimWithoutClearing = () => closeAudioTrimModal();
+        document.getElementById('closeAudioTrimBtn').addEventListener('click', closeTrimWithoutClearing);
+        document.getElementById('trimPreviewBackBtn').addEventListener('click', closeTrimWithoutClearing);
         document.getElementById('cancelAudioTrimBtn').addEventListener('click', () => {
-          closeAudioTrimModal();
-          clearAudioUpload();
+          closeAudioTrimModal({ clearAudio: true });
         });
         document.getElementById('confirmAudioTrimBtn').addEventListener('click', async () => {
           if (!audioTrimState.file) { closeAudioTrimModal(); return; }
           try {
             const trimmed = await trimAudioFile(audioTrimState.file, audioTrimState.start, audioTrimState.maxDuration);
+            audioTrimState.file = trimmed;
+            audioTrimState.duration = audioTrimState.maxDuration;
             setAudioInputFile(trimmed);
+            pendingAudioFile = trimmed;
             const audioPreview = document.getElementById('audioPreview');
             const audioFileName = document.getElementById('audioFileName');
             const audioDurationHint = document.getElementById('audioDurationHint');
@@ -563,6 +735,7 @@
             if (audioFileName) audioFileName.textContent = `${trimmed.name} (trimmed)`;
             if (audioPreview) audioPreview.style.display = 'block';
             if (audioDurationHint) audioDurationHint.textContent = `Clipped to ${formatTime(audioTrimState.maxDuration)} • loops to match video if needed`;
+            updateAudioTrimMeta(trimmed, audioTrimState.maxDuration);
           } catch (err) {
             console.error('Audio trimming failed, preserving start/end markers', err);
             alert('We could not save the trimmed file, but we will loop between your chosen start and end when playing the reel.');
@@ -581,6 +754,15 @@
           }
           closeAudioTrimModal();
         });
+
+        document.getElementById('trimPreviewPlayBtn').addEventListener('click', () => togglePreviewPlayback());
+        const volumeSlider = document.getElementById('trimPreviewVolume');
+        if (volumeSlider) {
+          volumeSlider.addEventListener('input', () => {
+            const player = document.getElementById('trimPreviewPlayer');
+            if (player) player.volume = Number(volumeSlider.value || 0.7);
+          });
+        }
       });
     </script>
 
