@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 
 <% const isAdminUserFlag = authUser && ['admin','super_admin','global_admin'].includes(authUser.role); %>
-<div class="messages-page <%= isAdminUserFlag ? 'admin-mode' : '' %>">
+<div class="messages-page">
   <% const participantCount = (typeof participants !== 'undefined' && participants ? participants.length : 0); %>
   <% const conversationCount = (typeof conversations !== 'undefined' && conversations ? conversations.length : 0); %>
   <div class="messages-header">
@@ -10,18 +10,10 @@
       <div class="messages-title-row">
         <h1 class="messages-title">Messages</h1>
         <span class="header-chip live">Live</span>
-        <span class="header-chip muted">No overflow</span>
-        <% if (isAdminUserFlag) { %>
-          <span class="header-chip admin-chip">Admin view</span>
-        <% } %>
       </div>
       <div class="messages-meta-row">
         <span><strong><%= participantCount || 0 %></strong> active members</span>
         <span><strong><%= conversationCount || 0 %></strong> conversations</span>
-        <span class="meta-pill">Reactions ready</span>
-        <% if (isAdminUserFlag) { %>
-          <span class="meta-pill strong">Admin controls unlocked</span>
-        <% } %>
       </div>
     </div>
     <div class="messages-header-actions">
@@ -104,7 +96,6 @@
             <div class="chat-partner-info">
               <span class="chat-partner-name"><%= currentConversation.group_name || 'Group Chat' %></span>
               <span class="chat-partner-passion" style="background:#667eea;"><%= participants.length %> members</span>
-              <span class="chat-partner-sub" aria-live="polite">Share, add people, and tips are wired</span>
             </div>
           <% } else { %>
             <% if (currentConversation.other_user_picture) { %>
@@ -148,6 +139,8 @@
                 <button type="button" class="safety-item" onclick="reportConversation(true)">🛡️ Flag content</button>
                 <% if (!currentConversation.is_group) { %>
                   <button type="button" class="safety-item" onclick="blockConversationUser(<%= currentConversation.other_user_id %>)">🚫 Block participant</button>
+                  <button type="button" class="safety-item" onclick="suspendConversationUser(<%= currentConversation.other_user_id %>)">⏸️ Suspend user</button>
+                  <button type="button" class="safety-item" id="freezeActionBtn" onclick="toggleChatFreeze(<%= currentConversation.other_user_id %>)">❄️ Toggle chat freeze</button>
                 <% } else { %>
                   <button type="button" class="safety-item" onclick="openGroupSettings()">⚙️ Manage group</button>
                 <% } %>
@@ -161,7 +154,6 @@
       <div class="chat-top-badges">
         <span class="pill-soft">Threaded replies are on</span>
         <span class="pill-soft">Reactions ready</span>
-        <span class="pill-soft pill-muted">Glassy gradient surface</span>
       </div>
 
       <% if (currentConversation.is_group) { %>
@@ -321,6 +313,15 @@
   const currentConversationMeta = <%= currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
   const conversationParticipants = <%= currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
   const isAdminUser = <%= authUser && ['admin','super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
+  const moderationTarget = <%- JSON.stringify(moderationTarget || null) %>;
+  let chatFreezeState = moderationTarget ? !!moderationTarget.chat_privileges_frozen : false;
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const freezeBtn = document.getElementById('freezeActionBtn');
+    if (freezeBtn) {
+      freezeBtn.textContent = chatFreezeState ? '❄️ Unfreeze chat' : '❄️ Freeze chat';
+    }
+  });
 
   let replyToMessageId = null;
 
@@ -1361,6 +1362,75 @@
       null,
       'Report Message',
       '⚠️'
+    );
+  };
+
+  window.suspendConversationUser = function(userId) {
+    const defaultDays = moderationTarget?.account_status === 'suspended' ? 7 : 3;
+    const days = parseInt(prompt('Suspend this user for how many days?', defaultDays), 10);
+    if (!days || Number.isNaN(days)) return;
+
+    const reason = prompt('Reason for suspension (optional)', 'Suspended from messages view');
+
+    showConfirm(
+      `Suspend this user for ${days} day(s)? They will lose platform access until reinstated.`,
+      async function() {
+        try {
+          const res = await fetch(`/admin/users/${userId}/suspend`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ days, reason, notifyUser: true })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showSuccess('User suspended successfully.', 'Suspended');
+          } else {
+            showError(data.error || 'Failed to suspend user', 'Suspend Failed');
+          }
+        } catch (err) {
+          console.error('Suspend error', err);
+          showError('Could not suspend this user right now.', 'Suspend Failed');
+        }
+      },
+      null,
+      'Suspend User',
+      '⏸️'
+    );
+  };
+
+  window.toggleChatFreeze = function(userId) {
+    const action = chatFreezeState ? 'unfreeze' : 'freeze';
+    const reason = chatFreezeState ? 'Restoring chat privileges' : 'Frozen from messages view';
+    const confirmText = chatFreezeState
+      ? 'Restore chat privileges for this user? They will be able to send messages again.'
+      : 'Freeze chat privileges? They will not be able to send messages until unfrozen.';
+
+    showConfirm(
+      confirmText,
+      async function() {
+        try {
+          const res = await fetch(`/admin/users/${userId}/freeze-chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ action, reason })
+          });
+          const data = await res.json();
+          if (data.success) {
+            chatFreezeState = data.frozen;
+            const btn = document.getElementById('freezeActionBtn');
+            if (btn) btn.textContent = data.frozen ? '❄️ Unfreeze chat' : '❄️ Freeze chat';
+            showSuccess(data.message || 'Chat privileges updated.', data.frozen ? 'Chat Frozen' : 'Chat Restored');
+          } else {
+            showError(data.error || 'Failed to update chat privileges', 'Action failed');
+          }
+        } catch (err) {
+          console.error('Freeze chat error', err);
+          showError('Could not update chat privileges right now.', 'Action failed');
+        }
+      },
+      null,
+      action === 'freeze' ? 'Freeze Chat' : 'Unfreeze Chat',
+      '❄️'
     );
   };
   

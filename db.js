@@ -454,6 +454,7 @@ try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'ev
 try { db.exec(`ALTER TABLE users ADD COLUMN discoverable_by_email INTEGER DEFAULT 1;`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN show_online_status INTEGER DEFAULT 1;`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN read_receipts INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN chat_privileges_frozen INTEGER DEFAULT 0;`); } catch (e) {}
 // Messages attachments migration (idempotent)
 try {
   db.exec(`ALTER TABLE messages ADD COLUMN attachment_url TEXT;`);
