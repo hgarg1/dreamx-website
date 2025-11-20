@@ -951,14 +951,15 @@
 }
 
 /* === RESPONSIVE DESIGN === */
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
+    /* Slightly compress column widths before we stack to avoid collisions */
     .feed-layout {
-        grid-template-columns: 260px 1fr 280px;
+        grid-template-columns: 240px 1fr 260px;
         gap: 1.5rem;
     }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
     /* Stack the columns into rows on tablets and smaller to prevent overlap */
     .feed-layout {
         display: flex;
