@@ -152,6 +152,8 @@
 
     <script>
       // Global functions need to be outside DOMContentLoaded
+      let backdropPointerDown = false;
+
       function openPostComposer(type = 'text') {
         const modal = document.getElementById('postComposerModal');
         if (!modal) {
@@ -272,8 +274,17 @@
         document.getElementById('cancelPostComposerBtn').addEventListener('click', function(e) { e.preventDefault(); closePostComposer(); });
 
         // Backdrop click closes modal only if clicked outside content
-        document.getElementById('postComposerModal').addEventListener('click', function(e) {
-          if (e.target === this) closePostComposer();
+        const postComposerModal = document.getElementById('postComposerModal');
+
+        postComposerModal.addEventListener('pointerdown', function(e) {
+          backdropPointerDown = e.target === this;
+        });
+
+        postComposerModal.addEventListener('pointerup', function(e) {
+          if (backdropPointerDown && e.target === this) {
+            closePostComposer();
+          }
+          backdropPointerDown = false;
         });
 
         // Prevent modal-content click from closing modal
