@@ -39,7 +39,11 @@
         function leave(){ c.classList.add('dx-hidden'); r.classList.add('dx-hidden'); }
         function onHoverEl(e){
           const t = e.target;
-          if (!t) return;
+          if (!t || typeof t.closest !== 'function') {
+            c.classList.remove('dx-link');
+            r.classList.remove('dx-link');
+            return;
+          }
           const isLink = t.closest('a, button, .btn, [role="button"], .clickable');
           c.classList.toggle('dx-link', !!isLink);
           r.classList.toggle('dx-link', !!isLink);
@@ -55,12 +59,12 @@
         // Keep native cursor for inputs/contenteditable
         const restoreSel = 'input, textarea, select, [contenteditable="true"]';
         document.addEventListener('pointerenter', (e) => {
-          if (e.target && e.target.closest(restoreSel)) {
+          if (e.target && typeof e.target.closest === 'function' && e.target.closest(restoreSel)) {
             document.documentElement.classList.remove('dx-cursor-enabled');
           }
         }, true);
         document.addEventListener('pointerleave', (e) => {
-          if (e.target && e.target.closest(restoreSel)) {
+          if (e.target && typeof e.target.closest === 'function' && e.target.closest(restoreSel)) {
             document.documentElement.classList.add('dx-cursor-enabled');
           }
         }, true);
