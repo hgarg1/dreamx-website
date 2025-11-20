@@ -2709,7 +2709,7 @@ app.get('/api/users/following/reels', (req, res) => {
     }
 });
 
-// API: get reels for a user, filtering 24h expiry based on client timezone offset
+// API: get reels for a user, filtering 48h expiry based on client timezone offset
 app.get('/api/users/:id/reels', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const uid = parseInt(req.params.id, 10);
@@ -2720,10 +2720,10 @@ app.get('/api/users/:id/reels', (req, res) => {
             SELECT p.*, u.full_name, u.profile_picture
             FROM posts p
             JOIN users u ON u.id = p.user_id
-            WHERE p.user_id = ? AND p.is_reel = 1
+            WHERE p.user_id = ? AND p.is_reel = 1 AND p.created_at >= datetime('now', '-48 hours')
             ORDER BY p.created_at DESC
         `).all(uid);
-        // Apply 48h expiry based on user's local time (client-provided offset)
+        // Apply 48h expiry based on user's local time (client-provided offset) as a double-check
         const now = new Date();
         const nowLocalMs = now.getTime() - (tzOffsetMin * 60 * 1000);
         const active = rows.filter(r => {
@@ -2738,14 +2738,14 @@ app.get('/api/users/:id/reels', (req, res) => {
     }
 });
 
-// API: count reels (active within 24h) for avatar dot and click behavior
+// API: count reels (active within 48h) for avatar dot and click behavior
 app.get('/api/users/:id/reels/count', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const uid = parseInt(req.params.id, 10);
     if (!uid) return res.status(400).json({ error: 'Invalid user id' });
     const tzOffsetMin = parseInt(req.query.tzOffset || '0', 10);
     try {
-        const rows = db.prepare(`SELECT created_at FROM posts WHERE user_id = ? AND is_reel = 1 ORDER BY created_at DESC`).all(uid);
+        const rows = db.prepare(`SELECT created_at FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours') ORDER BY created_at DESC`).all(uid);
         const now = new Date();
         const nowLocalMs = now.getTime() - (tzOffsetMin * 60 * 1000);
         const count = rows.filter(r => {

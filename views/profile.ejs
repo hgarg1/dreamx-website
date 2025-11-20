@@ -592,6 +592,16 @@
         const res = await fetch(`/api/users/<%= profileUserId %>/reels?tzOffset=${tzOffset}`);
         const data = await res.json();
         reelsData = data.reels || [];
+        hasReels = reelsData.length > 0;
+        if (!hasReels) {
+          avatar.style.border = '';
+          avatar.style.cursor = 'default';
+          const existingBadge = document.getElementById('reelsBadge');
+          if (existingBadge) existingBadge.remove();
+          const overlay = document.getElementById('reelsOverlay');
+          if (overlay) overlay.style.display = 'none';
+          return;
+        }
         const c = document.getElementById('reelsContainer');
         if (!c) return;
         if (!reelsData.length) { c.innerHTML = '<div style="color:#aaa">No active reels</div>'; return; }
