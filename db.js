@@ -119,6 +119,9 @@ CREATE TABLE IF NOT EXISTS messages (
   conversation_id INTEGER NOT NULL,
   sender_id INTEGER NOT NULL,
   content TEXT NOT NULL,
+  attachment_url TEXT,
+  attachment_mime TEXT,
+  reply_to_message_id INTEGER,
   read INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (conversation_id) REFERENCES conversations(id),
@@ -459,6 +462,12 @@ try {
 }
 try {
   db.exec(`ALTER TABLE messages ADD COLUMN attachment_mime TEXT;`);
+} catch (e) {
+  // Column exists
+}
+// Message replies (idempotent)
+try {
+  db.exec(`ALTER TABLE messages ADD COLUMN reply_to_message_id INTEGER;`);
 } catch (e) {
   // Column exists
 }
@@ -1149,19 +1158,48 @@ module.exports = {
   },
   getConversationMessages: (conversationId) => {
     return db.prepare(`
-      SELECT m.*, u.full_name as sender_name, u.profile_picture as sender_picture
+      SELECT m.*, u.full_name as sender_name, u.profile_picture as sender_picture,
+        rm.content AS reply_content,
+        rm.attachment_url AS reply_attachment_url,
+        rm.attachment_mime AS reply_attachment_mime,
+        rm.sender_id AS reply_sender_id,
+        ru.full_name AS reply_sender_name
       FROM messages m
       JOIN users u ON m.sender_id = u.id
+      LEFT JOIN messages rm ON rm.id = m.reply_to_message_id
+      LEFT JOIN users ru ON rm.sender_id = ru.id
       WHERE m.conversation_id = ?
       ORDER BY m.created_at ASC
     `).all(conversationId);
   },
-  createMessage: ({ conversationId, senderId, content, attachmentUrl, attachmentMime }) => {
+  getMessageWithContext: (messageId) => {
+    return db.prepare(`
+      SELECT m.*, u.full_name as sender_name, u.profile_picture as sender_picture,
+        rm.content AS reply_content,
+        rm.attachment_url AS reply_attachment_url,
+        rm.attachment_mime AS reply_attachment_mime,
+        rm.sender_id AS reply_sender_id,
+        ru.full_name AS reply_sender_name
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      LEFT JOIN messages rm ON rm.id = m.reply_to_message_id
+      LEFT JOIN users ru ON rm.sender_id = ru.id
+      WHERE m.id = ?
+    `).get(messageId);
+  },
+  createMessage: ({ conversationId, senderId, content, attachmentUrl, attachmentMime, replyToMessageId }) => {
     const stmt = db.prepare(`
-      INSERT INTO messages (conversation_id, sender_id, content, attachment_url, attachment_mime)
-      VALUES (?,?,?,?,?)
+      INSERT INTO messages (conversation_id, sender_id, content, attachment_url, attachment_mime, reply_to_message_id)
+      VALUES (?,?,?,?,?,?)
     `);
-    const info = stmt.run(conversationId, senderId, content || '', attachmentUrl || null, attachmentMime || null);
+    const info = stmt.run(
+      conversationId,
+      senderId,
+      content || '',
+      attachmentUrl || null,
+      attachmentMime || null,
+      replyToMessageId || null
+    );
     return info.lastInsertRowid;
   },
   markMessagesAsRead: ({ conversationId, userId }) => {

@@ -31,7 +31,7 @@ const paymentService = require('./services/payments');
 const { 
     db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
     updateProfilePicture, updateBannerImage, updatePassword, updateUserHandle, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
-    getOrCreateConversation, getUserConversations, getConversationMessages,
+    getOrCreateConversation, getUserConversations, getConversationMessages, getMessageWithContext,
     createMessage, markMessagesAsRead, getUnreadMessageCount,
     updateUserRole, getAllUsers, getStats,
     // New admin helpers
@@ -3759,6 +3759,7 @@ app.post('/api/messages/send', chatUpload.any(), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const conversationId = parseInt(req.body.conversationId, 10);
+    const replyToMessageId = req.body.replyToMessageId ? parseInt(req.body.replyToMessageId, 10) : null;
     const content = (req.body.content || '').trim();
         // Multer .any() -> files in req.files; support both 'file' and 'files' fields
         let files = Array.isArray(req.files) ? req.files : [];
@@ -3777,6 +3778,15 @@ app.post('/api/messages/send', chatUpload.any(), (req, res) => {
     // Fetch conversation for privacy and notifications
     const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
     if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+    // Validate reply target belongs to conversation
+    let replyContext = null;
+    if (replyToMessageId) {
+        replyContext = db.prepare('SELECT id, conversation_id FROM messages WHERE id = ?').get(replyToMessageId);
+        if (!replyContext || replyContext.conversation_id !== conversationId) {
+            return res.status(400).json({ error: 'Invalid reply target' });
+        }
+    }
 
     // If direct conversation, enforce recipient privacy setting
     if (!conv.is_group) {
@@ -3797,16 +3807,18 @@ app.post('/api/messages/send', chatUpload.any(), (req, res) => {
             senderId: req.session.userId,
             content,
             attachmentUrl: null,
-            attachmentMime: null
+            attachmentMime: null,
+            replyToMessageId
         });
         createdMessageIds.push(messageId);
-        const payload = {
+        const payload = getMessageWithContext(messageId) || {
             id: messageId,
             conversation_id: conversationId,
             sender_id: req.session.userId,
             content,
             attachment_url: null,
             attachment_mime: null,
+            reply_to_message_id: replyToMessageId,
             created_at: new Date().toISOString()
         };
         createdPayloads.push(payload);
@@ -3822,16 +3834,18 @@ app.post('/api/messages/send', chatUpload.any(), (req, res) => {
             senderId: req.session.userId,
             content: '',
             attachmentUrl,
-            attachmentMime
+            attachmentMime,
+            replyToMessageId: replyToMessageId && !content ? replyToMessageId : null
         });
         createdMessageIds.push(messageId);
-        const payload = {
+        const payload = getMessageWithContext(messageId) || {
             id: messageId,
             conversation_id: conversationId,
             sender_id: req.session.userId,
             content: '',
             attachment_url: attachmentUrl,
             attachment_mime: attachmentMime,
+            reply_to_message_id: replyToMessageId,
             created_at: new Date().toISOString()
         };
         createdPayloads.push(payload);
