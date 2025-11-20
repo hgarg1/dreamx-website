@@ -5,6 +5,23 @@ require('dotenv').config();
 
 const OAuth2 = google.auth.OAuth2;
 
+// Dynamically resolve the redirect URI for Gmail OAuth depending on environment
+const isProduction = process.env.NODE_ENV === 'production';
+const inferredBaseUrl = process.env.BASE_URL || (isProduction
+    ? 'https://dreamx-website.onrender.com'
+    : 'http://localhost:3000');
+
+function getGmailRedirectUri() {
+    if (process.env.GMAIL_REDIRECT_URI && process.env.GMAIL_REDIRECT_URI.trim()) {
+        return process.env.GMAIL_REDIRECT_URI.trim();
+    }
+
+    // Use OAuth Playground for local development, fall back to app callback in production
+    return isProduction
+        ? `${inferredBaseUrl.replace(/\/$/, '')}/auth/google/callback`
+        : 'https://developers.google.com/oauthplayground';
+}
+
 // Create OAuth2 client
 const createTransporter = async () => {
     // Check if OAuth credentials are configured
@@ -16,7 +33,7 @@ const createTransporter = async () => {
     const oauth2Client = new OAuth2(
         process.env.GMAIL_CLIENT_ID,
         process.env.GMAIL_CLIENT_SECRET,
-        process.env.GMAIL_REDIRECT_URI || 'https://developers.google.com/oauthplayground'
+        getGmailRedirectUri()
     );
 
     oauth2Client.setCredentials({
