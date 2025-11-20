@@ -4,6 +4,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
 const AppleStrategy = require('passport-apple');
+const crypto = require('crypto');
 require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
@@ -39,6 +40,8 @@ const {
     addAuditLog, getAuditLogsPaged, getAuditLogCount,
     // Email Verification
     createVerificationCode, getVerificationCode, markCodeAsVerified, markEmailAsVerified, deleteExpiredVerificationCodes,
+    // Password resets
+    createPasswordResetToken, getPasswordResetToken, markPasswordResetUsed, deleteExpiredPasswordResetTokens, invalidateUserResetTokens,
     // Posts
     createPost, getFeedPosts, getUserPosts,
     // Post reactions & comments
@@ -2012,6 +2015,198 @@ app.post('/resend-verification', async (req, res) => {
     } catch (err) {
         console.error('Resend verification error:', err);
         return res.status(500).json({ success: false, error: 'Failed to send email. Please try again.' });
+    }
+});
+
+// Forgot password
+app.get('/forgot-password', (req, res) => {
+    if (req.session.userId) return res.redirect('/feed');
+
+    res.render('forgot-password', {
+        title: 'Forgot Password - Dream X',
+        currentPage: 'forgot-password',
+        error: null,
+        success: null
+    });
+});
+
+app.post('/forgot-password', async (req, res) => {
+    const email = (req.body.email || '').trim().toLowerCase();
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const successMessage = 'If an account exists for that email, we\'ve sent reset instructions to your inbox.';
+
+    if (!email) {
+        return res.status(400).render('forgot-password', {
+            title: 'Forgot Password - Dream X',
+            currentPage: 'forgot-password',
+            error: 'Please enter your email address.',
+            success: null
+        });
+    }
+
+    try {
+        deleteExpiredPasswordResetTokens();
+    } catch (err) {
+        console.error('Failed to cleanup reset tokens:', err.message);
+    }
+
+    const user = getUserByEmail(email);
+    if (!user) {
+        return res.render('forgot-password', {
+            title: 'Forgot Password - Dream X',
+            currentPage: 'forgot-password',
+            error: null,
+            success: successMessage
+        });
+    }
+
+    try {
+        invalidateUserResetTokens({ userId: user.id });
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+        createPasswordResetToken({
+            userId: user.id,
+            email: user.email,
+            tokenHash,
+            expiresAt
+        });
+
+        const resetLink = `${baseUrl}/reset-password?token=${token}`;
+        await emailService.sendPasswordReset(user, resetLink);
+
+        return res.render('forgot-password', {
+            title: 'Forgot Password - Dream X',
+            currentPage: 'forgot-password',
+            error: null,
+            success: successMessage
+        });
+    } catch (err) {
+        console.error('Failed to start password reset:', err);
+        return res.status(500).render('forgot-password', {
+            title: 'Forgot Password - Dream X',
+            currentPage: 'forgot-password',
+            error: 'Something went wrong while sending your reset email. Please try again shortly.',
+            success: null
+        });
+    }
+});
+
+app.get('/reset-password', (req, res) => {
+    const token = (req.query.token || '').trim();
+    if (!token) {
+        return res.status(400).render('reset-password', {
+            title: 'Reset Password - Dream X',
+            currentPage: 'reset-password',
+            error: 'This password reset link is invalid or has already been used.',
+            success: null,
+            token: null
+        });
+    }
+
+    deleteExpiredPasswordResetTokens();
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const record = getPasswordResetToken({ tokenHash });
+    if (!record || record.used || new Date(record.expires_at) < new Date()) {
+        return res.status(400).render('reset-password', {
+            title: 'Reset Password - Dream X',
+            currentPage: 'reset-password',
+            error: 'This password reset link is invalid or has expired.',
+            success: null,
+            token: null
+        });
+    }
+
+    return res.render('reset-password', {
+        title: 'Reset Password - Dream X',
+        currentPage: 'reset-password',
+        error: null,
+        success: null,
+        token
+    });
+});
+
+app.post('/reset-password', async (req, res) => {
+    const { token, password, confirmPassword } = req.body;
+
+    if (!token) {
+        return res.status(400).render('reset-password', {
+            title: 'Reset Password - Dream X',
+            currentPage: 'reset-password',
+            error: 'Reset token missing or invalid.',
+            success: null,
+            token: null
+        });
+    }
+
+    if (!password || password.length < 8) {
+        return res.status(400).render('reset-password', {
+            title: 'Reset Password - Dream X',
+            currentPage: 'reset-password',
+            error: 'Please choose a password that is at least 8 characters long.',
+            success: null,
+            token
+        });
+    }
+
+    if (password !== confirmPassword) {
+        return res.status(400).render('reset-password', {
+            title: 'Reset Password - Dream X',
+            currentPage: 'reset-password',
+            error: 'Passwords do not match. Please try again.',
+            success: null,
+            token
+        });
+    }
+
+    deleteExpiredPasswordResetTokens();
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const record = getPasswordResetToken({ tokenHash });
+    if (!record || record.used || new Date(record.expires_at) < new Date()) {
+        return res.status(400).render('reset-password', {
+            title: 'Reset Password - Dream X',
+            currentPage: 'reset-password',
+            error: 'This password reset link is invalid or has expired.',
+            success: null,
+            token: null
+        });
+    }
+
+    const user = getUserById(record.user_id);
+    if (!user) {
+        markPasswordResetUsed({ id: record.id });
+        return res.status(404).render('reset-password', {
+            title: 'Reset Password - Dream X',
+            currentPage: 'reset-password',
+            error: 'We could not find an account for this reset link.',
+            success: null,
+            token: null
+        });
+    }
+
+    try {
+        const passwordHash = await bcrypt.hash(password, 10);
+        updatePassword({ userId: user.id, passwordHash });
+        markPasswordResetUsed({ id: record.id });
+        invalidateUserResetTokens({ userId: user.id });
+
+        req.session.userId = user.id;
+        req.session.save(() => {
+            return res.redirect('/feed');
+        });
+    } catch (err) {
+        console.error('Failed to reset password:', err);
+        return res.status(500).render('reset-password', {
+            title: 'Reset Password - Dream X',
+            currentPage: 'reset-password',
+            error: 'An unexpected error occurred while updating your password. Please try again.',
+            success: null,
+            token
+        });
     }
 });
 

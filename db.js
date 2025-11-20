@@ -47,6 +47,18 @@ CREATE TABLE IF NOT EXISTS email_verification_codes (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  email TEXT NOT NULL,
+  token_hash TEXT NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_password_reset_token_hash ON password_reset_tokens(token_hash);
+
 CREATE TABLE IF NOT EXISTS webauthn_credentials (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -853,7 +865,26 @@ module.exports = {
   deleteExpiredVerificationCodes: () => {
     db.prepare(`DELETE FROM email_verification_codes WHERE expires_at < datetime('now') AND verified = 0`).run();
   },
-  
+
+  // Password resets
+  createPasswordResetToken: ({ userId, email, tokenHash, expiresAt }) => {
+    const stmt = db.prepare(`INSERT INTO password_reset_tokens (user_id, email, token_hash, expires_at) VALUES (?,?,?,?)`);
+    const info = stmt.run(userId, email, tokenHash, expiresAt);
+    return info.lastInsertRowid;
+  },
+  getPasswordResetToken: ({ tokenHash }) => {
+    return db.prepare(`SELECT * FROM password_reset_tokens WHERE token_hash = ? AND used = 0 ORDER BY created_at DESC LIMIT 1`).get(tokenHash);
+  },
+  markPasswordResetUsed: ({ id }) => {
+    db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE id = ?`).run(id);
+  },
+  deleteExpiredPasswordResetTokens: () => {
+    db.prepare(`DELETE FROM password_reset_tokens WHERE expires_at < datetime('now') OR used = 1`).run();
+  },
+  invalidateUserResetTokens: ({ userId }) => {
+    db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?`).run(userId);
+  },
+
   getAllUsers: () => db.prepare(`SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC`).all(),
   // Paged users + total for admin
   getUsersPaged: ({ limit, offset, search }) => {
