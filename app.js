@@ -766,27 +766,32 @@ app.get('/webauthn/registration/options', (req, res) => {
     const user = getUserById(req.session.userId);
     const rpID = rpIDFromReq(req);
     const existingCreds = getCredentialsForUser(user.id);
-    
-    const options = generateRegistrationOptions({
-        rpName: 'Dream X',
-        rpID,
-        userID: String(user.id),
-        userName: user.email,
-        userDisplayName: user.full_name,
-        attestationType: 'none',
-        authenticatorSelection: {
-            residentKey: 'preferred',
-            userVerification: 'preferred',
-            requireResidentKey: false,
-        },
-        excludeCredentials: existingCreds.map(c => ({
-            id: Buffer.from(c.credential_id, 'base64url'),
-            type: 'public-key',
-        })),
-    });
-    req.session.webauthnChallenge = options.challenge;
-    req.session.webauthnUserId = user.id;
-    res.json(options);
+
+    try {
+        const options = generateRegistrationOptions({
+            rpName: 'Dream X',
+            rpID,
+            userID: Buffer.from(String(user.id)),
+            userName: user.email,
+            userDisplayName: user.full_name,
+            attestationType: 'none',
+            authenticatorSelection: {
+                residentKey: 'preferred',
+                userVerification: 'preferred',
+                requireResidentKey: false,
+            },
+            excludeCredentials: existingCreds.map(c => ({
+                id: c.credential_id,
+                type: 'public-key',
+            })),
+        });
+        req.session.webauthnChallenge = options.challenge;
+        req.session.webauthnUserId = user.id;
+        res.json(options);
+    } catch (err) {
+        console.error('WebAuthn registration options error:', err);
+        res.status(400).json({ error: 'Passkey setup is currently unavailable. Please try again later.' });
+    }
 });
 
 app.post('/webauthn/registration/verify', async (req, res) => {
@@ -829,12 +834,17 @@ app.post('/webauthn/registration/verify', async (req, res) => {
 // Begin Authentication (username-less)
 app.get('/webauthn/authentication/options', (req, res) => {
     const rpID = rpIDFromReq(req);
-    const options = generateAuthenticationOptions({
-        rpID,
-        userVerification: 'preferred',
-    });
-    req.session.webauthnChallenge = options.challenge;
-    res.json(options);
+    try {
+        const options = generateAuthenticationOptions({
+            rpID,
+            userVerification: 'preferred',
+        });
+        req.session.webauthnChallenge = options.challenge;
+        res.json(options);
+    } catch (err) {
+        console.error('WebAuthn authentication options error:', err);
+        res.status(400).json({ error: 'Passkey sign-in is currently unavailable. Please try again later.' });
+    }
 });
 
 app.post('/webauthn/authentication/verify', async (req, res) => {
@@ -2065,13 +2075,19 @@ app.post('/login', async (req, res) => {
             if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || user.role === 'hr') {
                 if (user.email_verified !== 1 || user.onboarding_completed !== 1) {
                     db.prepare('UPDATE users SET email_verified = 1, onboarding_completed = 1 WHERE id = ?').run(user.id);
+                    user.email_verified = 1;
+                    user.onboarding_completed = 1;
                     console.log(`✅ Auto-verified and completed onboarding for ${user.role} account: ${user.email}`);
                 }
             }
-            
+
             // If email not verified, force verification immediately
             if (user.email_verified !== 1) {
                 return res.redirect('/verify-email');
+            }
+            // Prompt onboarding flow for verified users who haven't completed setup yet
+            if (Number(user.onboarding_completed) !== 1) {
+                return res.redirect('/onboarding-empty');
             }
             if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
                 return res.redirect('/admin');
