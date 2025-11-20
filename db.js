@@ -532,6 +532,12 @@ try { db.exec(`ALTER TABLE users ADD COLUMN notify_community INTEGER DEFAULT 1;`
 try { db.exec(`ALTER TABLE users ADD COLUMN notify_weekly_summary INTEGER DEFAULT 1;`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN notify_method TEXT DEFAULT 'both';`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN needs_onboarding INTEGER DEFAULT 1;`); } catch (e) {}
+
+// Backfill needs_onboarding where missing to align with onboarding completion state
+try {
+  db.exec(`UPDATE users SET needs_onboarding = CASE WHEN onboarding_completed = 1 THEN 0 ELSE 1 END WHERE needs_onboarding IS NULL`);
+} catch (e) {}
 
 // Ensure audit logs table exists
 try {
@@ -971,10 +977,11 @@ module.exports = {
     first_goal, first_goal_date, first_goal_metric, first_goal_public,
     notify_followers, notify_likes_comments, notify_milestones,
     notify_inspiration, notify_community, notify_weekly_summary,
-    notify_method, bio, profile_picture, onboarding_completed
+    notify_method, bio, profile_picture, onboarding_completed,
+    needs_onboarding
   }) => {
     const updateStmt = db.prepare(`
-      UPDATE users SET 
+      UPDATE users SET
         categories = ?,
         goals = ?,
         experience = ?,
@@ -999,7 +1006,8 @@ module.exports = {
         notify_method = ?,
         bio = COALESCE(?, bio),
         profile_picture = COALESCE(?, profile_picture),
-        onboarding_completed = ?
+        onboarding_completed = ?,
+        needs_onboarding = ?
       WHERE id = ?
     `);
     
@@ -1029,6 +1037,7 @@ module.exports = {
       bio,
       profile_picture,
       onboarding_completed || 1,
+      needs_onboarding ?? 0,
       userId
     );
   },

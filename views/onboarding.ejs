@@ -508,6 +508,16 @@
             animation: shimmer 2s infinite;
         }
 
+        .onboarding-error {
+            display: none;
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #fee2e2;
+            border: 1px solid #fecdd3;
+            color: #b91c1c;
+        }
+
         @keyframes shimmer {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
@@ -529,7 +539,8 @@
         <!-- Main Onboarding Card -->
         <div class="onboarding-card">
             <form id="onboardingForm" action="/onboarding" method="POST" enctype="multipart/form-data">
-                
+                <div id="onboardingError" class="onboarding-error"></div>
+
                 <!-- Step 1: Passions -->
                 <div class="step-section active" data-step="1">
                     <div class="step-header">
@@ -1172,17 +1183,38 @@
         }
 
         // Form submission handler
-        document.getElementById('onboardingForm').addEventListener('submit', function(e) {
+        document.getElementById('onboardingForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            // Show loading state
+
             const submitBtn = document.getElementById('nextBtn');
             const originalText = submitBtn.textContent;
+            const errorBox = document.getElementById('onboardingError');
+            errorBox.style.display = 'none';
+            errorBox.textContent = '';
+
             submitBtn.textContent = 'Saving...';
             submitBtn.disabled = true;
-            
-            // Submit form
-            this.submit();
+
+            try {
+                const formData = new FormData(this);
+                const response = await fetch('/api/onboarding', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Unable to save your onboarding preferences. Please try again.');
+                }
+
+                window.location.href = data.redirect || '/feed';
+            } catch (err) {
+                console.error('Failed to save onboarding selection', err);
+                errorBox.textContent = err.message || 'Something went wrong. Please try again.';
+                errorBox.style.display = 'block';
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
         });
     </script>
 </body>
