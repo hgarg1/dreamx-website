@@ -5,6 +5,14 @@ require('dotenv').config();
 
 const OAuth2 = google.auth.OAuth2;
 
+// Utility to safely log sensitive values without exposing full secrets
+const maskValue = (value, visible = 4) => {
+    if (!value) return 'undefined';
+    const stringValue = String(value);
+    if (stringValue.length <= visible * 2) return `${stringValue[0]}***${stringValue[stringValue.length - 1]}`;
+    return `${stringValue.slice(0, visible)}***${stringValue.slice(-visible)}`;
+};
+
 // Dynamically resolve the redirect URI for Gmail OAuth depending on environment
 const isProduction = process.env.NODE_ENV === 'production';
 const inferredBaseUrl = process.env.BASE_URL || (isProduction
@@ -33,8 +41,21 @@ const createTransporter = async () => {
         refresh_token: process.env.GMAIL_REFRESH_TOKEN
     });
 
+    console.log('[EmailService] Creating Gmail OAuth2 transporter', {
+        redirectUri: getGmailRedirectUri(),
+        env: process.env.NODE_ENV || 'development',
+        gmailUser: process.env.GMAIL_USER,
+        clientId: maskValue(process.env.GMAIL_CLIENT_ID),
+        clientSecret: maskValue(process.env.GMAIL_CLIENT_SECRET),
+        refreshToken: maskValue(process.env.GMAIL_REFRESH_TOKEN)
+    });
+
     try {
         const accessToken = await oauth2Client.getAccessToken();
+        console.log('[EmailService] Obtained Gmail access token', {
+            tokenType: accessToken?.token ? 'present' : 'missing',
+            expiryDate: accessToken?.res?.data?.expiry_date || accessToken?.token?.expiry_date || 'unknown'
+        });
 
         const transporter = nodemailer.createTransport({
             service: 'gmail',
@@ -48,6 +69,18 @@ const createTransporter = async () => {
             }
         });
 
+        transporter.on('token', (token) => {
+            console.log('[EmailService] Nodemailer refreshed access token', {
+                user: token.user,
+                accessToken: maskValue(token.accessToken),
+                expires: token.expires
+            });
+        });
+
+        transporter.on('error', (error) => {
+            console.error('[EmailService] Transporter error', error);
+        });
+
         return transporter;
     } catch (error) {
         console.error('Error creating email transporter:', error);
@@ -58,8 +91,15 @@ const createTransporter = async () => {
 // Generic email sender
 async function sendEmail(to, subject, htmlContent, textContent = null) {
     try {
+        console.log('[EmailService] Preparing to send email', {
+            to,
+            subject,
+            usingGmailUser: process.env.GMAIL_USER,
+            redirectUri: getGmailRedirectUri()
+        });
+
         const transporter = await createTransporter();
-        
+
         const mailOptions = {
             from: `Dream X <${process.env.GMAIL_USER}>`,
             to: to,
