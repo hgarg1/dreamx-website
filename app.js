@@ -777,20 +777,50 @@ const requireAdminOrHR = (req, res, next) => {
 // ===== ROUTES =====
 
 // ---------- WebAuthn (Passkeys) ----------
+const getEnvRpHost = () => {
+    if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
+    if (process.env.BASE_URL) {
+        try {
+            return new URL(process.env.BASE_URL).hostname;
+        } catch (_) { /* ignore */ }
+    }
+    return null;
+};
+
 function rpIDFromReq(req){
     try {
+        // Prefer explicit configuration to ensure the RP ID stays stable across environments
+        const envHost = getEnvRpHost();
+        if (envHost) return envHost;
+
         // Prefer forwarded host when behind proxies
         const xfHost = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
         const rawHost = xfHost || req.headers.host || '';
         const hostname = rawHost.split(':')[0].trim();
         if (hostname) return hostname;
-        // Fallback to BASE_URL host if available
-        if (process.env.BASE_URL) {
-            try { return new URL(process.env.BASE_URL).hostname; } catch(_) {}
-        }
+
         return 'localhost';
     } catch { return 'localhost'; }
 }
+
+const webauthnExpectedOrigins = (req, rpID) => {
+    const origins = new Set();
+
+    const envOrigin = process.env.WEBAUTHN_ORIGIN || process.env.BASE_URL;
+    if (envOrigin) {
+        try {
+            origins.add(new URL(envOrigin).origin);
+        } catch (_) { /* ignore */ }
+    }
+
+    origins.add(`https://${rpID}`);
+    origins.add(`http://${rpID}`);
+    origins.add('http://localhost:3000');
+    origins.add('http://127.0.0.1:3000');
+    origins.add('https://dreamx-website.onrender.com');
+
+    return Array.from(origins);
+};
 
 // Begin Registration (user must be logged in or provide email via body)
 app.get('/webauthn/registration/options', async (req, res) => {
@@ -835,13 +865,7 @@ app.post('/webauthn/registration/verify', async (req, res) => {
         const verification = await verifyRegistrationResponse({
             response: req.body,
             expectedChallenge,
-            expectedOrigin: [
-                `https://${rpID}`,
-                `http://${rpID}`,
-                'http://localhost:3000',
-                'http://127.0.0.1:3000',
-                'https://dreamx-website.onrender.com'
-            ],
+            expectedOrigin: webauthnExpectedOrigins(req, rpID),
             expectedRPID: rpID,
         });
         const { verified, registrationInfo } = verification;
@@ -939,13 +963,7 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
         const verification = await verifyAuthenticationResponse({
             response: body,
             expectedChallenge,
-            expectedOrigin: [
-                `https://${rpID}`,
-                `http://${rpID}`,
-                'http://localhost:3000',
-                'http://127.0.0.1:3000',
-                'https://dreamx-website.onrender.com'
-            ],
+            expectedOrigin: webauthnExpectedOrigins(req, rpID),
             expectedRPID: rpID,
             authenticator,
         });
