@@ -702,6 +702,35 @@ app.use((req, res, next) => {
     }
 });
 
+// Shared helper to normalize post-authentication redirects and admin conveniences
+const resolvePostAuthRedirect = (user) => {
+    if (!user) return '/login';
+
+    // Auto-verify and complete onboarding for admin/HR accounts
+    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || user.role === 'hr') {
+        if (user.email_verified !== 1 || user.onboarding_completed !== 1) {
+            db.prepare('UPDATE users SET email_verified = 1, onboarding_completed = 1 WHERE id = ?').run(user.id);
+            user.email_verified = 1;
+            user.onboarding_completed = 1;
+            console.log(`✅ Auto-verified and completed onboarding for ${user.role} account: ${user.email}`);
+        }
+    }
+
+    if (user.email_verified !== 1) {
+        return '/verify-email';
+    }
+    if (Number(user.onboarding_completed) !== 1) {
+        return '/onboarding-empty';
+    }
+    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
+        return '/admin';
+    }
+    if (user.role === 'hr') {
+        return '/hr';
+    }
+    return '/feed';
+};
+
 // Onboarding reminder page (sets session flag so we don't loop in same session)
 app.get('/onboarding-empty', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
@@ -945,8 +974,11 @@ app.get('/auth/google/callback', passport.authenticate('google', { failureRedire
                     if (u && u.email_verified !== 1) {
                         markEmailAsVerified({ userId: u.id });
                     }
-                } catch(_) {}
-                return res.redirect('/feed');
+                    const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
+                    return res.redirect(redirectTarget);
+                } catch(_) {
+                    return res.redirect('/feed');
+                }
             });
         });
     } else {
@@ -982,8 +1014,11 @@ app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failure
                     if (u && u.email_verified !== 1) {
                         markEmailAsVerified({ userId: u.id });
                     }
-                } catch(_) {}
-                return res.redirect('/feed');
+                    const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
+                    return res.redirect(redirectTarget);
+                } catch(_) {
+                    return res.redirect('/feed');
+                }
             });
         });
     } else {
@@ -1021,8 +1056,11 @@ app.post('/auth/apple/callback', passport.authenticate('apple', { failureRedirec
                     if (u && u.email_verified !== 1) {
                         markEmailAsVerified({ userId: u.id });
                     }
-                } catch(_) {}
-                return res.redirect('/feed');
+                    const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
+                    return res.redirect(redirectTarget);
+                } catch(_) {
+                    return res.redirect('/feed');
+                }
             });
         });
     } else {
@@ -2059,8 +2097,8 @@ app.post('/login', async (req, res) => {
     req.login(user, (err) => {
         if (err) {
             console.error('Login error:', err);
-            return res.status(500).render('login', { 
-                title: 'Login - Dream X', 
+            return res.status(500).render('login', {
+                title: 'Login - Dream X',
                 currentPage: 'login', 
                 error: 'Login failed. Please try again.', 
                 providers 
@@ -2071,31 +2109,9 @@ app.post('/login', async (req, res) => {
             if (saveErr) {
                 console.error('Session save error:', saveErr);
             }
-            // Auto-verify and complete onboarding for admin/HR accounts
-            if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || user.role === 'hr') {
-                if (user.email_verified !== 1 || user.onboarding_completed !== 1) {
-                    db.prepare('UPDATE users SET email_verified = 1, onboarding_completed = 1 WHERE id = ?').run(user.id);
-                    user.email_verified = 1;
-                    user.onboarding_completed = 1;
-                    console.log(`✅ Auto-verified and completed onboarding for ${user.role} account: ${user.email}`);
-                }
-            }
-
-            // If email not verified, force verification immediately
-            if (user.email_verified !== 1) {
-                return res.redirect('/verify-email');
-            }
-            // Prompt onboarding flow for verified users who haven't completed setup yet
-            if (Number(user.onboarding_completed) !== 1) {
-                return res.redirect('/onboarding-empty');
-            }
-            if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
-                return res.redirect('/admin');
-            }
-            if (user.role === 'hr') {
-                return res.redirect('/hr');
-            }
-            res.redirect('/feed');
+            const freshUser = getUserById(user.id);
+            const redirectPath = resolvePostAuthRedirect(freshUser);
+            return res.redirect(redirectPath);
         });
     });
 });
