@@ -58,6 +58,36 @@
     min-height: calc(100vh - 200px);
 }
 
+/* === FEED MODALS === */
+.feed-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    align-items: center;
+    justify-content: center;
+    padding: 96px 20px 28px;
+}
+
+.feed-modal .modal-content {
+    max-height: calc(100vh - 160px);
+}
+
+@media (max-width: 1024px) {
+    .feed-modal {
+        padding: 88px 16px 24px;
+    }
+}
+
+@media (max-width: 768px) {
+    .feed-modal {
+        padding: 80px 10px 18px;
+    }
+
+    .feed-modal .modal-content {
+        max-height: calc(100vh - 140px);
+    }
+}
+
 .feed-layout::before {
     content: '';
     position: fixed;

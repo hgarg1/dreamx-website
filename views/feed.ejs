@@ -85,7 +85,7 @@
     </section>
 
     <!-- Post Composer Modal -->
-    <div id="postComposerModal" class="modal-backdrop" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px);">
+    <div id="postComposerModal" class="modal-backdrop feed-modal" style="display:none;position:fixed;z-index:4000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:96px 20px 28px;backdrop-filter:blur(8px);">
       <div class="modal-content" style="background:white;border-radius:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.35);">
         <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg, rgba(255,79,163,0.05) 0%, rgba(118,75,162,0.05) 100%);">
           <h3 style="margin:0;font-size:1.75rem;font-weight:800;background:linear-gradient(135deg, #ff4fa3, #764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Create Post</h3>
@@ -150,7 +150,7 @@
       .modal-content { animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 
-    <div id="audioTrimModal" class="modal-backdrop" style="display:none;position:fixed;z-index:2100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);">
+    <div id="audioTrimModal" class="modal-backdrop feed-modal" style="display:none;position:fixed;z-index:4100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:96px 20px 28px;backdrop-filter:blur(10px);">
       <div class="modal-content" style="background:white;border-radius:20px;max-width:620px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.35);">
         <div style="padding:22px 26px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, rgba(255,79,163,0.06) 0%, rgba(118,75,162,0.06) 100%);">
           <div>
@@ -221,10 +221,33 @@
         const modal = document.getElementById('postComposerModal');
         if (!modal) return;
         modal.style.display = 'none';
-        document.body.style.overflow = ''; // Restore scrolling
+        delete modal.dataset.wasOpen;
+        const audioTrim = document.getElementById('audioTrimModal');
+        if (!audioTrim || audioTrim.style.display !== 'flex') {
+          document.body.style.overflow = ''; // Restore scrolling
+        }
         document.getElementById('postForm').reset();
         document.getElementById('mediaPreview').innerHTML = '';
         clearAudioUpload();
+      }
+
+      function suspendPostComposerForAudio() {
+        const modal = document.getElementById('postComposerModal');
+        if (modal && modal.style.display === 'flex') {
+          modal.dataset.wasOpen = 'true';
+          modal.style.display = 'none';
+        }
+      }
+
+      function resumePostComposerAfterAudio() {
+        const modal = document.getElementById('postComposerModal');
+        if (modal && modal.dataset.wasOpen === 'true') {
+          modal.style.display = 'flex';
+          delete modal.dataset.wasOpen;
+          document.body.style.overflow = 'hidden';
+          return true;
+        }
+        return false;
       }
       
       function clearAudioUpload() {
@@ -333,13 +356,19 @@
       function openAudioTrimModal() {
         const modal = document.getElementById('audioTrimModal');
         if (!modal) return;
+        suspendPostComposerForAudio();
         modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
       }
 
       function closeAudioTrimModal() {
         const modal = document.getElementById('audioTrimModal');
         if (!modal) return;
         modal.style.display = 'none';
+        const postComposerVisible = resumePostComposerAfterAudio();
+        if (!postComposerVisible) {
+          document.body.style.overflow = '';
+        }
       }
 
       async function handleAudioSelection(file, forceRecheck = false) {
