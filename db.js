@@ -2135,7 +2135,7 @@ module.exports = {
   },
   getBlockedUsers: (userId) => {
     return db.prepare(`
-      SELECT u.id, u.full_name, u.email, u.profile_picture, ub.created_at, ub.reason
+      SELECT u.id, u.full_name, u.email, u.handle, u.profile_picture, ub.created_at, ub.reason
       FROM user_blocks ub
       JOIN users u ON u.id = ub.blocked_id
       WHERE ub.blocker_id = ?
