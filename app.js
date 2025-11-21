@@ -929,18 +929,15 @@ app.get('/webauthn/authentication/options', async (req, res) => {
     const email = (req.query.email || '').trim().toLowerCase();
     let allowCredentials = [];
     let hintedUserId = null;
-    console.log('WebAuthn authentication options requested for RP ID:', rpID, 'and email:', email ? email : '(none)');
     try {
         if (email) {
             const user = getUserByEmail(email);
             if (!user) {
-                console.log('No user found for email during WebAuthn auth options:', email);
                 return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
             }
 
             const creds = getCredentialsForUser(user.id, rpID);
             if (!creds || creds.length === 0) {
-                console.log('No credentials found for user during WebAuthn auth options:', email);
                 return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
             }
 
@@ -1047,8 +1044,6 @@ app.get('/auth/google', (req, res, next) => {
     passport.authenticate('google', options)(req, res, next);
 });
 app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), async (req, res) => {
-    console.log('🔵 Google OAuth callback - User authenticated:', req.user ? req.user.id : 'none');
-    console.log('🔵 Session ID before login:', req.sessionID);
     
     const mode = req.query.state;
     if (mode === 'link' && req.session.userId && req.authInfo) {
@@ -1060,25 +1055,14 @@ app.get('/auth/google/callback', passport.authenticate('google', { failureRedire
         return res.redirect('/settings?success=Google connected');
     }
     // Use req.login() to properly serialize user into session
-    if (req.user && req.user.id) {
-        console.log('🔵 Calling req.login() for user:', req.user.id);
+    if (req.user && req.user.id) {  
         req.login(req.user, (err) => {
             if (err) {
                 console.error('❌ Google login error:', err);
                 return res.redirect('/login');
             }
-            console.log('✅ req.login() successful');
-            console.log('🔵 Session before setting userId:', req.session);
             req.session.userId = req.user.id;
-            console.log('🔵 Session after setting userId:', req.session.userId);
             req.session.save((saveErr) => {
-                if (saveErr) {
-                    console.error('❌ Google session save error:', saveErr);
-                } else {
-                    console.log('✅ Session saved successfully');
-                    console.log('🔵 Final session ID:', req.sessionID);
-                    console.log('🔵 Cookie settings:', req.session.cookie);
-                }
                 try {
                     // Auto-verify email for SSO logins
                     const u = getUserById(req.user.id);
@@ -1093,7 +1077,6 @@ app.get('/auth/google/callback', passport.authenticate('google', { failureRedire
             });
         });
     } else {
-        console.log('❌ No user found in req.user, redirecting to feed anyway');
         res.redirect('/feed');
     }
 });
