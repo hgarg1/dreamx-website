@@ -349,17 +349,15 @@
     <div class="panel-head">
       <h2>User Management</h2>
       <div class="panel-actions">
-        <% if (authUser && (authUser.role === 'super_admin' || authUser.role === 'global_admin')) { %>
-          <button class="admin-header-btn" onclick="openAddAdminModal()" style="margin-right:12px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="8.5" cy="7" r="4"></circle>
-              <line x1="20" y1="8" x2="20" y2="14"></line>
-              <line x1="23" y1="11" x2="17" y2="11"></line>
-            </svg>
-            Add Admin
-          </button>
-        <% } %>
+        <button class="admin-header-btn" onclick="openUserWizard()" style="margin-right:12px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <line x1="19" y1="8" x2="19" y2="14"></line>
+            <line x1="16" y1="11" x2="22" y2="11"></line>
+          </svg>
+          Launch Add User Wizard
+        </button>
         <form action="/admin" method="GET" class="admin-search-form">
           <div class="search-input-wrapper">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -521,6 +519,19 @@
                           </svg>
                           View Profile
                         </a>
+                        <% if (authUser.role === 'global_admin' || (authUser.role === 'super_admin' && (u.role === 'admin' || u.role === 'user'))) { %>
+                          <button onclick="openPermissionEditor(<%= u.id %>, '<%- u.full_name %>', '<%- u.email %>', '<%- u.role %>', <%- JSON.stringify(u.admin_permissions || []) %>, <%- JSON.stringify(u.admin_scopes || []) %>)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M12 20h9"></path>
+                              <path d="M12 4h9"></path>
+                              <path d="M3 8h9"></path>
+                              <path d="M3 16h9"></path>
+                              <circle cx="3" cy="8" r="2"></circle>
+                              <circle cx="3" cy="16" r="2"></circle>
+                            </svg>
+                            Adjust Permissions
+                          </button>
+                        <% } %>
                       </div>
                     </div>
                   <% } %>
@@ -1013,6 +1024,139 @@
       </div>
     </div>
   </div>
+
+  <!-- Unified User Wizard -->
+  <div id="userWizardModal" class="admin-modal" style="display:none;">
+    <div class="admin-modal-content" style="max-width:720px;">
+      <div class="admin-modal-header">
+        <div>
+          <p style="margin:0;color:#a855f7;font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:1px;">Premium onboarding</p>
+          <h3 style="margin:4px 0 0 0;">Add user or admin</h3>
+        </div>
+        <button class="admin-modal-close" onclick="closeUserWizard()">&times;</button>
+      </div>
+      <div class="admin-modal-body">
+        <div id="wizardSteps" class="wizard-steps">
+          <div class="wizard-step active" data-step="1">Basics</div>
+          <div class="wizard-step" data-step="2">Access</div>
+          <div class="wizard-step" data-step="3">Permissions</div>
+          <div class="wizard-step" data-step="4">Confirm</div>
+        </div>
+        <div class="wizard-panel" data-step="1">
+          <label>Full name</label>
+          <input id="wizardName" type="text" placeholder="Alex Doe" class="wizard-input" />
+          <label style="margin-top:12px;">Email</label>
+          <input id="wizardEmail" type="email" placeholder="alex@dreamx.com" class="wizard-input" />
+          <label style="margin-top:12px;">Temporary password</label>
+          <input id="wizardPassword" type="text" placeholder="Auto-generate or set manually" class="wizard-input" value="Admin!123" />
+        </div>
+        <div class="wizard-panel" data-step="2" style="display:none;">
+          <label>Role</label>
+          <select id="wizardRole" class="wizard-input">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+            <option value="super_admin" <%= authUser.role === 'global_admin' ? '' : 'disabled' %>>Super Admin</option>
+            <option value="global_admin" <%= authUser.role === 'global_admin' ? '' : 'disabled' %>>Global Admin</option>
+          </select>
+          <p class="wizard-hint">Admins can only create roles at or below their level.</p>
+          <div class="rbac-callout">
+            <strong>RBAC quick edit</strong>
+            <p>Global admins can tune platform-level RBAC defaults directly.</p>
+            <% if (authUser.role === 'global_admin') { %>
+              <button type="button" class="admin-modal-btn primary" style="margin-top:8px;" onclick="document.getElementById('rbacDrawer').classList.add('open')">Open RBAC Console</button>
+            <% } else { %>
+              <span style="color:#6b7280;font-size:0.9rem;">RBAC console available to global admins.</span>
+            <% } %>
+          </div>
+        </div>
+        <div class="wizard-panel" data-step="3" style="display:none;">
+          <p class="wizard-hint">Toggle granular permissions for this admin. Leave blank for defaults.</p>
+          <div class="chip-grid">
+            <label><input type="checkbox" name="wizardPerm" value="manage_users"> Manage Users</label>
+            <label><input type="checkbox" name="wizardPerm" value="manage_admins"> Manage Admins</label>
+            <label><input type="checkbox" name="wizardPerm" value="moderate_content"> Moderate Content</label>
+            <label><input type="checkbox" name="wizardPerm" value="billing"> Billing & Refunds</label>
+          </div>
+          <label style="margin-top:12px;">Scope tags (comma separated)</label>
+          <input id="wizardScopes" type="text" class="wizard-input" placeholder="north-america, beta" />
+        </div>
+        <div class="wizard-panel" data-step="4" style="display:none;">
+          <div class="review-card">
+            <h4>Review access</h4>
+            <ul id="wizardSummary"></ul>
+            <div id="wizardError" class="admin-alert admin-alert-error" style="display:none;margin-top:12px;"></div>
+            <div id="wizardSuccess" class="admin-alert admin-alert-success" style="display:none;margin-top:12px;">Account created!</div>
+          </div>
+        </div>
+      </div>
+      <div class="admin-modal-footer">
+        <button class="admin-modal-btn secondary" onclick="previousWizardStep()">Back</button>
+        <button class="admin-modal-btn primary" id="wizardNextBtn" onclick="nextWizardStep()">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RBAC Drawer -->
+  <div id="rbacDrawer" class="admin-modal" style="display:none;align-items:flex-end;">
+    <div class="admin-modal-content" style="width:100%;max-width:640px;">
+      <div class="admin-modal-header">
+        <h3>Role-Based Access Control</h3>
+        <button class="admin-modal-close" onclick="document.getElementById('rbacDrawer').classList.remove('open');document.getElementById('rbacDrawer').style.display='none'">&times;</button>
+      </div>
+      <div class="admin-modal-body">
+        <p style="color:#6b7280;">Global admins can curate platform-wide guardrails. Use the wizard above to tailor per-admin overrides.</p>
+        <div class="chip-grid">
+          <span class="rbac-pill">Global Admin → All permissions</span>
+          <span class="rbac-pill">Super Admin → Admin management, moderation</span>
+          <span class="rbac-pill">Admin → User management, content review</span>
+        </div>
+        <p style="margin-top:12px;">Need custom rules? Apply scopes like <code>region:emea</code> or <code>segment:beta</code> to target experiments.</p>
+      </div>
+      <div class="admin-modal-footer">
+        <button class="admin-modal-btn primary" onclick="document.getElementById('rbacDrawer').classList.remove('open');document.getElementById('rbacDrawer').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Permission Editor -->
+  <div id="permissionModal" class="admin-modal" style="display:none;">
+    <div class="admin-modal-content" style="max-width:560px;">
+      <div class="admin-modal-header">
+        <div>
+          <p style="margin:0;color:#2563eb;font-weight:700;font-size:12px;">Adjust permissions</p>
+          <h3 id="permissionTitle" style="margin:4px 0 0 0;">Admin permissions</h3>
+        </div>
+        <button class="admin-modal-close" onclick="closePermissionModal()">&times;</button>
+      </div>
+      <div class="admin-modal-body">
+        <p id="permissionSubtitle" style="color:#6b7280;margin-top:0;">Fine-tune access for this admin.</p>
+        <div class="chip-grid" id="permissionCheckboxes"></div>
+        <label style="margin-top:12px;">Scopes</label>
+        <input id="permissionScopes" class="wizard-input" type="text" placeholder="region:us, product:maps" />
+        <div id="permissionError" class="admin-alert admin-alert-error" style="display:none;margin-top:12px;"></div>
+        <div id="permissionSuccess" class="admin-alert admin-alert-success" style="display:none;margin-top:12px;">Permissions saved.</div>
+      </div>
+      <div class="admin-modal-footer">
+        <button class="admin-modal-btn secondary" onclick="closePermissionModal()">Close</button>
+        <button class="admin-modal-btn primary" onclick="savePermissions()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .wizard-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
+    .wizard-step { padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; text-align:center; font-weight:700; color:#6b7280; background:#f9fafb; }
+    .wizard-step.active { border-color:#8b5cf6; color:#4c1d95; background:linear-gradient(135deg,#ede9fe,#f5f3ff); }
+    .wizard-input { width:100%; padding:12px; border:2px solid #e5e7eb; border-radius:10px; font-size:15px; }
+    .wizard-hint { color:#6b7280; font-size:0.9rem; margin-top:8px; }
+    .chip-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-top:8px; }
+    .chip-grid label { padding:10px 12px; border:1px solid #e5e7eb; border-radius:12px; background:#f9fafb; display:flex; align-items:center; gap:8px; font-weight:600; color:#374151; }
+    .review-card { background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px; }
+    .review-card ul { padding-left:18px; line-height:1.6; }
+    .rbac-callout { margin-top:12px; padding:12px; border:1px dashed #a78bfa; border-radius:10px; background:linear-gradient(135deg,#f5f3ff,#eef2ff); }
+    .rbac-pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; background:#eef2ff; color:#4338ca; font-weight:700; margin-right:8px; margin-bottom:6px; }
+    #rbacDrawer.open { display:flex !important; }
+  </style>
 
   <!-- Ban User Modal -->
   <div id="banUserModal" class="admin-modal" style="display:none;">
@@ -1849,6 +1993,134 @@
             row.style.display = 'none';
           }
         });
+      }
+    </script>
+
+    <script>
+      let wizardStep = 1;
+      const wizardTotal = 4;
+      function openUserWizard() {
+        wizardStep = 1;
+        document.getElementById('wizardName').value = '';
+        document.getElementById('wizardEmail').value = '';
+        document.getElementById('wizardPassword').value = 'Admin!123';
+        document.getElementById('wizardRole').value = 'user';
+        document.getElementById('wizardScopes').value = '';
+        document.querySelectorAll('input[name="wizardPerm"]').forEach(cb => cb.checked = false);
+        document.getElementById('wizardSuccess').style.display = 'none';
+        document.getElementById('wizardError').style.display = 'none';
+        updateWizardStep();
+        document.getElementById('userWizardModal').style.display = 'flex';
+      }
+      function closeUserWizard() {
+        document.getElementById('userWizardModal').style.display = 'none';
+      }
+      function updateWizardStep() {
+        document.querySelectorAll('.wizard-step').forEach(step => {
+          step.classList.toggle('active', Number(step.dataset.step) === wizardStep);
+        });
+        document.querySelectorAll('.wizard-panel').forEach(panel => {
+          panel.style.display = Number(panel.dataset.step) === wizardStep ? 'block' : 'none';
+        });
+        document.getElementById('wizardNextBtn').textContent = wizardStep === wizardTotal ? 'Create user' : 'Next';
+      }
+      function nextWizardStep() {
+        if (wizardStep < wizardTotal) {
+          wizardStep += 1;
+          if (wizardStep === wizardTotal) buildWizardSummary();
+          updateWizardStep();
+          return;
+        }
+        submitWizard();
+      }
+      function previousWizardStep() {
+        wizardStep = Math.max(1, wizardStep - 1);
+        updateWizardStep();
+      }
+      function buildWizardSummary() {
+        const summary = document.getElementById('wizardSummary');
+        const perms = Array.from(document.querySelectorAll('input[name="wizardPerm"]:checked')).map(cb => cb.value);
+        summary.innerHTML = '';
+        ['Name: ' + document.getElementById('wizardName').value,
+         'Email: ' + document.getElementById('wizardEmail').value,
+         'Role: ' + document.getElementById('wizardRole').value,
+         'Permissions: ' + (perms.join(', ') || 'default'),
+         'Scopes: ' + (document.getElementById('wizardScopes').value || 'none')
+        ].forEach(item => {
+          const li = document.createElement('li'); li.textContent = item; summary.appendChild(li);
+        });
+      }
+      async function submitWizard() {
+        const errorBox = document.getElementById('wizardError');
+        const successBox = document.getElementById('wizardSuccess');
+        errorBox.style.display = 'none'; successBox.style.display = 'none';
+        const payload = {
+          fullName: document.getElementById('wizardName').value,
+          email: document.getElementById('wizardEmail').value,
+          password: document.getElementById('wizardPassword').value,
+          role: document.getElementById('wizardRole').value,
+          permissions: Array.from(document.querySelectorAll('input[name="wizardPerm"]:checked')).map(cb => cb.value),
+          scopes: document.getElementById('wizardScopes').value.split(',').map(s => s.trim()).filter(Boolean)
+        };
+        try {
+          const res = await fetch('/admin/users/wizard', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Unable to create user');
+          successBox.style.display = 'block';
+          document.getElementById('wizardNextBtn').textContent = 'Done';
+          setTimeout(() => window.location.reload(), 900);
+        } catch (e) {
+          errorBox.textContent = e.message;
+          errorBox.style.display = 'block';
+        }
+      }
+
+      let permissionTarget = null;
+      function openPermissionEditor(id, name, email, role, permissions, scopes) {
+        permissionTarget = { id, permissions: permissions || [], scopes: scopes || [] };
+        document.getElementById('permissionTitle').textContent = `Adjust ${name}`;
+        document.getElementById('permissionSubtitle').textContent = `${email} • ${role}`;
+        const container = document.getElementById('permissionCheckboxes');
+        const options = [
+          { key: 'manage_users', label: 'Manage Users' },
+          { key: 'manage_admins', label: 'Manage Admins' },
+          { key: 'moderate_content', label: 'Moderate Content' },
+          { key: 'billing', label: 'Billing & Refunds' }
+        ];
+        container.innerHTML = '';
+        options.forEach(opt => {
+          const label = document.createElement('label');
+          label.innerHTML = `<input type="checkbox" value="${opt.key}"> ${opt.label}`;
+          if (permissionTarget.permissions.includes(opt.key)) label.querySelector('input').checked = true;
+          container.appendChild(label);
+        });
+        document.getElementById('permissionScopes').value = (permissionTarget.scopes || []).join(', ');
+        document.getElementById('permissionError').style.display = 'none';
+        document.getElementById('permissionSuccess').style.display = 'none';
+        document.getElementById('permissionModal').style.display = 'flex';
+      }
+      function closePermissionModal(){
+        document.getElementById('permissionModal').style.display = 'none';
+      }
+      async function savePermissions(){
+        if (!permissionTarget) return;
+        const perms = Array.from(document.querySelectorAll('#permissionCheckboxes input:checked')).map(cb => cb.value);
+        const scopes = document.getElementById('permissionScopes').value.split(',').map(s => s.trim()).filter(Boolean);
+        const err = document.getElementById('permissionError');
+        const ok = document.getElementById('permissionSuccess');
+        err.style.display = 'none'; ok.style.display = 'none';
+        try {
+          const res = await fetch(`/admin/users/${permissionTarget.id}/permissions`, {
+            method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ permissions: perms, scopes })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Unable to save');
+          ok.style.display = 'block';
+          setTimeout(() => window.location.reload(), 800);
+        } catch (e) {
+          err.textContent = e.message;
+          err.style.display = 'block';
+        }
       }
     </script>
   </section>

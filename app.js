@@ -33,7 +33,7 @@ const {
     updateProfilePicture, updateBannerImage, updatePassword, updateUserHandle, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
     getOrCreateConversation, getUserConversations, getConversationMessages, getMessageWithContext,
     createMessage, markMessagesAsRead, getUnreadMessageCount,
-    updateUserRole, getAllUsers, getStats,
+    updateUserRole, updateAdminPermissions, getAllUsers, getStats,
     // New admin helpers
     getUsersPaged, getUsersCount, searchUsers,
     // Audit logs
@@ -792,10 +792,26 @@ app.post('/onboarding/start', (req, res) => {
 });
 
 // RBAC helpers
+const roleRank = { user: 1, admin: 2, hr: 2, super_admin: 3, global_admin: 4 };
+const parseAdminMeta = (user) => {
+    try {
+        return {
+            permissions: JSON.parse(user.admin_permissions || '[]'),
+            scopes: JSON.parse(user.admin_scopes || '[]')
+        };
+    } catch (_) {
+        return { permissions: [], scopes: [] };
+    }
+};
 const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin');
 const isHR = (user) => user && user.role === 'hr';
 const isSuperAdmin = (user) => user && (user.role === 'super_admin' || user.role === 'global_admin');
 const isGlobalAdmin = (user) => user && user.role === 'global_admin';
+const hasPermission = (user, permission) => {
+    if (!user) return false;
+    const { permissions } = parseAdminMeta(user);
+    return permissions.includes(permission);
+};
 const requireAdmin = (req, res, next) => {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
     if (!isAdmin(user)) return res.redirect('/');
@@ -1192,6 +1208,12 @@ app.get('/', (req, res) => {
     });
 });
 
+const normalizeArray = (val) => {
+    if (Array.isArray(val)) return val.map(v => String(v).trim()).filter(Boolean);
+    if (typeof val === 'string' && val.length) return [val.trim()];
+    return [];
+};
+
 // Admin dashboard with pagination, audit logs, and queues
 app.get('/admin', requireAdmin, (req, res) => {
     const stats = getStats();
@@ -1201,7 +1223,18 @@ app.get('/admin', requireAdmin, (req, res) => {
     const q = (req.query.q || '').trim();
     const total = getUsersCount({ search: q || null });
     const offset = (page - 1) * pageSize;
-    const users = getUsersPaged({ limit: pageSize, offset, search: q || null });
+    const usersRaw = getUsersPaged({ limit: pageSize, offset, search: q || null });
+    const users = usersRaw.map(u => {
+        let perms = [];
+        let scopes = [];
+        try { perms = normalizeArray(u.admin_permissions ? JSON.parse(u.admin_permissions) : []); } catch (_) { perms = []; }
+        try { scopes = normalizeArray(u.admin_scopes ? JSON.parse(u.admin_scopes) : []); } catch (_) { scopes = []; }
+        return {
+            ...u,
+            admin_permissions: perms,
+            admin_scopes: scopes
+        };
+    });
 
     // Super admins can see recent audit logs
     const me = req.session.userId ? getUserById(req.session.userId) : null;
@@ -1274,6 +1307,64 @@ app.get('/admin', requireAdmin, (req, res) => {
         error: req.query.error,
         success: req.query.success
     });
+});
+
+// Admin: create users/admins via wizard
+app.post('/admin/users/wizard', requireAdmin, async (req, res) => {
+    const actor = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!actor) return res.status(403).json({ error: 'Unauthorized' });
+
+    const roleOrder = roleRank;
+    const targetRole = (req.body.role || 'user').toLowerCase();
+    const targetRank = roleOrder[targetRole] || 1;
+    const actorRank = roleOrder[actor.role] || 0;
+    if (actorRank < targetRank || (actor.role === 'admin' && targetRole !== 'user' && !hasPermission(actor, 'manage_admins'))) {
+        return res.status(403).json({ error: 'Insufficient permissions to assign role' });
+    }
+
+    const fullName = (req.body.fullName || '').trim();
+    const email = (req.body.email || '').trim().toLowerCase();
+    const password = req.body.password || '';
+    const permissions = normalizeArray(req.body.permissions);
+    const scopes = normalizeArray(req.body.scopes);
+
+    if (!fullName || !email || !password) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+    if (getUserByEmail(email)) {
+        return res.status(409).json({ error: 'User with that email already exists' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newUserId = createUser({ fullName, email, passwordHash });
+    if (targetRole !== 'user') {
+        updateUserRole({ userId: newUserId, role: targetRole });
+    }
+    updateAdminPermissions({ userId: newUserId, permissions, scopes });
+    addAuditLog({
+        userId: actor.id,
+        action: 'user_created',
+        details: JSON.stringify({ targetRole, email })
+    });
+    return res.json({ success: true, userId: newUserId });
+});
+
+// Admin: adjust permissions/scopes
+app.post('/admin/users/:id/permissions', requireAdmin, (req, res) => {
+    const actor = req.session.userId ? getUserById(req.session.userId) : null;
+    const targetId = parseInt(req.params.id, 10);
+    const targetUser = getUserById(targetId);
+    if (!actor || !targetUser) return res.status(404).json({ error: 'User not found' });
+    const actorRank = roleRank[actor.role] || 0;
+    const targetRank = roleRank[targetUser.role] || 0;
+    if (actorRank <= targetRank) {
+        return res.status(403).json({ error: 'You can only edit lower-tier admins' });
+    }
+    const permissions = normalizeArray(req.body.permissions);
+    const scopes = normalizeArray(req.body.scopes);
+    updateAdminPermissions({ userId: targetId, permissions, scopes });
+    addAuditLog({ userId: actor.id, action: 'permissions_updated', details: JSON.stringify({ target: targetUser.email }) });
+    return res.json({ success: true });
 });
 
 // Admin: Services moderation portal
