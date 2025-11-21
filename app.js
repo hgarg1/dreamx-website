@@ -6851,12 +6851,12 @@ io.on('connection', (socket) => {
 
 
 httpsServer.listen(443, () => {
-    console.log(`✨ Dream X server running on https://localhost`);
+    console.log(`✨ Dream X server running on https://localhost:443`);
     console.log(`Press Ctrl+C to stop the server`);
-    console.log(`HTTPS server running at https://localhost`);
+    console.log(`HTTPS server running at https://localhost:443`);
 });
 
-httpServer.listen(80, () => {
-    console.log(`HTTP server running at http://localhost`);
+httpServer.listen(8080, () => {
+    console.log(`HTTP server running at http://localhost:8080`);
 });
 
