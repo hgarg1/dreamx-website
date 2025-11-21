@@ -50,12 +50,14 @@
 .feed-layout {
     position: relative;
     display: grid;
-    grid-template-columns: 280px 1fr 320px;
-    gap: 2rem;
+    grid-template-columns: minmax(240px, 24vw) minmax(0, 1fr) minmax(260px, 26vw);
+    gap: clamp(1.5rem, 2vw, 2rem);
     max-width: 1480px;
+    width: 100%;
     margin: 0 auto;
     padding: 2rem 1.5rem 3rem;
     min-height: calc(100vh - 200px);
+    align-items: start;
 }
 
 /* === FEED MODALS === */
@@ -129,9 +131,11 @@
 }
 
 .feed-sidebar.right-sidebar {
-  max-height: none !important;
-  overflow: visible !important;
-  padding-right: 0;
+    max-height: none !important;
+    overflow: visible !important;
+    padding-right: 0;
+    position: relative;
+    min-width: 0;
 }
 
 /* Scrollbar styling only for left sidebar */
@@ -227,6 +231,10 @@
     min-width: 0;
     z-index: 1;
     animation: fadeInUp 0.6s ease-out 0.2s backwards;
+}
+
+.feed-sidebar {
+    min-width: 0;
 }
 
 @keyframes fadeInUp {
