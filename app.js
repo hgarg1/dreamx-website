@@ -860,7 +860,6 @@ app.get('/webauthn/registration/options', async (req, res) => {
     const user = getUserById(req.session.userId);
     const rpID = rpIDFromReq(req);
     const existingCreds = getCredentialsForUser(user.id, rpID);
-
     try {
         const options = await generateRegistrationOptions({
             rpName: 'Dream X',
@@ -876,7 +875,7 @@ app.get('/webauthn/registration/options', async (req, res) => {
                 requireResidentKey: true,
             },
             excludeCredentials: existingCreds.map(c => ({
-                id: Buffer.from(c.credential_id, 'base64url'),
+                id: c.credential_id.toString('base64url'),
                 type: 'public-key',
             })),
         });
@@ -930,21 +929,23 @@ app.get('/webauthn/authentication/options', async (req, res) => {
     const email = (req.query.email || '').trim().toLowerCase();
     let allowCredentials = [];
     let hintedUserId = null;
-
+    console.log('WebAuthn authentication options requested for RP ID:', rpID, 'and email:', email ? email : '(none)');
     try {
         if (email) {
             const user = getUserByEmail(email);
             if (!user) {
+                console.log('No user found for email during WebAuthn auth options:', email);
                 return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
             }
 
             const creds = getCredentialsForUser(user.id, rpID);
             if (!creds || creds.length === 0) {
+                console.log('No credentials found for user during WebAuthn auth options:', email);
                 return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
             }
 
             allowCredentials = creds.map((c) => ({
-                id: Buffer.from(c.credential_id, 'base64url'),
+                id: c.credential_id.toString('base64url'),
                 type: 'public-key',
                 transports: c.transports ? JSON.parse(c.transports) : undefined,
             }));
