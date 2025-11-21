@@ -115,7 +115,7 @@
           <div class="chat-quick-actions">
             <% if (currentConversation.is_group) { %>
               <button type="button" class="pill-action" onclick="openGroupSettings()">⚙️ Group Settings</button>
-              <button type="button" class="pill-action ghost" onclick="copyGroupShare()">🔗 Share group</button>
+              <button type="button" class="pill-action ghost" data-role="share-group" onclick="copyGroupShare()">🔗 Share group</button>
             <% } else { %>
               <a href="/profile/<%= currentConversation.other_user_id %>" class="pill-link">View Profile →</a>
             <% } %>
@@ -380,6 +380,33 @@
     alert(message);
   }
 
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = text;
+        tempInput.setAttribute('aria-hidden', 'true');
+        tempInput.style.position = 'fixed';
+        tempInput.style.opacity = '0';
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        if (success) {
+          resolve();
+        } else {
+          reject(new Error('Copy command was blocked'));
+        }
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
   function closeFloatingMenus(skip = []) {
     ['safetyMenu', 'adminMenu'].forEach(id => {
       if (!skip.includes(id)) {
@@ -468,25 +495,38 @@
   }
 
   function copyGroupShare() {
-    if (!isGroupConversation || !currentConversationId) return;
+    if (!currentConversationId) {
+      notify('Pick a conversation to share first.');
+      return;
+    }
+
+    if (!isGroupConversation) {
+      notify('Sharing is only available for group chats.');
+      return;
+    }
+
     const link = `${window.location.origin}/messages?conversation=${currentConversationId}`;
     const shareData = { title: 'Join my DreamX group chat', text: 'Jump into this conversation on DreamX.', url: link };
+    const shareBtn = document.querySelector('button[data-role="share-group"]');
+    const cleanupShareState = () => shareBtn?.removeAttribute('aria-busy');
+    const copyFallback = () => copyToClipboard(link)
+      .then(() => notify('Share link copied'))
+      .catch(() => alert('Copied group link: ' + link));
+
+    shareBtn?.setAttribute('aria-busy', 'true');
 
     if (navigator.share) {
       navigator.share(shareData)
         .then(() => notify('Share invite sent'))
         .catch((err) => {
           if (err && err.name === 'AbortError') return;
-          navigator.clipboard?.writeText(link)
-            .then(() => notify('Share link copied'))
-            .catch(() => alert('Copied group link: ' + link));
-        });
+          return copyFallback();
+        })
+        .finally(cleanupShareState);
       return;
     }
 
-    navigator.clipboard?.writeText(link)
-      .then(() => notify('Share link copied'))
-      .catch(() => alert('Copied group link: ' + link));
+    copyFallback().finally(cleanupShareState);
   }
 
   function shareConversation() {
@@ -539,12 +579,20 @@
   function showPinnedTips() {
     const tips = document.getElementById('groupTips');
     const toggleBtn = document.getElementById('tipsToggleBtn');
-    if (!tips) return;
+    const headerBtn = document.getElementById('headerTipsBtn');
+    if (!tips) {
+      notify('Group tips are only available in group conversations.');
+      return;
+    }
     const shouldShow = tips.style.display === 'none' || tips.style.display === '';
     tips.style.display = shouldShow ? 'block' : 'none';
     if (toggleBtn) {
       toggleBtn.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
       toggleBtn.textContent = shouldShow ? '📌 Hide tips' : '📌 Tips';
+    }
+    if (headerBtn) {
+      headerBtn.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
+      headerBtn.textContent = shouldShow ? 'Hide tips' : 'Tips';
     }
   }
 
@@ -1060,27 +1108,47 @@
     window._carouselClose = () => { overlay.style.display = 'none'; track.innerHTML=''; };
   }
 
-  // New Group modal - basic setup
-  document.getElementById('newGroupBtn')?.addEventListener('click', () => {
-    document.getElementById('groupModal').style.display = 'flex';
-    renderSelectedUsers();
-  });
-
   // Keep a richer shape so we can re-render chips beautifully
   window.selectedUsers = [];
 
+  window.openGroupModal = () => {
+    const modal = document.getElementById('groupModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    renderSelectedUsers();
+    const nameInput = document.getElementById('groupNameInput');
+    if (nameInput) {
+      nameInput.focus();
+    }
+  };
+
   window.closeGroupModal = () => {
-    document.getElementById('groupModal').style.display = 'none';
-    document.getElementById('groupUserSearch').value = '';
-    document.getElementById('groupUserResults').innerHTML = '';
+    const modal = document.getElementById('groupModal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    const searchInput = document.getElementById('groupUserSearch');
+    if (searchInput) searchInput.value = '';
+    const results = document.getElementById('groupUserResults');
+    if (results) results.innerHTML = '';
     window.selectedUsers = [];
     renderSelectedUsers();
   };
 
-  document.getElementById('groupModal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'groupModal') {
-      closeGroupModal();
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('groupModal');
+    const newGroupBtn = document.getElementById('newGroupBtn');
+
+    if (newGroupBtn) {
+      newGroupBtn.addEventListener('click', openGroupModal);
     }
+
+    modal?.addEventListener('click', (e) => {
+      if (e.target.id === 'groupModal') {
+        closeGroupModal();
+      }
+    });
   });
 
   function renderSelectedUsers() {
