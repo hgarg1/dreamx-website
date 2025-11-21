@@ -2,27 +2,24 @@
 
 
 
-<div style="position:relative;width:100%;">
-  <div style="position:relative;height:240px;background:linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);overflow:hidden;border-radius:16px;">
-    <% if (user.bannerImage) { %>
-      <img src="/uploads/<%= user.bannerImage %>" alt="Banner" style="width:100%;height:100%;object-fit:cover;">
+<div class="profile-banner">
+  <div class="profile-cover-gradient"></div>
+  <% if (user.bannerImage) { %>
+    <img src="/uploads/<%= user.bannerImage %>" alt="Banner" class="profile-banner-image">
+  <% } %>
+  <div class="profile-avatar-wrapper">
+    <% if (profilePicture) { %>
+      <img id="profileAvatar" src="/uploads/<%= profilePicture %>" alt="<%= user.displayName %>" <%= typeof isOwnProfile !== 'undefined' && isOwnProfile ? 'data-is-own="true"' : '' %> class="profile-avatar" <%= typeof isOwnProfile === 'undefined' || !isOwnProfile ? `ondblclick="window.location.href='/profile/${profileUserId}'"` : '' %>>
+    <% } else { %>
+      <div id="profileAvatar" <%= typeof isOwnProfile !== 'undefined' && isOwnProfile ? 'data-is-own="true"' : '' %> class="profile-avatar" <%= typeof isOwnProfile === 'undefined' || !isOwnProfile ? `ondblclick="window.location.href='/profile/${profileUserId}'"` : '' %>><%= user.displayName.charAt(0) %></div>
     <% } %>
-  </div>
-  <div style="position:absolute;bottom:-80px;left:50%;transform:translateX(-50%);z-index:100;">
-    <div style="position:relative;display:inline-block;">
-      <% if (profilePicture) { %>
-        <img id="profileAvatar" src="/uploads/<%= profilePicture %>" alt="<%= user.displayName %>" <%= typeof isOwnProfile !== 'undefined' && isOwnProfile ? 'data-is-own="true"' : '' %> style="object-fit:cover;border-radius:50%;width:160px;height:160px;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);cursor:pointer;" <%= typeof isOwnProfile === 'undefined' || !isOwnProfile ? `ondblclick="window.location.href='/profile/${profileUserId}'"` : '' %>>
-      <% } else { %>
-        <div id="profileAvatar" <%= typeof isOwnProfile !== 'undefined' && isOwnProfile ? 'data-is-own="true"' : '' %> style="width:160px;height:160px;border-radius:50%;background:#8b5cf6;color:white;display:flex;align-items:center;justify-content:center;font-size:4rem;font-weight:700;border:6px solid white;box-shadow:0 8px 24px rgba(0,0,0,0.2);cursor:pointer;" <%= typeof isOwnProfile === 'undefined' || !isOwnProfile ? `ondblclick="window.location.href='/profile/${profileUserId}'"` : '' %>><%= user.displayName.charAt(0) %></div>
-      <% } %>
-    </div>
   </div>
 </div>
 
-<section class="profile-header-section" style="margin-top:120px;text-align:center;padding:0 20px;">
-  <div style="margin-bottom:20px;">
-    <h1 style="font-size:2.5rem;font-weight:800;margin:0 0 8px 0;color:#1f2937;"><%= user.displayName %></h1>
-    <span style="color:#6b7280;font-size:1.1rem;font-weight:500;">@<%= user.handle %></span>
+<section class="profile-header-section">
+  <div class="profile-heading">
+    <h1 class="profile-name"><%= user.displayName %></h1>
+    <span class="profile-handle">@<%= user.handle %></span>
   </div>
   <div class="profile-tags">
     <% user.passions.forEach(function(p){ %>
@@ -36,44 +33,44 @@
     <div class="stat"><span class="stat-number"><%= user.stats.following %></span><span class="stat-label">Following</span></div>
     <div class="stat"><span class="stat-number"><%= user.isSeller ? user.stats.sessions : '—' %></span><span class="stat-label">Sessions Offered</span></div>
   </div>
-  <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;">
+  <div class="profile-action-row">
     <% if (typeof isOwnProfile !== 'undefined' && isOwnProfile) { %>
-      <a href="/profile/edit" style="padding:10px 24px;background:#ec4899;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Edit Profile</a>
-      <a href="/messages" style="padding:10px 24px;background:#8b5cf6;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Messages</a>
+      <a href="/profile/edit" class="profile-btn primary">Edit Profile</a>
+      <a href="/messages" class="profile-btn outline">Messages</a>
     <% } else { %>
-      <button id="followBtn" data-user-id="<%= profileUserId %>" data-following="<%= typeof isFollowing !== 'undefined' && isFollowing ? 'true' : 'false' %>" style="padding:10px 24px;background:<%= typeof isFollowing !== 'undefined' && isFollowing ? '#6b7280' : '#ec4899' %>;color:white;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+      <button id="followBtn" data-user-id="<%= profileUserId %>" data-following="<%= typeof isFollowing !== 'undefined' && isFollowing ? 'true' : 'false' %>" class="profile-btn primary follow-btn <%= typeof isFollowing !== 'undefined' && isFollowing ? 'is-following' : '' %>">
         <%= typeof isFollowing !== 'undefined' && isFollowing ? 'Following' : 'Follow' %>
       </button>
-      <a href="/messages/start/<%= profileUserId %>" style="padding:10px 24px;background:#8b5cf6;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">Message</a>
+      <a href="/messages/start/<%= profileUserId %>" class="profile-btn outline">Message</a>
 
       <!-- User Actions Menu (Block/Report) -->
-      <div style="position:relative;display:inline-block;">
-        <button onclick="toggleUserActionsMenu()" style="padding:10px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-weight:600;font-size:1.2rem;cursor:pointer;transition:all 0.3s ease;">⋮</button>
-        <div id="userActionsMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:8px;background:white;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;min-width:180px;">
-          <button id="blockToggleBtn" onclick="handleBlockToggle()" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#374151;transition:background 0.2s;" onmouseover="this.style.background='#eef2ff';this.style.color='#4338ca'" onmouseout="this.style.background='none';this.style.color='#374151'"></button>
-          <button onclick="openReportModal()" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#374151;border-top:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.color='#92400e'" onmouseout="this.style.background='none';this.style.color='#374151'">⚠️ Report User</button>
+      <div class="profile-menu">
+        <button class="profile-btn ghost icon-btn" type="button" onclick="toggleUserActionsMenu()">⋮</button>
+        <div id="userActionsMenu" class="profile-menu-dropdown">
+          <button id="blockToggleBtn" onclick="handleBlockToggle()" class="profile-menu-item"></button>
+          <button onclick="openReportModal()" class="profile-menu-item danger">⚠️ Report User</button>
         </div>
       </div>
     <% } %>
-
-    <div id="blockedBadge" style="display:<%= isBlockedByViewer ? 'flex' : 'none' %>;align-items:center;gap:12px;justify-content:center;margin-top:14px;padding:12px 16px;border-radius:12px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fecaca;color:#991b1b;max-width:640px;margin-left:auto;margin-right:auto;box-shadow:0 8px 24px rgba(153,27,27,0.08);">
-      <div style="width:40px;height:40px;border-radius:12px;background:#fff;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 6px 18px rgba(0,0,0,0.08);">🚫</div>
-      <div style="text-align:left;">
-        <div style="font-weight:800;font-size:1rem;margin-bottom:4px;">You've blocked this profile</div>
-        <div style="color:#b91c1c;font-size:0.92rem;">They won't see your content or reach out. Use the menu to unblock anytime.</div>
-      </div>
-    </div>
 
     <% if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin && typeof isOwnProfile !== 'undefined' && !isOwnProfile) { %>
-      <div style="position:relative;display:inline-block;" data-profile-user-id="<%= profileUserId %>" data-profile-user-name="<%= user.displayName || '' %>">
-        <button id="adminActionsBtn" style="padding:10px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-weight:600;font-size:1.2rem;cursor:pointer;transition:all 0.3s ease;" onclick="document.getElementById('adminActionsMenu').style.display = document.getElementById('adminActionsMenu').style.display === 'block' ? 'none' : 'block'">⋮</button>
-        <div id="adminActionsMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:8px;background:white;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:100;min-width:200px;">
-          <button onclick="openBanModalProfile()" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#374151;transition:background 0.2s;" onmouseover="this.style.background='#fee2e2';this.style.color='#991b1b'" onmouseout="this.style.background='none';this.style.color='#374151'">🚫 Ban User</button>
-          <button onclick="openSuspendModalProfile()" style="width:100%;text-align:left;padding:12px 16px;border:none;background:none;cursor:pointer;font-size:0.9rem;color:#374151;border-top:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7';this.style.color='#92400e'" onmouseout="this.style.background='none';this.style.color='#374151'">⏸️ Suspend User</button>
-          <a href="/admin/users/<%= profileUserId %>/stats" style="display:block;width:100%;text-align:left;padding:12px 16px;text-decoration:none;color:#374151;font-size:0.9rem;border-top:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='none'">📊 View Stats</a>
+      <div class="profile-menu" data-profile-user-id="<%= profileUserId %>" data-profile-user-name="<%= user.displayName || '' %>">
+        <button id="adminActionsBtn" class="profile-btn ghost icon-btn" type="button" onclick="document.getElementById('adminActionsMenu').style.display = document.getElementById('adminActionsMenu').style.display === 'block' ? 'none' : 'block'">⋮</button>
+        <div id="adminActionsMenu" class="profile-menu-dropdown">
+          <button onclick="openBanModalProfile()" class="profile-menu-item danger">🚫 Ban User</button>
+          <button onclick="openSuspendModalProfile()" class="profile-menu-item warning">⏸️ Suspend User</button>
+          <a href="/admin/users/<%= profileUserId %>/stats" class="profile-menu-item link">📊 View Stats</a>
         </div>
       </div>
     <% } %>
+  </div>
+
+  <div id="blockedBadge" class="blocked-badge" style="<%= isBlockedByViewer ? '' : 'display:none;' %>">
+    <div class="blocked-badge__icon">🚫</div>
+    <div>
+      <div class="blocked-badge__title">You've blocked this profile</div>
+      <div class="blocked-badge__text">They won't see your content or reach out. Use the menu to unblock anytime.</div>
+    </div>
   </div>
   
   <script>
@@ -92,19 +89,17 @@
           if (data.success) {
             if (data.following) {
               this.textContent = 'Following';
-              this.style.setProperty('background', '#6b7280', 'important');
-              this.style.setProperty('background-color', '#6b7280', 'important');
+              this.classList.add('is-following');
               this.setAttribute('data-following', 'true');
-              
+
               // Update follower count
               const followerStat = document.querySelector('.stat:nth-child(2) .stat-number');
               if (followerStat) followerStat.textContent = parseInt(followerStat.textContent) + 1;
             } else {
               this.textContent = 'Follow';
-              this.style.setProperty('background', '#ec4899', 'important');
-              this.style.setProperty('background-color', '#ec4899', 'important');
+              this.classList.remove('is-following');
               this.setAttribute('data-following', 'false');
-              
+
               // Update follower count
               const followerStat = document.querySelector('.stat:nth-child(2) .stat-number');
               if (followerStat) followerStat.textContent = Math.max(0, parseInt(followerStat.textContent) - 1);
