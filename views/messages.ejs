@@ -313,7 +313,7 @@
   const authUserId = <%= authUser ? authUser.id : 'null' %>;
   const authUserName = '<%= authUser ? (authUser.full_name || '').replace(/'/g, "\\'") : '' %>';
   const isGroupConversation = <%= currentConversation && currentConversation.is_group ? 'true' : 'false' %>;
-  const currentConversationMeta = <%= currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
+  const currentConversationMeta = <%- currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
   const conversationParticipants = <%= currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
   const isAdminUser = <%= authUser && ['admin','super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
   const moderationTarget = <%- JSON.stringify(moderationTarget || null) %>;
