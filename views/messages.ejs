@@ -1,6 +1,8 @@
 <%- include('partials/header') %>
 
 <% const isAdminUserFlag = authUser && ['admin','super_admin','global_admin'].includes(authUser.role); %>
+<% const viewerHasBlockedUser = blockState && blockState.viewerBlocked; %>
+<% const userIsBlockedByOther = blockState && blockState.blockedByOther; %>
 <div class="messages-page">
   <% const participantCount = (typeof participants !== 'undefined' && participants ? participants.length : 0); %>
   <% const conversationCount = (typeof conversations !== 'undefined' && conversations ? conversations.length : 0); %>
@@ -121,10 +123,24 @@
           <div class="chat-safety">
             <button type="button" class="icon-button" onclick="toggleSafetyMenu(event)">⋯</button>
             <div class="safety-menu" id="safetyMenu">
-              <div class="safety-menu-header">Safety controls</div>
+              <div class="safety-menu-header">
+                <span>Safety controls</span>
+                <% if (!currentConversation.is_group && viewerHasBlockedUser) { %>
+                  <span class="menu-status-pill blocked">Blocked</span>
+                <% } else if (!currentConversation.is_group && userIsBlockedByOther) { %>
+                  <span class="menu-status-pill muted">They blocked you</span>
+                <% } %>
+              </div>
+              <% if (!currentConversation.is_group && viewerHasBlockedUser) { %>
+                <div class="safety-menu-banner">You've blocked this user. Unblock to let them reach out again.</div>
+              <% } %>
               <button type="button" class="safety-item" onclick="reportConversation()">⚠️ Report conversation</button>
               <% if (!currentConversation.is_group) { %>
-                <button type="button" class="safety-item danger" onclick="blockConversationUser('<%= currentConversation.other_user_id %>')">🚫 Block <%= currentConversation.other_user_name %></button>
+                <% if (viewerHasBlockedUser) { %>
+                  <button type="button" class="safety-item" onclick="unblockConversationUser('<%= currentConversation.other_user_id %>')">✅ Unblock <%= currentConversation.other_user_name %></button>
+                <% } else { %>
+                  <button type="button" class="safety-item danger" onclick="blockConversationUser('<%= currentConversation.other_user_id %>')">🚫 Block <%= currentConversation.other_user_name %></button>
+                <% } %>
               <% } else { %>
                 <button type="button" class="safety-item" onclick="toggleInlineAddMember()">➕ Add people</button>
               <% } %>
@@ -138,7 +154,11 @@
                 <div class="safety-menu-header">Admin actions</div>
                 <button type="button" class="safety-item" onclick="reportConversation(true)">🛡️ Flag content</button>
                 <% if (!currentConversation.is_group) { %>
-                  <button type="button" class="safety-item" onclick="blockConversationUser(<%= currentConversation.other_user_id %>)">🚫 Block participant</button>
+                  <% if (viewerHasBlockedUser) { %>
+                    <button type="button" class="safety-item" onclick="unblockConversationUser(<%= currentConversation.other_user_id %>)">✅ Unblock participant</button>
+                  <% } else { %>
+                    <button type="button" class="safety-item" onclick="blockConversationUser(<%= currentConversation.other_user_id %>)">🚫 Block participant</button>
+                  <% } %>
                   <button type="button" class="safety-item" onclick="suspendConversationUser(<%= currentConversation.other_user_id %>)">⏸️ Suspend user</button>
                   <button type="button" class="safety-item" id="freezeActionBtn" onclick="toggleChatFreeze(<%= currentConversation.other_user_id %>)">❄️ Toggle chat freeze</button>
                 <% } else { %>
@@ -234,7 +254,11 @@
                 <button type="button" class="msg-action-btn" data-message-id="<%= msg.id %>" data-sender-id="<%= msg.sender_id %>" onclick="toggleMessageActions('<%= msg.id %>')">⋮</button>
                 <div class="msg-action-menu" id="msgActions<%= msg.id %>">
                   <button class="msg-action-item" onclick="reportChatMessage('<%= msg.id %>', '<%= msg.sender_id %>')">⚠️ Report Message</button>
-                  <button class="msg-action-item danger" onclick="blockChatUser('<%= msg.sender_id %>')">🚫 Block User</button>
+                  <% if (!currentConversation.is_group && viewerHasBlockedUser) { %>
+                    <button class="msg-action-item" onclick="unblockChatUser('<%= msg.sender_id %>')">✅ Unblock User</button>
+                  <% } else { %>
+                    <button class="msg-action-item danger" onclick="blockChatUser('<%= msg.sender_id %>')">🚫 Block User</button>
+                  <% } %>
                 </div>
                 <% } %>
 
@@ -273,11 +297,12 @@
       </div>
       <div id="typingIndicator" style="display:none;margin-bottom:.25rem;color:var(--text-light);font-size:.85rem;font-weight:600;">Typing...</div>
       <div id="replyPreviewBar" class="reply-preview-bar" style="display:none;">
+        <div class="reply-preview-icon">↩️</div>
         <div class="reply-preview-text">
           <div class="replying-to"></div>
           <div class="replying-body"></div>
         </div>
-        <button type="button" class="reply-cancel" onclick="clearReplyTarget()">✕</button>
+        <button type="button" class="reply-cancel" onclick="clearReplyTarget()" aria-label="Cancel reply">✕</button>
       </div>
       <form id="messageForm" class="chat-input-row" enctype="multipart/form-data">
         <label class="chat-attach-btn" for="fileInput" title="Attach file" aria-label="Attach file">📎</label>
@@ -314,6 +339,8 @@
   const authUserName = '<%= authUser ? (authUser.full_name || '').replace(/'/g, "\\'") : '' %>';
   const isGroupConversation = <%= currentConversation && currentConversation.is_group ? 'true' : 'false' %>;
   const currentConversationMeta = <%- currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
+  const viewerHasBlocked = <%= currentConversation && !currentConversation.is_group && blockState ? (blockState.viewerBlocked ? 'true' : 'false') : 'false' %>;
+  const blockedByOtherUser = <%= currentConversation && !currentConversation.is_group && blockState ? (blockState.blockedByOther ? 'true' : 'false') : 'false' %>;
   const conversationParticipants = <%= currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
   const isAdminUser = <%= authUser && ['admin','super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
   const moderationTarget = <%- JSON.stringify(moderationTarget || null) %>;
@@ -327,6 +354,7 @@
   });
 
   let replyToMessageId = null;
+  let activeReplyWrapper = null;
 
   // Join current conversation room
   if (socket && currentConversationId) {
@@ -360,6 +388,14 @@
       }
     });
   }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    closeFloatingMenus();
+    if (typeof closeGroupModal === 'function') closeGroupModal();
+    if (typeof closeGroupSettings === 'function') closeGroupSettings();
+    if (typeof clearReplyTarget === 'function') clearReplyTarget();
+  });
 
   function toggleSafetyMenu(event) {
     event?.stopPropagation();
@@ -418,6 +454,16 @@
       return;
     }
     blockChatUser(userId);
+    closeFloatingMenus();
+  }
+
+  function unblockConversationUser(userId) {
+    if (!userId) {
+      notify('Pick a participant to unblock first.');
+      closeFloatingMenus();
+      return;
+    }
+    unblockChatUser(userId);
     closeFloatingMenus();
   }
 
@@ -618,6 +664,11 @@
     const sender = wrapper.getAttribute('data-sender-name') || 'A member';
     const preview = wrapper.getAttribute('data-reply-preview') || 'Message';
     const hasAttachment = wrapper.getAttribute('data-reply-has-attachment') === 'true';
+    if (activeReplyWrapper && activeReplyWrapper !== wrapper) {
+      activeReplyWrapper.classList.remove('reply-target');
+    }
+    activeReplyWrapper = wrapper;
+    wrapper.classList.add('reply-target');
     if (replyBar && replyToText && replyBodyText) {
       replyToText.textContent = `Replying to ${sender}`;
       replyBodyText.textContent = `${hasAttachment ? '📎 ' : ''}${preview}`;
@@ -627,6 +678,10 @@
 
   window.clearReplyTarget = function() {
     replyToMessageId = null;
+    if (activeReplyWrapper) {
+      activeReplyWrapper.classList.remove('reply-target');
+      activeReplyWrapper = null;
+    }
     if (replyBar) replyBar.style.display = 'none';
   }
 
@@ -1022,9 +1077,20 @@
     renderSelectedUsers();
   };
 
+  document.getElementById('groupModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'groupModal') {
+      closeGroupModal();
+    }
+  });
+
   function renderSelectedUsers() {
     const target = document.getElementById('selectedUsers');
+    const counter = document.getElementById('selectedCount');
     if (!target) return;
+
+    if (counter) {
+      counter.textContent = `${window.selectedUsers.length} selected`;
+    }
 
     if (!window.selectedUsers.length) {
       target.innerHTML = '<div class="empty-selected">Add a couple of people to kick off the vibe.</div>';
@@ -1295,12 +1361,13 @@
             return;
           }
           document.getElementById('groupUserResults').innerHTML = users.map(u => `
-            <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem;border-bottom:1px solid var(--border-color);cursor:pointer;" onclick="addUserToGroup(${u.id}, '${u.full_name.replace(/'/g,"\\'")}', '${u.profile_picture || ''}')">
-              ${u.profile_picture ? `<img src="/uploads/${u.profile_picture}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--primary-color);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;">${u.full_name.charAt(0)}</div>`}
-              <div style="display:flex;flex-direction:column;">
-                <span style="font-weight:600;font-size:.8rem;">${u.full_name}</span>
-                ${u.handle ? `<span style="font-size:.7rem;color:var(--text-light);">@${u.handle}</span>` : ''}
+            <div class="group-result-item" onclick="addUserToGroup(${u.id}, '${u.full_name.replace(/'/g,"\\'")}', '${u.profile_picture || ''}')">
+              ${u.profile_picture ? `<img src="/uploads/${u.profile_picture}" class="group-result-avatar" alt="${u.full_name}">` : `<div class="group-result-avatar fallback">${u.full_name.charAt(0)}</div>`}
+              <div class="group-result-meta">
+                <span class="name">${u.full_name}</span>
+                ${u.handle ? `<span class="handle">@${u.handle}</span>` : ''}
               </div>
+              <span class="action-pill">Invite</span>
             </div>
           `).join('');
         } catch(e) {
@@ -1313,30 +1380,53 @@
 </script>
 
 <!-- Group Creation Modal -->
-  <div id="groupModal" style="display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px;">
-    <div style="background:white;border-radius:20px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-    <div style="padding:1.5rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
-      <h3 style="margin:0;font-size:1.25rem;font-weight:700;">New Group</h3>
-      <button type="button" onclick="closeGroupModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-light);">&times;</button>
-    </div>
-    <div style="padding:1.5rem;">
-      <div style="margin-bottom:1rem;">
-        <label style="display:block;margin-bottom:.5rem;font-weight:600;font-size:.8rem;">Group Name</label>
-        <input type="text" id="groupNameInput" placeholder="Enter group name" style="width:100%;padding:.65rem;border:2px solid var(--border-color);border-radius:8px;font-size:.85rem;">
+  <div id="groupModal" class="modal-overlay" style="display:none;">
+    <div class="group-modal-card">
+      <div class="group-modal-hero">
+        <div>
+          <p class="group-hero-kicker">Premium messaging</p>
+          <h3 class="group-hero-title">Create a group</h3>
+          <p class="group-hero-sub">Invite your inner circle with a polished invite and curated roster.</p>
+          <div class="group-hero-tags">
+            <span class="group-tag">Curated list</span>
+            <span class="group-tag">Invite link ready</span>
+            <span class="group-tag">Threaded by default</span>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeGroupModal()" aria-label="Close group creation">&times;</button>
       </div>
-      <div style="margin-bottom:1rem;">
-        <label style="display:block;margin-bottom:.5rem;font-weight:600;font-size:.8rem;">Add Participants</label>
-        <input type="text" id="groupUserSearch" placeholder="Search users..." style="width:100%;padding:.65rem;border:2px solid var(--border-color);border-radius:8px;font-size:.85rem;margin-bottom:.5rem;">
-        <div id="groupUserResults" style="max-height:200px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;"></div>
+
+      <div class="group-modal-body">
+        <div class="group-field">
+          <label for="groupNameInput">Group name</label>
+          <div class="group-input-shell">
+            <span class="input-lead">✨</span>
+            <input type="text" id="groupNameInput" placeholder="Give your group a standout name" />
+          </div>
+          <p class="field-hint">Tip: highlight the purpose so members know why they were chosen.</p>
+        </div>
+
+        <div class="group-field">
+          <label for="groupUserSearch">Add participants</label>
+          <div class="group-input-shell">
+            <span class="input-lead">🔍</span>
+            <input type="text" id="groupUserSearch" placeholder="Search people by name or handle" />
+          </div>
+          <div id="groupUserResults" class="group-user-results"></div>
+        </div>
+
+        <div class="group-field">
+          <div class="group-field-head">
+            <label for="selectedUsers">Selected members</label>
+            <span class="chip-soft" id="selectedCount">0 selected</span>
+          </div>
+          <div id="selectedUsers" class="selected-users"></div>
+        </div>
+
+        <button type="button" class="group-primary-btn" onclick="createGroup()">Send premium invite</button>
       </div>
-      <div style="margin-bottom:1rem;">
-        <label style="display:block;margin-bottom:.5rem;font-weight:600;font-size:.8rem;">Selected</label>
-        <div id="selectedUsers" style="display:flex;flex-wrap:wrap;gap:.4rem;min-height:40px;padding:.5rem;border:2px dashed var(--border-color);border-radius:8px;"></div>
-      </div>
-      <button type="button" onclick="createGroup()" style="width:100%;background:var(--primary-color);color:#fff;border:none;padding:.75rem;border-radius:50px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(255,79,163,.4);">Create Group</button>
     </div>
   </div>
-</div>
 
 <script>
   // Initialize group modal after DOM is loaded
@@ -1513,6 +1603,31 @@
       '🚫'
     );
   };
+
+  window.unblockChatUser = function(userId) {
+    showConfirm(
+      'Unblock this user? They will be able to message you again.',
+      async function() {
+        try {
+          const res = await fetch(`/api/users/${userId}/unblock`, { method: 'POST' });
+          const data = await res.json();
+
+          if (data.success) {
+            showSuccess('User unblocked successfully. Refreshing...', 'User Unblocked');
+            setTimeout(() => window.location.reload(), 1200);
+          } else {
+            showError(data.error || 'Failed to unblock user', 'Unblock Failed');
+          }
+        } catch (error) {
+          console.error('Unblock error:', error);
+          showError('An error occurred while unblocking this user', 'Unblock Failed');
+        }
+      },
+      null,
+      'Unblock User',
+      '✅'
+    );
+  };
 </script>
 
 <!-- Group Settings Modal -->
@@ -1588,6 +1703,12 @@
     document.getElementById('addMemberSearch').value = '';
     document.getElementById('addMemberResults').innerHTML = '';
   };
+
+  document.getElementById('groupSettingsModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'groupSettingsModal') {
+      closeGroupSettings();
+    }
+  });
 
   window.updateGroupName = async () => {
     const newName = document.getElementById('editGroupName').value.trim();

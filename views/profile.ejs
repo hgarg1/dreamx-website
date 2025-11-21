@@ -1,7 +1,6 @@
 <%- include('partials/header') %>
 
-
-
+<div class="profile-page <%= isBlockedByViewer ? 'is-blocked-view' : '' %>">
 <div class="profile-banner">
   <div class="profile-cover-gradient"></div>
   <% if (user.bannerImage) { %>
@@ -65,7 +64,7 @@
     <% } %>
   </div>
 
-  <div id="blockedBadge" class="blocked-badge" style="<%= isBlockedByViewer ? '' : 'display:none;' %>">
+  <div id="blockedBadge" class="blocked-badge <%= isBlockedByViewer ? 'is-visible' : '' %>">
     <div class="blocked-badge__icon">🚫</div>
     <div>
       <div class="blocked-badge__title">You've blocked this profile</div>
@@ -1181,6 +1180,7 @@
   let isProfileBlocked = <%= isBlockedByViewer ? 'true' : 'false' %> === 'true';
   const blockBadge = document.getElementById('blockedBadge');
   const blockToggleBtn = document.getElementById('blockToggleBtn');
+  const profilePage = document.querySelector('.profile-page');
 
   function updateBlockUI() {
     if (blockToggleBtn) {
@@ -1191,7 +1191,10 @@
       blockToggleBtn.style.borderTop = 'none';
     }
     if (blockBadge) {
-      blockBadge.style.display = isProfileBlocked ? 'flex' : 'none';
+      blockBadge.classList.toggle('is-visible', isProfileBlocked);
+    }
+    if (profilePage) {
+      profilePage.classList.toggle('is-blocked-view', isProfileBlocked);
     }
   }
 
@@ -1485,4 +1488,5 @@
   });
 </script>
 
+</div>
 <%- include('partials/footer') %>
