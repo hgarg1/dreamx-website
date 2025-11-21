@@ -3697,6 +3697,7 @@ app.get('/messages', (req, res) => {
     let messages = [];
     let participants = [];
     let moderationTarget = null;
+    let blockState = null;
 
     if (conversations.length > 0) {
         const requestedId = parseInt(req.query.conversation || '', 10);
@@ -3721,6 +3722,10 @@ app.get('/messages', (req, res) => {
                     chat_privileges_frozen: otherUser.chat_privileges_frozen === 1
                 };
             }
+            blockState = {
+                viewerBlocked: isUserBlocked({ userId: req.session.userId, targetId: otherParticipantId }),
+                blockedByOther: isUserBlocked({ userId: otherParticipantId, targetId: req.session.userId })
+            };
         }
         // Mark messages as read
         markMessagesAsRead({ conversationId: currentConversation.id, userId: req.session.userId });
@@ -3754,6 +3759,7 @@ app.get('/messages', (req, res) => {
         messages,
         participants,
         moderationTarget,
+        blockState,
         currentUserId: req.session.userId
     });
 });
