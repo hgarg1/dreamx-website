@@ -12,7 +12,7 @@ const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const bcrypt = require('bcrypt');
 const multer = require('multer');
-const http = require('http');
+const https = require('https');
 const {
     generateRegistrationOptions,
     verifyRegistrationResponse,
@@ -125,7 +125,7 @@ function getCallbackURL(path) {
     
     // Auto-detect: use localhost in development, production URL otherwise
     const isDevelopment = process.env.NODE_ENV !== 'production';
-    const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://dreamx-website.onrender.com';
+    const baseUrl = isDevelopment ? 'https://localhost:3000' : 'https://dreamx-website.onrender.com';
     return `${baseUrl}${path}`;
 }
 
@@ -135,7 +135,7 @@ function getRequestBaseUrl(req) {
     if (configuredBaseUrl) return configuredBaseUrl;
 
     const host = req?.get ? req.get('host') : req?.headers?.host;
-    if (!host) return 'http://localhost:3000';
+    if (!host) return 'https://localhost:3000';
 
     const forwardedProto = req?.headers?.['x-forwarded-proto'];
     const protocol = (forwardedProto ? forwardedProto.split(',')[0].trim() : req?.protocol) || 'http';
@@ -147,7 +147,19 @@ function getRequestBaseUrl(req) {
 const app = express();
 // Trust proxy headers (needed on Render/other proxies for correct host/proto)
 app.set('trust proxy', 1);
-const server = http.createServer(app);
+
+app.use((req, res, next) => {
+  if (!req.secure) {
+    return res.redirect('https://' + req.headers.host + req.url);
+  }
+  next();
+});
+
+const server = https.createServer({
+    key: fs.readFileSync('./localhost+2-key.pem'),
+    cert: fs.readFileSync('./localhost+2.pem'),
+},app);
+
 const io = socketIo(server, {
     cors: {
         origin: process.env.BASE_URL || 'http://localhost:3000',
@@ -868,9 +880,9 @@ const webauthnExpectedOrigins = (req, rpID) => {
     }
 
     origins.add(`https://${rpID}`);
-    origins.add(`http://${rpID}`);
-    origins.add('http://localhost:3000');
-    origins.add('http://127.0.0.1:3000');
+    origins.add(`https://${rpID}`);
+    origins.add('https://localhost:3000');
+    origins.add('https  ://127.0.0.1:3000');
     origins.add('https://dreamx-website.onrender.com');
 
     return Array.from(origins);
@@ -924,10 +936,11 @@ app.post('/webauthn/registration/verify', async (req, res) => {
         const { verified, registrationInfo } = verification;
         if (verified && registrationInfo) {
             const { credentialPublicKey, credentialID, counter, credentialDeviceType, credentialBackedUp } = registrationInfo;
+            console.log(Buffer.from(credentialID).toString('base64url'), 'registered for user ID', req.session.webauthnUserId);
             addWebAuthnCredential({
                 userId: req.session.webauthnUserId,
-                credentialId: Buffer.from(credentialID).toString('base64url'),
-                publicKey: Buffer.from(credentialPublicKey).toString('base64url'),
+                credentialId: credentialID.toString('base64url'),
+                publicKey: credentialPublicKey.toString('base64url'),
                 counter: counter || 0,
                 transports: (req.body.response && req.body.response.transports) ? JSON.stringify(req.body.response.transports) : null,
                 rpId: rpID,
@@ -993,7 +1006,9 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
     if (!expectedChallenge) return res.status(400).json({ error: 'No auth in progress' });
     try {
         const body = req.body;
-        const credIdB64 = body.id;
+        const credIdB64 = Buffer.from(body.id, 'base64url');
+        console.log('Verifying WebAuthn authentication for credential ID:', credIdB64);
+        console.log('RP ID:', rpID);
         const stored = getCredentialById(credIdB64, rpID);
         if (!stored) {
             // Return a soft failure so the client can show a helpful message instead of a 404 page
@@ -6370,6 +6385,7 @@ const {
 } = require('./db');
 
 const livestreamServices = require('./services/livestream');
+const { buffer } = require('stream/consumers');
 
 // Create a new livestream
 app.post('/api/livestream/create', (req, res) => {
@@ -6665,8 +6681,9 @@ io.on('connection', (socket) => {
     });
 });
 
-// Start the server
+
 server.listen(PORT, () => {
-    console.log(`✨ Dream X server running on http://localhost:${PORT}`);
+    console.log(`✨ Dream X server running on https://localhost:${PORT}`);
     console.log(`Press Ctrl+C to stop the server`);
+    console.log('HTTPS server running at https://localhost:3000');
 });
