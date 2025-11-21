@@ -13,6 +13,8 @@ const SQLiteStore = require('connect-sqlite3')(session);
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const https = require('https');
+const http = require('https');
+
 const {
     generateRegistrationOptions,
     verifyRegistrationResponse,
@@ -125,7 +127,7 @@ function getCallbackURL(path) {
     
     // Auto-detect: use localhost in development, production URL otherwise
     const isDevelopment = process.env.NODE_ENV !== 'production';
-    const baseUrl = isDevelopment ? 'https://localhost:3000' : 'https://dreamx-website.onrender.com';
+    const baseUrl = isDevelopment ? 'https://localhost' : 'https://dreamx-website.onrender.com';
     return `${baseUrl}${path}`;
 }
 
@@ -135,7 +137,7 @@ function getRequestBaseUrl(req) {
     if (configuredBaseUrl) return configuredBaseUrl;
 
     const host = req?.get ? req.get('host') : req?.headers?.host;
-    if (!host) return 'https://localhost:3000';
+    if (!host) return 'https://localhost';
 
     const forwardedProto = req?.headers?.['x-forwarded-proto'];
     const protocol = (forwardedProto ? forwardedProto.split(',')[0].trim() : req?.protocol) || 'http';
@@ -166,12 +168,13 @@ app.use((req, res, next) => {
   next();
 });
 
-const server = https.createServer({
+const httpsServer = https.createServer({
     key: fs.readFileSync('./localhost+2-key.pem'),
     cert: fs.readFileSync('./localhost+2.pem'),
 },app);
+const httpServer = http.createServer(app);
 
-const io = socketIo(server, {
+const io = socketIo(httpsServer, {
     cors: {
         origin: process.env.BASE_URL || 'http://localhost:3000',
         methods: ['GET', 'POST'],
@@ -181,7 +184,6 @@ const io = socketIo(server, {
     transports: ['polling', 'websocket'],
     allowEIO3: true
 });
-const PORT = 3000;
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -908,8 +910,8 @@ const webauthnExpectedOrigins = (req, rpID) => {
 
     origins.add(`https://${rpID}`);
     origins.add(`https://${rpID}`);
-    origins.add('https://localhost:3000');
-    origins.add('https  ://127.0.0.1:3000');
+    origins.add('https://localhost');
+    origins.add('https://127.0.0.1');
     origins.add('https://dreamx-website.onrender.com');
 
     return Array.from(origins);
@@ -6803,8 +6805,9 @@ io.on('connection', (socket) => {
 });
 
 
-server.listen(PORT, () => {
-    console.log(`✨ Dream X server running on https://localhost:${PORT}`);
+httpsServer.listen(443, () => {
+    console.log(`✨ Dream X server running on https://localhost`);
     console.log(`Press Ctrl+C to stop the server`);
-    console.log('HTTPS server running at https://localhost:3000');
+    console.log(`HTTPS server running at https://localhost`);
 });
+

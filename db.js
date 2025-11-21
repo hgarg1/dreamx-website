@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS webauthn_credentials (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   credential_id TEXT NOT NULL UNIQUE,
-  public_key TEXT NOT NULL,
+  public_key BLOB NOT NULL,
   counter INTEGER DEFAULT 0,
   transports TEXT,
   rp_id TEXT,

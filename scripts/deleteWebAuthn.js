@@ -12,8 +12,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
   console.log('Connected to the SQLite database.');
 });
 
-// SQL query to delete all records from the "webauthn_credentials" table
-const deleteQuery = 'DELETE FROM webauthn_credentials;';
+// SQL query to alter column public_key to BLOB
+const deleteQuery = 'alter table webauthn_credentials alter column public_key set data type BLOB;';
 
 // Execute the query
 db.run(deleteQuery, function (err) {

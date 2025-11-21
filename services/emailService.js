@@ -16,7 +16,7 @@ const maskValue = (value, visible = 4) => {
 // Dynamically resolve the redirect URI for Gmail OAuth based on the incoming request
 const redirectUriOptions = {
     fallback: 'https://developers.google.com/oauthplayground',
-    local: 'http://localhost:3000',
+    local: 'https://localhost',
     production: 'https://dreamx-website.onrender.com'
 };
 
@@ -329,25 +329,25 @@ const emailService = {
     },
 
     // Post interaction emails
-    sendPostReactionEmail: async (author, reactor, type, postId, baseUrl = 'http://localhost:3000', req) => {
+    sendPostReactionEmail: async (author, reactor, type, postId, baseUrl = 'https://localhost', req) => {
         if (!author.email) return { success: false, error: 'No email address' };
         const template = templates.postReaction(author, reactor, type, postId, baseUrl);
         return await sendEmail(author.email, template.subject, template.html, null, req);
     },
 
-    sendPostCommentEmail: async (author, commenter, content, postId, baseUrl = 'http://localhost:3000', req) => {
+    sendPostCommentEmail: async (author, commenter, content, postId, baseUrl = 'https://localhost', req) => {
         if (!author.email) return { success: false, error: 'No email address' };
         const template = templates.postComment(author, commenter, content, postId, baseUrl);
         return await sendEmail(author.email, template.subject, template.html, null, req);
     },
 
-    sendCommentReplyEmail: async (parentAuthor, commenter, content, postId, baseUrl = 'http://localhost:3000', req) => {
+    sendCommentReplyEmail: async (parentAuthor, commenter, content, postId, baseUrl = 'https://localhost', req) => {
         if (!parentAuthor.email) return { success: false, error: 'No email address' };
         const template = templates.commentReply(parentAuthor, commenter, content, postId, baseUrl);
         return await sendEmail(parentAuthor.email, template.subject, template.html, null, req);
     },
 
-    sendCommentLikeEmail: async (author, liker, postId, baseUrl = 'http://localhost:3000', req) => {
+    sendCommentLikeEmail: async (author, liker, postId, baseUrl = 'https://localhost', req) => {
         if (!author.email) return { success: false, error: 'No email address' };
         const template = templates.commentLike(author, liker, postId, baseUrl);
         return await sendEmail(author.email, template.subject, template.html, null, req);
