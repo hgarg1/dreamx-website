@@ -1415,25 +1415,63 @@ module.exports = {
   },
   // WebAuthn helpers
   addWebAuthnCredential: ({ userId, credentialId, publicKey, counter, transports, rpId }) => {
+    const normalizeBase64Url = (value) => {
+      if (Buffer.isBuffer(value)) return value.toString('base64url');
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        try {
+          return Buffer.from(trimmed, 'base64url').toString('base64url');
+        } catch (e) {
+          return trimmed;
+        }
+      }
+      return '';
+    };
+    const normalizeRpId = (value) => (value ? value.trim().toLowerCase() : null);
+
+    const normalizedCredentialId = normalizeBase64Url(credentialId);
+    const normalizedPublicKey = normalizeBase64Url(publicKey);
+    const normalizedRpId = normalizeRpId(rpId);
+    const normalizedCounter = Number.isInteger(counter) ? counter : 0;
+
     db.prepare(`INSERT OR REPLACE INTO webauthn_credentials (user_id, credential_id, public_key, counter, transports, rp_id) VALUES (?,?,?,?,?,?)`)
-      .run(userId, credentialId, publicKey, counter || 0, transports || null, rpId || null);
+      .run(userId, normalizedCredentialId, normalizedPublicKey, normalizedCounter, transports || null, normalizedRpId);
   },
   getCredentialsForUser: (userId, rpId = null) => {
-    if (rpId) {
+    const normalizedRpId = rpId ? rpId.trim().toLowerCase() : null;
+    if (normalizedRpId) {
       return db.prepare(`SELECT * FROM webauthn_credentials WHERE user_id = ? AND (rp_id IS NULL OR rp_id = ?)`)
-        .all(userId, rpId);
+        .all(userId, normalizedRpId);
     }
     return db.prepare(`SELECT * FROM webauthn_credentials WHERE user_id = ?`).all(userId);
   },
   getCredentialById: (credentialId, rpId = null) => {
-    if (rpId) {
+    const normalizeBase64Url = (value) => {
+      if (Buffer.isBuffer(value)) return value.toString('base64url');
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        try {
+          return Buffer.from(trimmed, 'base64url').toString('base64url');
+        } catch (e) {
+          return trimmed;
+        }
+      }
+      return '';
+    };
+    const normalizedCredentialId = normalizeBase64Url(credentialId);
+    const normalizedRpId = rpId ? rpId.trim().toLowerCase() : null;
+    if (normalizedRpId) {
       return db.prepare(`SELECT * FROM webauthn_credentials WHERE credential_id = ? AND (rp_id IS NULL OR rp_id = ?)`)
-        .get(credentialId, rpId);
+        .get(normalizedCredentialId, normalizedRpId);
     }
-    return db.prepare(`SELECT * FROM webauthn_credentials WHERE credential_id = ?`).get(credentialId);
+    return db.prepare(`SELECT * FROM webauthn_credentials WHERE credential_id = ?`).get(normalizedCredentialId);
   },
   updateCredentialCounter: ({ credentialId, counter }) => {
-    db.prepare(`UPDATE webauthn_credentials SET counter = ? WHERE credential_id = ?`).run(counter, credentialId);
+    const normalizedCounter = Number.isInteger(counter) ? counter : 0;
+    const normalizedCredentialId = Buffer.isBuffer(credentialId)
+      ? credentialId.toString('base64url')
+      : (typeof credentialId === 'string' ? credentialId.trim() : '');
+    db.prepare(`UPDATE webauthn_credentials SET counter = ? WHERE credential_id = ?`).run(normalizedCounter, normalizedCredentialId);
   },
   // Notification helpers
   createNotification: ({ userId, type, title, message, link }) => {
