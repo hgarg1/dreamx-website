@@ -817,12 +817,30 @@ app.post('/onboarding/start', (req, res) => {
 });
 
 // RBAC helpers
+const ADMIN_PERMISSION_DEFINITIONS = [
+    { key: 'manage_users', label: 'Manage Users', desc: 'Invite, suspend, and verify community accounts.' },
+    { key: 'manage_admins', label: 'Manage Admins', desc: 'Promote admins and adjust their access.' },
+    { key: 'moderate_content', label: 'Moderate Content', desc: 'Review feed posts, livestreams, and reported media.' },
+    { key: 'billing', label: 'Billing & Refunds', desc: 'Process payments, disputes, and invoices.' },
+    { key: 'services_moderation', label: 'Services Moderation', desc: 'Hide, restore, or delete services listings.' },
+    { key: 'refunds', label: 'Refund Desk', desc: 'Approve or deny refund requests.' },
+    { key: 'careers', label: 'Careers & Recruiting', desc: 'Manage career applications and hiring funnels.' },
+    { key: 'appeals', label: 'Appeals & Support', desc: 'Handle account and content appeal queues.' },
+    { key: 'announcements', label: 'Communications', desc: 'Publish announcements and send notifications.' },
+    { key: 'feature_flags', label: 'Feature Flags', desc: 'Control experiments and gated rollouts.' },
+    { key: 'audit_logs', label: 'Audit Logs', desc: 'Inspect privileged actions and access history.' },
+    { key: 'user_moderation', label: 'User Moderation', desc: 'Ban or reinstate accounts and enforce policies.' },
+    { key: 'platform_metrics', label: 'Platform Metrics', desc: 'View KPIs and real-time operational stats.' }
+];
+const ADMIN_PERMISSION_KEYS = new Set(ADMIN_PERMISSION_DEFINITIONS.map(p => p.key));
 const roleRank = { user: 1, admin: 2, hr: 2, super_admin: 3, global_admin: 4 };
 const parseAdminMeta = (user) => {
     try {
+        const cleanPerms = normalizeArray(user.admin_permissions ? JSON.parse(user.admin_permissions) : [])
+            .filter(p => ADMIN_PERMISSION_KEYS.has(p));
         return {
-            permissions: JSON.parse(user.admin_permissions || '[]'),
-            scopes: JSON.parse(user.admin_scopes || '[]')
+            permissions: cleanPerms,
+            scopes: normalizeArray(user.admin_scopes ? JSON.parse(user.admin_scopes) : [])
         };
     } catch (_) {
         return { permissions: [], scopes: [] };
@@ -834,6 +852,7 @@ const isSuperAdmin = (user) => user && (user.role === 'super_admin' || user.role
 const isGlobalAdmin = (user) => user && user.role === 'global_admin';
 const hasPermission = (user, permission) => {
     if (!user) return false;
+    if (isSuperAdmin(user)) return true;
     const { permissions } = parseAdminMeta(user);
     return permissions.includes(permission);
 };
@@ -908,10 +927,17 @@ const webauthnExpectedOrigins = (req, rpID) => {
         origins.add(`${req.protocol}://${req.headers.host}`);
     }
 
-    origins.add(`https://${rpID}`);
-    origins.add(`https://${rpID}`);
-    origins.add('https://localhost');
-    origins.add('https://127.0.0.1');
+    const normalizedRpID = rpID?.trim();
+    if (normalizedRpID) {
+        origins.add(`https://${normalizedRpID}`);
+        origins.add(`http://${normalizedRpID}`);
+    }
+
+    // Development fallbacks
+    origins.add('http://localhost:3000');
+    origins.add('https://localhost:3000');
+    origins.add('http://127.0.0.1:3000');
+    origins.add('https://127.0.0.1:3000');
     origins.add('https://dreamx-website.onrender.com');
 
     return Array.from(origins);
@@ -938,7 +964,7 @@ app.get('/webauthn/registration/options', async (req, res) => {
                 requireResidentKey: true,
             },
             excludeCredentials: existingCreds.map(c => ({
-                id: c.credential_id.toString('base64url'),
+                id: Buffer.from(c.credential_id, 'base64url'),
                 type: 'public-key',
             })),
         });
@@ -1006,7 +1032,7 @@ app.get('/webauthn/authentication/options', async (req, res) => {
             }
 
             allowCredentials = creds.map((c) => ({
-                id: c.credential_id.toString('base64url'),
+                id: Buffer.from(c.credential_id, 'base64url'),
                 type: 'public-key',
                 transports: c.transports ? JSON.parse(c.transports) : undefined,
             }));
@@ -1035,10 +1061,11 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
     if (!expectedChallenge) return res.status(400).json({ error: 'No auth in progress' });
     try {
         const body = req.body;
-        const credIdB64 = Buffer.from(body.id, 'base64url');
-        console.log('Verifying WebAuthn authentication for credential ID:', credIdB64);
+        const credentialIdB64 = body.id;
+        const credentialIdBuffer = Buffer.from(credentialIdB64, 'base64url');
+        console.log('Verifying WebAuthn authentication for credential ID:', credentialIdBuffer);
         console.log('RP ID:', rpID);
-        const stored = getCredentialById(credIdB64, rpID);
+        const stored = getCredentialById(credentialIdB64, rpID);
         if (!stored) {
             // Return a soft failure so the client can show a helpful message instead of a 404 page
             req.session.webauthnChallenge = null;
@@ -1072,7 +1099,7 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
         });
         const { verified, authenticationInfo } = verification;
         if (verified && stored) {
-            updateCredentialCounter({ credentialId: stored.credential_id, counter: authenticationInfo.newCounter || stored.counter });
+            updateCredentialCounter({ credentialId: stored.credential_id, counter: authenticationInfo.newCounter ?? stored.counter });
             // Log user in using Passport
             const user = getUserById(stored.user_id);
             if (user) {
@@ -1241,6 +1268,12 @@ const normalizeArray = (val) => {
     if (typeof val === 'string' && val.length) return [val.trim()];
     return [];
 };
+const sanitizePermissions = (val) => normalizeArray(val).filter(p => ADMIN_PERMISSION_KEYS.has(p));
+const defaultPermissionsForRole = (role) => {
+    if (role === 'global_admin' || role === 'super_admin') return Array.from(ADMIN_PERMISSION_KEYS);
+    if (role === 'admin') return ['manage_users', 'moderate_content', 'billing', 'services_moderation', 'refunds', 'careers', 'appeals'];
+    return [];
+};
 
 // Admin dashboard with pagination, audit logs, and queues
 app.get('/admin', requireAdmin, (req, res) => {
@@ -1255,7 +1288,7 @@ app.get('/admin', requireAdmin, (req, res) => {
     const users = usersRaw.map(u => {
         let perms = [];
         let scopes = [];
-        try { perms = normalizeArray(u.admin_permissions ? JSON.parse(u.admin_permissions) : []); } catch (_) { perms = []; }
+        try { perms = sanitizePermissions(u.admin_permissions ? JSON.parse(u.admin_permissions) : []); } catch (_) { perms = []; }
         try { scopes = normalizeArray(u.admin_scopes ? JSON.parse(u.admin_scopes) : []); } catch (_) { scopes = []; }
         return {
             ...u,
@@ -1332,6 +1365,7 @@ app.get('/admin', requireAdmin, (req, res) => {
         cPage, caPage, aaPage, rPage,
         cHasMore, caHasMore, aaHasMore, rHasMore,
         cStatus, caStatus, aaStatus, rStatus,
+        adminPermissions: ADMIN_PERMISSION_DEFINITIONS,
         error: req.query.error,
         success: req.query.success
     });
@@ -1353,7 +1387,7 @@ app.post('/admin/users/wizard', requireAdmin, async (req, res) => {
     const fullName = (req.body.fullName || '').trim();
     const email = (req.body.email || '').trim().toLowerCase();
     const password = req.body.password || '';
-    const permissions = normalizeArray(req.body.permissions);
+    let permissions = sanitizePermissions(req.body.permissions);
     const scopes = normalizeArray(req.body.scopes);
 
     if (!fullName || !email || !password) {
@@ -1364,6 +1398,11 @@ app.post('/admin/users/wizard', requireAdmin, async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    if (targetRole === 'user') {
+        permissions = [];
+    } else if (!permissions.length) {
+        permissions = defaultPermissionsForRole(targetRole);
+    }
     const newUserId = createUser({ fullName, email, passwordHash });
     if (targetRole !== 'user') {
         updateUserRole({ userId: newUserId, role: targetRole });
@@ -1388,7 +1427,13 @@ app.post('/admin/users/:id/permissions', requireAdmin, (req, res) => {
     if (actorRank <= targetRank) {
         return res.status(403).json({ error: 'You can only edit lower-tier admins' });
     }
-    const permissions = normalizeArray(req.body.permissions);
+    if (targetUser.role === 'user') {
+        return res.status(400).json({ error: 'Cannot assign admin permissions to standard users' });
+    }
+    if (actor.role === 'admin' && !hasPermission(actor, 'manage_admins')) {
+        return res.status(403).json({ error: 'Missing manage_admins permission' });
+    }
+    const permissions = sanitizePermissions(req.body.permissions);
     const scopes = normalizeArray(req.body.scopes);
     updateAdminPermissions({ userId: targetId, permissions, scopes });
     addAuditLog({ userId: actor.id, action: 'permissions_updated', details: JSON.stringify({ target: targetUser.email }) });
