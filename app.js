@@ -143,6 +143,17 @@ function getRequestBaseUrl(req) {
     return `${protocol}://${host}`;
 }
 
+function safeParseArray(value, fallback = []) {
+    if (!value) return fallback;
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : fallback;
+    } catch (err) {
+        console.warn('Failed to parse JSON array value:', err.message);
+        return fallback;
+    }
+}
+
 // Initialize Express app
 const app = express();
 // Trust proxy headers (needed on Render/other proxies for correct host/proto)
@@ -3138,149 +3149,162 @@ app.post('/api/comments/:commentId/star', async (req, res) => {
 // Profile page (current user)
 app.get('/profile', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
-    // Prevent caching of profile to ensure fresh content
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    const row = getUserById(req.session.userId);
-    if (!row) return res.redirect('/login');
-    const passions = row.categories ? JSON.parse(row.categories) : [];
-    const goals = row.goals ? JSON.parse(row.goals) : [];
-    const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
-    let userPosts = getUserPosts(req.session.userId).filter(p => !p.is_reel);
-    // enrich posts with current user's reaction and ensure reactions map exists
-    userPosts = userPosts.map(p => {
-        try {
-            p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-            p.reactions = p.reactions || {};
-        } catch (e) {}
-        return p;
-    });
-    
-    const followerCount = getFollowerCount(req.session.userId);
-    const followingCount = getFollowingCount(req.session.userId);
-    
-    const user = {
-        displayName: row.full_name,
-        handle: row.handle || row.email.split('@')[0],
-        bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
-        passions,
-        skills: skillsList,
-        stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
-        isSeller: false,
-        bannerImage: row.banner_image,
-        onboarding: {
-            first_goal: row.first_goal || null,
-            first_goal_date: row.first_goal_date || null,
-            first_goal_metric: row.first_goal_metric || null,
-            first_goal_public: Number(row.first_goal_public) === 1,
-            progress_visibility: row.progress_visibility || 'public',
-            daily_time_commitment: row.daily_time_commitment || null,
-            best_time: row.best_time || null,
-            reminder_frequency: row.reminder_frequency || null,
-            accountability_style: (function(){ try { return row.accountability_style ? JSON.parse(row.accountability_style) : []; } catch(e) { return []; } })(),
-            content_preferences: (function(){ try { return row.content_preferences ? JSON.parse(row.content_preferences) : []; } catch(e) { return []; } })(),
-            content_format_preference: row.content_format_preference || null,
-            open_to_mentoring: row.open_to_mentoring || null
-        }
-    };
-    const projects = [];
-    const services = getUserServices(req.session.userId);
-    const me = getUserById(req.session.userId);
-    const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
-    
-    res.render('profile', {
-        title: `${user.displayName} - Profile - Dream X`,
-        currentPage: 'profile',
-        user,
-        authUser: me,
-        projects,
-        services,
-        userPosts,
-        profileUserId: row.id,
-        profilePicture: row.profile_picture || null,
-        isOwnProfile: true,
-        isFollowing: false,
-        isSuperAdmin
-    });
+    try {
+        // Prevent caching of profile to ensure fresh content
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
+        const row = getUserById(req.session.userId);
+        if (!row) return res.redirect('/login');
+
+        const passions = safeParseArray(row.categories);
+        const goals = safeParseArray(row.goals);
+        const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
+        let userPosts = getUserPosts(req.session.userId).filter(p => !p.is_reel);
+
+        // enrich posts with current user's reaction and ensure reactions map exists
+        userPosts = userPosts.map(p => {
+            try {
+                p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                p.reactions = p.reactions || {};
+            } catch (e) {}
+            return p;
+        });
+
+        const followerCount = getFollowerCount(req.session.userId);
+        const followingCount = getFollowingCount(req.session.userId);
+
+        const user = {
+            displayName: row.full_name,
+            handle: row.handle || row.email.split('@')[0],
+            bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
+            passions,
+            skills: skillsList,
+            stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
+            isSeller: false,
+            bannerImage: row.banner_image,
+            onboarding: {
+                first_goal: row.first_goal || null,
+                first_goal_date: row.first_goal_date || null,
+                first_goal_metric: row.first_goal_metric || null,
+                first_goal_public: Number(row.first_goal_public) === 1,
+                progress_visibility: row.progress_visibility || 'public',
+                daily_time_commitment: row.daily_time_commitment || null,
+                best_time: row.best_time || null,
+                reminder_frequency: row.reminder_frequency || null,
+                accountability_style: safeParseArray(row.accountability_style),
+                content_preferences: safeParseArray(row.content_preferences),
+                content_format_preference: row.content_format_preference || null,
+                open_to_mentoring: row.open_to_mentoring || null
+            }
+        };
+        const projects = [];
+        const services = getUserServices(req.session.userId);
+        const me = getUserById(req.session.userId);
+        const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
+
+        res.render('profile', {
+            title: `${user.displayName} - Profile - Dream X`,
+            currentPage: 'profile',
+            user,
+            authUser: me,
+            projects,
+            services,
+            userPosts,
+            profileUserId: row.id,
+            profilePicture: row.profile_picture || null,
+            isOwnProfile: true,
+            isFollowing: false,
+            isSuperAdmin
+        });
+    } catch (error) {
+        console.error('Error rendering own profile:', error);
+        res.status(500).render('500', { title: 'Server Error - Dream X', currentPage: 'profile' });
+    }
 });
 // Public profile by ID (view others) — only match numeric IDs to avoid catching '/profile/edit'
 app.get('/profile/:id(\\d+)', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
-    const uid = parseInt(req.params.id, 10);
-    if (!uid || isNaN(uid)) return res.redirect('/feed');
-    const row = getUserById(uid);
-    if (!row) {
-        return res.status(404).render('profile-not-found', {
-            title: 'Profile Not Found - Dream X',
-            currentPage: 'profile',
-            userId: uid
-        });
-    }
-    const passions = row.categories ? JSON.parse(row.categories) : [];
-    const goals = row.goals ? JSON.parse(row.goals) : [];
-    const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
-    let userPosts = getUserPosts(uid).filter(p => !p.is_reel);
-    userPosts = userPosts.map(p => {
-        try {
-            p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-            p.reactions = p.reactions || {};
-        } catch (e) {}
-        return p;
-    });
-    
-    // Check if viewing own profile
-    const viewingOwnProfile = (uid === req.session.userId);
-    const isBlockedByViewer = viewingOwnProfile ? false : isUserBlocked({ userId: req.session.userId, targetId: uid });
-    
-    const followerCount = getFollowerCount(uid);
-    const followingCount = getFollowingCount(uid);
-    const isFollowingUser = isFollowing({ followerId: req.session.userId, followingId: uid });
-    
-    const user = {
-        displayName: row.full_name,
-        handle: row.handle || row.email.split('@')[0],
-        bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
-        passions,
-        skills: skillsList,
-        stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
-        isSeller: false,
-        bannerImage: row.banner_image,
-        onboarding: {
-            first_goal: row.first_goal || null,
-            first_goal_date: row.first_goal_date || null,
-            first_goal_metric: row.first_goal_metric || null,
-            first_goal_public: Number(row.first_goal_public) === 1,
-            progress_visibility: row.progress_visibility || 'public',
-            daily_time_commitment: row.daily_time_commitment || null,
-            best_time: row.best_time || null,
-            reminder_frequency: row.reminder_frequency || null,
-            accountability_style: (function(){ try { return row.accountability_style ? JSON.parse(row.accountability_style) : []; } catch(e) { return []; } })(),
-            content_preferences: (function(){ try { return row.content_preferences ? JSON.parse(row.content_preferences) : []; } catch(e) { return []; } })(),
-            content_format_preference: row.content_format_preference || null,
-            open_to_mentoring: row.open_to_mentoring || null
+    try {
+        const uid = parseInt(req.params.id, 10);
+        if (!uid || isNaN(uid)) return res.redirect('/feed');
+        const row = getUserById(uid);
+        if (!row) {
+            return res.status(404).render('profile-not-found', {
+                title: 'Profile Not Found - Dream X',
+                currentPage: 'profile',
+                userId: uid
+            });
         }
-    };
-    const projects = [];
-    const services = getUserServices(uid);
-    const me = getUserById(req.session.userId);
-    const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
-    
-    res.render('profile', {
-        title: `${user.displayName} - Profile - Dream X`,
-        currentPage: 'profile',
-        user,
-        authUser: me,
-        projects,
-        services,
-        userPosts,
-        profileUserId: uid,
-        profilePicture: row.profile_picture || null,
-        isOwnProfile: viewingOwnProfile,
-        isFollowing: isFollowingUser,
-        isSuperAdmin,
-        isBlockedByViewer
-    });
+        const passions = safeParseArray(row.categories);
+        const goals = safeParseArray(row.goals);
+        const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
+        let userPosts = getUserPosts(uid).filter(p => !p.is_reel);
+        userPosts = userPosts.map(p => {
+            try {
+                p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                p.reactions = p.reactions || {};
+            } catch (e) {}
+            return p;
+        });
+
+        // Check if viewing own profile
+        const viewingOwnProfile = (uid === req.session.userId);
+        const isBlockedByViewer = viewingOwnProfile ? false : isUserBlocked({ userId: req.session.userId, targetId: uid });
+
+        const followerCount = getFollowerCount(uid);
+        const followingCount = getFollowingCount(uid);
+        const isFollowingUser = isFollowing({ followerId: req.session.userId, followingId: uid });
+
+        const user = {
+            displayName: row.full_name,
+            handle: row.handle || row.email.split('@')[0],
+            bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
+            passions,
+            skills: skillsList,
+            stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
+            isSeller: false,
+            bannerImage: row.banner_image,
+            onboarding: {
+                first_goal: row.first_goal || null,
+                first_goal_date: row.first_goal_date || null,
+                first_goal_metric: row.first_goal_metric || null,
+                first_goal_public: Number(row.first_goal_public) === 1,
+                progress_visibility: row.progress_visibility || 'public',
+                daily_time_commitment: row.daily_time_commitment || null,
+                best_time: row.best_time || null,
+                reminder_frequency: row.reminder_frequency || null,
+                accountability_style: safeParseArray(row.accountability_style),
+                content_preferences: safeParseArray(row.content_preferences),
+                content_format_preference: row.content_format_preference || null,
+                open_to_mentoring: row.open_to_mentoring || null
+            }
+        };
+        const projects = [];
+        const services = getUserServices(uid);
+        const me = getUserById(req.session.userId);
+        const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
+
+        res.render('profile', {
+            title: `${user.displayName} - Profile - Dream X`,
+            currentPage: 'profile',
+            user,
+            authUser: me,
+            projects,
+            services,
+            userPosts,
+            profileUserId: uid,
+            profilePicture: row.profile_picture || null,
+            isOwnProfile: viewingOwnProfile,
+            isFollowing: isFollowingUser,
+            isSuperAdmin,
+            isBlockedByViewer
+        });
+    } catch (error) {
+        console.error('Error rendering user profile:', error);
+        res.status(500).render('500', { title: 'Server Error - Dream X', currentPage: 'profile' });
+    }
 });
 
 // Edit Profile form (placeholder values pulled from same user object shape)
