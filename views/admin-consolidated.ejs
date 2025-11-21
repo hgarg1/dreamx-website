@@ -1059,23 +1059,23 @@
             <option value="global_admin" <%= authUser.role === 'global_admin' ? '' : 'disabled' %>>Global Admin</option>
           </select>
           <p class="wizard-hint">Admins can only create roles at or below their level.</p>
-          <div class="rbac-callout">
+          <div class="rbac-callout" id="rbacCallout">
             <strong>RBAC quick edit</strong>
             <p>Global admins can tune platform-level RBAC defaults directly.</p>
             <% if (authUser.role === 'global_admin') { %>
-              <button type="button" class="admin-modal-btn primary" style="margin-top:8px;" onclick="document.getElementById('rbacDrawer').classList.add('open')">Open RBAC Console</button>
+              <button type="button" class="admin-modal-btn primary" style="margin-top:8px;" onclick="openRbacDrawer()">Open RBAC Console</button>
             <% } else { %>
               <span style="color:#6b7280;font-size:0.9rem;">RBAC console available to global admins.</span>
             <% } %>
           </div>
         </div>
         <div class="wizard-panel" data-step="3" style="display:none;">
-          <p class="wizard-hint">Toggle granular permissions for this admin. Leave blank for defaults.</p>
-          <div class="chip-grid">
-            <label><input type="checkbox" name="wizardPerm" value="manage_users"> Manage Users</label>
-            <label><input type="checkbox" name="wizardPerm" value="manage_admins"> Manage Admins</label>
-            <label><input type="checkbox" name="wizardPerm" value="moderate_content"> Moderate Content</label>
-            <label><input type="checkbox" name="wizardPerm" value="billing"> Billing & Refunds</label>
+          <p class="wizard-hint" id="permissionGuardrail">Toggle granular permissions for this admin. Leave blank for defaults.</p>
+          <p class="wizard-hint" id="permissionUserNotice" style="display:none;color:#9ca3af;">Standard users do not receive administrative permissions.</p>
+          <div class="chip-grid" id="wizardPermissionGrid">
+            <% (adminPermissions || []).forEach(function(p) { %>
+              <label><input type="checkbox" name="wizardPerm" value="<%= p.key %>"> <%= p.label %></label>
+            <% }) %>
           </div>
           <label style="margin-top:12px;">Scope tags (comma separated)</label>
           <input id="wizardScopes" type="text" class="wizard-input" placeholder="north-america, beta" />
@@ -1101,19 +1101,18 @@
     <div class="admin-modal-content" style="width:100%;max-width:640px;">
       <div class="admin-modal-header">
         <h3>Role-Based Access Control</h3>
-        <button class="admin-modal-close" onclick="document.getElementById('rbacDrawer').classList.remove('open');document.getElementById('rbacDrawer').style.display='none'">&times;</button>
+        <button class="admin-modal-close" onclick="closeRbacDrawer()">&times;</button>
       </div>
       <div class="admin-modal-body">
-        <p style="color:#6b7280;">Global admins can curate platform-wide guardrails. Use the wizard above to tailor per-admin overrides.</p>
-        <div class="chip-grid">
-          <span class="rbac-pill">Global Admin → All permissions</span>
-          <span class="rbac-pill">Super Admin → Admin management, moderation</span>
-          <span class="rbac-pill">Admin → User management, content review</span>
-        </div>
-        <p style="margin-top:12px;">Need custom rules? Apply scopes like <code>region:emea</code> or <code>segment:beta</code> to target experiments.</p>
+        <p style="color:#6b7280;">Curate platform-wide guardrails, then apply them to this wizard without leaving the flow.</p>
+        <div class="rbac-grid" id="rbacPermissionList"></div>
+        <label style="margin-top:16px;">Scopes to apply</label>
+        <input id="rbacScopeInput" type="text" class="wizard-input" placeholder="region:emea, rollout:beta" />
+        <div class="admin-alert admin-alert-info" style="margin-top:12px;">These selections will sync with the "Permissions" step when you click Apply.</div>
       </div>
       <div class="admin-modal-footer">
-        <button class="admin-modal-btn primary" onclick="document.getElementById('rbacDrawer').classList.remove('open');document.getElementById('rbacDrawer').style.display='none'">Close</button>
+        <button class="admin-modal-btn secondary" onclick="closeRbacDrawer()">Close</button>
+        <button class="admin-modal-btn primary" onclick="applyRbacSettings()">Apply to wizard</button>
       </div>
     </div>
   </div>
@@ -1147,15 +1146,20 @@
     .wizard-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
     .wizard-step { padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; text-align:center; font-weight:700; color:#6b7280; background:#f9fafb; }
     .wizard-step.active { border-color:#8b5cf6; color:#4c1d95; background:linear-gradient(135deg,#ede9fe,#f5f3ff); }
+    .wizard-step.disabled { opacity:0.4; filter:grayscale(1); }
     .wizard-input { width:100%; padding:12px; border:2px solid #e5e7eb; border-radius:10px; font-size:15px; }
     .wizard-hint { color:#6b7280; font-size:0.9rem; margin-top:8px; }
     .chip-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-top:8px; }
     .chip-grid label { padding:10px 12px; border:1px solid #e5e7eb; border-radius:12px; background:#f9fafb; display:flex; align-items:center; gap:8px; font-weight:600; color:#374151; }
+    .chip-grid.disabled { opacity:0.5; pointer-events:none; }
     .review-card { background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px; }
     .review-card ul { padding-left:18px; line-height:1.6; }
     .rbac-callout { margin-top:12px; padding:12px; border:1px dashed #a78bfa; border-radius:10px; background:linear-gradient(135deg,#f5f3ff,#eef2ff); }
     .rbac-pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; background:#eef2ff; color:#4338ca; font-weight:700; margin-right:8px; margin-bottom:6px; }
     #rbacDrawer.open { display:flex !important; }
+    .rbac-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin-top:12px; }
+    .rbac-card { padding:12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; display:flex; gap:12px; align-items:flex-start; }
+    .rbac-card input { margin-top:4px; }
   </style>
 
   <!-- Ban User Modal -->
@@ -1234,6 +1238,10 @@
     document.addEventListener('DOMContentLoaded', () => {
       const urlParams = new URLSearchParams(window.location.search);
       const highlightId = urlParams.get('highlight');
+      const wizardRoleSelect = document.getElementById('wizardRole');
+      if (wizardRoleSelect) {
+        wizardRoleSelect.addEventListener('change', configureAccessUI);
+      }
       if (highlightId) {
         // Switch to users tab
         const usersTab = document.querySelector('[data-tab="users"]');
@@ -1997,8 +2005,10 @@
     </script>
 
     <script>
+      const rbacPermissions = <%- JSON.stringify(adminPermissions || []) %>;
+
       let wizardStep = 1;
-      const wizardTotal = 4;
+      let wizardTotal = 4;
       function openUserWizard() {
         wizardStep = 1;
         document.getElementById('wizardName').value = '';
@@ -2006,9 +2016,11 @@
         document.getElementById('wizardPassword').value = 'Admin!123';
         document.getElementById('wizardRole').value = 'user';
         document.getElementById('wizardScopes').value = '';
-        document.querySelectorAll('input[name="wizardPerm"]').forEach(cb => cb.checked = false);
+        document.querySelectorAll('input[name="wizardPerm"]').forEach(cb => { cb.checked = false; cb.disabled = false; });
         document.getElementById('wizardSuccess').style.display = 'none';
         document.getElementById('wizardError').style.display = 'none';
+        closeRbacDrawer();
+        configureAccessUI();
         updateWizardStep();
         document.getElementById('userWizardModal').style.display = 'flex';
       }
@@ -2017,7 +2029,9 @@
       }
       function updateWizardStep() {
         document.querySelectorAll('.wizard-step').forEach(step => {
-          step.classList.toggle('active', Number(step.dataset.step) === wizardStep);
+          const s = Number(step.dataset.step);
+          step.classList.toggle('active', s === wizardStep);
+          step.classList.toggle('disabled', s > wizardTotal);
         });
         document.querySelectorAll('.wizard-panel').forEach(panel => {
           panel.style.display = Number(panel.dataset.step) === wizardStep ? 'block' : 'none';
@@ -2025,6 +2039,14 @@
         document.getElementById('wizardNextBtn').textContent = wizardStep === wizardTotal ? 'Create user' : 'Next';
       }
       function nextWizardStep() {
+        const role = document.getElementById('wizardRole').value;
+        const isAdminRole = role !== 'user';
+        if (wizardStep === 2 && !isAdminRole) {
+          wizardStep = wizardTotal;
+          buildWizardSummary();
+          updateWizardStep();
+          return;
+        }
         if (wizardStep < wizardTotal) {
           wizardStep += 1;
           if (wizardStep === wizardTotal) buildWizardSummary();
@@ -2035,20 +2057,85 @@
       }
       function previousWizardStep() {
         wizardStep = Math.max(1, wizardStep - 1);
+        if (wizardStep === 3 && document.getElementById('wizardRole').value === 'user') {
+          wizardStep = 2;
+        }
         updateWizardStep();
       }
       function buildWizardSummary() {
         const summary = document.getElementById('wizardSummary');
         const perms = Array.from(document.querySelectorAll('input[name="wizardPerm"]:checked')).map(cb => cb.value);
         summary.innerHTML = '';
+        const role = document.getElementById('wizardRole').value;
         ['Name: ' + document.getElementById('wizardName').value,
          'Email: ' + document.getElementById('wizardEmail').value,
-         'Role: ' + document.getElementById('wizardRole').value,
-         'Permissions: ' + (perms.join(', ') || 'default'),
+         'Role: ' + role,
+         'Permissions: ' + (role === 'user' ? 'not applicable for users' : (perms.join(', ') || 'default')),
          'Scopes: ' + (document.getElementById('wizardScopes').value || 'none')
         ].forEach(item => {
           const li = document.createElement('li'); li.textContent = item; summary.appendChild(li);
         });
+      }
+      function configureAccessUI() {
+        const role = document.getElementById('wizardRole').value;
+        const isAdminRole = role !== 'user';
+        wizardTotal = 4;
+        const permGrid = document.getElementById('wizardPermissionGrid');
+        const guardrail = document.getElementById('permissionGuardrail');
+        const userNotice = document.getElementById('permissionUserNotice');
+        const rbacCallout = document.getElementById('rbacCallout');
+        const permStep = document.querySelector('.wizard-step[data-step="3"]');
+        document.querySelectorAll('input[name="wizardPerm"]').forEach(cb => {
+          cb.disabled = !isAdminRole;
+          if (!isAdminRole) cb.checked = false;
+        });
+        permGrid.classList.toggle('disabled', !isAdminRole);
+        guardrail.style.display = isAdminRole ? 'block' : 'none';
+        userNotice.style.display = isAdminRole ? 'none' : 'block';
+        rbacCallout.style.display = isAdminRole ? 'block' : 'none';
+        if (permStep) permStep.classList.toggle('disabled', !isAdminRole);
+        if (!isAdminRole) {
+          closeRbacDrawer();
+          document.getElementById('wizardScopes').value = '';
+          if (wizardStep === 3) wizardStep = 2;
+        }
+        updateWizardStep();
+      }
+      function renderRbacPermissions() {
+        const list = document.getElementById('rbacPermissionList');
+        if (!list) return;
+        const current = new Set(Array.from(document.querySelectorAll('input[name="wizardPerm"]:checked')).map(cb => cb.value));
+        list.innerHTML = '';
+        rbacPermissions.forEach(p => {
+          const wrapper = document.createElement('label');
+          wrapper.className = 'rbac-card';
+          wrapper.innerHTML = `<input type="checkbox" value="${p.key}" ${current.has(p.key) ? 'checked' : ''}>` +
+            `<div><div style="font-weight:700;color:#111827;margin-bottom:4px;">${p.label}</div><div style="color:#6b7280;font-size:0.9rem;">${p.desc}</div></div>`;
+          list.appendChild(wrapper);
+        });
+      }
+      function openRbacDrawer() {
+        if (document.getElementById('wizardRole').value === 'user') return;
+        renderRbacPermissions();
+        document.getElementById('rbacScopeInput').value = document.getElementById('wizardScopes').value;
+        const drawer = document.getElementById('rbacDrawer');
+        drawer.style.display = 'flex';
+        drawer.classList.add('open');
+      }
+      function closeRbacDrawer() {
+        const drawer = document.getElementById('rbacDrawer');
+        drawer.classList.remove('open');
+        drawer.style.display = 'none';
+      }
+      function applyRbacSettings() {
+        if (document.getElementById('wizardRole').value === 'user') return;
+        const selected = Array.from(document.querySelectorAll('#rbacPermissionList input:checked')).map(cb => cb.value);
+        const wizardPerms = document.querySelectorAll('input[name="wizardPerm"]');
+        wizardPerms.forEach(cb => { cb.checked = selected.includes(cb.value); });
+        const scopeVal = document.getElementById('rbacScopeInput').value;
+        document.getElementById('wizardScopes').value = scopeVal;
+        closeRbacDrawer();
+        buildWizardSummary();
       }
       async function submitWizard() {
         const errorBox = document.getElementById('wizardError');
@@ -2081,14 +2168,8 @@
         document.getElementById('permissionTitle').textContent = `Adjust ${name}`;
         document.getElementById('permissionSubtitle').textContent = `${email} • ${role}`;
         const container = document.getElementById('permissionCheckboxes');
-        const options = [
-          { key: 'manage_users', label: 'Manage Users' },
-          { key: 'manage_admins', label: 'Manage Admins' },
-          { key: 'moderate_content', label: 'Moderate Content' },
-          { key: 'billing', label: 'Billing & Refunds' }
-        ];
         container.innerHTML = '';
-        options.forEach(opt => {
+        (rbacPermissions || []).forEach(opt => {
           const label = document.createElement('label');
           label.innerHTML = `<input type="checkbox" value="${opt.key}"> ${opt.label}`;
           if (permissionTarget.permissions.includes(opt.key)) label.querySelector('input').checked = true;
