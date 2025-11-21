@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS webauthn_credentials (
   public_key TEXT NOT NULL,
   counter INTEGER DEFAULT 0,
   transports TEXT,
+  rp_id TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -221,10 +222,22 @@ CREATE TABLE IF NOT EXISTS services (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_services_user_id ON services(user_id);
-CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
-CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
-`);
+  CREATE INDEX IF NOT EXISTS idx_services_user_id ON services(user_id);
+  CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
+  CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
+  `);
+
+// Ensure new WebAuthn column exists without breaking older databases
+try {
+  const webauthnColumns = db.prepare('PRAGMA table_info(webauthn_credentials);').all();
+  const hasRpId = webauthnColumns.some((c) => c.name === 'rp_id');
+  if (!hasRpId) {
+    db.exec(`ALTER TABLE webauthn_credentials ADD COLUMN rp_id TEXT;`);
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_rp ON webauthn_credentials(user_id, rp_id);');
+} catch (err) {
+  console.error('Failed to ensure WebAuthn rp_id column exists', err);
+}
 
 // Lightweight migrations for existing databases (ensure new columns exist)
 try {
@@ -1378,14 +1391,22 @@ module.exports = {
     return { liked, starCount };
   },
   // WebAuthn helpers
-  addWebAuthnCredential: ({ userId, credentialId, publicKey, counter, transports }) => {
-    db.prepare(`INSERT OR REPLACE INTO webauthn_credentials (user_id, credential_id, public_key, counter, transports) VALUES (?,?,?,?,?)`)
-      .run(userId, credentialId, publicKey, counter || 0, transports || null);
+  addWebAuthnCredential: ({ userId, credentialId, publicKey, counter, transports, rpId }) => {
+    db.prepare(`INSERT OR REPLACE INTO webauthn_credentials (user_id, credential_id, public_key, counter, transports, rp_id) VALUES (?,?,?,?,?,?)`)
+      .run(userId, credentialId, publicKey, counter || 0, transports || null, rpId || null);
   },
-  getCredentialsForUser: (userId) => {
+  getCredentialsForUser: (userId, rpId = null) => {
+    if (rpId) {
+      return db.prepare(`SELECT * FROM webauthn_credentials WHERE user_id = ? AND (rp_id IS NULL OR rp_id = ?)`)
+        .all(userId, rpId);
+    }
     return db.prepare(`SELECT * FROM webauthn_credentials WHERE user_id = ?`).all(userId);
   },
-  getCredentialById: (credentialId) => {
+  getCredentialById: (credentialId, rpId = null) => {
+    if (rpId) {
+      return db.prepare(`SELECT * FROM webauthn_credentials WHERE credential_id = ? AND (rp_id IS NULL OR rp_id = ?)`)
+        .get(credentialId, rpId);
+    }
     return db.prepare(`SELECT * FROM webauthn_credentials WHERE credential_id = ?`).get(credentialId);
   },
   updateCredentialCounter: ({ credentialId, counter }) => {

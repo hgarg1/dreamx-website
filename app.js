@@ -859,7 +859,7 @@ app.get('/webauthn/registration/options', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Login required to create a passkey' });
     const user = getUserById(req.session.userId);
     const rpID = rpIDFromReq(req);
-    const existingCreds = getCredentialsForUser(user.id);
+    const existingCreds = getCredentialsForUser(user.id, rpID);
 
     try {
         const options = await generateRegistrationOptions({
@@ -909,6 +909,7 @@ app.post('/webauthn/registration/verify', async (req, res) => {
                 publicKey: Buffer.from(credentialPublicKey).toString('base64url'),
                 counter: counter || 0,
                 transports: (req.body.response && req.body.response.transports) ? JSON.stringify(req.body.response.transports) : null,
+                rpId: rpID,
             });
             req.session.webauthnChallenge = null;
             req.session.webauthnUserId = null;
@@ -937,7 +938,7 @@ app.get('/webauthn/authentication/options', async (req, res) => {
                 return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
             }
 
-            const creds = getCredentialsForUser(user.id);
+            const creds = getCredentialsForUser(user.id, rpID);
             if (!creds || creds.length === 0) {
                 return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
             }
@@ -973,12 +974,18 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
     try {
         const body = req.body;
         const credIdB64 = body.id;
-        const stored = getCredentialById(credIdB64);
+        const stored = getCredentialById(credIdB64, rpID);
         if (!stored) {
             // Return a soft failure so the client can show a helpful message instead of a 404 page
             req.session.webauthnChallenge = null;
             req.session.webauthnUserId = null;
             return res.status(200).json({ verified: false, error: 'Passkey not found. Please sign in normally and re-register your passkey.' });
+        }
+
+        if (stored.rp_id && stored.rp_id !== rpID) {
+            req.session.webauthnChallenge = null;
+            req.session.webauthnUserId = null;
+            return res.status(400).json({ verified: false, error: `Passkey is registered for ${stored.rp_id}. Please sign in on that domain to use it.` });
         }
 
         if (hintedUserId && Number(stored.user_id) !== Number(hintedUserId)) {
