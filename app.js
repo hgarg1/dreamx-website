@@ -925,10 +925,17 @@ const webauthnExpectedOrigins = (req, rpID) => {
         origins.add(`${req.protocol}://${req.headers.host}`);
     }
 
-    origins.add(`https://${rpID}`);
-    origins.add(`https://${rpID}`);
+    const normalizedRpID = rpID?.trim();
+    if (normalizedRpID) {
+        origins.add(`https://${normalizedRpID}`);
+        origins.add(`http://${normalizedRpID}`);
+    }
+
+    // Development fallbacks
+    origins.add('http://localhost:3000');
     origins.add('https://localhost:3000');
-    origins.add('https  ://127.0.0.1:3000');
+    origins.add('http://127.0.0.1:3000');
+    origins.add('https://127.0.0.1:3000');
     origins.add('https://dreamx-website.onrender.com');
 
     return Array.from(origins);
@@ -955,7 +962,7 @@ app.get('/webauthn/registration/options', async (req, res) => {
                 requireResidentKey: true,
             },
             excludeCredentials: existingCreds.map(c => ({
-                id: c.credential_id.toString('base64url'),
+                id: Buffer.from(c.credential_id, 'base64url'),
                 type: 'public-key',
             })),
         });
@@ -1023,7 +1030,7 @@ app.get('/webauthn/authentication/options', async (req, res) => {
             }
 
             allowCredentials = creds.map((c) => ({
-                id: c.credential_id.toString('base64url'),
+                id: Buffer.from(c.credential_id, 'base64url'),
                 type: 'public-key',
                 transports: c.transports ? JSON.parse(c.transports) : undefined,
             }));
@@ -1052,10 +1059,11 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
     if (!expectedChallenge) return res.status(400).json({ error: 'No auth in progress' });
     try {
         const body = req.body;
-        const credIdB64 = Buffer.from(body.id, 'base64url');
-        console.log('Verifying WebAuthn authentication for credential ID:', credIdB64);
+        const credentialIdB64 = body.id;
+        const credentialIdBuffer = Buffer.from(credentialIdB64, 'base64url');
+        console.log('Verifying WebAuthn authentication for credential ID:', credentialIdBuffer);
         console.log('RP ID:', rpID);
-        const stored = getCredentialById(credIdB64, rpID);
+        const stored = getCredentialById(credentialIdB64, rpID);
         if (!stored) {
             // Return a soft failure so the client can show a helpful message instead of a 404 page
             req.session.webauthnChallenge = null;
@@ -1089,7 +1097,7 @@ app.post('/webauthn/authentication/verify', async (req, res) => {
         });
         const { verified, authenticationInfo } = verification;
         if (verified && stored) {
-            updateCredentialCounter({ credentialId: stored.credential_id, counter: authenticationInfo.newCounter || stored.counter });
+            updateCredentialCounter({ credentialId: stored.credential_id, counter: authenticationInfo.newCounter ?? stored.counter });
             // Log user in using Passport
             const user = getUserById(stored.user_id);
             if (user) {
