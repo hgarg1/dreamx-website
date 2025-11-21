@@ -68,6 +68,8 @@ body.modal-open {
 .feed-modal {
     position: fixed;
     inset: 0;
+    width: 100vw;
+    min-height: 100vh;
     display: none;
     place-items: center;
     padding: clamp(48px, 10vh, 96px) clamp(12px, 3vw, 40px);
@@ -76,7 +78,7 @@ body.modal-open {
         rgba(6, 8, 24, 0.6);
     backdrop-filter: blur(16px) saturate(160%);
     -webkit-backdrop-filter: blur(16px) saturate(160%);
-    z-index: 5200;
+    z-index: 12000;
     overflow-y: auto;
     opacity: 0;
     transition: opacity 0.3s ease;
@@ -108,6 +110,10 @@ body.modal-open {
     opacity: 1;
     animation: modalFade 0.35s ease;
     pointer-events: auto;
+}
+
+body.modal-open .feed-layout > :not(.feed-modal) {
+    pointer-events: none;
 }
 
 .nova-modal__card {
@@ -2211,7 +2217,8 @@ body.modal-open {
 /* The composer modal is hidden by default and shown later via JS.
    Exclude it from the feed fade-in animation so it remains visible
    when opened. */
-.feed-main > #postComposerModal {
+.feed-main > #postComposerModal,
+.feed-main > #audioTrimModal {
     opacity: 1;
     animation: none;
 }
