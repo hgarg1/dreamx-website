@@ -85,82 +85,78 @@
     </section>
 
     <!-- Post Composer Modal -->
-    <div id="postComposerModal" class="modal-backdrop feed-modal" style="display:none;position:fixed;z-index:4000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:96px 20px 28px;backdrop-filter:blur(8px);">
-      <div class="modal-content" style="background:white;border-radius:24px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.35);">
-        <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg, rgba(255,79,163,0.05) 0%, rgba(118,75,162,0.05) 100%);">
-          <h3 style="margin:0;font-size:1.75rem;font-weight:800;background:linear-gradient(135deg, #ff4fa3, #764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Create Post</h3>
-          <button type="button" id="closePostComposerBtn" style="background:rgba(107,114,128,0.1);border:none;font-size:2rem;cursor:pointer;color:#6b7280;line-height:1;width:40px;height:40px;border-radius:50%;transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='rgba(239,68,68,0.1)';this.style.color='#ef4444';this.style.transform='rotate(90deg)'" onmouseout="this.style.background='rgba(107,114,128,0.1)';this.style.color='#6b7280';this.style.transform='rotate(0deg)'">&times;</button>
-        </div>
-        <form id="postForm" action="/feed/post" method="POST" enctype="multipart/form-data" style="padding:32px;">
-          <input type="hidden" id="postContentType" name="contentType" value="text">
-          
-          <div style="margin-bottom:20px;">
-            <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">🏷️ Activity Label <span style="color:#6b7280;font-weight:400;font-size:0.85rem;">(optional)</span></label>
-            <input type="text" name="activityLabel" placeholder="e.g., Built a project, Practiced piano, Morning workout" style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:1rem;transition:all 0.3s ease;" onfocus="this.style.borderColor='#ff4fa3';this.style.boxShadow='0 0 0 4px rgba(255,79,163,0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
-          </div>
-
-          <div style="margin-bottom:20px;">
-            <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">✨ What did you accomplish?</label>
-            <textarea name="textContent" rows="6" placeholder="Share your progress, learnings, wins, or insights with the community..." style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:1rem;resize:vertical;transition:all 0.3s ease;font-family:inherit;line-height:1.6;" onfocus="this.style.borderColor='#ff4fa3';this.style.boxShadow='0 0 0 4px rgba(255,79,163,0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" required></textarea>
-          </div>
-
-          <div id="mediaUploadSection" style="margin-bottom:20px;display:none;">
-            <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">📎 Upload Media</label>
-            <div style="position:relative;">
-              <input type="file" id="mediaInput" name="media" accept="image/*,video/*" style="width:100%;padding:14px 16px;border:2px dashed #e5e7eb;border-radius:12px;cursor:pointer;transition:all 0.3s ease;background:#f9fafb;" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.02)'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#f9fafb'">
+    <div id="postComposerModal" class="feed-modal" role="dialog" aria-modal="true" aria-labelledby="postComposerTitle" aria-hidden="true">
+      <div class="feed-modal__card feed-modal__card--composer">
+        <div class="feed-modal__content-scroll">
+          <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg, rgba(255,79,163,0.04) 0%, rgba(118,75,162,0.04) 100%);border-radius:24px 24px 0 0;">
+            <div>
+              <div id="postComposerTitle" style="font-size:1.4rem;font-weight:800;color:#111827;">Create a <span style="background:linear-gradient(135deg, #ff4fa3, #e63e8f);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">brilliant</span> post</div>
+              <div style="color:#6b7280;margin-top:6px;font-size:0.95rem;">Share a quick win, a question, or an update.</div>
             </div>
-            <div id="mediaPreview" style="margin-top:16px;border-radius:12px;overflow:hidden;"></div>
+            <button id="closePostComposerBtn" aria-label="Close" class="feed-modal__icon-btn">×</button>
           </div>
-
-          <div id="audioUploadSection" style="margin-bottom:20px;">
-            <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">🎵 Background Audio <span style="color:#6b7280;font-weight:400;font-size:0.85rem;">(optional)</span></label>
-            <div style="position:relative;">
-              <input type="file" id="audioInput" name="audio" accept="audio/*" style="width:100%;padding:14px 16px;border:2px dashed rgba(255,79,163,0.3);border-radius:12px;cursor:pointer;transition:all 0.3s ease;background:rgba(255,79,163,0.02);" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.05)'" onmouseout="this.style.borderColor='rgba(255,79,163,0.3)';this.style.background='rgba(255,79,163,0.02)'">
-            </div>
-            <div id="audioPreview" style="margin-top:12px;display:none;background:linear-gradient(135deg, rgba(255,79,163,0.08) 0%, rgba(118,75,162,0.08) 100%);border-radius:12px;padding:12px;border:1px solid rgba(255,79,163,0.2);">
-              <div style="display:flex;align-items:center;gap:10px;">
-                <span style="font-size:1.5rem;">🎵</span>
-                <div style="flex:1;min-width:0;">
-                  <div id="audioFileName" style="font-weight:700;color:#374151;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-                  <div id="audioDurationHint" style="font-size:0.75rem;color:#6b7280;">Audio will loop in background at 30% volume</div>
+          <form id="postForm" method="POST" action="/feed" enctype="multipart/form-data" style="padding:24px 28px 28px;">
+            <input type="hidden" name="content_type" id="postContentType" value="text">
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+              <% if (authUser && authUser.profile_picture) { %>
+                <img src="/uploads/<%= authUser.profile_picture %>" alt="You" class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);"> 
+              <% } else { %>
+                <div class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);"><%= (authUser.displayName || 'Y').charAt(0) %></div>
+              <% } %>
+              <div style="flex:1;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <label for="postTitle" style="font-weight:700;color:#111827;">Add a title</label>
+                  <span style="font-size:0.85rem;color:#9ca3af;">Optional</span>
                 </div>
-                <button type="button" onclick="clearAudioUpload()" style="background:rgba(239,68,68,0.1);border:none;color:#ef4444;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.3s ease;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">Remove</button>
+                <input name="title" id="postTitle" type="text" maxlength="120" placeholder="E.g. \"How I automated my weekly planning in 10 minutes\"" style="width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;margin-top:6px;">
               </div>
             </div>
-          </div>
+            <div style="margin-bottom:18px;">
+              <label for="postContent" style="display:block;font-weight:700;color:#111827;margin-bottom:8px;">What's on your mind?</label>
+              <textarea name="content" id="postContent" rows="4" placeholder="Share something insightful..." style="width:100%;padding:14px;border-radius:14px;border:1px solid #e5e7eb;background:#f9fafb;transition:all 0.3s ease;"></textarea>
+            </div>
+            <div id="mediaUploadSection" style="margin-bottom:18px;display:none;">
+              <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;">Upload media</label>
+              <div style="border:2px dashed #e5e7eb;padding:16px;border-radius:12px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(135deg, rgba(255,79,163,0.02), rgba(118,75,162,0.02));">
+                <input type="file" id="mediaInput" name="media" accept="image/*,video/*" style="padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:white;">
+                <div id="mediaPreview" style="border:1px solid #f3f4f6;padding:12px;border-radius:10px;background:white;"></div>
+              </div>
+            </div>
 
-          <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:20px;border-top:1px solid #e5e7eb;">
-            <button type="button" id="cancelPostComposerBtn" style="padding:12px 28px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;color:#374151;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
-            <button type="submit" style="padding:12px 32px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 16px rgba(255,79,163,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(255,79,163,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.3)'">✨ Publish Post</button>
-          </div>
-        </form>
+            <div id="audioUploadSection" style="margin-bottom:20px;">
+              <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">🎵 Background Audio <span style="color:#6b7280;font-weight:400;font-size:0.85rem;">(optional)</span></label>
+              <div style="position:relative;">
+                <input type="file" id="audioInput" name="audio" accept="audio/*" style="width:100%;padding:14px 16px;border:2px dashed rgba(255,79,163,0.3);border-radius:12px;cursor:pointer;transition:all 0.3s ease;background:rgba(255,79,163,0.02);" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.05)'" onmouseout="this.style.borderColor='rgba(255,79,163,0.3)';this.style.background='rgba(255,79,163,0.02)'">
+              </div>
+              <div id="audioPreview" style="margin-top:12px;display:none;background:linear-gradient(135deg, rgba(255,79,163,0.08) 0%, rgba(118,75,162,0.08) 100%);border-radius:12px;padding:12px;border:1px solid rgba(255,79,163,0.2);">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:1.5rem;">🎵</span>
+                  <div style="flex:1;min-width:0;">
+                    <div id="audioFileName" style="font-weight:700;color:#374151;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                    <div id="audioDurationHint" style="font-size:0.75rem;color:#6b7280;">Audio will loop in background at 30% volume</div>
+                  </div>
+                  <button type="button" onclick="clearAudioUpload()" style="background:rgba(239,68,68,0.1);border:none;color:#ef4444;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.3s ease;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">Remove</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:20px;border-top:1px solid #e5e7eb;">
+              <button type="button" id="cancelPostComposerBtn" style="padding:12px 28px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;color:#374151;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
+              <button type="submit" style="padding:12px 32px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 16px rgba(255,79,163,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(255,79,163,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.3)'">✨ Publish Post</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
-    <style>
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      @keyframes slideUp {
-        from { transform: translateY(30px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
-      .modal-backdrop { animation: fadeIn 0.3s ease; }
-      .modal-content { animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-      body.modal-open { overflow: hidden; }
-      .audio-visual .bar-visual span { transition: opacity 0.3s ease, transform 0.3s ease; }
-      .audio-visual.playing .bar-visual span { opacity: 0.92 !important; transform: scaleY(1.08); }
-    </style>
-
-    <div id="audioTrimModal" class="modal-backdrop feed-modal" style="display:none;position:fixed;z-index:4100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:96px 20px 28px;backdrop-filter:blur(10px);">
-      <div class="modal-content" style="background:white;border-radius:20px;max-width:660px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.35);overflow:hidden;">
+    <div id="audioTrimModal" class="feed-modal" role="dialog" aria-modal="true" aria-labelledby="audioTrimTitle" aria-hidden="true">
+      <div class="feed-modal__card feed-modal__card--audio">
         <div style="padding:22px 26px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, rgba(255,79,163,0.06) 0%, rgba(118,75,162,0.06) 100%);">
           <div>
-            <div style="font-weight:800;color:#111827;font-size:1.1rem;">✨ Select the perfect audio moment</div>
+            <div id="audioTrimTitle" style="font-weight:800;color:#111827;font-size:1.1rem;">✨ Select the perfect audio moment</div>
             <div style="color:#6b7280;font-size:0.9rem;">Your reel audio is capped at <span id="trimMaxSeconds" style="font-weight:700;color:#111827;">15</span> seconds to match the video.</div>
           </div>
-          <button type="button" id="closeAudioTrimBtn" aria-label="Close" style="background:transparent;border:none;font-size:1.4rem;font-weight:700;color:#6b7280;cursor:pointer;">×</button>
+          <button type="button" id="closeAudioTrimBtn" aria-label="Close" class="feed-modal__icon-btn">×</button>
         </div>
         <div class="audio-trim-body" style="padding:22px 26px;display:flex;flex-direction:column;gap:18px;background:linear-gradient(180deg, #fff 0%, #fff5fb 100%);">
           <div class="audio-meta-row" style="display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
@@ -217,14 +213,31 @@
       </div>
     </div>
 
+    <style>
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .feed-modal.is-active { animation: fadeIn 0.25s ease; }
+      .feed-modal__card { animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+      body.modal-open { overflow: hidden; }
+      .audio-visual .bar-visual span { transition: opacity 0.3s ease, transform 0.3s ease; }
+      .audio-visual.playing .bar-visual span { opacity: 0.92 !important; transform: scaleY(1.08); }
+    </style>
+
     <script>
       // Global functions need to be outside DOMContentLoaded
-      let backdropPointerDown = false;
       let selectedVideoDuration = null;
       let pendingAudioFile = null;
       let audioPreviewUrl = null;
       let audioPreviewLoopHandler = null;
       let audioTrimState = { duration: 0, maxDuration: 15, start: 0, file: null };
+      let activeModalCount = 0;
+      let composerWasOpen = false;
 
       function lockBodyScroll() {
         document.body.style.overflow = 'hidden';
@@ -236,15 +249,32 @@
         document.body.classList.remove('modal-open');
       }
 
+      function showModal(modal) {
+        if (!modal || modal.classList.contains('is-active')) return;
+        modal.classList.add('is-active');
+        modal.setAttribute('aria-hidden', 'false');
+        activeModalCount++;
+        lockBodyScroll();
+      }
+
+      function hideModal(modal, { unlock = true } = {}) {
+        if (!modal || !modal.classList.contains('is-active')) return;
+        modal.classList.remove('is-active');
+        modal.setAttribute('aria-hidden', 'true');
+        if (activeModalCount > 0) activeModalCount--;
+        if (unlock && activeModalCount === 0) {
+          unlockBodyScroll();
+        }
+      }
+
       function openPostComposer(type = 'text') {
         const modal = document.getElementById('postComposerModal');
         if (!modal) {
           console.error('Modal not found!');
           return;
         }
-        modal.dataset.wasOpen = 'true';
-        modal.style.display = 'flex';
-        lockBodyScroll(); // Prevent background scrolling
+        showModal(modal);
+        composerWasOpen = true;
         document.getElementById('postContentType').value = type;
         const mediaSection = document.getElementById('mediaUploadSection');
         const mediaInput = document.getElementById('mediaInput');
@@ -255,7 +285,6 @@
           mediaInput.required = true;
         } else if (type === 'video') {
           mediaSection.style.display = 'block';
-          // Reels: Only videos and GIFs allowed; explicitly disallow images
           mediaInput.accept = 'video/*,image/gif';
           mediaInput.required = true;
         } else {
@@ -267,12 +296,8 @@
       function closePostComposer() {
         const modal = document.getElementById('postComposerModal');
         if (!modal) return;
-        modal.style.display = 'none';
-        delete modal.dataset.wasOpen;
-        const audioTrim = document.getElementById('audioTrimModal');
-        if (!audioTrim || audioTrim.style.display !== 'flex') {
-          unlockBodyScroll(); // Restore scrolling
-        }
+        hideModal(modal);
+        composerWasOpen = false;
         document.getElementById('postForm').reset();
         document.getElementById('mediaPreview').innerHTML = '';
         clearAudioUpload();
@@ -280,20 +305,22 @@
 
       function suspendPostComposerForAudio() {
         const modal = document.getElementById('postComposerModal');
-        if (modal && modal.style.display === 'flex') {
-          modal.dataset.wasOpen = 'true';
-          modal.style.display = 'none';
+        if (modal && modal.classList.contains('is-active')) {
+          hideModal(modal, { unlock: false });
+          composerWasOpen = true;
+        } else {
+          composerWasOpen = false;
         }
       }
 
       function resumePostComposerAfterAudio() {
         const modal = document.getElementById('postComposerModal');
-        if (modal && modal.dataset.wasOpen === 'true') {
-          modal.style.display = 'flex';
-          delete modal.dataset.wasOpen;
-          lockBodyScroll();
+        if (composerWasOpen && modal) {
+          showModal(modal);
+          composerWasOpen = false;
           return true;
         }
+        composerWasOpen = false;
         return false;
       }
 
@@ -507,14 +534,14 @@
         const modal = document.getElementById('audioTrimModal');
         if (!modal) return;
         suspendPostComposerForAudio();
-        modal.style.display = 'flex';
-        lockBodyScroll();
+        showModal(modal);
       }
 
       function closeAudioTrimModal({ clearAudio = false } = {}) {
         const modal = document.getElementById('audioTrimModal');
         if (!modal) return;
-        modal.style.display = 'none';
+        const shouldUnlock = !composerWasOpen;
+        hideModal(modal, { unlock: shouldUnlock });
         stopAudioPreviewPlayback();
         if (!clearAudio && audioTrimState.file) {
           setAudioInputFile(audioTrimState.file);
@@ -537,7 +564,7 @@
           clearAudioUpload();
         }
         const postComposerVisible = resumePostComposerAfterAudio();
-        if (!postComposerVisible) {
+        if (!postComposerVisible && activeModalCount === 0) {
           unlockBodyScroll();
         }
       }
@@ -600,11 +627,15 @@
       document.addEventListener('DOMContentLoaded', function() {
         // Escape key handler
         document.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape') {
-            const modal = document.getElementById('postComposerModal');
-            if (modal && modal.style.display === 'flex') {
-              closePostComposer();
-            }
+          if (e.key !== 'Escape') return;
+          const audioModal = document.getElementById('audioTrimModal');
+          if (audioModal?.classList.contains('is-active')) {
+            closeAudioTrimModal();
+            return;
+          }
+          const postModal = document.getElementById('postComposerModal');
+          if (postModal?.classList.contains('is-active')) {
+            closePostComposer();
           }
         });
 
@@ -676,23 +707,26 @@
         document.getElementById('cancelPostComposerBtn').addEventListener('click', function(e) { e.preventDefault(); closePostComposer(); });
 
         // Backdrop click closes modal only if clicked outside content
-        const postComposerModal = document.getElementById('postComposerModal');
-
-        postComposerModal.addEventListener('pointerdown', function(e) {
-          backdropPointerDown = e.target === this;
-        });
-
-        postComposerModal.addEventListener('pointerup', function(e) {
-          if (backdropPointerDown && e.target === this) {
-            closePostComposer();
+        const setupModalBackdrop = (modalId, closeFn) => {
+          const modal = document.getElementById(modalId);
+          if (!modal) return;
+          modal.addEventListener('pointerdown', (e) => {
+            modal.dataset.backdropDown = e.target === modal ? 'true' : '';
+          });
+          modal.addEventListener('pointerup', (e) => {
+            if (modal.dataset.backdropDown === 'true' && e.target === modal) {
+              closeFn();
+            }
+            delete modal.dataset.backdropDown;
+          });
+          const card = modal.querySelector('.feed-modal__card');
+          if (card) {
+            card.addEventListener('click', (evt) => evt.stopPropagation());
           }
-          backdropPointerDown = false;
-        });
+        };
 
-        // Prevent modal-content click from closing modal
-        document.querySelector('#postComposerModal .modal-content').addEventListener('click', function(e) {
-          e.stopPropagation();
-        });
+        setupModalBackdrop('postComposerModal', closePostComposer);
+        setupModalBackdrop('audioTrimModal', () => closeAudioTrimModal());
 
         // Audio trim modal wiring
         const trimRange = document.getElementById('audioTrimRange');

@@ -845,6 +845,17 @@ const webauthnExpectedOrigins = (req, rpID) => {
         } catch (_) { /* ignore */ }
     }
 
+    const forwardedProto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+    const forwardedHost = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+    if (forwardedHost) {
+        const proto = forwardedProto || 'https';
+        origins.add(`${proto}://${forwardedHost}`);
+    }
+
+    if (req.headers.host) {
+        origins.add(`${req.protocol}://${req.headers.host}`);
+    }
+
     origins.add(`https://${rpID}`);
     origins.add(`http://${rpID}`);
     origins.add('http://localhost:3000');
