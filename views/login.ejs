@@ -109,7 +109,11 @@
                                                                 }
                                                             } catch (e) {
                                                                 console.error(e);
-                                                                alert('This device may not support passkeys here.');
+                                                                const blocked = e && e.name === 'NotAllowedError';
+                                                                const message = blocked
+                                                                    ? 'Passkey request was blocked or timed out. Please ensure you are on the correct site and try again.'
+                                                                    : 'This device may not support passkeys here.';
+                                                                alert(message);
                                                             }
                                                         });
                                                     });
