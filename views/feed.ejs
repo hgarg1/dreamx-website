@@ -97,8 +97,9 @@
             <button id="closePostComposerBtn" aria-label="Close composer" class="nova-modal__close">✕</button>
           </div>
 
-          <form id="postForm" method="POST" action="/feed" enctype="multipart/form-data">
-            <input type="hidden" name="content_type" id="postContentType" value="text">
+          <form id="postForm" method="POST" action="/feed/post" enctype="multipart/form-data">
+            <input type="hidden" name="contentType" id="postContentType" value="text">
+            <input type="hidden" name="activityLabel" value="">
             <div class="composer-grid">
               <div class="composer-panel">
                 <div class="composer-field" style="display:flex;gap:12px;align-items:center;">
@@ -125,7 +126,7 @@
 
                 <div class="composer-field">
                   <label for="postContent">What's on your mind?</label>
-                  <textarea name="content" id="postContent" rows="4" class="composer-textarea" placeholder="Share something insightful..."></textarea>
+                  <textarea name="textContent" id="postContent" rows="4" class="composer-textarea" placeholder="Share something insightful..."></textarea>
                 </div>
 
                 <div id="mediaUploadSection" class="composer-field" style="display:none;">
