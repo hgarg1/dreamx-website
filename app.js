@@ -309,6 +309,17 @@ const serviceUpload = multer({
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Serve the SimpleWebAuthn browser bundle directly from node_modules
+const simpleWebAuthnBundlePath = path.join(
+    __dirname,
+    'node_modules',
+    '@simplewebauthn',
+    'browser',
+    'dist',
+    'bundle'
+);
+app.use('/webauthn', express.static(simpleWebAuthnBundlePath));
+
 // Serve static files from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
