@@ -317,9 +317,25 @@ try {
 } catch (e) {
   // Column already exists, ignore
 }
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN admin_permissions TEXT DEFAULT '[]';`);
+} catch (e) {
+  // Column already exists, ignore
+}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN admin_scopes TEXT DEFAULT '[]';`);
+} catch (e) {
+  // Column already exists, ignore
+}
 // Ensure all existing users have account_status set
 try {
   db.exec(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL;`);
+} catch (e) {
+  // Ignore if fails
+}
+try {
+  db.exec(`UPDATE users SET admin_permissions = '[]' WHERE admin_permissions IS NULL;`);
+  db.exec(`UPDATE users SET admin_scopes = '[]' WHERE admin_scopes IS NULL;`);
 } catch (e) {
   // Ignore if fails
 }
@@ -875,6 +891,13 @@ module.exports = {
   updateUserRole: ({ userId, role }) => {
     db.prepare(`UPDATE users SET role = ? WHERE id = ?`).run(role, userId);
   },
+  updateAdminPermissions: ({ userId, permissions, scopes }) => {
+    db.prepare(`UPDATE users SET admin_permissions = ?, admin_scopes = ? WHERE id = ?`).run(
+      JSON.stringify(permissions || []),
+      JSON.stringify(scopes || []),
+      userId
+    );
+  },
   
   // Email Verification
   createVerificationCode: ({ userId, email, code, expiresAt }) => {
@@ -920,7 +943,7 @@ module.exports = {
     if (search) {
       const s = `%${search.toLowerCase()}%`;
       return db.prepare(`
-        SELECT id, full_name, email, role, account_status, created_at
+        SELECT id, full_name, email, role, account_status, admin_permissions, admin_scopes, created_at
         FROM users
         WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?
         ORDER BY created_at DESC
@@ -928,7 +951,7 @@ module.exports = {
       `).all(s, s, limit, offset);
     }
     return db.prepare(`
-      SELECT id, full_name, email, role, account_status, created_at
+      SELECT id, full_name, email, role, account_status, admin_permissions, admin_scopes, created_at
       FROM users
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
