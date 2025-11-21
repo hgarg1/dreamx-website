@@ -964,7 +964,7 @@ app.get('/webauthn/registration/options', async (req, res) => {
                 requireResidentKey: true,
             },
             excludeCredentials: existingCreds.map(c => ({
-                id: Buffer.from(c.credential_id, 'base64url'),
+                id: c.credential_id.toString('base64url'),
                 type: 'public-key',
             })),
         });
@@ -1032,7 +1032,7 @@ app.get('/webauthn/authentication/options', async (req, res) => {
             }
 
             allowCredentials = creds.map((c) => ({
-                id: Buffer.from(c.credential_id, 'base64url'),
+                id: c.credential_id.toString('base64url'),
                 type: 'public-key',
                 transports: c.transports ? JSON.parse(c.transports) : undefined,
             }));
@@ -6854,5 +6854,9 @@ httpsServer.listen(443, () => {
     console.log(`✨ Dream X server running on https://localhost`);
     console.log(`Press Ctrl+C to stop the server`);
     console.log(`HTTPS server running at https://localhost`);
+});
+
+httpServer.listen(80, () => {
+    console.log(`HTTP server running at http://localhost`);
 });
 

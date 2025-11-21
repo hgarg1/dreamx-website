@@ -13,7 +13,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 // SQL query to alter column public_key to BLOB
-const deleteQuery = 'alter table webauthn_credentials alter column public_key set data type BLOB;';
+const deleteQuery = 'DELETE FROM webauthn_credentials;';
 
 // Execute the query
 db.run(deleteQuery, function (err) {
