@@ -86,63 +86,99 @@
 
     <!-- Post Composer Modal -->
     <div id="postComposerModal" class="feed-modal" role="dialog" aria-modal="true" aria-labelledby="postComposerTitle" aria-hidden="true">
-      <div class="feed-modal__card feed-modal__card--composer">
-        <div class="feed-modal__content-scroll">
-          <div style="padding:28px 32px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg, rgba(255,79,163,0.04) 0%, rgba(118,75,162,0.04) 100%);border-radius:24px 24px 0 0;">
+      <div class="nova-modal__card">
+        <span class="nova-modal__halo"></span>
+        <div class="nova-modal__content">
+          <div class="nova-modal__header">
             <div>
-              <div id="postComposerTitle" style="font-size:1.4rem;font-weight:800;color:#111827;">Create a <span style="background:linear-gradient(135deg, #ff4fa3, #e63e8f);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">brilliant</span> post</div>
-              <div style="color:#6b7280;margin-top:6px;font-size:0.95rem;">Share a quick win, a question, or an update.</div>
+              <div id="postComposerTitle" class="nova-modal__title">Create a <span style="color:#ff4fa3;">brilliant</span> post</div>
+              <div class="nova-modal__subtitle">Share a quick win, a question, or an update with the community.</div>
             </div>
-            <button id="closePostComposerBtn" aria-label="Close" class="feed-modal__icon-btn">×</button>
+            <button id="closePostComposerBtn" aria-label="Close composer" class="nova-modal__close">✕</button>
           </div>
-          <form id="postForm" method="POST" action="/feed" enctype="multipart/form-data" style="padding:24px 28px 28px;">
+
+          <form id="postForm" method="POST" action="/feed" enctype="multipart/form-data">
             <input type="hidden" name="content_type" id="postContentType" value="text">
-            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
-              <% if (authUser && authUser.profile_picture) { %>
-                <img src="/uploads/<%= authUser.profile_picture %>" alt="You" class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);"> 
-              <% } else { %>
-                <div class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;border:3px solid rgba(255,79,163,0.3);box-shadow:0 4px 12px rgba(0,0,0,0.1);"><%= (authUser.displayName || 'Y').charAt(0) %></div>
-              <% } %>
-              <div style="flex:1;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <label for="postTitle" style="font-weight:700;color:#111827;">Add a title</label>
-                  <span style="font-size:0.85rem;color:#9ca3af;">Optional</span>
-                </div>
-                <input name="title" id="postTitle" type="text" maxlength="120" placeholder="E.g. \"How I automated my weekly planning in 10 minutes\"" style="width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;margin-top:6px;">
-              </div>
-            </div>
-            <div style="margin-bottom:18px;">
-              <label for="postContent" style="display:block;font-weight:700;color:#111827;margin-bottom:8px;">What's on your mind?</label>
-              <textarea name="content" id="postContent" rows="4" placeholder="Share something insightful..." style="width:100%;padding:14px;border-radius:14px;border:1px solid #e5e7eb;background:#f9fafb;transition:all 0.3s ease;"></textarea>
-            </div>
-            <div id="mediaUploadSection" style="margin-bottom:18px;display:none;">
-              <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;">Upload media</label>
-              <div style="border:2px dashed #e5e7eb;padding:16px;border-radius:12px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(135deg, rgba(255,79,163,0.02), rgba(118,75,162,0.02));">
-                <input type="file" id="mediaInput" name="media" accept="image/*,video/*" style="padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:white;">
-                <div id="mediaPreview" style="border:1px solid #f3f4f6;padding:12px;border-radius:10px;background:white;"></div>
-              </div>
-            </div>
-
-            <div id="audioUploadSection" style="margin-bottom:20px;">
-              <label style="display:block;margin-bottom:10px;font-weight:700;color:#111827;font-size:0.95rem;">🎵 Background Audio <span style="color:#6b7280;font-weight:400;font-size:0.85rem;">(optional)</span></label>
-              <div style="position:relative;">
-                <input type="file" id="audioInput" name="audio" accept="audio/*" style="width:100%;padding:14px 16px;border:2px dashed rgba(255,79,163,0.3);border-radius:12px;cursor:pointer;transition:all 0.3s ease;background:rgba(255,79,163,0.02);" onmouseover="this.style.borderColor='#ff4fa3';this.style.background='rgba(255,79,163,0.05)'" onmouseout="this.style.borderColor='rgba(255,79,163,0.3)';this.style.background='rgba(255,79,163,0.02)'">
-              </div>
-              <div id="audioPreview" style="margin-top:12px;display:none;background:linear-gradient(135deg, rgba(255,79,163,0.08) 0%, rgba(118,75,162,0.08) 100%);border-radius:12px;padding:12px;border:1px solid rgba(255,79,163,0.2);">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <span style="font-size:1.5rem;">🎵</span>
-                  <div style="flex:1;min-width:0;">
-                    <div id="audioFileName" style="font-weight:700;color:#374151;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-                    <div id="audioDurationHint" style="font-size:0.75rem;color:#6b7280;">Audio will loop in background at 30% volume</div>
+            <div class="composer-grid">
+              <div class="composer-panel">
+                <div class="composer-field" style="display:flex;gap:12px;align-items:center;">
+                  <% if (authUser && authUser.profile_picture) { %>
+                    <img src="/uploads/<%= authUser.profile_picture %>" alt="You" class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,79,163,0.35);box-shadow:0 10px 28px rgba(0,0,0,0.25);">
+                  <% } else { %>
+                    <div class="avatar avatar-sm" data-is-own="true" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;border:3px solid rgba(255,79,163,0.35);box-shadow:0 10px 28px rgba(0,0,0,0.25);"><%= (authUser.displayName || 'Y').charAt(0) %></div>
+                  <% } %>
+                  <div style="flex:1;">
+                    <div class="composer-field" style="margin-bottom:6px;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <label for="postTitle">Add a title</label>
+                        <small>Optional</small>
+                      </div>
+                      <input name="title" id="postTitle" type="text" maxlength="120" class="composer-input" placeholder="E.g. \"How I automated my weekly planning in 10 minutes\"">
+                    </div>
+                    <div class="composer-toolbar" aria-label="Select content type">
+                      <button type="button" class="composer-action" data-type="text" id="composerTypeTextBtn">✍️ Text update</button>
+                      <button type="button" class="composer-action" data-type="image" id="composerTypeImageBtn">📸 Photo drop</button>
+                      <button type="button" class="composer-action" data-type="video" id="composerTypeVideoBtn" title="Reel (videos & GIFs)">🎬 Reel ready</button>
+                    </div>
                   </div>
-                  <button type="button" onclick="clearAudioUpload()" style="background:rgba(239,68,68,0.1);border:none;color:#ef4444;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.3s ease;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">Remove</button>
+                </div>
+
+                <div class="composer-field">
+                  <label for="postContent">What's on your mind?</label>
+                  <textarea name="content" id="postContent" rows="4" class="composer-textarea" placeholder="Share something insightful..."></textarea>
+                </div>
+
+                <div id="mediaUploadSection" class="composer-field" style="display:none;">
+                  <label>Upload media</label>
+                  <div class="preview-card" style="border-style:dashed; align-items: stretch;">
+                    <input type="file" id="mediaInput" name="media" class="composer-file" accept="image/*,video/*">
+                    <div id="mediaPreview" class="preview-card" style="min-height:120px; margin-top:10px; border-style:solid;"></div>
+                  </div>
+                </div>
+
+                <div id="audioUploadSection" class="composer-field">
+                  <label>🎵 Background Audio <small>(optional)</small></label>
+                  <input type="file" id="audioInput" name="audio" accept="audio/*" class="composer-file">
+                  <div id="audioPreview" class="composer-preview" style="display:none;">
+                    <div class="nova-pill"><span>🎵</span> Selected audio</div>
+                    <div class="preview-card" style="border-style:solid;">
+                      <div style="width:100%; text-align:left;">
+                        <div id="audioFileName" style="font-weight:800; color:#f9fafb; margin-bottom:6px;"></div>
+                        <div id="audioDurationHint" style="color:#c7c8d2; font-size:0.9rem;">Audio will loop in background at 30% volume</div>
+                      </div>
+                    </div>
+                    <div style="display:flex; gap:10px; justify-content:flex-end;">
+                      <button type="button" class="btn-ghost" onclick="clearAudioUpload()">Remove</button>
+                      <button type="button" class="btn-primary" id="trimAudioBtn">Trim audio</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="composer-actions-row">
+                  <button type="button" id="cancelPostComposerBtn" class="btn-ghost">Cancel</button>
+                  <button type="submit" class="btn-primary">✨ Publish Post</button>
                 </div>
               </div>
-            </div>
 
-            <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:20px;border-top:1px solid #e5e7eb;">
-              <button type="button" id="cancelPostComposerBtn" style="padding:12px 28px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;color:#374151;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
-              <button type="submit" style="padding:12px 32px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 16px rgba(255,79,163,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(255,79,163,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(255,79,163,0.3)'">✨ Publish Post</button>
+              <div class="composer-preview">
+                <div class="nova-pill">Live preview</div>
+                <div class="preview-card" id="composerPreviewCard">
+                  <div class="preview-meta">
+                    <div class="preview-type" id="composerPreviewType">✍️ Text update</div>
+                    <span class="preview-chip">Draft</span>
+                  </div>
+                  <div class="preview-title" id="composerPreviewTitle">Ready to inspire?</div>
+                  <p class="preview-body" id="composerPreviewBody">As you add a title, story, and media, we’ll mirror the vibe here so you always know how your post will land.</p>
+                  <div class="preview-media" id="composerPreviewMedia"></div>
+                  <div class="preview-audio" id="composerPreviewAudio" style="display:none;">
+                    <span>🎵</span>
+                    <div>
+                      <div id="composerPreviewAudioName">Background track added</div>
+                      <small id="composerPreviewAudioHint">Will loop softly</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -150,83 +186,73 @@
     </div>
 
     <div id="audioTrimModal" class="feed-modal" role="dialog" aria-modal="true" aria-labelledby="audioTrimTitle" aria-hidden="true">
-      <div class="feed-modal__card feed-modal__card--audio">
-        <div style="padding:22px 26px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, rgba(255,79,163,0.06) 0%, rgba(118,75,162,0.06) 100%);">
-          <div>
-            <div id="audioTrimTitle" style="font-weight:800;color:#111827;font-size:1.1rem;">✨ Select the perfect audio moment</div>
-            <div style="color:#6b7280;font-size:0.9rem;">Your reel audio is capped at <span id="trimMaxSeconds" style="font-weight:700;color:#111827;">15</span> seconds to match the video.</div>
-          </div>
-          <button type="button" id="closeAudioTrimBtn" aria-label="Close" class="feed-modal__icon-btn">×</button>
-        </div>
-        <div class="audio-trim-body" style="padding:22px 26px;display:flex;flex-direction:column;gap:18px;background:linear-gradient(180deg, #fff 0%, #fff5fb 100%);">
-          <div class="audio-meta-row" style="display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-            <div style="display:flex;gap:12px;align-items:center;">
-              <div class="pill" style="background:rgba(255,79,163,0.1);color:#e63e8f;font-weight:800;font-size:0.78rem;padding:6px 12px;border-radius:999px;">Live audio editor</div>
-              <div id="trimFileName" style="font-weight:800;color:#111827;min-width:160px;">Select an audio file</div>
+      <div class="nova-modal__card">
+        <span class="nova-modal__halo"></span>
+        <div class="nova-modal__content">
+          <div class="nova-modal__header">
+            <div>
+              <div id="audioTrimTitle" class="nova-modal__title">✨ Select the perfect audio moment</div>
+              <div class="nova-modal__subtitle">Your reel audio is capped at <span id="trimMaxSeconds" style="font-weight:800;">15</span> seconds to match the video.</div>
             </div>
-            <div style="display:flex;gap:10px;align-items:center;">
-              <button type="button" id="trimPreviewPlayBtn" style="padding:10px 14px;border:none;border-radius:10px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(255,79,163,0.25);display:flex;align-items:center;gap:8px;">
-                <span id="trimPreviewPlayLabel">▶</span> Preview clip
-              </button>
-              <button type="button" id="trimPreviewBackBtn" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;color:#374151;font-weight:700;cursor:pointer;">Back</button>
-            </div>
+            <button type="button" id="closeAudioTrimBtn" aria-label="Close audio trim" class="nova-modal__close">✕</button>
           </div>
 
-          <div class="audio-visual" style="background:linear-gradient(135deg, rgba(255,79,163,0.08), rgba(118,75,162,0.08));border:1px solid rgba(255,79,163,0.12);border-radius:14px;padding:14px;box-shadow:0 10px 24px rgba(0,0,0,0.04);">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <div style="display:flex;flex-direction:column;gap:6px;flex:1;">
-                <div id="trimFileStats" style="color:#6b7280;font-size:0.9rem;">Waiting for audio...</div>
-                <div class="bar-visual" id="trimWave" style="display:grid;grid-template-columns:repeat(24,1fr);gap:4px;align-items:end;min-height:60px;">
-                  <% for (let i = 0; i < 24; i++) { %>
-                    <span style="display:block;height:<%= 20 + (i % 6) * 6 %>px;background:linear-gradient(180deg, rgba(255,79,163,0.7), rgba(118,75,162,0.8));border-radius:6px;opacity:0.35;"></span>
-                  <% } %>
+          <div class="audio-trim-layout">
+            <div class="audio-meta-row">
+              <div class="nova-pill">Live audio editor</div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <button type="button" id="trimPreviewPlayBtn" class="btn-primary" style="display:flex; align-items:center; gap:8px;"> <span id="trimPreviewPlayLabel">▶</span> Preview clip</button>
+                <button type="button" id="trimPreviewBackBtn" class="btn-ghost">Back</button>
+              </div>
+            </div>
+
+            <div class="wave-wrapper">
+              <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:220px;">
+                  <div id="trimFileName" style="font-weight:800;">Select an audio file</div>
+                  <div id="trimFileStats" style="color:#d1d5db; font-size:0.9rem;">Waiting for audio...</div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; min-width:140px; align-items:flex-end;">
+                  <label for="trimPreviewVolume" style="font-weight:700;">Preview volume</label>
+                  <input id="trimPreviewVolume" type="range" min="0" max="1" step="0.05" value="0.7" class="nova-range" style="max-width:160px;">
                 </div>
               </div>
-              <div style="min-width:120px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
-                <label for="trimPreviewVolume" style="font-weight:700;color:#111827;font-size:0.9rem;">Preview volume</label>
-                <input id="trimPreviewVolume" type="range" min="0" max="1" step="0.05" value="0.7" style="accent-color:#ff4fa3;width:120px;">
+              <div class="wave-grid" id="trimWave">
+                <% for (let i = 0; i < 24; i++) { %>
+                  <span style="height:<%= 20 + (i % 6) * 6 %>px;"></span>
+                <% } %>
               </div>
+              <audio id="trimPreviewPlayer" preload="metadata" style="width:100%;margin-top:10px;display:block;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.06);"></audio>
             </div>
-            <audio id="trimPreviewPlayer" preload="metadata" style="width:100%;margin-top:10px;display:block;border-radius:10px;overflow:hidden;background:white;"></audio>
-          </div>
 
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div style="flex:1;">
-              <div style="font-weight:700;color:#111827;">Start time</div>
-              <div style="color:#6b7280;font-size:0.85rem;">Drag to choose where your clip begins.</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:220px;">
+                <div style="font-weight:700;">Start time</div>
+                <div style="color:#d1d5db;font-size:0.9rem;">Drag to choose where your clip begins.</div>
+              </div>
+              <div id="trimStartLabel" style="font-weight:800;min-width:80px;text-align:right;">0:00</div>
             </div>
-            <div id="trimStartLabel" style="font-weight:800;color:#ff4fa3;min-width:80px;text-align:right;">0:00</div>
-          </div>
-          <input type="range" id="audioTrimRange" min="0" value="0" step="0.1" style="accent-color:#ff4fa3;" />
-          <div style="display:flex;align-items:center;justify-content:space-between;color:#6b7280;font-size:0.85rem;">
-            <span>Clip length: <strong id="trimClipLength">15s</strong></span>
-            <span>Selection ends at <strong id="trimEndLabel">0:15</strong></span>
-          </div>
-          <div style="padding:14px;border-radius:12px;background:linear-gradient(135deg, rgba(255,79,163,0.08), rgba(118,75,162,0.08));border:1px solid rgba(255,79,163,0.15);color:#374151;">
-            <strong>Pro tip:</strong> If your video is longer than the audio, we’ll seamlessly loop your chosen segment to keep the vibe going.
-          </div>
-          <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;">
-            <button type="button" id="cancelAudioTrimBtn" style="padding:10px 18px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;color:#374151;font-weight:700;cursor:pointer;">Cancel</button>
-            <button type="button" id="confirmAudioTrimBtn" style="padding:10px 22px;border:none;border-radius:10px;background:linear-gradient(135deg, #ff4fa3, #e63e8f);color:white;font-weight:800;cursor:pointer;box-shadow:0 10px 20px rgba(255,79,163,0.35);">Save Clip</button>
+            <input type="range" id="audioTrimRange" min="0" value="0" step="0.1" class="nova-range" />
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;color:#d1d5db;font-size:0.9rem;">
+              <span>Clip length: <strong id="trimClipLength">15s</strong></span>
+              <span>Selection ends at <strong id="trimEndLabel">0:15</strong></span>
+            </div>
+            <div class="preview-card" style="text-align:left;">
+              <strong>Pro tip:</strong> If your video is longer than the audio, we’ll seamlessly loop your chosen segment to keep the vibe going.
+            </div>
+            <div class="composer-actions-row">
+              <button type="button" id="cancelAudioTrimBtn" class="btn-ghost">Cancel</button>
+              <button type="button" id="confirmAudioTrimBtn" class="btn-primary">Save Clip</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <style>
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      @keyframes slideUp {
-        from { transform: translateY(30px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
-      .feed-modal.is-active { animation: fadeIn 0.25s ease; }
-      .feed-modal__card { animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
       body.modal-open { overflow: hidden; }
-      .audio-visual .bar-visual span { transition: opacity 0.3s ease, transform 0.3s ease; }
-      .audio-visual.playing .bar-visual span { opacity: 0.92 !important; transform: scaleY(1.08); }
+      .wave-grid span { transition: opacity 0.3s ease, transform 0.3s ease; }
+      .wave-wrapper.playing .wave-grid span { opacity: 0.95 !important; transform: scaleY(1.08); }
     </style>
 
     <script>
@@ -236,61 +262,82 @@
       let audioPreviewUrl = null;
       let audioPreviewLoopHandler = null;
       let audioTrimState = { duration: 0, maxDuration: 15, start: 0, file: null };
-      let activeModalCount = 0;
       let composerWasOpen = false;
+      const modalStack = [];
+      let previewMediaUrl = null;
 
-      function lockBodyScroll() {
-        document.body.style.overflow = 'hidden';
-        document.body.classList.add('modal-open');
-      }
+      const lockBodyScroll = () => document.body.classList.add('modal-open');
+      const unlockBodyScroll = () => document.body.classList.remove('modal-open');
 
-      function unlockBodyScroll() {
-        document.body.style.overflow = '';
-        document.body.classList.remove('modal-open');
-      }
+      function setModalVisibility(modal, shouldShow, { unlock = true } = {}) {
+        if (!modal) return;
+        if (shouldShow) {
+          if (modal.classList.contains('is-active')) return;
+          modal.classList.add('is-active');
+          modal.setAttribute('aria-hidden', 'false');
+          modalStack.push(modal);
+          lockBodyScroll();
+          return;
+        }
 
-      function showModal(modal) {
-        if (!modal || modal.classList.contains('is-active')) return;
-        modal.classList.add('is-active');
-        modal.setAttribute('aria-hidden', 'false');
-        activeModalCount++;
-        lockBodyScroll();
-      }
-
-      function hideModal(modal, { unlock = true } = {}) {
-        if (!modal || !modal.classList.contains('is-active')) return;
+        if (!modal.classList.contains('is-active')) return;
         modal.classList.remove('is-active');
         modal.setAttribute('aria-hidden', 'true');
-        if (activeModalCount > 0) activeModalCount--;
-        if (unlock && activeModalCount === 0) {
+        const idx = modalStack.lastIndexOf(modal);
+        if (idx !== -1) modalStack.splice(idx, 1);
+        if (unlock && modalStack.length === 0) {
           unlockBodyScroll();
         }
       }
 
-      function openPostComposer(type = 'text') {
-        const modal = document.getElementById('postComposerModal');
-        if (!modal) {
-          console.error('Modal not found!');
-          return;
+      function showModal(modal) { setModalVisibility(modal, true); }
+      function hideModal(modal, options = {}) { setModalVisibility(modal, false, options); }
+
+      document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && modalStack.length) {
+          evt.preventDefault();
+          const top = modalStack[modalStack.length - 1];
+          hideModal(top);
         }
-        showModal(modal);
-        composerWasOpen = true;
-        document.getElementById('postContentType').value = type;
+      });
+
+      function setComposerType(type = 'text') {
+        const typeInput = document.getElementById('postContentType');
+        if (typeInput) typeInput.value = type;
         const mediaSection = document.getElementById('mediaUploadSection');
         const mediaInput = document.getElementById('mediaInput');
+        const buttons = document.querySelectorAll('.composer-action');
+        buttons.forEach((btn) => {
+          const isActive = btn.dataset.type === type;
+          btn.classList.toggle('is-active', isActive);
+          btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
 
-        if (type === 'image') {
-          mediaSection.style.display = 'block';
-          mediaInput.accept = 'image/*';
-          mediaInput.required = true;
-        } else if (type === 'video') {
-          mediaSection.style.display = 'block';
-          mediaInput.accept = 'video/*,image/gif';
-          mediaInput.required = true;
-        } else {
-          mediaSection.style.display = 'none';
-          mediaInput.required = false;
+        if (mediaSection && mediaInput) {
+          if (type === 'image') {
+            mediaSection.style.display = 'block';
+            mediaInput.accept = 'image/*';
+            mediaInput.required = true;
+          } else if (type === 'video') {
+            mediaSection.style.display = 'block';
+            mediaInput.accept = 'video/*,image/gif';
+            mediaInput.required = true;
+          } else {
+            mediaSection.style.display = 'none';
+            mediaInput.required = false;
+          }
         }
+
+        updateComposerPreview(type);
+      }
+
+      function openPostComposer(type = 'text') {
+        const modal = document.getElementById('postComposerModal');
+        if (!modal) { console.error('Modal not found!'); return; }
+        resetComposerPreview();
+        setComposerType(type);
+        showModal(modal);
+        composerWasOpen = true;
       }
 
       function closePostComposer() {
@@ -300,7 +347,9 @@
         composerWasOpen = false;
         document.getElementById('postForm').reset();
         document.getElementById('mediaPreview').innerHTML = '';
+        setComposerType('text');
         clearAudioUpload();
+        resetComposerPreview();
       }
 
       function suspendPostComposerForAudio() {
@@ -335,6 +384,91 @@
         stopAudioPreviewPlayback();
         pendingAudioFile = null;
         audioTrimState = { duration: 0, maxDuration: 15, start: 0, file: null };
+        updateComposerPreview();
+      }
+
+      function resetComposerPreview() {
+        const typeLabel = document.getElementById('composerPreviewType');
+        const titleLabel = document.getElementById('composerPreviewTitle');
+        const bodyLabel = document.getElementById('composerPreviewBody');
+        const mediaContainer = document.getElementById('composerPreviewMedia');
+        const audioRow = document.getElementById('composerPreviewAudio');
+        if (typeLabel) typeLabel.textContent = '✍️ Text update';
+        if (titleLabel) titleLabel.textContent = 'Ready to inspire?';
+        if (bodyLabel) bodyLabel.textContent = 'As you add a title, story, and media, we’ll mirror the vibe here so you always know how your post will land.';
+        if (mediaContainer) { mediaContainer.innerHTML = '<p class="preview-placeholder">Attach photos or reels to see them here.</p>'; }
+        if (audioRow) audioRow.style.display = 'none';
+        if (previewMediaUrl) {
+          URL.revokeObjectURL(previewMediaUrl);
+          previewMediaUrl = null;
+        }
+      }
+
+      function renderPreviewMedia(file) {
+        const mediaContainer = document.getElementById('composerPreviewMedia');
+        if (!mediaContainer) return;
+        mediaContainer.innerHTML = '';
+        if (previewMediaUrl) {
+          URL.revokeObjectURL(previewMediaUrl);
+          previewMediaUrl = null;
+        }
+
+        if (!file) {
+          mediaContainer.innerHTML = '<p class="preview-placeholder">Attach photos or reels to see them here.</p>';
+          return;
+        }
+
+        previewMediaUrl = URL.createObjectURL(file);
+        if (file.type.startsWith('image/')) {
+          const img = document.createElement('img');
+          img.src = previewMediaUrl;
+          img.alt = 'Selected image';
+          img.style.maxWidth = '100%';
+          img.style.borderRadius = '14px';
+          mediaContainer.appendChild(img);
+        } else if (file.type.startsWith('video/')) {
+          const video = document.createElement('video');
+          video.src = previewMediaUrl;
+          video.controls = true;
+          video.style.width = '100%';
+          video.style.borderRadius = '14px';
+          mediaContainer.appendChild(video);
+        } else {
+          mediaContainer.innerHTML = '<p class="preview-placeholder">Unsupported media type for preview.</p>';
+        }
+      }
+
+      function updateComposerPreview(typeOverride = null) {
+        const typeLabel = document.getElementById('composerPreviewType');
+        const titleLabel = document.getElementById('composerPreviewTitle');
+        const bodyLabel = document.getElementById('composerPreviewBody');
+        const audioRow = document.getElementById('composerPreviewAudio');
+        const audioName = document.getElementById('composerPreviewAudioName');
+        const audioHint = document.getElementById('composerPreviewAudioHint');
+        const currentType = typeOverride || document.getElementById('postContentType')?.value || 'text';
+        const titleVal = document.getElementById('postTitle')?.value?.trim();
+        const contentVal = document.getElementById('postContent')?.value?.trim();
+        const audioFile = document.getElementById('audioInput')?.files?.[0] || pendingAudioFile;
+
+        if (typeLabel) {
+          const labelMap = { text: '✍️ Text update', image: '📸 Photo drop', video: '🎬 Reel ready' };
+          typeLabel.textContent = labelMap[currentType] || '✍️ Text update';
+        }
+        if (titleLabel) titleLabel.textContent = titleVal || 'Ready to inspire?';
+        if (bodyLabel) bodyLabel.textContent = contentVal || 'As you add a title, story, and media, we’ll mirror the vibe here so you always know how your post will land.';
+
+        if (audioRow) {
+          if (audioFile) {
+            audioRow.style.display = 'flex';
+            if (audioName) audioName.textContent = audioFile.name;
+            if (audioHint) {
+              const duration = audioTrimState.duration || audioTrimState.maxDuration || 15;
+              audioHint.textContent = `Plays for ${formatTime(Math.min(duration, audioTrimState.maxDuration || duration))}`;
+            }
+          } else {
+            audioRow.style.display = 'none';
+          }
+        }
       }
 
       function formatTime(seconds = 0) {
@@ -431,7 +565,7 @@
 
       function stopAudioPreviewPlayback(resetLabel = true) {
         const player = document.getElementById('trimPreviewPlayer');
-        const visual = document.querySelector('.audio-visual');
+        const visual = document.querySelector('.wave-wrapper');
         if (player) {
           if (audioPreviewLoopHandler) {
             player.removeEventListener('timeupdate', audioPreviewLoopHandler);
@@ -503,7 +637,7 @@
       function togglePreviewPlayback(forcePlay = null) {
         const player = document.getElementById('trimPreviewPlayer');
         const playLabel = document.getElementById('trimPreviewPlayLabel');
-        const visual = document.querySelector('.audio-visual');
+        const visual = document.querySelector('.wave-wrapper');
         if (!player || !player.src) return;
         const shouldPlay = forcePlay === null ? player.paused : forcePlay;
         if (shouldPlay) {
@@ -549,7 +683,7 @@
           const audioFileName = document.getElementById('audioFileName');
           const audioDurationHint = document.getElementById('audioDurationHint');
           const audioInputEl = document.getElementById('audioInput');
-          if (audioPreview) audioPreview.style.display = 'block';
+          if (audioPreview) audioPreview.style.display = 'flex';
           if (audioFileName) audioFileName.textContent = audioTrimState.file.name;
           if (audioDurationHint) {
             const hintDuration = Math.min(audioTrimState.duration || audioTrimState.maxDuration, audioTrimState.maxDuration);
@@ -563,8 +697,9 @@
         if (clearAudio) {
           clearAudioUpload();
         }
+        updateComposerPreview();
         const postComposerVisible = resumePostComposerAfterAudio();
-        if (!postComposerVisible && activeModalCount === 0) {
+        if (!postComposerVisible && modalStack.length === 0) {
           unlockBodyScroll();
         }
       }
@@ -609,12 +744,13 @@
 
           setAudioInputFile(file);
           if (audioFileName) audioFileName.textContent = file.name;
-          if (audioPreview) audioPreview.style.display = 'block';
+          if (audioPreview) audioPreview.style.display = 'flex';
           if (audioDurationHint) {
             const prettyDuration = formatTime(Math.min(duration, maxDuration));
             audioDurationHint.textContent = `Will loop seamlessly • ${prettyDuration} max`;
           }
           updateAudioTrimMeta(file, duration);
+          updateComposerPreview();
         } catch (err) {
           console.error('Audio analysis failed', err);
           if (!forceRecheck) alert('Unable to read audio file. Please try another file.');
@@ -678,8 +814,13 @@
                     }
                   }).catch(() => { selectedVideoDuration = null; });
                 }
+                renderPreviewMedia(file);
+                updateComposerPreview();
               };
               reader.readAsDataURL(file);
+            } else {
+              renderPreviewMedia(null);
+              updateComposerPreview();
             }
           });
         }
@@ -692,15 +833,49 @@
             const audioPreview = document.getElementById('audioPreview');
             if (!file) {
               if (audioPreview) audioPreview.style.display = 'none';
+              updateComposerPreview();
               return;
             }
             handleAudioSelection(file);
           });
         }
+        const titleInput = document.getElementById('postTitle');
+        if (titleInput) titleInput.addEventListener('input', () => updateComposerPreview());
+        const contentInput = document.getElementById('postContent');
+        if (contentInput) contentInput.addEventListener('input', () => updateComposerPreview());
         document.getElementById('openPostComposerBtn').addEventListener('click', function() { openPostComposer('text'); });
         document.getElementById('openImageComposerBtn').addEventListener('click', function() { openPostComposer('image'); });
         document.getElementById('openVideoComposerBtn').addEventListener('click', function() { openPostComposer('video'); });
         document.getElementById('openTextComposerBtn').addEventListener('click', function() { openPostComposer('text'); });
+
+        const typeButtons = [
+          { id: 'composerTypeTextBtn', type: 'text' },
+          { id: 'composerTypeImageBtn', type: 'image' },
+          { id: 'composerTypeVideoBtn', type: 'video' }
+        ];
+        typeButtons.forEach(({ id, type }) => {
+          const btn = document.getElementById(id);
+          if (btn) btn.addEventListener('click', () => setComposerType(type));
+        });
+
+        setComposerType(document.getElementById('postContentType')?.value || 'text');
+        resetComposerPreview();
+        renderPreviewMedia(null);
+        updateComposerPreview();
+
+        const trimAudioBtn = document.getElementById('trimAudioBtn');
+        if (trimAudioBtn) {
+          trimAudioBtn.addEventListener('click', () => {
+            const audioInputEl = document.getElementById('audioInput');
+            const selectedFile = audioTrimState.file || pendingAudioFile || audioInputEl?.files?.[0];
+            if (!selectedFile) return;
+            audioTrimState.file = selectedFile;
+            updateAudioTrimMeta(selectedFile, audioTrimState.duration || 0);
+            setPreviewSource(selectedFile);
+            togglePreviewPlayback(false);
+            openAudioTrimModal();
+          });
+        }
 
         // Close modal
         document.getElementById('closePostComposerBtn').addEventListener('click', function(e) { e.preventDefault(); closePostComposer(); });
@@ -710,16 +885,10 @@
         const setupModalBackdrop = (modalId, closeFn) => {
           const modal = document.getElementById(modalId);
           if (!modal) return;
-          modal.addEventListener('pointerdown', (e) => {
-            modal.dataset.backdropDown = e.target === modal ? 'true' : '';
+          modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeFn();
           });
-          modal.addEventListener('pointerup', (e) => {
-            if (modal.dataset.backdropDown === 'true' && e.target === modal) {
-              closeFn();
-            }
-            delete modal.dataset.backdropDown;
-          });
-          const card = modal.querySelector('.feed-modal__card');
+          const card = modal.querySelector('.nova-modal__card');
           if (card) {
             card.addEventListener('click', (evt) => evt.stopPropagation());
           }
@@ -767,9 +936,10 @@
               audioInputEl.dataset.trimEnd = (audioTrimState.start + audioTrimState.maxDuration).toFixed(2);
             }
             if (audioFileName) audioFileName.textContent = `${trimmed.name} (trimmed)`;
-            if (audioPreview) audioPreview.style.display = 'block';
+            if (audioPreview) audioPreview.style.display = 'flex';
             if (audioDurationHint) audioDurationHint.textContent = `Clipped to ${formatTime(audioTrimState.maxDuration)} • loops to match video if needed`;
             updateAudioTrimMeta(trimmed, audioTrimState.maxDuration);
+            updateComposerPreview();
           } catch (err) {
             console.error('Audio trimming failed, preserving start/end markers', err);
             alert('We could not save the trimmed file, but we will loop between your chosen start and end when playing the reel.');
@@ -783,8 +953,9 @@
               audioInputEl.dataset.trimEnd = (audioTrimState.start + audioTrimState.maxDuration).toFixed(2);
             }
             if (audioFileName) audioFileName.textContent = `${audioTrimState.file.name} (looped segment)`;
-            if (audioPreview) audioPreview.style.display = 'block';
+            if (audioPreview) audioPreview.style.display = 'flex';
             if (audioDurationHint) audioDurationHint.textContent = `Looping between ${formatTime(audioTrimState.start)} and ${formatTime(audioTrimState.start + audioTrimState.maxDuration)}`;
+            updateComposerPreview();
           }
           closeAudioTrimModal();
         });
