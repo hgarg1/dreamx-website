@@ -697,6 +697,14 @@ app.use((req, res, next) => {
     }
 });
 
+const userNeedsOnboarding = (user) => {
+    if (!user) return false;
+    if (user.needs_onboarding !== undefined && user.needs_onboarding !== null) {
+        return Number(user.needs_onboarding) === 1;
+    }
+    return Number(user.onboarding_completed) !== 1;
+};
+
 // After verification: gently prompt onboarding if not completed (once per session)
 app.use((req, res, next) => {
     try {
@@ -704,10 +712,10 @@ app.use((req, res, next) => {
         const user = getUserById(req.session.userId);
         if (!user) return next();
         // Only prompt if email is verified but onboarding not completed
-        if (user.email_verified === 1 && Number(user.onboarding_completed) !== 1) {
+        if (user.email_verified === 1 && userNeedsOnboarding(user)) {
             const p = req.path || '';
             const isStatic = p.startsWith('/css/') || p.startsWith('/js/') || p.startsWith('/img/') || p.startsWith('/uploads/') || p.startsWith('/fonts/') || p === '/favicon.ico' || p === '/robots.txt' || p.startsWith('/manifest') || p.startsWith('/service-worker');
-        const allowedExact = new Set(['/onboarding', '/onboarding/start', '/logout', '/verify-email', '/onboarding-empty']);
+        const allowedExact = new Set(['/onboarding', '/onboarding/start', '/logout', '/verify-email', '/onboarding-empty', '/api/onboarding']);
             const isAuthPath = p === '/login' || p === '/register' || p.startsWith('/auth/') || p.startsWith('/webauthn/');
             if (!isStatic && !isAuthPath && !allowedExact.has(p) && !req.session.seenOnboardingPrompt) {
                 return res.redirect('/onboarding-empty');
@@ -726,9 +734,10 @@ const resolvePostAuthRedirect = (user) => {
     // Auto-verify and complete onboarding for admin/HR accounts
     if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || user.role === 'hr') {
         if (user.email_verified !== 1 || user.onboarding_completed !== 1) {
-            db.prepare('UPDATE users SET email_verified = 1, onboarding_completed = 1 WHERE id = ?').run(user.id);
+            db.prepare('UPDATE users SET email_verified = 1, onboarding_completed = 1, needs_onboarding = 0 WHERE id = ?').run(user.id);
             user.email_verified = 1;
             user.onboarding_completed = 1;
+            user.needs_onboarding = 0;
             console.log(`✅ Auto-verified and completed onboarding for ${user.role} account: ${user.email}`);
         }
     }
@@ -736,7 +745,7 @@ const resolvePostAuthRedirect = (user) => {
     if (user.email_verified !== 1) {
         return '/verify-email';
     }
-    if (Number(user.onboarding_completed) !== 1) {
+    if (userNeedsOnboarding(user)) {
         return '/onboarding-empty';
     }
     if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
@@ -754,7 +763,7 @@ app.get('/onboarding-empty', (req, res) => {
     const user = getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
     // If they already finished, just go to feed
-    if (Number(user.onboarding_completed) === 1) return res.redirect('/feed');
+    if (!userNeedsOnboarding(user)) return res.redirect('/feed');
     req.session.seenOnboardingPrompt = true;
     res.render('onboarding-empty', {
         title: 'Onboarding - Let\'s Get Started | Dream X',
@@ -766,7 +775,7 @@ app.post('/onboarding/start', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const user = getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
-    if (Number(user.onboarding_completed) === 1) return res.redirect('/feed');
+    if (!userNeedsOnboarding(user)) return res.redirect('/feed');
     req.session.seenOnboardingPrompt = true;
     return res.redirect('/onboarding');
 });
@@ -1847,7 +1856,10 @@ app.post('/admin/users/:id/notes', requireAdmin, (req, res) => {
 
 // Registration page
 app.get('/register', (req, res) => {
-    if (req.session.userId) return res.redirect('/onboarding');
+    if (req.session.userId) {
+        const user = getUserById(req.session.userId);
+        if (user) return res.redirect(resolvePostAuthRedirect(user));
+    }
     res.render('register', {
         title: 'Register - Dream X',
         currentPage: 'register',
@@ -2050,7 +2062,7 @@ app.get('/verify-email', (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const user = getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
-    if (user.email_verified === 1) return res.redirect('/onboarding');
+    if (user.email_verified === 1) return res.redirect(resolvePostAuthRedirect(user));
     
     res.render('verify-email', {
         title: 'Verify Your Email - Dream X',
@@ -2072,7 +2084,7 @@ app.post('/verify-email', async (req, res) => {
     }
     
     if (user.email_verified === 1) {
-        return res.json({ success: true, redirect: '/onboarding' });
+        return res.json({ success: true, redirect: resolvePostAuthRedirect(user) });
     }
     
     const { code } = req.body;
@@ -2103,10 +2115,11 @@ app.post('/verify-email', async (req, res) => {
     try {
         markCodeAsVerified({ id: verificationRecord.id });
         markEmailAsVerified({ userId: user.id });
-        
+
         console.log(`✅ Email verified for user ${user.id} (${user.email})`);
-        
-        return res.json({ success: true, redirect: '/onboarding' });
+
+        const updatedUser = { ...user, email_verified: 1 };
+        return res.json({ success: true, redirect: resolvePostAuthRedirect(updatedUser) });
     } catch (err) {
         console.error('Verification error:', err);
         return res.status(500).json({ success: false, error: 'Server error. Please try again.' });
@@ -2360,7 +2373,10 @@ app.post('/reset-password', async (req, res) => {
 
 // Login page
 app.get('/login', (req, res) => {
-    if (req.session.userId) return res.redirect('/feed');
+    if (req.session.userId) {
+        const user = getUserById(req.session.userId);
+        if (user) return res.redirect(resolvePostAuthRedirect(user));
+    }
     const googleEnabled = !!passport._strategy('google');
     const microsoftEnabled = !!passport._strategy('microsoft');
     const appleEnabled = !!passport._strategy('apple') && !!process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://');
@@ -5525,7 +5541,10 @@ app.post('/refund-request', refundUpload.single('screenshot'), (req, res) => {
 
 // Onboarding page (collect user passions/interests for Reverse Algorithm)
 app.get('/onboarding', (req, res) => {
-    if (!req.session.userId) return res.redirect('/register');
+    if (!req.session.userId) return res.redirect('/login');
+    const user = getUserById(req.session.userId);
+    if (!user) return res.redirect('/login');
+    if (!userNeedsOnboarding(user)) return res.redirect(resolvePostAuthRedirect(user));
     res.render('onboarding', {
         title: 'Start with your passions',
         currentPage: 'onboarding'
@@ -5537,9 +5556,21 @@ const onboardingUpload = upload.fields([
     { name: 'profilePicture', maxCount: 1 }
 ]);
 
-app.post('/onboarding', onboardingUpload, (req, res) => {
-    if (!req.session.userId) return res.redirect('/register');
-    
+const persistOnboarding = (req, res, { respondWithJson } = { respondWithJson: false }) => {
+    if (!req.session.userId) {
+        return respondWithJson ? res.status(401).json({ success: false, error: 'Not authenticated' }) : res.redirect('/login');
+    }
+
+    const user = getUserById(req.session.userId);
+    if (!user) {
+        return respondWithJson ? res.status(404).json({ success: false, error: 'User not found' }) : res.redirect('/login');
+    }
+
+    if (!userNeedsOnboarding(user)) {
+        const redirectTarget = resolvePostAuthRedirect(user);
+        return respondWithJson ? res.json({ success: true, redirect: redirectTarget }) : res.redirect(redirectTarget);
+    }
+
     const {
         categories, goals, experience,
         daily_time_commitment, best_time, reminder_frequency,
@@ -5551,53 +5582,67 @@ app.post('/onboarding', onboardingUpload, (req, res) => {
         notify_inspiration, notify_community, notify_weekly_summary,
         notify_method, bio
     } = req.body;
-    
+
     // Process arrays
     const selectedCategories = Array.isArray(categories) ? categories : (categories ? [categories] : []);
     const selectedGoals = Array.isArray(goals) ? goals : (goals ? [goals] : []);
     const selectedAccountability = Array.isArray(accountability_style) ? accountability_style : (accountability_style ? [accountability_style] : []);
     const selectedContentPrefs = Array.isArray(content_preferences) ? content_preferences : (content_preferences ? [content_preferences] : []);
-    
+
     // Profile picture handling
     let profilePicturePath = null;
     if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
         profilePicturePath = 'profiles/' + req.files.profilePicture[0].filename;
     }
-    
-    // Update user with comprehensive onboarding data
-    const onboardingData = {
-        userId: req.session.userId,
-        categories: selectedCategories,
-        goals: selectedGoals,
-        experience: experience || null,
-        daily_time_commitment: daily_time_commitment || null,
-        best_time: best_time || null,
-        reminder_frequency: reminder_frequency || null,
-        accountability_style: selectedAccountability.length > 0 ? JSON.stringify(selectedAccountability) : null,
-        progress_visibility: progress_visibility || 'public',
-        content_preferences: selectedContentPrefs.length > 0 ? JSON.stringify(selectedContentPrefs) : null,
-        content_format_preference: content_format_preference || 'Mixed',
-        open_to_mentoring: open_to_mentoring || null,
-        first_goal: first_goal || null,
-        first_goal_date: first_goal_date || null,
-        first_goal_metric: first_goal_metric || null,
-        first_goal_public: first_goal_public ? 1 : 0,
-        notify_followers: notify_followers ? 1 : 0,
-        notify_likes_comments: notify_likes_comments ? 1 : 0,
-        notify_milestones: notify_milestones ? 1 : 0,
-        notify_inspiration: notify_inspiration ? 1 : 0,
-        notify_community: notify_community ? 1 : 0,
-        notify_weekly_summary: notify_weekly_summary ? 1 : 0,
-        notify_method: notify_method || 'both',
-        bio: bio || null,
-        profile_picture: profilePicturePath,
-        onboarding_completed: 1
-    };
-    
-    updateOnboarding(onboardingData);
-    console.log('📝 Complete onboarding saved for user', req.session.userId);
-    res.redirect('/feed');
-});
+
+    try {
+        // Update user with comprehensive onboarding data
+        const onboardingData = {
+            userId: req.session.userId,
+            categories: selectedCategories,
+            goals: selectedGoals,
+            experience: experience || null,
+            daily_time_commitment: daily_time_commitment || null,
+            best_time: best_time || null,
+            reminder_frequency: reminder_frequency || null,
+            accountability_style: selectedAccountability.length > 0 ? JSON.stringify(selectedAccountability) : null,
+            progress_visibility: progress_visibility || 'public',
+            content_preferences: selectedContentPrefs.length > 0 ? JSON.stringify(selectedContentPrefs) : null,
+            content_format_preference: content_format_preference || 'Mixed',
+            open_to_mentoring: open_to_mentoring || null,
+            first_goal: first_goal || null,
+            first_goal_date: first_goal_date || null,
+            first_goal_metric: first_goal_metric || null,
+            first_goal_public: first_goal_public ? 1 : 0,
+            notify_followers: notify_followers ? 1 : 0,
+            notify_likes_comments: notify_likes_comments ? 1 : 0,
+            notify_milestones: notify_milestones ? 1 : 0,
+            notify_inspiration: notify_inspiration ? 1 : 0,
+            notify_community: notify_community ? 1 : 0,
+            notify_weekly_summary: notify_weekly_summary ? 1 : 0,
+            notify_method: notify_method || 'both',
+            bio: bio || null,
+            profile_picture: profilePicturePath,
+            onboarding_completed: 1,
+            needs_onboarding: 0
+        };
+
+        updateOnboarding(onboardingData);
+        req.session.seenOnboardingPrompt = true;
+        console.log('📝 Complete onboarding saved for user', req.session.userId);
+
+        const redirectTarget = '/feed';
+        return respondWithJson ? res.json({ success: true, redirect: redirectTarget }) : res.redirect(redirectTarget);
+    } catch (err) {
+        console.error('Failed to save onboarding data', err);
+        return respondWithJson
+            ? res.status(500).json({ success: false, error: 'Unable to save onboarding data' })
+            : res.status(500).render('onboarding', { title: 'Start with your passions', currentPage: 'onboarding', error: 'Unable to save onboarding data' });
+    }
+};
+
+app.post('/api/onboarding', onboardingUpload, (req, res) => persistOnboarding(req, res, { respondWithJson: true }));
+app.post('/onboarding', onboardingUpload, (req, res) => persistOnboarding(req, res, { respondWithJson: false }));
 
 // === NOTIFICATION API ROUTES ===
 // Get user profile counts (posts, services)
