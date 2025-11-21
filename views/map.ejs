@@ -346,6 +346,18 @@
         display: inline-block;
     }
 
+    .btn-modal-secondary {
+        background: #eef2ff;
+        color: #4338ca;
+        border: 1px solid #c7d2fe;
+    }
+
+    .btn-modal-secondary:hover {
+        background: #e0e7ff;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(199, 210, 254, 0.6);
+    }
+
     .btn-modal-primary {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -487,6 +499,29 @@
         border: 1px solid #f5c6cb;
     }
 
+    .route-status {
+        margin: 0 2rem 1.5rem 2rem;
+        padding: 1rem;
+        border-radius: 10px;
+        font-weight: 500;
+        display: none;
+        border: 1px solid #e0e7ff;
+        background: #eef2ff;
+        color: #4338ca;
+    }
+
+    .route-status.error {
+        background: #fef2f2;
+        color: #b91c1c;
+        border-color: #fecaca;
+    }
+
+    .route-status.warning {
+        background: #fffbeb;
+        color: #92400e;
+        border-color: #fde68a;
+    }
+
     /* Mobile responsiveness */
     @media (max-width: 768px) {
         .map-header h1 {
@@ -580,7 +615,9 @@
         <div class="user-modal-body" id="modalBody">
             <!-- Content will be populated by JavaScript -->
         </div>
+        <div id="routeStatus" class="route-status"></div>
         <div class="user-modal-footer">
+            <button id="routeButton" class="btn-modal btn-modal-secondary" style="display: none;">Fastest Route</button>
             <a href="#" id="modalProfileLink" class="btn-modal btn-modal-primary">View Profile</a>
         </div>
     </div>
@@ -629,9 +666,35 @@
     const mapboxToken = '<%= mapboxToken %>';
     const userLocations = <%- userLocations %>;
     const currentUserLocation = (<%- currentUserLocation || 'null' %>);
-    
+    const ROUTE_SOURCE_ID = 'user-fastest-route';
+    const ROUTE_LAYER_ID = 'user-fastest-route-layer';
+
+    let mapInstance = null;
+    let selectedUserLocation = null;
+
     // Initialize Dream X MapBox utilities globally
     window.mapUtils = new DreamXMapUtils(mapboxToken);
+
+    const routeButton = document.getElementById('routeButton');
+    const routeStatus = document.getElementById('routeStatus');
+
+    const userHasLocation = (user) => {
+        return user && Number.isFinite(Number(user.latitude)) && Number.isFinite(Number(user.longitude));
+    };
+
+    const updateRouteStatus = (message, type = 'info') => {
+        if (!routeStatus) return;
+        routeStatus.textContent = message;
+        routeStatus.className = `route-status ${type !== 'info' ? type : ''}`.trim();
+        routeStatus.style.display = 'block';
+    };
+
+    const hideRouteStatus = () => {
+        if (!routeStatus) return;
+        routeStatus.style.display = 'none';
+        routeStatus.textContent = '';
+        routeStatus.className = 'route-status';
+    };
 
     // ===== GLOBAL FUNCTION DECLARATIONS (for onclick handlers) =====
     
@@ -665,6 +728,7 @@
     // Close user modal
     window.closeUserModal = function() {
         document.getElementById('userModal').classList.remove('active');
+        hideRouteStatus();
     }
 
     // Detect user's location automatically
@@ -762,7 +826,10 @@
         const name = document.getElementById('modalName');
         const body = document.getElementById('modalBody');
         const profileLink = document.getElementById('modalProfileLink');
-        
+
+        selectedUserLocation = location;
+        hideRouteStatus();
+
         // Set avatar
         avatar.innerHTML = '';
         if (location.profile_picture) {
@@ -818,10 +885,27 @@
         }
         
         body.innerHTML = bodyHTML || '<p style="text-align: center; color: #666;">No additional information available.</p>';
-        
+
         // Set profile link
         profileLink.href = '/profile/' + location.user_id;
-        
+
+        // Configure route button visibility and action
+        if (routeButton) {
+            const hasRequesterLocation = userHasLocation(currentUserLocation);
+            const hasTargetLocation = userHasLocation(location);
+
+            routeButton.style.display = hasRequesterLocation && hasTargetLocation ? 'inline-flex' : 'none';
+            routeButton.disabled = false;
+            routeButton.textContent = 'Fastest Route';
+            routeButton.onclick = () => window.showRouteToUser(location);
+
+            if (!hasRequesterLocation) {
+                updateRouteStatus('Share your location to get the fastest route to community members.', 'warning');
+            } else if (!hasTargetLocation) {
+                updateRouteStatus('This user has not shared a routable location yet.', 'warning');
+            }
+        }
+
         // Show modal
         modal.classList.add('active');
     }
@@ -837,6 +921,12 @@
         fullscreenControl: true,
         geolocateControl: true // Add user location button
     });
+    mapInstance = map;
+
+    const clearRouteLayer = () => {
+        if (!mapInstance) return;
+        window.mapUtils.clearRoute(mapInstance, { sourceId: ROUTE_SOURCE_ID, layerId: ROUTE_LAYER_ID });
+    };
 
     // Add user markers using the utility
     map.on('load', function() {
@@ -848,6 +938,58 @@
             window.mapUtils.fitBounds(map, coordinates, { padding: 100, maxZoom: 10 });
         }
     });
+
+    window.showRouteToUser = async function(location) {
+        if (!mapInstance) return;
+
+        if (!userHasLocation(currentUserLocation)) {
+            updateRouteStatus('Share your location to unlock routing to other members.', 'warning');
+            return;
+        }
+
+        if (!location || !userHasLocation(location)) {
+            updateRouteStatus('This member’s location is not available for routing.', 'warning');
+            return;
+        }
+
+        if (routeButton) {
+            routeButton.disabled = true;
+            routeButton.textContent = 'Finding route...';
+        }
+
+        updateRouteStatus('Calculating the fastest route...', 'info');
+
+        try {
+            const startLngLat = [parseFloat(currentUserLocation.longitude), parseFloat(currentUserLocation.latitude)];
+            const endLngLat = [parseFloat(location.longitude), parseFloat(location.latitude)];
+
+            const route = await window.mapUtils.getFastestRoute(startLngLat, endLngLat);
+
+            clearRouteLayer();
+            const geojson = window.mapUtils.displayRoute(mapInstance, route, {
+                sourceId: ROUTE_SOURCE_ID,
+                layerId: ROUTE_LAYER_ID,
+                color: '#2563eb',
+                width: 6
+            });
+
+            if (geojson?.geometry?.coordinates?.length) {
+                window.mapUtils.fitBounds(mapInstance, geojson.geometry.coordinates, { padding: 80, maxZoom: 12, duration: 1200 });
+            }
+
+            const durationMinutes = (route.duration / 60).toFixed(1);
+            const distanceKm = (route.distance / 1000).toFixed(2);
+            updateRouteStatus(`Fastest route ready: ~${durationMinutes} min over ${distanceKm} km.`, 'info');
+        } catch (error) {
+            console.error('Route error:', error);
+            updateRouteStatus('Unable to fetch a route for these locations. Please try again.', 'error');
+        } finally {
+            if (routeButton) {
+                routeButton.disabled = false;
+                routeButton.textContent = 'Fastest Route';
+            }
+        }
+    }
 
     // Close modals on background click
     document.getElementById('userModal').addEventListener('click', function(e) {

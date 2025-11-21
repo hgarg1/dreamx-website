@@ -394,6 +394,106 @@ class DreamXMapUtils {
     }
 
     /**
+     * Get the fastest route between two coordinates using MapBox Directions API
+     * @param {Array<number>} start - [longitude, latitude] starting point
+     * @param {Array<number>} end - [longitude, latitude] destination point
+     * @param {Object} options - Optional settings
+     * @param {string} options.profile - Routing profile (driving, walking, cycling) default: driving
+     * @returns {Promise<Object>} Route object from MapBox Directions API
+     */
+    async getFastestRoute(start, end, options = {}) {
+        const profile = options.profile || 'driving';
+
+        if (!Array.isArray(start) || start.length !== 2 || !Array.isArray(end) || end.length !== 2) {
+            throw new Error('Start and end coordinates are required as [longitude, latitude] pairs');
+        }
+
+        const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('Failed to fetch route from MapBox');
+        }
+
+        const data = await response.json();
+        if (!data.routes || data.routes.length === 0) {
+            throw new Error('No routes available between these points');
+        }
+
+        return data.routes[0];
+    }
+
+    /**
+     * Draw a route on the map
+     * @param {mapboxgl.Map} map - The map instance
+     * @param {Object} route - Route object from MapBox Directions API
+     * @param {Object} options - Drawing options
+     * @param {string} options.sourceId - GeoJSON source ID (default: 'dreamx-route')
+     * @param {string} options.layerId - Layer ID (default: 'dreamx-route-layer')
+     * @param {string} options.color - Line color
+     * @param {number} options.width - Line width
+     */
+    displayRoute(map, route, options = {}) {
+        const sourceId = options.sourceId || 'dreamx-route';
+        const layerId = options.layerId || `${sourceId}-layer`;
+        const color = options.color || '#7c3aed';
+        const width = options.width || 6;
+
+        const geojson = {
+            type: 'Feature',
+            geometry: route.geometry,
+            properties: {}
+        };
+
+        if (map.getLayer(layerId)) {
+            map.removeLayer(layerId);
+        }
+        if (map.getSource(sourceId)) {
+            map.removeSource(sourceId);
+        }
+
+        map.addSource(sourceId, {
+            type: 'geojson',
+            data: geojson
+        });
+
+        map.addLayer({
+            id: layerId,
+            type: 'line',
+            source: sourceId,
+            layout: {
+                'line-cap': 'round',
+                'line-join': 'round'
+            },
+            paint: {
+                'line-color': color,
+                'line-width': width,
+                'line-opacity': 0.85
+            }
+        });
+
+        return geojson;
+    }
+
+    /**
+     * Clear a previously drawn route
+     * @param {mapboxgl.Map} map - The map instance
+     * @param {Object} options - Options with sourceId/layerId
+     */
+    clearRoute(map, options = {}) {
+        const sourceId = options.sourceId || 'dreamx-route';
+        const layerId = options.layerId || `${sourceId}-layer`;
+
+        if (map.getLayer(layerId)) {
+            map.removeLayer(layerId);
+        }
+
+        if (map.getSource(sourceId)) {
+            map.removeSource(sourceId);
+        }
+    }
+
+    /**
      * Get a map instance by container ID
      * @param {string} containerId - The container ID
      * @returns {mapboxgl.Map|null} The map instance or null
