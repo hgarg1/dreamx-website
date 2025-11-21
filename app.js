@@ -3226,6 +3226,7 @@ app.get('/profile/:id(\\d+)', (req, res) => {
     
     // Check if viewing own profile
     const viewingOwnProfile = (uid === req.session.userId);
+    const isBlockedByViewer = viewingOwnProfile ? false : isUserBlocked({ userId: req.session.userId, targetId: uid });
     
     const followerCount = getFollowerCount(uid);
     const followingCount = getFollowingCount(uid);
@@ -3272,7 +3273,8 @@ app.get('/profile/:id(\\d+)', (req, res) => {
         profilePicture: row.profile_picture || null,
         isOwnProfile: viewingOwnProfile,
         isFollowing: isFollowingUser,
-        isSuperAdmin
+        isSuperAdmin,
+        isBlockedByViewer
     });
 });
 
@@ -4261,6 +4263,7 @@ app.get('/settings', (req, res) => {
     // Get billing charges
     const { getUserCharges } = require('./db');
     const charges = getUserCharges({ userId: req.session.userId, limit: 50, offset: 0 }) || [];
+    const blockedUsers = getBlockedUsers(req.session.userId) || [];
     
     res.render('settings', {
         title: 'Settings - Dream X',
@@ -4272,6 +4275,7 @@ app.get('/settings', (req, res) => {
         paymentMethods,
         invoices,
         charges,
+        blockedUsers,
         success: req.query.success,
         refund_submitted: req.query.refund_submitted === 'true',
         error: req.query.error
