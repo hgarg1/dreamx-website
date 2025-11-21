@@ -305,13 +305,15 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  const socket = io(); // Initialize the socket connection
-
-  const currentConversationId = '<%= currentConversation ? currentConversation.id : "null" %>';
-  const authUserId = '<%= authUser ? authUser.id : "null" %>';
-  const authUserName = '<%= authUser ? (authUser.full_name || "").replace(/\'/g, "\\'") : "" %>';
-  const isGroupConversation = '<%= currentConversation && currentConversation.is_group ? "true" : "false" %>';
-  const currentConversationMeta = <%= currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_id: currentConversation.other_user_id }) : "null" %>;
+  const socket = (typeof io !== 'undefined') ? io() : null;
+  if (!socket) {
+    console.warn('Socket.io unavailable; realtime messaging disabled');
+  }
+  const currentConversationId = <%= currentConversation ? currentConversation.id : 'null' %>;
+  const authUserId = <%= authUser ? authUser.id : 'null' %>;
+  const authUserName = '<%= authUser ? (authUser.full_name || '').replace(/'/g, "\\'") : '' %>';
+  const isGroupConversation = <%= currentConversation && currentConversation.is_group ? 'true' : 'false' %>;
+  const currentConversationMeta = <%= currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
   const conversationParticipants = <%= currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
   const isAdminUser = <%= authUser && ['admin','super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
   const moderationTarget = <%- JSON.stringify(moderationTarget || null) %>;
@@ -327,21 +329,23 @@
   let replyToMessageId = null;
 
   // Join current conversation room
-  if (currentConversationId) {
+  if (socket && currentConversationId) {
     socket.emit('join-conversation', currentConversationId);
   }
 
   // Listen for new messages
-  socket.on('new-message', (message) => {
-    if (message.conversation_id === currentConversationId) {
-      appendMessage(message);
-      scrollToBottom();
-      
-      // Mark as read
-      fetch(`/api/messages/${currentConversationId}/read`, { method: 'POST' })
-        .catch(err => console.error('Failed to mark as read:', err));
-    }
-  });
+  if (socket) {
+    socket.on('new-message', (message) => {
+      if (message.conversation_id === currentConversationId) {
+        appendMessage(message);
+        scrollToBottom();
+
+        // Mark as read
+        fetch(`/api/messages/${currentConversationId}/read`, { method: 'POST' })
+          .catch(err => console.error('Failed to mark as read:', err));
+      }
+    });
+  }
 
   function notify(message) {
     if (typeof showToast === 'function') return showToast(message);
@@ -528,14 +532,16 @@
   });
 
   // Read receipts: mark outgoing messages as seen up to a given ID
-  socket.on('read-receipt', (payload) => {
-    try {
-      if (!payload || payload.conversationId !== currentConversationId) return;
-      if (typeof payload.lastReadMessageId === 'number') {
-        markSeenForOutgoingUpTo(payload.lastReadMessageId);
-      }
-    } catch (e) { console.error('read-receipt handling error', e); }
-  });
+  if (socket) {
+    socket.on('read-receipt', (payload) => {
+      try {
+        if (!payload || payload.conversationId !== currentConversationId) return;
+        if (typeof payload.lastReadMessageId === 'number') {
+          markSeenForOutgoingUpTo(payload.lastReadMessageId);
+        }
+      } catch (e) { console.error('read-receipt handling error', e); }
+    });
+  }
 
   // Reply-to helpers
   document.addEventListener('click', (e) => {
@@ -662,12 +668,13 @@
       const statusIndicator = document.getElementById('fileStatusIndicator');
       const statusIcon = document.getElementById('fileStatusIcon');
       const statusText = document.getElementById('fileStatusText');
-      
-      uploadProgress.style.display = 'block';
+      const hasFiles = selectedFiles && selectedFiles.length > 0;
+
       progressBar.style.width = '0%';
+      uploadProgress.style.display = hasFiles ? 'block' : 'none';
       sendBtn.disabled = true;
 
-      if (selectedFiles && selectedFiles.length > 0) {
+      if (hasFiles && statusIndicator && statusIcon && statusText) {
         statusIndicator.style.display = 'flex';
         statusIcon.textContent = '⏳';
         statusText.textContent = selectedFiles.length === 1 ? 'Uploading...' : `Uploading ${selectedFiles.length} files...`;
@@ -689,32 +696,63 @@
         if (evt.lengthComputable) {
           const pct = (evt.loaded / evt.total) * 100;
           progressBar.style.width = pct + '%';
-          if (selectedFiles && selectedFiles.length > 0) {
+          if (hasFiles && statusText) {
             statusText.textContent = `Uploading... ${Math.round(pct)}%`;
           }
         }
       });
       xhr.addEventListener('load', () => {
         const statusIndicator = document.getElementById('fileStatusIndicator');
+        const statusIcon = document.getElementById('fileStatusIcon');
+        const statusText = document.getElementById('fileStatusText');
+        let responseData = null;
+        try {
+          responseData = JSON.parse(xhr.responseText || '{}');
+        } catch (e) {
+          responseData = null;
+        }
+
         if (xhr.status >= 200 && xhr.status < 300) {
           input.value = '';
           input.style.height = 'auto';
           clearFile();
           clearReplyTarget();
           uploadProgress.style.display = 'none';
-          statusIndicator.style.display = 'none';
+          const shouldAppendLocally = !socket || !socket.connected;
+          if (shouldAppendLocally && responseData && Array.isArray(responseData.messages)) {
+            responseData.messages.forEach((msg) => appendMessage(msg));
+          }
+          if (statusIndicator && statusIcon && statusText && hasFiles) {
+            progressBar.style.width = '100%';
+            statusIndicator.style.display = 'flex';
+            statusIcon.textContent = '✅';
+            statusText.textContent = 'Upload complete';
+            setTimeout(() => { statusIndicator.style.display = 'none'; }, 1200);
+          }
           sendBtn.disabled = false;
         } else {
-          const data = JSON.parse(xhr.responseText || '{}');
+          const data = responseData || {};
           alert(data.error || 'Failed to send message');
           uploadProgress.style.display = 'none';
-          statusIndicator.style.display = 'none';
+          if (statusIndicator && statusIcon && statusText && hasFiles) {
+            statusIndicator.style.display = 'flex';
+            statusIcon.textContent = '⚠️';
+            statusText.textContent = 'Upload failed. Try again.';
+          }
           sendBtn.disabled = false;
         }
       });
       xhr.addEventListener('error', () => {
+        const statusIndicator = document.getElementById('fileStatusIndicator');
+        const statusIcon = document.getElementById('fileStatusIcon');
+        const statusText = document.getElementById('fileStatusText');
         alert('Error sending message');
         uploadProgress.style.display = 'none';
+        if (statusIndicator && statusIcon && statusText && hasFiles) {
+          statusIndicator.style.display = 'flex';
+          statusIcon.textContent = '⚠️';
+          statusText.textContent = 'Upload failed. Try again.';
+        }
         sendBtn.disabled = false;
       });
       xhr.open('POST', '/api/messages/send');
@@ -891,7 +929,7 @@
   let typingTimeout = null;
   let typingSent = false;
   function handleTyping(){
-    if (!currentConversationId || !authUserId) return;
+    if (!socket || !currentConversationId || !authUserId) return;
     try {
       if (!typingSent) {
         socket.emit('typing', { conversationId: currentConversationId, userId: authUserId });
@@ -905,17 +943,19 @@
     } catch(e) { console.error('typing emit error', e); }
   }
 
-  socket.on('typing', (payload) => {
-    if (!payload || payload.conversationId !== currentConversationId) return;
-    if (payload.userId && authUserId && payload.userId === authUserId) return; // ignore self
-    typingIndicator.style.display = 'block';
-    typingIndicator.textContent = 'Typing...';
-  });
-  socket.on('stop-typing', (payload) => {
-    if (!payload || payload.conversationId !== currentConversationId) return;
-    if (payload.userId && authUserId && payload.userId === authUserId) return;
-    typingIndicator.style.display = 'none';
-  });
+  if (socket) {
+    socket.on('typing', (payload) => {
+      if (!payload || payload.conversationId !== currentConversationId) return;
+      if (payload.userId && authUserId && payload.userId === authUserId) return; // ignore self
+      typingIndicator.style.display = 'block';
+      typingIndicator.textContent = 'Typing...';
+    });
+    socket.on('stop-typing', (payload) => {
+      if (!payload || payload.conversationId !== currentConversationId) return;
+      if (payload.userId && authUserId && payload.userId === authUserId) return;
+      typingIndicator.style.display = 'none';
+    });
+  }
 
   // Scroll to bottom on load
   if (currentConversationId) {
@@ -1215,11 +1255,14 @@
   }
 
   // Listen for message reaction events via socket
-  socket.on('message-reaction', (payload) => {
-    if (payload.messageId) {
-      updateMessageReactions(payload.messageId, payload.counts);
-    }
-  });
+  if (socket) {
+    socket.on('message-reaction', (payload) => {
+      if (!payload || (payload.conversationId && payload.conversationId !== currentConversationId)) return;
+      if (payload.messageId) {
+        updateMessageReactions(payload.messageId, payload.reactionCounts || payload.counts);
+      }
+    });
+  }
 
   // Group Modal Setup - Initialize after DOM is ready
   function initGroupModal() {

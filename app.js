@@ -4031,7 +4031,7 @@ app.post('/api/messages/send', chatUpload.any(), (req, res) => {
         }
     });
 
-    res.json({ success: true, messageIds: createdMessageIds });
+    res.json({ success: true, messageIds: createdMessageIds, messages: createdPayloads });
 });
 
 // Protected file download
@@ -4099,10 +4099,12 @@ app.post('/api/messages/:messageId/react', (req, res) => {
     
     // Emit reaction event to conversation
     io.to(`conversation-${msg.conversation_id}`).emit('message-reaction', {
+        conversationId: msg.conversation_id,
         messageId,
         userId: req.session.userId,
         status: result.status,
-        counts: result.counts
+        counts: result.counts,
+        reactionCounts: result.counts
     });
     
     // Create notification for message sender if someone else reacted
