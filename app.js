@@ -127,22 +127,33 @@ function getCallbackURL(path) {
     
     // Auto-detect: use localhost in development, production URL otherwise
     const isDevelopment = process.env.NODE_ENV !== 'production';
-    const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://dreamx-website.onrender.com';
+    const baseUrl = isDevelopment ? 'http://localhost' : 'https://dreamx-website.onrender.com';
     return `${baseUrl}${path}`;
 }
 
-// Resolve the best-effort base URL for links sent to users (prefers the request host)
+// Resolve the best-effort base URL for links sent to users (prefers request host; defaults to production domain for emails)
 function getRequestBaseUrl(req) {
-    const configuredBaseUrl = (process.env.BASE_URL || '').trim();
-    if (configuredBaseUrl) return configuredBaseUrl;
+    const productionHost = 'dreamx-website.onrender.com';
+    const forwardedHost = (req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
+    const rawHost = forwardedHost || (req?.get ? req.get('host') : req?.headers?.host || '').trim();
+    const host = rawHost || '';
+    const forwardedProto = (req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim();
+    const protocol = forwardedProto || req?.protocol || 'https';
 
-    const host = req?.get ? req.get('host') : req?.headers?.host;
-    if (!host) return 'http://localhost:3000';
+    if (host) {
+        const lowerHost = host.toLowerCase();
+        const isLocal = lowerHost.includes('localhost') || lowerHost.includes('127.0.0.1');
+        if (isLocal) {
+            return `http://${host}`;
+        }
+        // Force the known production domain for hosted traffic; otherwise use the observed host
+        const finalHost = lowerHost.includes(productionHost) ? productionHost : host;
+        const safeProto = protocol === 'http' ? 'http' : 'https';
+        return `${safeProto}://${finalHost}`;
+    }
 
-    const forwardedProto = req?.headers?.['x-forwarded-proto'];
-    const protocol = (forwardedProto ? forwardedProto.split(',')[0].trim() : req?.protocol) || 'http';
-
-    return `${protocol}://${host}`;
+    // No host available (e.g., background job): assume production domain
+    return `https://${productionHost}`;
 }
 
 function safeParseArray(value, fallback = []) {
@@ -176,7 +187,7 @@ const httpServer = http.createServer(app);
 
 const io = socketIo(httpServer, {
     cors: {
-        origin: process.env.BASE_URL || 'http://localhost:3000',
+        origin: process.env.BASE_URL || 'http://localhost',
         methods: ['GET', 'POST'],
         credentials: true
     },
@@ -934,10 +945,10 @@ const webauthnExpectedOrigins = (req, rpID) => {
     }
 
     // Development fallbacks
-    origins.add('http://localhost:3000');
-    origins.add('https://localhost:3000');
-    origins.add('http://127.0.0.1:3000');
-    origins.add('https://127.0.0.1:3000');
+    origins.add('http://localhost');
+    origins.add('https://localhost');
+    origins.add('http://127.0.0.1');
+    origins.add('https://127.0.0.1');
     origins.add('https://dreamx-website.onrender.com');
 
     return Array.from(origins);
@@ -1481,7 +1492,7 @@ app.post('/admin/services/:id/hide', requireAdmin, async (req, res) => {
                 if (notifyEmail) {
                     const owner = getUserById(s.user_id);
                     if (owner && owner.email_notifications === 1) {
-                        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                        const baseUrl = getRequestBaseUrl(req);
                         await emailService.sendServiceModerationEmail(owner, s, 'hidden', null, baseUrl, req);
                     } else {
                         emailSuppressed = true;
@@ -1516,7 +1527,7 @@ app.post('/admin/services/:id/unhide', requireAdmin, async (req, res) => {
                 if (notifyEmail) {
                     const owner = getUserById(s.user_id);
                     if (owner && owner.email_notifications === 1) {
-                        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                        const baseUrl = getRequestBaseUrl(req);
                         await emailService.sendServiceModerationEmail(owner, s, 'restored', null, baseUrl, req);
                     } else {
                         emailSuppressed = true;
@@ -1552,7 +1563,7 @@ app.post('/admin/services/:id/delete', requireAdmin, async (req, res) => {
                 if (notifyEmail) {
                     const owner = getUserById(s.user_id);
                     if (owner && owner.email_notifications === 1) {
-                        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                        const baseUrl = getRequestBaseUrl(req);
                         await emailService.sendServiceModerationEmail(owner, s, 'deleted', reason, baseUrl, req);
                     } else {
                         emailSuppressed = true;
@@ -1594,7 +1605,7 @@ app.post('/admin/services/:id/edit', requireSuperAdmin, async (req, res) => {
             }
             if (req.body.notifyEmail) {
                 if (owner && owner.email_notifications === 1) {
-                    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                    const baseUrl = getRequestBaseUrl(req);
                     await emailService.sendServiceEditedByAdminEmail(owner, { ...s, ...fields }, baseUrl, req);
                 } else {
                     emailSuppressed = true;
@@ -3127,7 +3138,7 @@ app.post('/api/posts/:postId/react', async (req, res) => {
             // Send email notification if enabled
             const author = getUserById(post.user_id);
             if (author && author.email_notifications === 1) {
-                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                const baseUrl = getRequestBaseUrl(req);
                 await emailService.sendPostReactionEmail(author, reactor, type, postId, baseUrl, req);
             }
         }
@@ -3215,7 +3226,7 @@ app.post('/api/posts/:postId/comments', async (req, res) => {
             // Send email notification if enabled
             const author = getUserById(post.user_id);
             if (author && author.email_notifications === 1) {
-                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                const baseUrl = getRequestBaseUrl(req);
                 await emailService.sendPostCommentEmail(author, commenter, content, postId, baseUrl, req);
             }
         }
@@ -3241,7 +3252,7 @@ app.post('/api/posts/:postId/comments', async (req, res) => {
             // Send email notification if enabled
             const parentAuthor = getUserById(parentAuthorId);
             if (parentAuthor && parentAuthor.email_notifications === 1) {
-                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                const baseUrl = getRequestBaseUrl(req);
                 await emailService.sendCommentReplyEmail(parentAuthor, commenter, content, postId, baseUrl, req);
             }
         }
@@ -3286,7 +3297,7 @@ app.post('/api/comments/:commentId/star', async (req, res) => {
             // Send email notification if enabled
             const author = getUserById(comment.user_id);
             if (author && author.email_notifications === 1) {
-                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                const baseUrl = getRequestBaseUrl(req);
                 await emailService.sendCommentLikeEmail(author, liker, comment.post_id, baseUrl, req);
             }
         }
@@ -3771,7 +3782,7 @@ app.post('/api/services/:id/reviews', ensureAuthenticated, async (req, res) => {
                 timestamp: new Date().toISOString()
             });
             if (owner && owner.email_notifications === 1) {
-                const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+                const baseUrl = getRequestBaseUrl(req);
                 await emailService.sendServiceReviewEmail(owner, reviewer, service, r, (comment || ''), baseUrl, req);
             }
         } catch (e) { /* noop */ }
@@ -6856,7 +6867,7 @@ io.on('connection', (socket) => {
     console.log(`HTTPS server running at https://localhost:443`);
 });*/
 
-httpServer.listen(3000, () => {
-    console.log(`HTTP server running at http://localhost:3000`);
+httpServer.listen(80, () => {
+    console.log(`HTTP server running at http://localhost`);
 });
 
