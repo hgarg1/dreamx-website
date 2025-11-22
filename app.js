@@ -90,7 +90,11 @@ const {
     // Admin notes
     addUserAdminNote, getUserAdminNotes,
     // User locations for MapBox
-    saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation
+    saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation,
+    // Career jobs
+    createCareerJob, updateCareerJob, getCareerJobById, setCareerJobStatus,
+    addCareerJobAsset, removeCareerJobAsset, getCareerJobAssets,
+    getCareerJobsForAdmin, getPublicCareerJobs
  } = require('./db');
 let fetch;
 try {
@@ -306,6 +310,38 @@ const careerUpload = multer({
         ];
         if (allowed.includes(m)) return cb(null, true);
         cb(new Error('Unsupported file type for application'));
+    }
+});
+
+// Career job asset uploads (role descriptions, compensation PDFs, etc.)
+const careerAssetStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = path.join(__dirname, 'public', 'uploads', 'career-assets');
+        try { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); } catch (e) {}
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'career-asset-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const careerAssetUpload = multer({
+    storage: careerAssetStorage,
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const m = (file.mimetype || '').toLowerCase();
+        const allowed = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/plain',
+            'application/zip', 'application/x-zip-compressed',
+            'image/png', 'image/jpeg', 'image/webp'
+        ];
+        if (allowed.includes(m)) return cb(null, true);
+        cb(new Error('Unsupported file type for career asset'));
     }
 });
 
@@ -1744,6 +1780,7 @@ app.get('/admin/export/messages.csv', requireAdmin, (req, res) => {
 app.get('/hr', requireHR, (req, res) => {
     const me = getUserById(req.session.userId);
     const careers = require('./db').getCareerApplicationsPaged({ limit: 100, offset: 0 });
+    const jobPostings = getCareerJobsForAdmin();
     
     // Calculate counts for each status
     const totalApps = careers.length;
@@ -1762,6 +1799,7 @@ app.get('/hr', requireHR, (req, res) => {
         reviewApps,
         acceptedApps,
         rejectedApps,
+        jobPostings,
         success: req.query.success,
         error: req.query.error
     });
@@ -1810,6 +1848,171 @@ app.post('/hr/send-email', requireHR, async (req, res) => {
             success: false, 
             error: 'Failed to send email. Please try again.' 
         });
+    }
+});
+
+const parseJobTags = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.map(r => String(r).trim()).filter(Boolean).slice(0, 10);
+    return String(raw).split(',').map(t => t.trim()).filter(Boolean).slice(0, 10);
+};
+
+const resolveJobStatus = ({ requestedStatus, goLiveAt, freezeUntil }) => {
+    const now = Date.now();
+    const liveAt = goLiveAt ? new Date(goLiveAt).getTime() : null;
+    const freezeUntilTs = freezeUntil ? new Date(freezeUntil).getTime() : null;
+    if (requestedStatus === 'closed') return 'closed';
+    if (freezeUntilTs && freezeUntilTs > now) return 'frozen';
+    if (requestedStatus === 'frozen') return 'frozen';
+    if (liveAt && liveAt > now) return 'scheduled';
+    return requestedStatus || 'live';
+};
+
+// HR job management APIs
+app.get('/api/hr/career-jobs', requireHR, (req, res) => {
+    const jobs = getCareerJobsForAdmin();
+    res.json({ success: true, jobs });
+});
+
+app.post('/api/hr/career-jobs', requireHR, careerAssetUpload.array('assetFiles', 6), (req, res) => {
+    try {
+        const { title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, goLiveAt, freezeUntil, status, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority } = req.body;
+        if (!title || !description) {
+            return res.status(400).json({ success: false, error: 'Title and description are required' });
+        }
+        const goLiveIso = goLiveAt && !isNaN(new Date(goLiveAt)) ? new Date(goLiveAt).toISOString() : null;
+        const freezeUntilIso = freezeUntil && !isNaN(new Date(freezeUntil)) ? new Date(freezeUntil).toISOString() : null;
+        const computedStatus = resolveJobStatus({ requestedStatus: status, goLiveAt: goLiveIso, freezeUntil: freezeUntilIso });
+        const jobId = createCareerJob({
+            title,
+            location,
+            team,
+            employmentType,
+            seniority,
+            headline,
+            description,
+            responsibilities,
+            requirements,
+            perks,
+            tags: parseJobTags(tags),
+            salaryMin: salaryMin ? Number(salaryMin) : null,
+            salaryMax: salaryMax ? Number(salaryMax) : null,
+            salaryCurrency: salaryCurrency || null,
+            applyUrl: applyUrl || null,
+            workplaceType: workplaceType || null,
+            visibility: visibility || 'public',
+            priority: priority || null,
+            status: computedStatus,
+            goLiveAt: goLiveIso,
+            freezeUntil: freezeUntilIso,
+            isFrozen: computedStatus === 'frozen'
+        });
+        if (req.files && req.files.length) {
+            req.files.forEach(file => {
+                addCareerJobAsset({
+                    jobId,
+                    label: file.originalname,
+                    fileName: file.originalname,
+                    filePath: `/uploads/career-assets/${file.filename}`,
+                    fileSize: file.size,
+                    mimeType: file.mimetype
+                });
+            });
+        }
+        const job = getCareerJobById(jobId);
+        try { addAuditLog({ userId: req.session.userId, action: 'career_job_created', details: JSON.stringify({ jobId, title }) }); } catch (_) {}
+        res.json({ success: true, job });
+    } catch (error) {
+        console.error('Failed to create career job', error);
+        res.status(500).json({ success: false, error: 'Could not create job posting' });
+    }
+});
+
+app.patch('/api/hr/career-jobs/:id', requireHR, careerAssetUpload.array('assetFiles', 6), (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        const existing = getCareerJobById(id);
+        if (!existing) return res.status(404).json({ success: false, error: 'Job not found' });
+        const { title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, goLiveAt, freezeUntil, status, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority } = req.body;
+        const goLiveIso = goLiveAt !== undefined && goLiveAt !== null && goLiveAt !== '' && !isNaN(new Date(goLiveAt)) ? new Date(goLiveAt).toISOString() : existing.go_live_at;
+        const freezeUntilIso = freezeUntil !== undefined && freezeUntil !== null && freezeUntil !== '' && !isNaN(new Date(freezeUntil)) ? new Date(freezeUntil).toISOString() : existing.freeze_until;
+        const computedStatus = resolveJobStatus({ requestedStatus: status || existing.status, goLiveAt: goLiveIso, freezeUntil: freezeUntilIso });
+        const updated = updateCareerJob({
+            id,
+            title,
+            location,
+            team,
+            employmentType,
+            seniority,
+            headline,
+            description,
+            responsibilities,
+            requirements,
+            perks,
+            tags: tags !== undefined ? parseJobTags(tags) : undefined,
+            salaryMin: salaryMin !== undefined ? (salaryMin ? Number(salaryMin) : null) : undefined,
+            salaryMax: salaryMax !== undefined ? (salaryMax ? Number(salaryMax) : null) : undefined,
+            salaryCurrency: salaryCurrency !== undefined ? salaryCurrency : undefined,
+            applyUrl: applyUrl !== undefined ? applyUrl : undefined,
+            workplaceType: workplaceType !== undefined ? workplaceType : undefined,
+            visibility: visibility !== undefined ? visibility : undefined,
+            priority: priority !== undefined ? priority : undefined,
+            status: computedStatus,
+            goLiveAt: goLiveIso,
+            freezeUntil: freezeUntilIso,
+            isFrozen: computedStatus === 'frozen'
+        });
+        if (req.files && req.files.length) {
+            req.files.forEach(file => {
+                addCareerJobAsset({
+                    jobId: id,
+                    label: file.originalname,
+                    fileName: file.originalname,
+                    filePath: `/uploads/career-assets/${file.filename}`,
+                    fileSize: file.size,
+                    mimeType: file.mimetype
+                });
+            });
+        }
+        const job = getCareerJobById(id) || updated;
+        try { addAuditLog({ userId: req.session.userId, action: 'career_job_updated', details: JSON.stringify({ jobId: id, status: computedStatus }) }); } catch (_) {}
+        res.json({ success: true, job });
+    } catch (error) {
+        console.error('Failed to update career job', error);
+        res.status(500).json({ success: false, error: 'Could not update job posting' });
+    }
+});
+
+app.patch('/api/hr/career-jobs/:id/status', requireHR, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        const { status, freezeUntil } = req.body;
+        if (!['draft','scheduled','live','frozen','closed'].includes(status)) {
+            return res.status(400).json({ success: false, error: 'Invalid status' });
+        }
+        const existing = getCareerJobById(id);
+        if (!existing) return res.status(404).json({ success: false, error: 'Job not found' });
+        const freezeUntilIso = freezeUntil && !isNaN(new Date(freezeUntil)) ? new Date(freezeUntil).toISOString() : null;
+        const job = setCareerJobStatus({ id, status, freezeUntil: freezeUntilIso });
+        try { addAuditLog({ userId: req.session.userId, action: 'career_job_status', details: JSON.stringify({ id, status }) }); } catch (_) {}
+        res.json({ success: true, job });
+    } catch (error) {
+        console.error('Failed to set job status', error);
+        res.status(500).json({ success: false, error: 'Could not update job status' });
+    }
+});
+
+app.delete('/api/hr/career-jobs/:jobId/assets/:assetId', requireHR, (req, res) => {
+    const assetId = parseInt(req.params.assetId, 10);
+    const jobId = parseInt(req.params.jobId, 10);
+    try {
+        const removed = removeCareerJobAsset({ assetId, jobId });
+        if (!removed) return res.status(404).json({ success: false, error: 'Asset not found' });
+        try { addAuditLog({ userId: req.session.userId, action: 'career_job_asset_removed', details: JSON.stringify({ jobId, assetId }) }); } catch (_) {}
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Failed to delete asset', error);
+        res.status(500).json({ success: false, error: 'Could not remove attachment' });
     }
 });
 
@@ -5560,9 +5763,13 @@ app.get('/contact', (req, res) => {
 
 // Careers page
 app.get('/careers', (req, res) => {
+    const jobs = getPublicCareerJobs();
+    const heroJob = jobs.find(j => j.status === 'live') || jobs[0] || null;
     res.render('careers', { 
         title: 'Careers - Dream X',
-        currentPage: 'careers'
+        currentPage: 'careers',
+        jobs,
+        heroJob
     });
 });
 

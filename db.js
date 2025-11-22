@@ -714,6 +714,62 @@ db.exec(`CREATE TABLE IF NOT EXISTS career_applications (
   FOREIGN KEY (reviewer_id) REFERENCES users(id)
 );`);
 
+// Career job postings (live roles displayed on careers page)
+db.exec(`CREATE TABLE IF NOT EXISTS career_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  location TEXT,
+  team TEXT,
+  employment_type TEXT,
+  seniority TEXT,
+  headline TEXT,
+  description TEXT,
+  responsibilities TEXT,
+  requirements TEXT,
+  perks TEXT,
+  tags TEXT,
+  salary_min REAL,
+  salary_max REAL,
+  salary_currency TEXT,
+  apply_url TEXT,
+  workplace_type TEXT,
+  visibility TEXT DEFAULT 'public',
+  priority TEXT,
+  status TEXT DEFAULT 'draft', -- draft | scheduled | live | frozen | closed
+  go_live_at DATETIME,
+  freeze_until DATETIME,
+  is_frozen INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_career_jobs_status ON career_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_career_jobs_live ON career_jobs(go_live_at);
+`);
+
+// Backfill new career job columns if schema pre-existed
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_min REAL`); } catch (_) {}
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_max REAL`); } catch (_) {}
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_currency TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN apply_url TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN workplace_type TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN visibility TEXT DEFAULT 'public'`); } catch (_) {}
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN priority TEXT`); } catch (_) {}
+
+// Assets attached to job postings (downloadable by applicants)
+db.exec(`CREATE TABLE IF NOT EXISTS career_job_assets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id INTEGER NOT NULL,
+  label TEXT,
+  file_name TEXT,
+  file_path TEXT NOT NULL,
+  file_size INTEGER,
+  mime_type TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (job_id) REFERENCES career_jobs(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_career_job_assets_job ON career_job_assets(job_id);
+`);
+
 // Content appeals table
 db.exec(`CREATE TABLE IF NOT EXISTS content_appeals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1720,6 +1776,136 @@ module.exports = {
     const all = db.prepare(`SELECT COUNT(*) as c FROM career_applications`).get().c;
     const open = db.prepare(`SELECT COUNT(*) as c FROM career_applications WHERE status IN ('new','under_review')`).get().c;
     return { all, open };
+  },
+  // Job postings
+  createCareerJob: ({ title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags = [], salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility = 'public', priority, status = 'draft', goLiveAt, freezeUntil, isFrozen = 0 }) => {
+    const stmt = db.prepare(`
+      INSERT INTO career_jobs (title, location, team, employment_type, seniority, headline, description, responsibilities, requirements, perks, tags, salary_min, salary_max, salary_currency, apply_url, workplace_type, visibility, priority, status, go_live_at, freeze_until, is_frozen)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `);
+    const info = stmt.run(
+      title,
+      location || null,
+      team || null,
+      employmentType || null,
+      seniority || null,
+      headline || null,
+      description || null,
+      responsibilities || null,
+      requirements || null,
+      perks || null,
+      JSON.stringify(tags || []),
+      salaryMin || null,
+      salaryMax || null,
+      salaryCurrency || null,
+      applyUrl || null,
+      workplaceType || null,
+      visibility || 'public',
+      priority || null,
+      status || 'draft',
+      goLiveAt || null,
+      freezeUntil || null,
+      isFrozen ? 1 : 0
+    );
+    return info.lastInsertRowid;
+  },
+  updateCareerJob: ({ id, title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority, status, goLiveAt, freezeUntil, isFrozen }) => {
+    const existing = db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
+    if (!existing) return null;
+    db.prepare(`
+      UPDATE career_jobs
+      SET title = ?, location = ?, team = ?, employment_type = ?, seniority = ?, headline = ?, description = ?, responsibilities = ?, requirements = ?, perks = ?, tags = ?, salary_min = ?, salary_max = ?, salary_currency = ?, apply_url = ?, workplace_type = ?, visibility = ?, priority = ?, status = ?, go_live_at = ?, freeze_until = ?, is_frozen = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      title || existing.title,
+      location !== undefined ? location : existing.location,
+      team !== undefined ? team : existing.team,
+      employmentType !== undefined ? employmentType : existing.employment_type,
+      seniority !== undefined ? seniority : existing.seniority,
+      headline !== undefined ? headline : existing.headline,
+      description !== undefined ? description : existing.description,
+      responsibilities !== undefined ? responsibilities : existing.responsibilities,
+      requirements !== undefined ? requirements : existing.requirements,
+      perks !== undefined ? perks : existing.perks,
+      tags !== undefined ? JSON.stringify(tags || []) : existing.tags,
+      salaryMin !== undefined ? salaryMin : existing.salary_min,
+      salaryMax !== undefined ? salaryMax : existing.salary_max,
+      salaryCurrency !== undefined ? salaryCurrency : existing.salary_currency,
+      applyUrl !== undefined ? applyUrl : existing.apply_url,
+      workplaceType !== undefined ? workplaceType : existing.workplace_type,
+      visibility !== undefined ? visibility : existing.visibility,
+      priority !== undefined ? priority : existing.priority,
+      status || existing.status,
+      goLiveAt !== undefined ? goLiveAt : existing.go_live_at,
+      freezeUntil !== undefined ? freezeUntil : existing.freeze_until,
+      typeof isFrozen === 'number' || typeof isFrozen === 'boolean' ? (isFrozen ? 1 : 0) : existing.is_frozen,
+      id
+    );
+    return db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
+  },
+  getCareerJobById: (id) => {
+    const job = db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
+    if (!job) return null;
+    try { job.tags = job.tags ? JSON.parse(job.tags) : []; } catch (_) { job.tags = []; }
+    job.assets = db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(id);
+    return job;
+  },
+  setCareerJobStatus: ({ id, status, freezeUntil }) => {
+    db.prepare(`
+      UPDATE career_jobs
+      SET status = ?, is_frozen = CASE WHEN ? = 'frozen' THEN 1 ELSE 0 END, freeze_until = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(status, status, freezeUntil || null, id);
+    const job = db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
+    if (!job) return null;
+    try { job.tags = job.tags ? JSON.parse(job.tags) : []; } catch (_) { job.tags = []; }
+    job.assets = db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(id);
+    return job;
+  },
+  addCareerJobAsset: ({ jobId, label, fileName, filePath, fileSize, mimeType }) => {
+    const stmt = db.prepare(`
+      INSERT INTO career_job_assets (job_id, label, file_name, file_path, file_size, mime_type)
+      VALUES (?,?,?,?,?,?)
+    `);
+    const info = stmt.run(jobId, label || null, fileName, filePath, fileSize || null, mimeType || null);
+    return info.lastInsertRowid;
+  },
+  removeCareerJobAsset: ({ assetId, jobId }) => {
+    const stmt = db.prepare(`DELETE FROM career_job_assets WHERE id = ? AND job_id = ?`);
+    const info = stmt.run(assetId, jobId);
+    return info.changes > 0;
+  },
+  getCareerJobAssets: (jobId) => {
+    return db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(jobId);
+  },
+  getCareerJobsForAdmin: () => {
+    const parseTags = (value) => {
+      try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch (_) { return []; }
+    };
+    const jobs = db.prepare(`SELECT * FROM career_jobs ORDER BY created_at DESC`).all();
+    return jobs.map(j => ({
+      ...j,
+      tags: parseTags(j.tags),
+      assets: db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(j.id)
+    }));
+  },
+  getPublicCareerJobs: () => {
+    const parseTags = (value) => {
+      try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch (_) { return []; }
+    };
+    const nowIso = new Date().toISOString();
+    const jobs = db.prepare(`
+      SELECT * FROM career_jobs
+      WHERE (status = 'live' OR (status = 'scheduled' AND (go_live_at IS NULL OR go_live_at <= ?)))
+        AND (is_frozen = 0 OR (freeze_until IS NOT NULL AND freeze_until <= ?))
+        AND (visibility IS NULL OR visibility = 'public')
+      ORDER BY COALESCE(go_live_at, created_at) DESC
+    `).all(nowIso, nowIso);
+    return jobs.map(j => ({
+      ...j,
+      tags: parseTags(j.tags),
+      assets: db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(j.id)
+    }));
   },
   // Content appeals helpers
   createContentAppeal: ({ email, contentType, contentUrl, removalReason, description, appealReason, additionalInfo }) => {

@@ -65,65 +65,102 @@
         </div>
     </div>
 
-    <div class="content-block">
+    <div class="content-block jobs-section">
         <h2>Open Positions</h2>
-        
         <div class="job-listings">
-            <div class="job-card">
-                <div class="job-header">
-                    <h3>Senior Full-Stack Engineer</h3>
-                    <span class="job-location">Remote / Hybrid</span>
+            <% if (jobs && jobs.length) { %>
+                <% jobs.forEach(job => { %>
+                    <div class="job-card fancy-card">
+                        <div class="job-card-top">
+                            <div>
+                                <p class="job-badge"><%= (job.priority || 'Open').toUpperCase() %></p>
+                                <h3><%= job.title %></h3>
+                                <p class="job-location"><%= job.location || 'Flexible location' %></p>
+                            </div>
+                            <div class="job-meta">
+                                <span><%= job.workplace_type || 'Remote friendly' %></span>
+                                <span><%= job.employment_type || 'Full-time' %></span>
+                                <% if (job.seniority) { %><span><%= job.seniority %></span><% } %>
+                            </div>
+                        </div>
+                        <p class="job-description"><%= job.headline || job.description || 'Help us invent the next era of productive social networking.' %></p>
+                        <% if (job.description) { %>
+                          <div class="job-section">
+                            <h4>About the role</h4>
+                            <p><%= job.description %></p>
+                          </div>
+                        <% } %>
+                        <% if (job.responsibilities) { %>
+                          <div class="job-section">
+                            <h4>Responsibilities</h4>
+                            <p><%= job.responsibilities %></p>
+                          </div>
+                        <% } %>
+                        <% if (job.requirements) { %>
+                          <div class="job-section">
+                            <h4>Requirements</h4>
+                            <p><%= job.requirements %></p>
+                          </div>
+                        <% } %>
+                        <% if (job.perks) { %>
+                          <div class="job-section">
+                            <h4>Perks</h4>
+                            <p><%= job.perks %></p>
+                          </div>
+                        <% } %>
+                        <div class="job-tags pill-row">
+                            <% if (job.tags && job.tags.length) { job.tags.forEach(t => { %>
+                                <span class="tag"><%= t %></span>
+                            <% }) } %>
+                            <% if (!job.tags || !job.tags.length) { %><span class="tag">Dream X</span><% } %>
+                            <% if (job.team) { %><span class="tag"><%= job.team %></span><% } %>
+                            <% if (job.employment_type) { %><span class="tag"><%= job.employment_type %></span><% } %>
+                            <% if (job.seniority) { %><span class="tag"><%= job.seniority %></span><% } %>
+                            <% if (job.workplace_type) { %><span class="tag"><%= job.workplace_type %></span><% } %>
+                        </div>
+                        <div class="job-extras">
+                            <% if (job.salary_min || job.salary_max) { %>
+                                <div class="pill subtle"><%= (job.salary_currency || '') %> <%= job.salary_min || '' %><%= job.salary_max ? ' - ' + job.salary_max : '' %></div>
+                            <% } %>
+                            <% if (job.assets && job.assets.length) { %>
+                                <div class="pill subtle">Downloads: <%= job.assets.length %></div>
+                            <% } %>
+                            <% if (job.visibility === 'internal') { %>
+                                <div class="pill subtle">Internal</div>
+                            <% } %>
+                        </div>
+                        <% if (job.assets && job.assets.length) { %>
+                            <div class="job-downloads-row">
+                                <% job.assets.forEach(asset => { %>
+                                    <a class="chip-link" href="<%= asset.file_path %>" download><%= asset.label || asset.file_name %></a>
+                                <% }) %>
+                            </div>
+                        <% } %>
+                        <div class="job-actions-row">
+                            <% if (job.apply_url) { %>
+                              <a href="<%= job.apply_url %>" target="_blank" rel="noopener" class="btn btn-primary">Apply Externally</a>
+                            <% } else { %>
+                              <a href="#"
+                                 class="btn btn-primary"
+                                 data-meta="<%- JSON.stringify({ description: job.description, responsibilities: job.responsibilities, requirements: job.requirements, perks: job.perks }).replace(/"/g,'&quot;').replace(/</g,'\\u003c') %>"
+                                 onclick="event.preventDefault(); const metaStr=this.dataset.meta; const meta=metaStr?JSON.parse(metaStr):null; openCareerForm('<%= job.title.replace(/'/g, "\\'") %>', meta);">
+                                 Apply Now
+                              </a>
+                            <% } %>
+                            <div class="pill subtle">Updated: <%= new Date(job.updated_at || job.created_at).toLocaleDateString() %></div>
+                        </div>
+                    </div>
+                <% }) %>
+            <% } else { %>
+                <div class="job-card">
+                    <div class="job-header">
+                        <h3>We are opening new roles soon</h3>
+                        <span class="job-location">Join early</span>
+                    </div>
+                    <p class="job-description">No public roles yet. Send a general application and we will route it to the right crew—attachments welcome.</p>
+                    <a href="#" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('General Application')">Send General Application</a>
                 </div>
-                <p class="job-description">Help us build scalable features for millions of users. Work with Node.js, React, and PostgreSQL to create amazing user experiences.</p>
-                <div class="job-tags">
-                    <span class="tag">Full-time</span>
-                    <span class="tag">Engineering</span>
-                    <span class="tag">Senior</span>
-                </div>
-                <a href="mailto:careers@dreamx.com?subject=Application: Senior Full-Stack Engineer" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('Senior Full-Stack Engineer')">Apply Now</a>
-            </div>
-
-            <div class="job-card">
-                <div class="job-header">
-                    <h3>Product Designer</h3>
-                    <span class="job-location">Remote</span>
-                </div>
-                <p class="job-description">Shape the visual and interaction design of Dream X. Create beautiful, intuitive experiences that inspire users to grow.</p>
-                <div class="job-tags">
-                    <span class="tag">Full-time</span>
-                    <span class="tag">Design</span>
-                    <span class="tag">Mid-Senior</span>
-                </div>
-                <a href="mailto:careers@dreamx.com?subject=Application: Product Designer" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('Product Designer')">Apply Now</a>
-            </div>
-
-            <div class="job-card">
-                <div class="job-header">
-                    <h3>Content Moderator</h3>
-                    <span class="job-location">Remote</span>
-                </div>
-                <p class="job-description">Help maintain our positive, productive community. Review content, enforce guidelines, and ensure Dream X remains a safe space for growth.</p>
-                <div class="job-tags">
-                    <span class="tag">Full-time</span>
-                    <span class="tag">Operations</span>
-                    <span class="tag">Entry-Mid</span>
-                </div>
-                <a href="mailto:careers@dreamx.com?subject=Application: Content Moderator" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('Content Moderator')">Apply Now</a>
-            </div>
-
-            <div class="job-card">
-                <div class="job-header">
-                    <h3>Marketing Manager</h3>
-                    <span class="job-location">Remote / Hybrid</span>
-                </div>
-                <p class="job-description">Lead our growth marketing efforts. Create compelling campaigns that resonate with ambitious, growth-minded individuals.</p>
-                <div class="job-tags">
-                    <span class="tag">Full-time</span>
-                    <span class="tag">Marketing</span>
-                    <span class="tag">Mid-Senior</span>
-                </div>
-                <a href="mailto:careers@dreamx.com?subject=Application: Marketing Manager" class="btn btn-primary" onclick="event.preventDefault(); openCareerForm('Marketing Manager')">Apply Now</a>
-            </div>
+            <% } %>
         </div>
     </div>
 
@@ -175,6 +212,24 @@
     <div class="modal-content">
         <span class="modal-close" onclick="closeCareerForm()">&times;</span>
         <h2>Apply for <span id="positionTitle"></span></h2>
+        <div id="roleContext" class="role-context" style="display:none;">
+            <div class="context-block" id="ctxDescription" style="display:none;">
+                <h4>About this role</h4>
+                <p></p>
+            </div>
+            <div class="context-block" id="ctxResponsibilities" style="display:none;">
+                <h4>Responsibilities</h4>
+                <p></p>
+            </div>
+            <div class="context-block" id="ctxRequirements" style="display:none;">
+                <h4>Requirements</h4>
+                <p></p>
+            </div>
+            <div class="context-block" id="ctxPerks" style="display:none;">
+                <h4>Perks</h4>
+                <p></p>
+            </div>
+        </div>
         <div class="wizard">
             <div class="wizard-steps">
                 <div class="wizard-step-indicator" data-step="1">1. Info</div>
@@ -260,6 +315,50 @@
     margin-bottom: 1rem;
 }
 
+.fancy-card {
+    border: none;
+    background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(255,79,163,0.08));
+    box-shadow: 0 12px 36px rgba(0,0,0,0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.fancy-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 20% 20%, rgba(255,79,163,0.08), transparent 40%);
+    pointer-events: none;
+}
+
+.job-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.job-badge {
+    margin: 0 0 6px 0;
+    padding: 6px 10px;
+    border-radius: 12px;
+    background: #fff;
+    display: inline-flex;
+    font-weight: 800;
+    color: #312e81;
+    border: 1px solid rgba(102,126,234,0.2);
+    text-transform: uppercase;
+    font-size: 12px;
+}
+
+.job-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-weight: 700;
+    color: #4b5563;
+}
+
 .job-header h3 {
     margin: 0;
     font-size: 1.5rem;
@@ -292,6 +391,67 @@
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 600;
+}
+
+.pill-row { margin-bottom: 0.75rem; }
+
+.pill.subtle {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(102,126,234,0.15);
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.job-extras {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.25rem 0 0.75rem;
+}
+
+.job-downloads-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 0.75rem;
+}
+
+.chip-link {
+    padding: 6px 10px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px dashed #d1d5db;
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.job-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+.job-section {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    margin: 0.5rem 0;
+}
+
+.job-section h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+    color: #111827;
+}
+
+.job-section p {
+    margin: 0;
+    color: #4b5563;
+    line-height: 1.5;
 }
 
 .benefits-grid {
@@ -440,28 +600,33 @@
 /* Modal Styles */
 .modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: rgba(0, 0, 0, 0.7);
     z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1rem;
+    backdrop-filter: blur(6px);
+    animation: fadeIn 0.25s ease;
+}
+
+.modal-open {
+    overflow: hidden;
 }
 
 .modal-content {
-    background: white;
-    border-radius: var(--radius-lg);
-    max-width: 600px;
+    background: linear-gradient(145deg, #ffffff 0%, #f5f7fb 100%);
+    border-radius: 18px;
+    max-width: 720px;
     width: 100%;
-    max-height: 90vh;
+    max-height: 88vh;
     overflow-y: auto;
-    padding: 2rem;
+    padding: 2.2rem;
     position: relative;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255,79,163,0.12);
+    animation: popIn 0.3s ease;
 }
 
 .modal-close {
@@ -484,6 +649,30 @@
     color: var(--text-dark);
 }
 
+.role-context {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #f8fafc;
+}
+
+.role-context .context-block {
+    margin-bottom: 0.75rem;
+}
+
+.role-context h4 {
+    margin: 0 0 0.25rem 0;
+    color: #111827;
+    font-size: 1rem;
+}
+
+.role-context p {
+    margin: 0;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
 .career-application-form {
     display: flex;
     flex-direction: column;
@@ -502,6 +691,7 @@
 .btn-primary { background: linear-gradient(135deg, #ff4fa3, #7c5cff); color:#fff; border:none; padding:.6rem 1rem; border-radius:10px; cursor:pointer; font-weight:700; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px);} to { opacity:1; transform: translateY(0);} }
+@keyframes popIn { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* Inline validation */
 .form-input.invalid, .form-textarea.invalid { border: 2px solid #ff4f4f; outline: none; }
@@ -552,18 +742,48 @@
 </style>
 
 <script>
-function openCareerForm(position) {
-    document.getElementById('careerModal').style.display = 'flex';
+function openCareerForm(position, meta) {
+    const modal = document.getElementById('careerModal');
+    if (!modal) return;
+    if (modal.parentElement !== document.body) {
+        modal.parentElement.removeChild(modal);
+        document.body.appendChild(modal);
+    }
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
     document.getElementById('positionTitle').textContent = position;
     document.getElementById('position').value = position;
     document.getElementById('careerForm').reset();
     document.getElementById('position').value = position;
     document.getElementById('careerFormMessage').style.display = 'none';
+    try {
+        const ctx = document.getElementById('roleContext');
+        const setBlock = (id, val) => {
+            const block = document.getElementById(id);
+            if (!block) return;
+            if (val) {
+                block.style.display = '';
+                const p = block.querySelector('p');
+                if (p) p.textContent = val;
+            } else {
+                block.style.display = 'none';
+            }
+        };
+        setBlock('ctxDescription', meta && meta.description);
+        setBlock('ctxResponsibilities', meta && meta.responsibilities);
+        setBlock('ctxRequirements', meta && meta.requirements);
+        setBlock('ctxPerks', meta && meta.perks);
+        if (ctx) {
+            const hasAny = (meta && (meta.description || meta.responsibilities || meta.requirements || meta.perks));
+            ctx.style.display = hasAny ? '' : 'none';
+        }
+    } catch (_) {}
     setStep(1);
 }
 
 function closeCareerForm() {
     document.getElementById('careerModal').style.display = 'none';
+    document.body.classList.remove('modal-open');
 }
 
 // Close modal on outside click

@@ -217,6 +217,446 @@
   box-shadow: 0 8px 20px rgba(102,126,234,0.4);
 }
 
+.job-board {
+  background: linear-gradient(135deg, rgba(102,126,234,0.12), rgba(118,75,162,0.12));
+  border: 1px solid rgba(118,75,162,0.1);
+  border-radius: 18px;
+  padding: 24px;
+  margin: 20px 0 32px 0;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.06);
+}
+
+.job-board h2 {
+  margin: 0 0 6px 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.job-board .subhead {
+  margin: 0 0 18px 0;
+  color: #4b5563;
+}
+
+.job-panel-grid {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.job-form-card, .job-feed-card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  padding: 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+
+.job-form-card h3, .job-feed-card h3 {
+  margin: 0 0 12px 0;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.job-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.job-form-grid .full-row {
+  grid-column: span 2;
+}
+
+.job-form-card label {
+  display: block;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.job-form-card input, .job-form-card textarea {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.job-form-card textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+  border: 1px solid rgba(102,126,234,0.25);
+  background: rgba(102,126,234,0.08);
+  color: #27303f;
+}
+
+.job-feed-list {
+  display: grid;
+  gap: 12px;
+}
+
+.job-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+  background: linear-gradient(120deg, rgba(255,255,255,0.92), rgba(246,248,255,0.98));
+  box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+}
+
+.job-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.job-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.job-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.status-pill {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.status-live { background: #ecfdf3; color: #166534; }
+.status-scheduled { background: #eff6ff; color: #1d4ed8; }
+.status-draft { background: #f3f4f6; color: #374151; }
+.status-frozen { background: #fef3c7; color: #92400e; }
+.status-closed { background: #fee2e2; color: #991b1b; }
+
+.job-card .actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.job-card .actions button {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #eef2ff;
+  color: #312e81;
+}
+
+.job-card .actions button.primary {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: white;
+}
+
+.job-card .tag-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.job-card .tag {
+  background: rgba(79,70,229,0.08);
+  color: #312e81;
+  border: 1px solid rgba(79,70,229,0.2);
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.asset-preview-modal .modal-content {
+  max-width: 900px;
+  width: 90%;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.asset-preview-frame {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.job-assets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.job-assets a, .job-assets button {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px dashed #d1d5db;
+  color: #374151;
+  background: #fff;
+  font-weight: 700;
+}
+
+.job-assets button {
+  cursor: pointer;
+}
+
+.job-asset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.job-wizard-modal .modal-content {
+  max-width: 980px;
+  width: 90%;
+}
+
+.wizard-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.wizard-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.wizard-progress .bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+  transition: width 0.25s ease;
+}
+
+.wizard-body {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+}
+
+.wizard-preview {
+  background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08));
+  border: 1px solid rgba(102,126,234,0.12);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.06);
+}
+
+.wizard-preview h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.wizard-preview .preview-title {
+  font-size: 20px;
+  font-weight: 900;
+  color: #111827;
+}
+
+.wizard-preview .preview-meta {
+  color: #4b5563;
+  font-weight: 700;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wizard-preview .preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wizard-preview .preview-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: white;
+  border-radius: 999px;
+  border: 1px solid rgba(102,126,234,0.2);
+  font-weight: 700;
+  color: #312e81;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.wizard-preview .preview-copy {
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.wizard-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  background: #eef2ff;
+  color: #312e81;
+}
+
+@media (max-width: 1024px) {
+  .wizard-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.job-progress {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.job-progress .metric {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.job-progress .metric span {
+  display: block;
+  font-size: 26px;
+}
+
+.wizard-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.wizard-step {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  font-weight: 800;
+  text-align: center;
+  color: #6b7280;
+}
+
+.wizard-step.active {
+  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(102,126,234,0.25);
+}
+
+.job-step {
+  display: none;
+}
+
+.job-step.active {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.job-step .full-row {
+  grid-column: span 2;
+}
+
+.job-form-card input,
+.job-form-card textarea,
+.job-form-card select {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 14px;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+.job-form-card input:focus,
+.job-form-card textarea:focus,
+.job-form-card select:focus {
+  outline: none;
+  border-color: var(--hr-primary);
+  box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
+  background: white;
+}
+
+.wizard-body input,
+.wizard-body textarea,
+.wizard-body select {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 14px;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+.wizard-body input:focus,
+.wizard-body textarea:focus,
+.wizard-body select:focus {
+  outline: none;
+  border-color: var(--hr-primary);
+  box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
+  background: white;
+}
+
+.wizard-footer-note {
+  padding: 8px 12px;
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+  background: #f9fafb;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.wizard-actions .hr-btn {
+  padding: 10px 16px;
+}
 .hr-tabs {
   display: flex;
   gap: 8px;
@@ -698,6 +1138,10 @@
   .hr-search {
     min-width: 100%;
   }
+
+  .job-panel-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
 
@@ -788,6 +1232,39 @@
           </div>
         </div>
         <div class="pipeline-count" style="color: var(--hr-success);"><%= acceptedApps %></div>
+      </div>
+    </div>
+  </div>
+
+  <%
+    const liveJobs = (jobPostings || []).filter(j => j.status === 'live').length;
+    const scheduledJobs = (jobPostings || []).filter(j => j.status === 'scheduled').length;
+    const frozenJobs = (jobPostings || []).filter(j => j.status === 'frozen').length;
+  %>
+  <div class="job-board">
+    <h2>Careers Launchpad</h2>
+    <p class="subhead">Ship dazzling job stories, attach assets, schedule launches, and freeze openings in one sleek view.</p>
+
+    <div class="job-progress">
+      <div class="metric"><span data-role-count="live"><%= liveJobs %></span>Live</div>
+      <div class="metric"><span data-role-count="scheduled"><%= scheduledJobs %></span>Scheduled</div>
+      <div class="metric"><span data-role-count="frozen"><%= frozenJobs %></span>Frozen</div>
+      <div class="metric"><span data-role-count="total"><%= (jobPostings || []).length %></span>Total</div>
+    </div>
+
+    <div class="job-panel-grid">
+      <div class="job-form-card">
+        <h3>Create or Schedule a Role</h3>
+        <p style="margin:6px 0 12px 0; color:#4b5563;">Launch a cinematic wizard to craft the posting, schedule go-live, freeze windows, and drop assets.</p>
+        <button class="hr-btn hr-btn-primary" style="width:100%; justify-content:center; padding:14px;" onclick="openJobWizard()">Open Role Wizard</button>
+        <div style="margin-top:12px; color:#6b7280; font-weight:600;">
+          Drafts stay private until you launch. Scheduled roles auto-publish when the clock hits your go-live time.
+        </div>
+      </div>
+
+      <div class="job-feed-card">
+        <h3>Live & Scheduled Roles</h3>
+        <div id="jobCards" class="job-feed-list"></div>
       </div>
     </div>
   </div>
@@ -998,9 +1475,171 @@
   </div>
 </div>
 
+<div id="jobWizardModal" class="hr-modal job-wizard-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>New Role Wizard</h2>
+      <button class="modal-close" onclick="closeJobWizard()">&times;</button>
+    </div>
+      <div class="wizard-shell">
+        <div class="wizard-progress"><div class="bar" id="wizardProgressBar"></div></div>
+        <div class="wizard-steps">
+          <div class="wizard-step active" data-step="1">Basics</div>
+          <div class="wizard-step" data-step="2">Story</div>
+          <div class="wizard-step" data-step="3">Comp & Apply</div>
+          <div class="wizard-step" data-step="4">Timing & Assets</div>
+        </div>
+        <div class="wizard-body">
+          <form id="jobForm" onsubmit="createJob(event)">
+            <div class="job-step active" data-step="1">
+              <div>
+              <label>Title *</label>
+              <input type="text" name="title" required placeholder="Senior Product Designer" oninput="updateJobPreview()">
+            </div>
+            <div>
+              <label>Location</label>
+              <input type="text" name="location" placeholder="Remote, NYC, Hybrid" oninput="updateJobPreview()">
+            </div>
+            <div>
+              <label>Team</label>
+              <input type="text" name="team" placeholder="Design, Engineering, Ops" oninput="updateJobPreview()">
+            </div>
+            <div>
+              <label>Employment Type</label>
+              <input type="text" name="employmentType" placeholder="Full-time, Contract" oninput="updateJobPreview()">
+            </div>
+            <div>
+              <label>Seniority</label>
+              <input type="text" name="seniority" placeholder="Senior, Lead, IC5" oninput="updateJobPreview()">
+            </div>
+            <div>
+              <label>Tags (comma separated)</label>
+              <input type="text" name="tags" placeholder="Figma, Systems, WebGL" oninput="updateJobPreview()">
+            </div>
+          </div>
+          <div class="job-step" data-step="2">
+            <div class="full-row">
+              <label>Headline</label>
+              <input type="text" name="headline" placeholder="Design the canvas for millions of creators" oninput="updateJobPreview()">
+            </div>
+            <div class="full-row">
+              <label>Description *</label>
+              <textarea name="description" required placeholder="Why this role exists and the impact area" oninput="updateJobPreview()"></textarea>
+            </div>
+            <div class="full-row">
+              <label>Responsibilities</label>
+              <textarea name="responsibilities" placeholder="Bullet list preferred; shown on careers page" oninput="updateJobPreview()"></textarea>
+            </div>
+            <div class="full-row">
+              <label>Requirements</label>
+              <textarea name="requirements" placeholder="Must-have skills, tooling, mindset" oninput="updateJobPreview()"></textarea>
+            </div>
+            <div class="full-row">
+              <label>Perks</label>
+              <textarea name="perks" placeholder="Learning budget, wellness, 25% time" oninput="updateJobPreview()"></textarea>
+            </div>
+          </div>
+            <div class="job-step" data-step="3">
+              <div>
+                <label>Workplace Type</label>
+                <select name="workplaceType" onchange="updateJobPreview()">
+                  <option value="">Select...</option>
+                  <option value="Remote">Remote</option>
+                  <option value="Hybrid">Hybrid</option>
+                  <option value="Onsite">Onsite</option>
+                </select>
+              </div>
+              <div>
+                <label>Visibility</label>
+                <select name="visibility">
+                  <option value="public">Public</option>
+                  <option value="internal">Internal only</option>
+                </select>
+              </div>
+              <div>
+                <label>Priority</label>
+                <select name="priority">
+                  <option value="">Standard</option>
+                  <option value="hot">🔥 Hot</option>
+                  <option value="featured">⭐ Featured</option>
+                </select>
+              </div>
+              <div>
+                <label>Apply URL (optional)</label>
+                <input type="url" name="applyUrl" placeholder="https://jobs.dreamx.com/role" oninput="updateJobPreview()">
+              </div>
+              <div>
+                <label>Salary Min</label>
+                <input type="number" name="salaryMin" min="0" step="1000" placeholder="90000">
+              </div>
+              <div>
+                <label>Salary Max</label>
+                <input type="number" name="salaryMax" min="0" step="1000" placeholder="140000">
+              </div>
+              <div>
+                <label>Currency</label>
+                <select name="salaryCurrency">
+                  <option value="">Select</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                  <option value="CAD">CAD</option>
+                  <option value="AUD">AUD</option>
+                </select>
+              </div>
+            </div>
+            <div class="job-step" data-step="4">
+              <div>
+                <label>Go Live At</label>
+                <input type="datetime-local" name="goLiveAt">
+              </div>
+              <div>
+              <label>Freeze Until</label>
+              <input type="datetime-local" name="freezeUntil">
+            </div>
+            <div class="full-row">
+              <label>Attach files (visible on careers page)</label>
+              <input type="file" name="assetFiles" multiple>
+            </div>
+            </div>
+            <div class="wizard-actions">
+              <div class="wizard-footer-note">Draft → schedule → freeze. Nothing publishes until you hit Launch.</div>
+              <div style="display:flex; gap:8px;">
+                <button class="hr-btn" type="button" onclick="jobWizardPrev()">Back</button>
+                <button class="hr-btn hr-btn-primary" type="button" id="jobNextBtn" onclick="jobWizardNext()">Next</button>
+                <button class="hr-btn hr-btn-primary" type="submit" id="jobSubmitBtn" style="display:none;">Launch Role</button>
+              </div>
+          </div>
+        </form>
+        <div class="wizard-preview">
+          <div class="wizard-badge">Live preview</div>
+          <div class="preview-title" id="previewTitle">Your role title</div>
+          <div class="preview-meta" id="previewMeta">Location · Employment type · Seniority</div>
+          <div class="preview-tags" id="previewTags"></div>
+          <div class="preview-copy" id="previewDescription">Use the wizard to craft the perfect job story; it will mirror here in real time.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="assetPreviewModal" class="hr-modal asset-preview-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Attachment Preview</h2>
+      <button class="modal-close" onclick="closeAssetPreview()">&times;</button>
+    </div>
+    <iframe id="assetPreviewFrame" class="asset-preview-frame" allowfullscreen></iframe>
+  </div>
+</div>
+
 <%- include('partials/footer') %>
 
 <script>
+if (typeof showSuccess !== 'function') window.showSuccess = (msg) => alert(msg);
+if (typeof showError !== 'function') window.showError = (msg) => alert(msg);
+if (typeof showConfirm !== 'function') window.showConfirm = (msg, cb) => { if (confirm(msg)) cb(); };
+
 const ctx = document.getElementById('trendsChart').getContext('2d');
 new Chart(ctx, {
   type: 'line',
@@ -1022,6 +1661,324 @@ new Chart(ctx, {
     scales: { y: { beginAtZero: true } }
   }
 });
+
+const jobPostingsData = <%- JSON.stringify(jobPostings || []).replace(/</g, '\\u003c') %>;
+const toastSuccess = (msg) => typeof showSuccess === 'function' ? showSuccess(msg) : alert(msg);
+const toastError = (msg) => typeof showError === 'function' ? showError(msg) : alert(msg);
+const escapeHtml = (val) => String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+let jobWizardStep = 1;
+let editingJobId = null;
+const jobPreviewEls = {
+  title: document.getElementById('previewTitle'),
+  meta: document.getElementById('previewMeta'),
+  tags: document.getElementById('previewTags'),
+  desc: document.getElementById('previewDescription')
+};
+
+function updateJobPreview() {
+  const form = document.getElementById('jobForm');
+  if (!form) return;
+  const title = form.title.value || 'Your role title';
+  const location = form.location.value || 'Location TBD';
+  const employment = form.employmentType.value || 'Employment type';
+  const seniority = form.seniority.value || 'Seniority';
+  const workplace = form.workplaceType.value || '';
+  const priority = form.priority.value || '';
+  const headline = form.headline.value || '';
+  const desc = headline || form.description.value || 'Use the wizard to craft the perfect job story; it will mirror here in real time.';
+  const tagString = form.tags.value || '';
+  const tags = tagString.split(',').map(t => t.trim()).filter(Boolean);
+  const salaryMin = form.salaryMin.value;
+  const salaryMax = form.salaryMax.value;
+  const currency = form.salaryCurrency.value || '';
+  const salaryCopy = (salaryMin || salaryMax) ? `${currency || ''} ${salaryMin || ''}${salaryMax ? ' - ' + salaryMax : ''}`.trim() : '';
+  if (jobPreviewEls.title) jobPreviewEls.title.textContent = title;
+  const metaParts = [location, employment, seniority, workplace].filter(Boolean).join(' · ');
+  if (jobPreviewEls.meta) jobPreviewEls.meta.textContent = metaParts || 'Location · Employment type · Seniority';
+  if (jobPreviewEls.desc) jobPreviewEls.desc.textContent = desc;
+  if (jobPreviewEls.tags) {
+    const baseTags = tags.slice(0,6).map(t => `<span class="preview-tag">${escapeHtml(t)}</span>`);
+    if (salaryCopy) baseTags.push(`<span class="preview-tag">${escapeHtml(salaryCopy)}</span>`);
+    if (priority) baseTags.push(`<span class="preview-tag">${escapeHtml(priority)}</span>`);
+    jobPreviewEls.tags.innerHTML = baseTags.join('') || '<span class="preview-tag">Add tags to highlight focus areas</span>';
+  }
+}
+
+function openJobWizard() {
+  setJobWizardStep(1);
+  document.getElementById('jobForm').reset();
+  updateJobPreview();
+  document.getElementById('jobWizardModal').classList.add('show');
+  editingJobId = null;
+  const submitBtn = document.getElementById('jobSubmitBtn');
+  if (submitBtn) submitBtn.textContent = 'Launch Role';
+}
+
+function closeJobWizard() {
+  document.getElementById('jobWizardModal').classList.remove('show');
+}
+
+const setJobWizardStep = (step) => {
+  jobWizardStep = Math.min(4, Math.max(1, step));
+  document.querySelectorAll('.job-step').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === jobWizardStep));
+  document.querySelectorAll('.wizard-step').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === jobWizardStep));
+  const nextBtn = document.getElementById('jobNextBtn');
+  const submitBtn = document.getElementById('jobSubmitBtn');
+    const progressBar = document.getElementById('wizardProgressBar');
+    if (progressBar) {
+      const pct = jobWizardStep === 1 ? 25 : jobWizardStep === 2 ? 50 : jobWizardStep === 3 ? 75 : 100;
+      progressBar.style.width = pct + '%';
+    }
+  if (jobWizardStep === 4) {
+    if (nextBtn) nextBtn.style.display = 'none';
+    if (submitBtn) submitBtn.style.display = 'inline-flex';
+  } else {
+    if (nextBtn) nextBtn.style.display = 'inline-flex';
+    if (submitBtn) submitBtn.style.display = 'none';
+  }
+};
+
+function jobWizardNext() {
+  const form = document.getElementById('jobForm');
+  if (jobWizardStep === 1 && !form.title.value.trim()) {
+    toastError('Title is required to proceed.');
+    return;
+  }
+  if (jobWizardStep === 2 && !form.description.value.trim()) {
+    toastError('Add a short description before scheduling.');
+    return;
+  }
+  updateJobPreview();
+  setJobWizardStep(jobWizardStep + 1);
+}
+
+function jobWizardPrev() {
+  updateJobPreview();
+  setJobWizardStep(jobWizardStep - 1);
+}
+
+function renderJobStats() {
+  const counts = { live: 0, scheduled: 0, frozen: 0, total: jobPostingsData.length };
+  jobPostingsData.forEach(j => {
+    if (counts[j.status] !== undefined) counts[j.status] += 1;
+  });
+  ['live','scheduled','frozen','total'].forEach(key => {
+    const el = document.querySelector(`[data-role-count="${key}"]`);
+    if (el) el.textContent = counts[key] || 0;
+  });
+}
+
+const formatJobDate = (value) => {
+  if (!value) return 'Now';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
+  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
+const jobCardsEl = document.getElementById('jobCards');
+function upsertJob(job) {
+  const idx = jobPostingsData.findIndex(j => j.id === job.id);
+  if (idx >= 0) jobPostingsData[idx] = job;
+  else jobPostingsData.unshift(job);
+  renderJobCards();
+  renderJobStats();
+}
+
+function renderJobCards() {
+  if (!jobCardsEl) return;
+  if (!jobPostingsData.length) {
+    jobCardsEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">dY\"<</div><h3>No openings yet</h3><p>Launch a role on the left to light up the careers page</p></div>';
+    return;
+  }
+  jobCardsEl.innerHTML = jobPostingsData.map(job => {
+    const statusLabel = job.status.replace('_', ' ').toUpperCase();
+    const tags = (job.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+    const assets = (job.assets || []).map(a => `<span class="job-asset-chip"><a href="${a.file_path}" target="_blank">${a.label || a.file_name}</a><button type="button" onclick="removeJobAsset(${job.id}, ${a.id})">Remove</button></span>`).join('');
+    const goLiveCopy = job.status === 'scheduled' ? `Goes live ${formatJobDate(job.go_live_at)}` : (job.status === 'frozen' && job.freeze_until ? `Frozen until ${formatJobDate(job.freeze_until)}` : 'Live now');
+    const secondaryTags = [
+      job.location || 'Flexible location',
+      job.workplace_type || '',
+      job.employment_type || 'Full-time',
+      job.team || 'All teams',
+      job.seniority || ''
+    ].filter(Boolean).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+    const salaryCopy = (job.salary_min || job.salary_max) ? `${job.salary_currency || ''} ${job.salary_min || ''}${job.salary_max ? ' - ' + job.salary_max : ''}`.trim() : '';
+    const priorityTag = job.priority ? `<span class="tag">${escapeHtml(job.priority)}</span>` : '';
+    const applyTag = job.apply_url ? `<span class="tag">Apply link</span>` : '';
+    return `
+      <div class="job-card">
+        <header>
+          <div>
+            <p class="job-title">${escapeHtml(job.title)}</p>
+            <div class="job-meta">${escapeHtml(job.headline || '')}</div>
+            <div class="job-meta">${secondaryTags}</div>
+          </div>
+          <span class="status-pill status-${job.status}">${statusLabel}</span>
+        </header>
+        <p style="margin: 10px 0 6px 0; color: #111827; font-weight: 600;">${goLiveCopy}</p>
+        <p style="margin: 0 0 8px 0; color: #374151;">${escapeHtml(job.description || '')}</p>
+        <div class="tag-row">
+          ${tags || '<span class="tag">Careers</span>'}
+          ${salaryCopy ? `<span class="tag">${escapeHtml(salaryCopy)}</span>` : ''}
+          ${priorityTag}
+          ${applyTag}
+        </div>
+        ${assets ? `<div class="job-assets">${assets}</div>` : ''}
+        <div class="actions">
+          ${(job.status !== 'live' && job.status !== 'closed') ? `<button class="primary" onclick="updateJobPostingStatus(${job.id}, 'live')">Go Live</button>` : ''}
+          ${job.status !== 'frozen' ? `<button onclick="updateJobPostingStatus(${job.id}, 'frozen')">Freeze</button>` : `<button onclick="updateJobPostingStatus(${job.id}, job.go_live_at ? 'scheduled' : 'live')">Unfreeze</button>`}
+          ${job.status !== 'closed' ? `<button onclick="updateJobPostingStatus(${job.id}, 'closed')">Close</button>` : ''}
+          <button onclick="uploadJobAssets(${job.id})">Attach file</button>
+          <button onclick="startEditJob(${job.id})">Edit</button>
+          ${job.assets && job.assets.length ? `<button onclick="previewAsset('${job.assets[0].file_path}')">Preview asset</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function createJob(e) {
+  e.preventDefault();
+  const form = document.getElementById('jobForm');
+  const fd = new FormData(form);
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    let url = '/api/hr/career-jobs';
+    let method = 'POST';
+    if (editingJobId) {
+      url = `/api/hr/career-jobs/${editingJobId}`;
+      method = 'PATCH';
+    }
+    const res = await fetch(url, { method, body: fd });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to create job');
+    upsertJob(data.job);
+    form.reset();
+    closeJobWizard();
+    toastSuccess(editingJobId ? 'Job updated' : 'Job posted to Careers');
+    editingJobId = null;
+  } catch (err) {
+    console.error(err);
+    toastError(err.message || 'Failed to create job');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+async function updateJobPostingStatus(id, status) {
+  try {
+    const res = await fetch(`/api/hr/career-jobs/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update status');
+    upsertJob(data.job);
+    toastSuccess('Job status updated');
+  } catch (err) {
+    console.error(err);
+    toastError(err.message || 'Failed to update job');
+  }
+}
+
+function uploadJobAssets(id) {
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  picker.multiple = true;
+  picker.onchange = async () => {
+    if (!picker.files.length) return;
+    const fd = new FormData();
+    Array.from(picker.files).forEach(f => fd.append('assetFiles', f));
+    try {
+      const res = await fetch(`/api/hr/career-jobs/${id}`, { method: 'PATCH', body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Unable to attach files');
+      upsertJob(data.job);
+      toastSuccess('Assets added');
+    } catch (err) {
+      console.error(err);
+      toastError(err.message || 'Failed to upload asset');
+    }
+  };
+  picker.click();
+}
+
+function startEditJob(id) {
+  const job = jobPostingsData.find(j => j.id === id);
+  if (!job) return toastError('Job not found');
+  const form = document.getElementById('jobForm');
+  if (!form) return;
+  editingJobId = id;
+  form.title.value = job.title || '';
+  form.location.value = job.location || '';
+  form.team.value = job.team || '';
+  form.employmentType.value = job.employment_type || '';
+  form.seniority.value = job.seniority || '';
+  form.tags.value = (job.tags || []).join(', ');
+  form.headline.value = job.headline || '';
+  form.description.value = job.description || '';
+  form.responsibilities.value = job.responsibilities || '';
+  form.requirements.value = job.requirements || '';
+  form.perks.value = job.perks || '';
+  form.goLiveAt.value = job.go_live_at ? job.go_live_at.slice(0,16) : '';
+  form.freezeUntil.value = job.freeze_until ? job.freeze_until.slice(0,16) : '';
+  form.workplaceType.value = job.workplace_type || '';
+  form.visibility.value = job.visibility || 'public';
+  form.priority.value = job.priority || '';
+  form.applyUrl.value = job.apply_url || '';
+  form.salaryMin.value = job.salary_min || '';
+  form.salaryMax.value = job.salary_max || '';
+  form.salaryCurrency.value = job.salary_currency || '';
+  const submitBtn = document.getElementById('jobSubmitBtn');
+  if (submitBtn) submitBtn.textContent = 'Save Changes';
+  setJobWizardStep(1);
+  updateJobPreview();
+  document.getElementById('jobWizardModal').classList.add('show');
+}
+
+async function removeJobAsset(jobId, assetId) {
+  try {
+    const res = await fetch(`/api/hr/career-jobs/${jobId}/assets/${assetId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to remove asset');
+    const job = jobPostingsData.find(j => j.id === jobId);
+    if (job) job.assets = (job.assets || []).filter(a => a.id !== assetId);
+    renderJobCards();
+    toastSuccess('Attachment removed');
+  } catch (err) {
+    console.error(err);
+    toastError(err.message || 'Failed to remove attachment');
+  }
+}
+
+renderJobCards();
+renderJobStats();
+setJobWizardStep(1);
+updateJobPreview();
+
+// Asset preview modal
+function previewAsset(path) {
+  const modal = document.getElementById('assetPreviewModal');
+  const frame = document.getElementById('assetPreviewFrame');
+  if (!modal || !frame) return;
+  const lower = (path || '').toLowerCase();
+  let src = path;
+  if (lower.endsWith('.doc') || lower.endsWith('.docx') || lower.endsWith('.ppt') || lower.endsWith('.pptx')) {
+    const absolute = window.location.origin + path;
+    src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolute)}`;
+  }
+  frame.src = src;
+  modal.classList.add('show');
+}
+
+function closeAssetPreview() {
+  const modal = document.getElementById('assetPreviewModal');
+  const frame = document.getElementById('assetPreviewFrame');
+  if (frame) frame.src = '';
+  if (modal) modal.classList.remove('show');
+}
 
 document.querySelectorAll('.hr-tab').forEach(tab => {
   tab.addEventListener('click', () => {
