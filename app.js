@@ -13,7 +13,7 @@ const SQLiteStore = require('connect-sqlite3')(session);
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const https = require('https');
-const http = require('https');
+const http = require('http');
 
 const {
     generateRegistrationOptions,
@@ -127,7 +127,7 @@ function getCallbackURL(path) {
     
     // Auto-detect: use localhost in development, production URL otherwise
     const isDevelopment = process.env.NODE_ENV !== 'production';
-    const baseUrl = isDevelopment ? 'https://localhost' : 'https://dreamx-website.onrender.com';
+    const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://dreamx-website.onrender.com';
     return `${baseUrl}${path}`;
 }
 
@@ -137,7 +137,7 @@ function getRequestBaseUrl(req) {
     if (configuredBaseUrl) return configuredBaseUrl;
 
     const host = req?.get ? req.get('host') : req?.headers?.host;
-    if (!host) return 'https://localhost';
+    if (!host) return 'http://localhost:3000';
 
     const forwardedProto = req?.headers?.['x-forwarded-proto'];
     const protocol = (forwardedProto ? forwardedProto.split(',')[0].trim() : req?.protocol) || 'http';
@@ -161,20 +161,20 @@ const app = express();
 // Trust proxy headers (needed on Render/other proxies for correct host/proto)
 app.set('trust proxy', 1);
 
-app.use((req, res, next) => {
+/*app.use((req, res, next) => {
   if (!req.secure) {
     return res.redirect('https://' + req.headers.host + req.url);
   }
   next();
-});
+});*/
 
-const httpsServer = https.createServer({
+/*const httpsServer = https.createServer({
     key: fs.readFileSync('./localhost+2-key.pem'),
     cert: fs.readFileSync('./localhost+2.pem'),
-},app);
+},app);*/
 const httpServer = http.createServer(app);
 
-const io = socketIo(httpsServer, {
+const io = socketIo(httpServer, {
     cors: {
         origin: process.env.BASE_URL || 'http://localhost:3000',
         methods: ['GET', 'POST'],
@@ -6856,7 +6856,7 @@ io.on('connection', (socket) => {
     console.log(`HTTPS server running at https://localhost:443`);
 });*/
 
-httpServer.listen(8080, () => {
-    console.log(`HTTP server running at http://localhost:8080`);
+httpServer.listen(3000, () => {
+    console.log(`HTTP server running at http://localhost:3000`);
 });
 

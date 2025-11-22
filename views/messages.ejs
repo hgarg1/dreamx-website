@@ -1,6 +1,7 @@
 <%- include('partials/header') %>
 
 <% const isAdminUserFlag = authUser && ['admin','super_admin','global_admin'].includes(authUser.role); %>
+<% const isSuperAdminUserFlag = authUser && ['super_admin','global_admin'].includes(authUser.role); %>
 <% const viewerHasBlockedUser = blockState && blockState.viewerBlocked; %>
 <% const userIsBlockedByOther = blockState && blockState.blockedByOther; %>
 <div class="messages-page">
@@ -32,8 +33,8 @@
         <span>Review, flag, or jump to latest messages without leaving this screen.</span>
       </div>
       <div class="admin-banner-actions">
-        <button type="button" class="header-btn secondary" onclick="scrollToBottom()">Jump to latest</button>
-        <button type="button" class="header-btn" onclick="toggleAdminMenu(event)">Open admin menu</button>
+        <button type="button" class="header-btn secondary" onclick="scrollToBottom()"><span class="icon-down"></span> Jump to latest</button>
+        <button type="button" class="header-btn" onclick="toggleAdminMenu(event)"><span class="icon-dots"></span></button>
       </div>
     </div>
   <% } %>
@@ -47,11 +48,11 @@
         <h2 class="conversations-title">Conversations</h2>
       </div>
       <div class="conversation-actions">
-        <button type="button" class="compact-button" id="newGroupBtn" title="New Group">➕ Group</button>
+        <button type="button" class="compact-button" id="newGroupBtn" title="New Group"><span class="icon-circle">+</span> New Group</button>
       </div>
     </div>
     <div class="conversation-search">
-      <div class="conversation-search-icon">🔍</div>
+            <div class="conversation-search-icon" aria-hidden="true"></div>
       <input type="text" class="conversation-search-input" placeholder="Search" aria-label="Search conversations" />
     </div>
     <ul class="conversation-list" role="list">
@@ -94,7 +95,7 @@
       <header class="chat-header">
         <div class="chat-header-left">
           <% if (currentConversation.is_group) { %>
-            <div class="chat-avatar" style="background:linear-gradient(135deg,#667eea,#764ba2);">👥</div>
+            <div class="chat-avatar chat-avatar-gradient">GX</div>
             <div class="chat-partner-info">
               <span class="chat-partner-name"><%= currentConversation.group_name || 'Group Chat' %></span>
               <span class="chat-partner-passion" style="background:#667eea;"><%= participants.length %> members</span>
@@ -114,14 +115,14 @@
         <div class="chat-header-actions">
           <div class="chat-quick-actions">
             <% if (currentConversation.is_group) { %>
-              <button type="button" class="pill-action" onclick="openGroupSettings()">⚙️ Group Settings</button>
-              <button type="button" class="pill-action ghost" data-role="share-group" onclick="copyGroupShare()">🔗 Share group</button>
+              <button type="button" class="pill-action" onclick="openGroupSettings()"><span class="icon-dot"></span> Group Settings</button>
+              <button type="button" class="pill-action ghost" data-role="share-group" onclick="copyGroupShare()"><span class="icon-link"></span> Share group</button>
             <% } else { %>
-              <a href="/profile/<%= currentConversation.other_user_id %>" class="pill-link">View Profile →</a>
+              <a href="/profile/<%= currentConversation.other_user_id %>" class="pill-link"><span class="icon-user"></span> View Profile</a>
             <% } %>
           </div>
           <div class="chat-safety">
-            <button type="button" class="icon-button" onclick="toggleSafetyMenu(event)">⋯</button>
+            <button type="button" class="icon-button" onclick="toggleSafetyMenu(event)" aria-label="Safety controls"><span class="icon-shield"></span></button>
             <div class="safety-menu" id="safetyMenu">
               <div class="safety-menu-header">
                 <span>Safety controls</span>
@@ -134,37 +135,39 @@
               <% if (!currentConversation.is_group && viewerHasBlockedUser) { %>
                 <div class="safety-menu-banner">You've blocked this user. Unblock to let them reach out again.</div>
               <% } %>
-              <button type="button" class="safety-item" onclick="reportConversation()">⚠️ Report conversation</button>
+              <button type="button" class="safety-item" onclick="reportConversation()"><span class="icon-flag"></span> Report conversation</button>
               <% if (!currentConversation.is_group) { %>
                 <% if (viewerHasBlockedUser) { %>
-                  <button type="button" class="safety-item" onclick="unblockConversationUser('<%= currentConversation.other_user_id %>')">✅ Unblock <%= currentConversation.other_user_name %></button>
+                  <button type="button" class="safety-item" onclick="unblockConversationUser('<%= currentConversation.other_user_id %>')"><span class="icon-unblock"></span> Unblock <%= currentConversation.other_user_name %></button>
                 <% } else { %>
-                  <button type="button" class="safety-item danger" onclick="blockConversationUser('<%= currentConversation.other_user_id %>')">🚫 Block <%= currentConversation.other_user_name %></button>
+                  <button type="button" class="safety-item danger" onclick="blockConversationUser('<%= currentConversation.other_user_id %>')"><span class="icon-block"></span> Block <%= currentConversation.other_user_name %></button>
                 <% } %>
               <% } else { %>
-                <button type="button" class="safety-item" onclick="toggleInlineAddMember()">➕ Add people</button>
+                <button type="button" class="safety-item" onclick="toggleInlineAddMember()"><span class="icon-plus"></span> Add people</button>
               <% } %>
             </div>
           </div>
           <% if (authUser && ['admin','super_admin','global_admin'].includes(authUser.role)) { %>
             <div class="chat-admin">
               <span class="admin-mode-pill" title="Admin controls active">Admin</span>
-              <button type="button" class="icon-button" aria-label="Admin actions" onclick="toggleAdminMenu(event)">⋮</button>
+              <button type="button" class="icon-button" aria-label="Admin actions" onclick="toggleAdminMenu(event)"><span class="icon-dots"></span></button>
               <div class="safety-menu" id="adminMenu">
                 <div class="safety-menu-header">Admin actions</div>
-                <button type="button" class="safety-item" onclick="reportConversation(true)">🛡️ Flag content</button>
+                <button type="button" class="safety-item" onclick="reportConversation(true)"><span class="icon-flag"></span> Flag content</button>
                 <% if (!currentConversation.is_group) { %>
                   <% if (viewerHasBlockedUser) { %>
-                    <button type="button" class="safety-item" onclick="unblockConversationUser(<%= currentConversation.other_user_id %>)">✅ Unblock participant</button>
+                    <button type="button" class="safety-item" onclick="unblockConversationUser(<%= currentConversation.other_user_id %>)"><span class="icon-unblock"></span> Unblock participant</button>
                   <% } else { %>
-                    <button type="button" class="safety-item" onclick="blockConversationUser(<%= currentConversation.other_user_id %>)">🚫 Block participant</button>
+                    <button type="button" class="safety-item" onclick="blockConversationUser(<%= currentConversation.other_user_id %>)"><span class="icon-block"></span> Block participant</button>
                   <% } %>
-                  <button type="button" class="safety-item" onclick="suspendConversationUser(<%= currentConversation.other_user_id %>)">⏸️ Suspend user</button>
-                  <button type="button" class="safety-item" id="freezeActionBtn" onclick="toggleChatFreeze(<%= currentConversation.other_user_id %>)">❄️ Toggle chat freeze</button>
+                  <% if (isSuperAdminUserFlag) { %>
+                    <button type="button" class="safety-item" onclick="suspendConversationUser(<%= currentConversation.other_user_id %>)"><span class="icon-pause"></span> Suspend user</button>
+                  <% } %>
+                  <button type="button" class="safety-item" id="freezeActionBtn" onclick="toggleChatFreeze(<%= currentConversation.other_user_id %>)"><span class="icon-snow"></span> Toggle chat freeze</button>
                 <% } else { %>
-                  <button type="button" class="safety-item" onclick="openGroupSettings()">⚙️ Manage group</button>
+                  <button type="button" class="safety-item" onclick="openGroupSettings()"><span class="icon-gear"></span> Manage group</button>
                 <% } %>
-                <button type="button" class="safety-item" onclick="scrollToBottom()">⬇️ Jump to latest</button>
+                <button type="button" class="safety-item" onclick="scrollToBottom()"><span class="icon-down"></span> Jump to latest</button>
               </div>
             </div>
           <% } %>
@@ -341,8 +344,9 @@
   const currentConversationMeta = <%- currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
   const viewerHasBlocked = <%= currentConversation && !currentConversation.is_group && blockState ? (blockState.viewerBlocked ? 'true' : 'false') : 'false' %>;
   const blockedByOtherUser = <%= currentConversation && !currentConversation.is_group && blockState ? (blockState.blockedByOther ? 'true' : 'false') : 'false' %>;
-  const conversationParticipants = <%= currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
+  const conversationParticipants = <%- currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
   const isAdminUser = <%= authUser && ['admin','super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
+  const isSuperAdminUser = <%= authUser && ['super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
   const moderationTarget = <%- JSON.stringify(moderationTarget || null) %>;
   let chatFreezeState = moderationTarget ? !!moderationTarget.chat_privileges_frozen : false;
 
@@ -411,7 +415,7 @@
     ['safetyMenu', 'adminMenu'].forEach(id => {
       if (!skip.includes(id)) {
         const menu = document.getElementById(id);
-        if (menu) menu.classList.add('hidden');
+        if (menu) menu.classList.remove('open');
       }
     });
   }
@@ -1114,7 +1118,7 @@
   window.openGroupModal = () => {
     const modal = document.getElementById('groupModal');
     if (!modal) return;
-    modal.style.display = 'flex';
+    modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
     renderSelectedUsers();
     const nameInput = document.getElementById('groupNameInput');
@@ -1126,7 +1130,7 @@
   window.closeGroupModal = () => {
     const modal = document.getElementById('groupModal');
     if (!modal) return;
-    modal.style.display = 'none';
+    modal.classList.remove('is-open');
     modal.setAttribute('aria-hidden', 'true');
     const searchInput = document.getElementById('groupUserSearch');
     if (searchInput) searchInput.value = '';
@@ -1139,6 +1143,12 @@
   document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('groupModal');
     const newGroupBtn = document.getElementById('newGroupBtn');
+
+    // Guarantee a closed, hidden start state (covers stale cached CSS/JS)
+    if (modal) {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
 
     if (newGroupBtn) {
       newGroupBtn.addEventListener('click', openGroupModal);
@@ -1448,7 +1458,7 @@
 </script>
 
 <!-- Group Creation Modal -->
-  <div id="groupModal" class="modal-overlay" style="display:none;">
+  <div id="groupModal" class="modal-overlay">
     <div class="group-modal-card">
       <div class="group-modal-hero">
         <div>
@@ -1570,6 +1580,11 @@
   };
 
   window.suspendConversationUser = function(userId) {
+    if (!isSuperAdminUser) {
+      showError('Only super admins can suspend users.', 'Permission denied');
+      closeFloatingMenus();
+      return;
+    }
     const defaultDays = moderationTarget?.account_status === 'suspended' ? 7 : 3;
     const days = parseInt(prompt('Suspend this user for how many days?', defaultDays), 10);
     if (!days || Number.isNaN(days)) return;
@@ -1589,11 +1604,17 @@
           if (data.success) {
             showSuccess('User suspended successfully.', 'Suspended');
           } else {
-            showError(data.error || 'Failed to suspend user', 'Suspend Failed');
+            if (res.status === 403) {
+              showError('You need super admin privileges to suspend users.', 'Permission denied');
+            } else {
+              showError(data.error || 'Failed to suspend user', 'Suspend Failed');
+            }
           }
         } catch (err) {
           console.error('Suspend error', err);
           showError('Could not suspend this user right now.', 'Suspend Failed');
+        } finally {
+          closeFloatingMenus();
         }
       },
       null,
@@ -1625,11 +1646,17 @@
             if (btn) btn.textContent = data.frozen ? '❄️ Unfreeze chat' : '❄️ Freeze chat';
             showSuccess(data.message || 'Chat privileges updated.', data.frozen ? 'Chat Frozen' : 'Chat Restored');
           } else {
-            showError(data.error || 'Failed to update chat privileges', 'Action failed');
+            if (res.status === 403) {
+              showError('You need admin privileges to change chat status.', 'Permission denied');
+            } else {
+              showError(data.error || 'Failed to update chat privileges', 'Action failed');
+            }
           }
         } catch (err) {
           console.error('Freeze chat error', err);
           showError('Could not update chat privileges right now.', 'Action failed');
+        } finally {
+          closeFloatingMenus();
         }
       },
       null,
