@@ -459,6 +459,7 @@
       .control-row { display: flex; align-items: center; gap: 10px; }
       .control-row label { flex: 1; font-weight: 700; }
       .control-meta { min-width: 56px; text-align: right; color: #d1d5db; font-size: 0.9rem; }
+      .image-editor-controls [disabled], .video-editor-controls [disabled] { opacity: 0.6; cursor: not-allowed; }
       .post-media-stack .external-video-embed { position: relative; padding-bottom: 56.25%; width: 100%; max-width: 780px; margin: 12px auto; border-radius: 14px; overflow: hidden; background: #0f172a; box-shadow: 0 10px 30px rgba(0,0,0,0.18); }
       .post-media-stack .external-video-embed iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
       .audio-player-wrapper { background: linear-gradient(135deg, rgba(255,79,163,0.08), rgba(118,75,162,0.08)); border: 1px solid rgba(255,79,163,0.25); padding: 10px 12px; border-radius: 14px; margin-top: 12px; position: relative; overflow: hidden; }
@@ -934,23 +935,55 @@
         document.querySelectorAll('.filter-chip').forEach(btn => btn.classList.toggle('active', btn.dataset.filter === 'neutral'));
       }
 
+      function setImageEditorControlsEnabled(enabled = true) {
+        const controls = [
+          'imageBrightness',
+          'imageContrast',
+          'imageSaturation',
+          'imageZoom',
+          'rotateLeftBtn',
+          'rotateRightBtn',
+          'flipHorizontalBtn',
+          'resetImageEditBtn',
+          'saveImageEditorBtn'
+        ];
+        controls
+          .map((id) => document.getElementById(id))
+          .filter(Boolean)
+          .forEach((el) => {
+            el.disabled = !enabled;
+            el.setAttribute('aria-disabled', (!enabled).toString());
+          });
+        document.querySelectorAll('.aspect-pill, .filter-chip').forEach((btn) => {
+          btn.disabled = !enabled;
+          btn.setAttribute('aria-disabled', (!enabled).toString());
+        });
+      }
+
       function openImageEditor(file, dataUrl) {
         const modal = document.getElementById('imageEditorModal');
         const preview = document.getElementById('imageEditorPreview');
         if (!modal || !preview) return;
         pendingImageFile = file;
         resetImageEditorUi();
+        setImageEditorControlsEnabled(false);
         suspendPostComposerForChildModal();
         showModal(modal);
         preview.onload = () => {
           destroyCropper();
           cropperInstance = new Cropper(preview, { viewMode: 1, autoCropArea: 0.95, responsive: true, background: false });
+          setImageEditorControlsEnabled(true);
+        };
+        preview.onerror = () => {
+          alert('We could not load that image. Please choose a different file.');
+          closeImageEditor();
         };
         preview.src = dataUrl;
       }
 
       function closeImageEditor(resetSelection = true) {
         const modal = document.getElementById('imageEditorModal');
+        setImageEditorControlsEnabled(false);
         if (resetSelection) {
           pendingImageFile = null;
         }
@@ -1034,6 +1067,7 @@
         const nowLabel = document.getElementById('videoNowLabel');
         if (!modal || !player || !startRange || !endRange) return;
         pendingVideoFile = file;
+        setVideoEditorControlsEnabled(false);
         suspendPostComposerForChildModal();
         showModal(modal);
         player.src = dataUrl;
@@ -1051,6 +1085,11 @@
             hint.textContent = `Original video is longer than ${MEDIA_LIMITS.videoSeconds / 60} minutes. Please trim before saving.`;
           }
           updateVideoPlaybackSettings();
+          setVideoEditorControlsEnabled(true);
+        };
+        player.onerror = () => {
+          alert('We could not load that video. Please try a different file.');
+          closeVideoEditor();
         };
         player.ontimeupdate = () => {
           updateVideoScrubber(player.currentTime || 0);
@@ -1061,6 +1100,7 @@
       function closeVideoEditor(resetSelection = true) {
         const modal = document.getElementById('videoEditorModal');
         const player = document.getElementById('videoEditorPlayer');
+        setVideoEditorControlsEnabled(false);
         if (player) {
           player.pause();
           player.removeAttribute('src');
@@ -1169,6 +1209,31 @@
           player.currentTime = 0;
           updateVideoScrubber(0);
         }
+      }
+
+      function setVideoEditorControlsEnabled(enabled = true) {
+        const ids = [
+          'videoStartRange',
+          'videoEndRange',
+          'videoScrubRange',
+          'setStartFromPlayhead',
+          'setEndFromPlayhead',
+          'snapToMaxBtn',
+          'videoSpeedSelect',
+          'videoMuteToggle',
+          'saveVideoEditorBtn'
+        ];
+        ids
+          .map((id) => document.getElementById(id))
+          .filter(Boolean)
+          .forEach((el) => {
+            el.disabled = !enabled;
+            el.setAttribute('aria-disabled', (!enabled).toString());
+          });
+        document.querySelectorAll('.video-nudge').forEach((btn) => {
+          btn.disabled = !enabled;
+          btn.setAttribute('aria-disabled', (!enabled).toString());
+        });
       }
 
       function recordVideoSegment(player, start, end) {
