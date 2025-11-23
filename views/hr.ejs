@@ -537,27 +537,6 @@
   }
 }
 
-.job-progress {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.job-progress .metric {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 10px;
-  text-align: center;
-  font-weight: 800;
-}
-
-.job-progress .metric span {
-  display: block;
-  font-size: 26px;
-}
-
 .wizard-steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -580,6 +559,27 @@
   color: white;
   border-color: transparent;
   box-shadow: 0 8px 20px rgba(102,126,234,0.25);
+}
+
+.job-progress {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.job-progress .metric {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.job-progress .metric span {
+  display: block;
+  font-size: 26px;
 }
 
 .job-step {
@@ -1141,6 +1141,37 @@
 
   .job-panel-grid {
     grid-template-columns: 1fr;
+  }
+
+  .job-wizard-modal .modal-content {
+    width: 100%;
+    max-width: 640px;
+    padding: 14px;
+  }
+
+  .wizard-shell {
+    gap: 10px;
+  }
+
+  .wizard-steps {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .wizard-body {
+    gap: 12px;
+  }
+
+  .job-step.active {
+    grid-template-columns: 1fr;
+  }
+
+  .wizard-preview {
+    order: 2;
+  }
+
+  .wizard-actions {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>
