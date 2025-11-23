@@ -147,7 +147,7 @@
                 <div id="mediaUploadSection" class="composer-field" style="display:none;">
                   <label>Upload media</label>
                   <div class="preview-card" style="border-style:dashed; align-items: stretch;">
-                    <input type="file" id="mediaInput" name="media" class="composer-file" accept="image/*,video/*">
+                    <input type="file" id="mediaInput" name="media" class="composer-file" accept="image/*,video/*,.mov,.mp4,.m4v,.mkv,.avi,.wmv,.webm,.ogg,.heic,.heif,.avif">
                     <div id="mediaPreview" class="preview-card" style="min-height:120px; margin-top:10px; border-style:solid;"></div>
                     <input type="hidden" name="mediaDuration" id="mediaDuration" value="0">
                   </div>
@@ -724,11 +724,11 @@
         if (mediaSection && mediaInput) {
           if (type === 'image') {
             mediaSection.style.display = 'block';
-            mediaInput.accept = 'image/*';
+            mediaInput.accept = 'image/*,.heic,.heif,.avif,image/gif';
             mediaInput.required = true;
           } else if (type === 'video') {
             mediaSection.style.display = 'block';
-            mediaInput.accept = 'video/*,image/gif';
+            mediaInput.accept = 'video/*,image/gif,.mov,.mp4,.m4v,.mkv,.avi,.wmv,.webm,.ogg';
             mediaInput.required = true;
           } else {
             mediaSection.style.display = 'none';

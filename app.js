@@ -115,6 +115,38 @@ const MEDIA_LIMITS = {
     MAX_VIDEO_DURATION_SECONDS: 300
 };
 
+// Common upload MIME helpers so server acceptance stays consistent with the UI
+const COMMON_IMAGE_MIME_TYPES = [
+    'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'image/avif', 'image/heic', 'image/heif'
+];
+const COMMON_VIDEO_MIME_TYPES = [
+    'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/x-ms-wmv', 'video/x-m4v', 'video/mpeg'
+];
+const COMMON_AUDIO_MIME_TYPES = [
+    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/aac', 'audio/x-m4a', 'audio/flac'
+];
+const COMMON_DOCUMENT_MIME_TYPES = [
+    'application/pdf', 'text/plain',
+    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+];
+
+const COMMON_UPLOAD_MIME_TYPES = new Set([
+    ...COMMON_IMAGE_MIME_TYPES,
+    ...COMMON_VIDEO_MIME_TYPES,
+    ...COMMON_AUDIO_MIME_TYPES,
+    ...COMMON_DOCUMENT_MIME_TYPES
+]);
+
+function isCommonUploadMime(mime) {
+    if (!mime) return false;
+    const lower = mime.toLowerCase();
+    if (COMMON_UPLOAD_MIME_TYPES.has(lower)) return true;
+    // Fallback: allow broad image/video/audio categories for variants not listed explicitly
+    return lower.startsWith('image/') || lower.startsWith('video/') || lower.startsWith('audio/');
+}
+
 if (ffprobeStatic?.path) {
     try {
         ffmpeg.setFfprobePath(ffprobeStatic.path);
@@ -293,8 +325,7 @@ const chatUpload = multer({
   storage: chatStorage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for chat
   fileFilter: (req, file, cb) => {
-    const m = (file.mimetype || '').toLowerCase();
-    if (m.startsWith('image/') || m.startsWith('video/') || m.startsWith('audio/') || m === 'application/pdf' || m === 'text/plain') {
+    if (isCommonUploadMime(file.mimetype)) {
       return cb(null, true);
     }
     cb(new Error('Unsupported file type for chat'));
@@ -336,8 +367,7 @@ const postUpload = multer({
     storage: postStorage,
     limits: { fileSize: MEDIA_LIMITS.MAX_VIDEO_SIZE_MB * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        const m = (file.mimetype || '').toLowerCase();
-        if (m.startsWith('image/') || m.startsWith('video/') || m.startsWith('audio/')) return cb(null, true);
+        if (isCommonUploadMime(file.mimetype)) return cb(null, true);
         cb(new Error('Unsupported media type for post'));
     }
 });
@@ -357,15 +387,13 @@ const careerUpload = multer({
     limits: { fileSize: 15 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
-        const allowed = [
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        const allowed = new Set([
+            ...COMMON_DOCUMENT_MIME_TYPES,
+            ...COMMON_IMAGE_MIME_TYPES,
             'application/zip',
-            'application/x-zip-compressed',
-            'image/png','image/jpeg','image/jpg','image/webp'
-        ];
-        if (allowed.includes(m)) return cb(null, true);
+            'application/x-zip-compressed'
+        ]);
+        if (allowed.has(m)) return cb(null, true);
         cb(new Error('Unsupported file type for application'));
     }
 });
@@ -387,17 +415,12 @@ const careerAssetUpload = multer({
     limits: { fileSize: 20 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
-        const allowed = [
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-powerpoint',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'text/plain',
-            'application/zip', 'application/x-zip-compressed',
-            'image/png', 'image/jpeg', 'image/webp'
-        ];
-        if (allowed.includes(m)) return cb(null, true);
+        const allowed = new Set([
+            ...COMMON_DOCUMENT_MIME_TYPES,
+            ...COMMON_IMAGE_MIME_TYPES,
+            'application/zip', 'application/x-zip-compressed'
+        ]);
+        if (allowed.has(m)) return cb(null, true);
         cb(new Error('Unsupported file type for career asset'));
     }
 });
@@ -417,19 +440,12 @@ const serviceUpload = multer({
     limits: { fileSize: 20 * 1024 * 1024 }, // 20MB for service media
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
-        const allowed = [
-            // Images
-            'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif',
-            // Videos
-            'video/mp4', 'video/webm', 'video/quicktime',
-            // Documents
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-powerpoint',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        ];
-        if (allowed.includes(m)) return cb(null, true);
+        const allowed = new Set([
+            ...COMMON_IMAGE_MIME_TYPES,
+            ...COMMON_VIDEO_MIME_TYPES,
+            ...COMMON_DOCUMENT_MIME_TYPES
+        ]);
+        if (allowed.has(m)) return cb(null, true);
         cb(new Error('Unsupported file type for service'));
     }
 });
