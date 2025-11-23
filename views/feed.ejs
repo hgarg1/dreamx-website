@@ -969,16 +969,23 @@
         setImageEditorControlsEnabled(false);
         suspendPostComposerForChildModal();
         showModal(modal);
-        preview.onload = () => {
+        const enableImageControls = () => {
           destroyCropper();
           cropperInstance = new Cropper(preview, { viewMode: 1, autoCropArea: 0.95, responsive: true, background: false });
           setImageEditorControlsEnabled(true);
+        };
+        preview.onload = () => {
+          enableImageControls();
         };
         preview.onerror = () => {
           alert('We could not load that image. Please choose a different file.');
           closeImageEditor();
         };
+        preview.src = '';
         preview.src = dataUrl;
+        if (preview.complete && preview.naturalWidth) {
+          enableImageControls();
+        }
       }
 
       function closeImageEditor(resetSelection = true) {
@@ -1071,7 +1078,12 @@
         suspendPostComposerForChildModal();
         showModal(modal);
         player.src = dataUrl;
-        player.onloadedmetadata = () => {
+        const abortVideoLoad = (message) => {
+          alert(message);
+          closeVideoEditor();
+        };
+        const metadataReady = () => {
+          if (metadataTimer) clearTimeout(metadataTimer);
           const duration = Math.min(player.duration || 0, MEDIA_LIMITS.videoSeconds);
           videoTrimState = { start: 0, end: duration, duration: player.duration || duration };
           startRange.max = duration;
@@ -1087,14 +1099,23 @@
           updateVideoPlaybackSettings();
           setVideoEditorControlsEnabled(true);
         };
+        player.onloadedmetadata = metadataReady;
         player.onerror = () => {
-          alert('We could not load that video. Please try a different file.');
-          closeVideoEditor();
+          if (metadataTimer) clearTimeout(metadataTimer);
+          abortVideoLoad('We could not load that video. Please try a different file.');
         };
         player.ontimeupdate = () => {
           updateVideoScrubber(player.currentTime || 0);
         };
+        const metadataTimer = setTimeout(() => {
+          if (!player.duration || Number.isNaN(player.duration)) {
+            abortVideoLoad('We could not read that video metadata. Please try a different clip.');
+          }
+        }, 5000);
         player.load();
+        if (player.readyState >= 1 && player.duration) {
+          metadataReady();
+        }
       }
 
       function closeVideoEditor(resetSelection = true) {
