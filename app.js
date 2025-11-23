@@ -476,6 +476,35 @@ function validatePasswordComplexity(password) {
     return { valid: errors.length === 0, errors };
 }
 
+async function handlePasswordChange({ userId, currentPassword, newPassword, confirmPassword }) {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        return { ok: false, message: 'All password fields required' };
+    }
+
+    if (newPassword !== confirmPassword) {
+        return { ok: false, message: 'New passwords do not match' };
+    }
+
+    const complexityCheck = validatePasswordComplexity(newPassword);
+    if (!complexityCheck.valid) {
+        return { ok: false, message: `Password must contain ${complexityCheck.errors.join(', ')}.` };
+    }
+
+    const user = getUserById(userId);
+    if (!user) {
+        return { ok: false, message: 'User not found' };
+    }
+
+    const validPassword = await bcrypt.compare(currentPassword, user.password_hash || '');
+    if (!validPassword) {
+        return { ok: false, message: 'Current password incorrect' };
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    updatePassword({ userId, passwordHash: hash });
+    return { ok: true, message: 'Password changed successfully' };
+}
+
 // Generate a base handle from full name or email
 function generateBaseHandle(fullName, email) {
     // Try full name first
@@ -4747,34 +4776,46 @@ app.post('/settings/account', (req, res) => {
 app.post('/settings/password', async (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
     const { currentPassword, newPassword, confirmPassword } = req.body;
-    
-    if (!currentPassword || !newPassword || !confirmPassword) {
-        return res.redirect('/settings?error=All password fields required');
-    }
-    
-    if (newPassword !== confirmPassword) {
-        return res.redirect('/settings?error=New passwords do not match');
-    }
-    
-    const complexityCheck = validatePasswordComplexity(newPassword);
-    if (!complexityCheck.valid) {
-        return res.redirect(`/settings?error=Password must contain ${complexityCheck.errors.join(', ')}.`);
-    }
-    
-    const user = getUserById(req.session.userId);
-    const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
-    
-    if (!validPassword) {
-        return res.redirect('/settings?error=Current password incorrect');
-    }
-    
+
     try {
-        const hash = await bcrypt.hash(newPassword, 10);
-        updatePassword({ userId: req.session.userId, passwordHash: hash });
+        const result = await handlePasswordChange({
+            userId: req.session.userId,
+            currentPassword,
+            newPassword,
+            confirmPassword
+        });
+
+        if (!result.ok) {
+            return res.redirect(`/settings?error=${encodeURIComponent(result.message)}`);
+        }
+
         res.redirect('/settings?success=Password changed successfully');
     } catch (e) {
         console.error('Password change error', e);
         res.redirect('/settings?error=Failed to change password');
+    }
+});
+
+// API: Change password (JSON)
+app.post('/api/settings/password', ensureAuthenticated, async (req, res) => {
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+
+    try {
+        const result = await handlePasswordChange({
+            userId: req.session.userId,
+            currentPassword,
+            newPassword,
+            confirmPassword
+        });
+
+        if (!result.ok) {
+            return res.status(400).json({ success: false, message: result.message });
+        }
+
+        res.json({ success: true, message: 'Password changed successfully' });
+    } catch (e) {
+        console.error('API password change error', e);
+        res.status(500).json({ success: false, message: 'Failed to change password' });
     }
 });
 

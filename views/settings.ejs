@@ -29,9 +29,9 @@
         <label class="settings-label" for="accountHandle">Handle</label>
         <div style="position:relative;">
           <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6b7280;font-weight:500;">@</span>
-          <input id="accountHandle" name="handle" type="text" class="settings-input" 
-                 style="padding-left:28px;" 
-                 value="<%= authUser.handle || '' %>" 
+          <input id="accountHandle" name="handle" type="text" class="settings-input"
+                 style="padding-left:28px;"
+                 value="<%= authUser.handle || '' %>"
                  pattern="[a-z0-9_]{3,20}"
                  required />
         </div>
@@ -43,56 +43,49 @@
         <button type="submit" class="settings-btn primary">Update Account</button>
       </div>
     </form>
-    <div class="settings-actions-inline" style="margin-top:16px;border-top:1px solid #eee;padding-top:16px;">
-      <button onclick="document.getElementById('passwordModal').style.display='block'" class="settings-link" style="background:none;border:none;cursor:pointer;color:#7C3AED;text-decoration:underline;">Change password →</button>
-    </div>
   </div>
 
-  <!-- Password Change Modal -->
-  <div id="passwordModal" style="display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
-    <div style="background:white;padding:32px;border-radius:16px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-      <h3 style="margin:0 0 20px;font-size:1.5rem;font-weight:700;">Change Password</h3>
-      <form action="/settings/password" method="POST">
-        <div class="settings-field-group">
-          <label class="settings-label" for="currentPassword">Current Password</label>
-          <input id="currentPassword" name="currentPassword" type="password" class="settings-input" required />
-        </div>
-        <div class="settings-field-group">
-          <label class="settings-label" for="newPassword">New Password</label>
-          <input id="newPassword" name="newPassword" type="password" class="settings-input" required />
-          <div id="pwdStrength" style="margin-top:8px;display:none;">
-            <div style="display:flex;gap:4px;margin-bottom:6px;">
-              <div class="strength-bar" data-level="1"></div>
-              <div class="strength-bar" data-level="2"></div>
-              <div class="strength-bar" data-level="3"></div>
-              <div class="strength-bar" data-level="4"></div>
-              <div class="strength-bar" data-level="5"></div>
-            </div>
-            <div id="pwdStrengthText" style="font-size:0.85rem;"></div>
-            <ul id="pwdChecklist" style="font-size:0.8rem;color:#666;margin:6px 0 0 0;padding:0 0 0 18px;list-style:none;">
-              <li id="pwd-length"><span style="color:#ccc;">✗</span> At least 8 characters</li>
-              <li id="pwd-upper"><span style="color:#ccc;">✗</span> One uppercase letter</li>
-              <li id="pwd-lower"><span style="color:#ccc;">✗</span> One lowercase letter</li>
-              <li id="pwd-number"><span style="color:#ccc;">✗</span> One number</li>
-              <li id="pwd-special"><span style="color:#ccc;">✗</span> One special character</li>
-            </ul>
+  <!-- Security Section -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">Security</h2>
+    <p style="color:#4b5563;margin-top:-4px;margin-bottom:16px;">Update your password with the same strength requirements we enforce during sign up.</p>
+    <form action="/settings/password" method="POST">
+      <div class="settings-field-group">
+        <label class="settings-label" for="currentPassword">Current Password</label>
+        <input id="currentPassword" name="currentPassword" type="password" class="settings-input" required autocomplete="current-password" />
+      </div>
+      <div class="settings-field-group">
+        <label class="settings-label" for="newPassword">New Password</label>
+        <input id="newPassword" name="newPassword" type="password" class="settings-input" required autocomplete="new-password" />
+        <div id="passwordStrength" style="margin-top:8px;display:none;">
+          <div style="display:flex;gap:4px;margin-bottom:6px;">
+            <div class="strength-bar" data-level="1"></div>
+            <div class="strength-bar" data-level="2"></div>
+            <div class="strength-bar" data-level="3"></div>
+            <div class="strength-bar" data-level="4"></div>
+            <div class="strength-bar" data-level="5"></div>
           </div>
+          <div id="strengthText" style="font-size:0.85rem;color:#666;"></div>
+          <ul id="strengthChecklist" style="font-size:0.8rem;color:#666;margin:6px 0 0 0;padding:0 0 0 18px;list-style:none;">
+            <li id="check-length"><span style="color:#ccc;">✗</span> At least 8 characters</li>
+            <li id="check-upper"><span style="color:#ccc;">✗</span> One uppercase letter</li>
+            <li id="check-lower"><span style="color:#ccc;">✗</span> One lowercase letter</li>
+            <li id="check-number"><span style="color:#ccc;">✗</span> One number</li>
+            <li id="check-special"><span style="color:#ccc;">✗</span> One special character</li>
+          </ul>
         </div>
-        <div class="settings-field-group">
-          <label class="settings-label" for="confirmPassword">Confirm New Password</label>
-          <input id="confirmPassword" name="confirmPassword" type="password" class="settings-input" required />
-        </div>
-        <div style="display:flex;gap:12px;margin-top:24px;">
-          <button type="submit" class="settings-btn primary">Change Password</button>
-          <button type="button" onclick="document.getElementById('passwordModal').style.display='none'" class="settings-btn" style="background:#eee;">Cancel</button>
-        </div>
-      </form>
-    </div>
+      </div>
+      <div class="settings-field-group">
+        <label class="settings-label" for="confirmPassword">Confirm New Password</label>
+        <input id="confirmPassword" name="confirmPassword" type="password" class="settings-input" required autocomplete="new-password" />
+      </div>
+      <div class="settings-actions-inline">
+        <button type="submit" class="settings-btn primary">Update Password</button>
+      </div>
+    </form>
   </div>
 
   <style>
-    #passwordModal { display: none; }
-    #passwordModal[style*="display:flex"], #passwordModal[style*="display: flex"] { display: flex !important; }
     .strength-bar {
       height: 6px;
       flex: 1;
@@ -108,33 +101,33 @@
   </style>
 
   <script>
-    const pwdInput = document.getElementById('newPassword');
-    const pwdStrengthDiv = document.getElementById('pwdStrength');
-    const pwdStrengthText = document.getElementById('pwdStrengthText');
-    const pwdBars = document.querySelectorAll('.strength-bar');
-    
-    const pwdChecks = {
-      length: { el: document.getElementById('pwd-length'), test: (p) => p.length >= 8 },
-      upper: { el: document.getElementById('pwd-upper'), test: (p) => /[A-Z]/.test(p) },
-      lower: { el: document.getElementById('pwd-lower'), test: (p) => /[a-z]/.test(p) },
-      number: { el: document.getElementById('pwd-number'), test: (p) => /[0-9]/.test(p) },
-      special: { el: document.getElementById('pwd-special'), test: (p) => /[^A-Za-z0-9]/.test(p) }
+    const passwordInput = document.getElementById('newPassword');
+    const strengthDiv = document.getElementById('passwordStrength');
+    const strengthText = document.getElementById('strengthText');
+    const bars = document.querySelectorAll('.strength-bar');
+
+    const checks = {
+      length: { el: document.getElementById('check-length'), test: (p) => p.length >= 8 },
+      upper: { el: document.getElementById('check-upper'), test: (p) => /[A-Z]/.test(p) },
+      lower: { el: document.getElementById('check-lower'), test: (p) => /[a-z]/.test(p) },
+      number: { el: document.getElementById('check-number'), test: (p) => /[0-9]/.test(p) },
+      special: { el: document.getElementById('check-special'), test: (p) => /[^A-Za-z0-9]/.test(p) }
     };
 
-    pwdInput.addEventListener('input', function() {
+    passwordInput.addEventListener('input', function() {
       const pwd = this.value;
       if (!pwd) {
-        pwdStrengthDiv.style.display = 'none';
+        strengthDiv.style.display = 'none';
         return;
       }
-      pwdStrengthDiv.style.display = 'block';
-      
+      strengthDiv.style.display = 'block';
+
       let score = 0;
-      Object.values(pwdChecks).forEach(c => {
+      Object.values(checks).forEach(c => {
         if (c.test(pwd)) score++;
       });
 
-      pwdBars.forEach((bar, i) => {
+      bars.forEach((bar, i) => {
         bar.className = 'strength-bar';
         if (i < score) {
           if (score === 1) bar.classList.add('active-weak');
@@ -147,11 +140,11 @@
 
       const labels = ['Weak', 'Fair', 'Good', 'Strong', 'Excellent'];
       const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981'];
-      pwdStrengthText.textContent = labels[score - 1] || '';
-      pwdStrengthText.style.color = colors[score - 1] || '#666';
+      strengthText.textContent = labels[score - 1] || '';
+      strengthText.style.color = colors[score - 1] || '#666';
 
-      Object.keys(pwdChecks).forEach(key => {
-        const check = pwdChecks[key];
+      Object.keys(checks).forEach(key => {
+        const check = checks[key];
         const icon = check.el.querySelector('span');
         if (check.test(pwd)) {
           icon.style.color = '#22c55e';
@@ -161,10 +154,6 @@
           icon.textContent = '✗';
         }
       });
-    });
-
-    document.querySelector('[onclick*="passwordModal"]').addEventListener('click', function() {
-      document.getElementById('passwordModal').style.display = 'flex';
     });
   </script>
 
