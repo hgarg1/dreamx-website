@@ -155,6 +155,82 @@
         }
       });
     });
+
+    // Password form handler with modal feedback
+    const passwordForm = document.querySelector('form[action="/settings/password"]');
+
+    function notifyPasswordResult(type, message) {
+      const title = type === 'success' ? 'Password updated' : 'Password update failed';
+
+      if (type === 'success' && typeof window.showSuccess === 'function') {
+        return window.showSuccess(message, title);
+      }
+      if (type === 'error' && typeof window.showError === 'function') {
+        return window.showError(message, title);
+      }
+      if (typeof window.showToast === 'function') {
+        return window.showToast({ type: type === 'success' ? 'success' : 'error', message });
+      }
+      alert(message);
+    }
+
+    if (passwordForm) {
+      passwordForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const submitBtn = passwordForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn ? submitBtn.textContent : '';
+
+        const payload = {
+          currentPassword: passwordForm.currentPassword.value,
+          newPassword: passwordForm.newPassword.value,
+          confirmPassword: passwordForm.confirmPassword.value
+        };
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Updating...';
+        }
+
+        try {
+          const res = await fetch('/api/settings/password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await res.json().catch(() => ({}));
+          const message = (data && data.message) || (res.ok ? 'Password changed successfully' : 'Failed to change password');
+
+          if (res.ok && data.success) {
+            notifyPasswordResult('success', message);
+            passwordForm.reset();
+            if (strengthDiv) {
+              strengthDiv.style.display = 'none';
+              bars.forEach(bar => (bar.className = 'strength-bar'));
+              strengthText.textContent = '';
+              Object.values(checks).forEach(c => {
+                const icon = c.el.querySelector('span');
+                icon.style.color = '#ccc';
+                icon.textContent = '✗';
+              });
+            }
+          } else {
+            notifyPasswordResult('error', message);
+          }
+        } catch (err) {
+          notifyPasswordResult('error', 'Unable to update password right now. Please try again.');
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText || 'Update Password';
+          }
+        }
+      });
+    }
   </script>
 
   <!-- Account Status Section -->
