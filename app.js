@@ -3710,6 +3710,70 @@ app.get('/profile/edit', (req, res) => {
     if (!row) return res.redirect('/login');
     const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture, banner_image: row.banner_image, handle: row.handle };
     const passions = row.categories ? JSON.parse(row.categories) : [];
+    const defaultPassions = ['Coding','Design','Music','Fitness','Writing','Academics','Entrepreneurship','Art','Photography','Public Speaking','Languages'];
+
+    // Promote popular custom interests into the regular list
+    let popularCommunityInterests = [];
+    try {
+        const passionCounts = {};
+        const passionsQuery = db.prepare(`
+            SELECT categories FROM users WHERE categories IS NOT NULL AND categories != ''
+        `);
+        const usersWithCategories = passionsQuery.all();
+
+        usersWithCategories.forEach(user => {
+            try {
+                const categories = JSON.parse(user.categories);
+                if (Array.isArray(categories)) {
+                    categories.forEach(category => {
+                        if (category && typeof category === 'string') {
+                            passionCounts[category] = (passionCounts[category] || 0) + 1;
+                        }
+                    });
+                }
+            } catch (e) {}
+        });
+
+        popularCommunityInterests = Object.entries(passionCounts)
+            .filter(([passion, count]) => !defaultPassions.includes(passion) && count >= 5)
+            .sort((a, b) => b[1] - a[1])
+            .map(([passion]) => passion)
+            .slice(0, 10);
+    } catch (err) {
+        console.error('Failed to compute popular custom interests:', err.message);
+        popularCommunityInterests = [];
+    }
+
+    const allPassions = Array.from(new Set([...defaultPassions, ...popularCommunityInterests]));
+    const customPassions = passions.filter(p => !allPassions.includes(p));
+
+    const passionGroups = [
+        {
+            label: 'Technology & Building',
+            options: ['Coding', 'Entrepreneurship', 'Writing']
+        },
+        {
+            label: 'Creativity & Media',
+            options: ['Design', 'Art', 'Photography', 'Public Speaking', 'Languages']
+        },
+        {
+            label: 'Performance & Wellbeing',
+            options: ['Music', 'Fitness', 'Academics']
+        }
+    ].map(group => ({
+        ...group,
+        options: group.options.filter(option => allPassions.includes(option))
+    }));
+
+    if (popularCommunityInterests.length) {
+        passionGroups.push({
+            label: 'Community Favorites',
+            options: popularCommunityInterests
+        });
+    }
+
+    // Ensure no empty groups are rendered
+    const filteredPassionGroups = passionGroups.filter(group => group.options.length > 0);
     const user = {
         displayName: row.full_name,
         handle: row.handle || row.email.split('@')[0],
@@ -3718,21 +3782,27 @@ app.get('/profile/edit', (req, res) => {
         skills: row.skills || '',
         location: row.location || ''
     };
-    const allPassions = ['Coding','Design','Music','Fitness','Writing','Academics','Entrepreneurship','Art','Photography','Public Speaking','Languages'];
     res.render('edit-profile', {
         title: 'Edit Profile - Dream X',
         currentPage: 'profile',
         authUser,
         user,
-        allPassions
+        allPassions,
+        customPassions,
+        passionGroups: filteredPassionGroups
     });
 });
 
 // Handle edit profile submission with banner support
 app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }, { name: 'bannerImage', maxCount: 1 }]), (req, res) => {
     if (!req.session.userId) return res.redirect('/login');
-    const { displayName, bio, passions, skills, location } = req.body;
+    const { displayName, bio, passions, skills, location, customInterests } = req.body;
     const selectedPassions = Array.isArray(passions) ? passions : (passions ? [passions] : []);
+    const customInterestList = (customInterests || '')
+        .split(',')
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+    const uniquePassions = Array.from(new Set([...selectedPassions, ...customInterestList]));
     
     // Update profile data
     updateUserProfile({
@@ -3746,7 +3816,7 @@ app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }
     // Update passions
     updateOnboarding({
         userId: req.session.userId,
-        categories: selectedPassions,
+        categories: uniquePassions,
         goals: [],
         experience: null
     });

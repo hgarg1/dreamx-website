@@ -335,6 +335,55 @@
   transition: all 0.3s ease;
 }
 
+.passion-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.passion-group {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+}
+
+.passion-group summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 700;
+  color: #111827;
+  background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08));
+}
+
+.passion-group summary::-webkit-details-marker { display: none; }
+
+.passion-group summary .summary-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.passion-group .checkbox-grid {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0;
+}
+
+.passion-hint {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-top: -0.25rem;
+}
+
 .form-actions {
   display: flex;
   gap: 1rem;
@@ -597,14 +646,38 @@
       <!-- Passions -->
       <div class="form-row">
         <span class="form-label">Primary Passions</span>
-        <div class="checkbox-grid">
-          <% allPassions.forEach(function(p){ %>
-            <label class="checkbox-pill">
-              <input type="checkbox" name="passions" value="<%= p %>" <%= user.passions.includes(p) ? 'checked' : '' %> />
-              <span><%= p %></span>
-            </label>
+        <p class="passion-hint">Expand a group to quickly pick the interests that best describe you. Popular community interests appear automatically once they take off.</p>
+        <div class="passion-groups">
+          <% passionGroups.forEach(function(group, index) { %>
+            <details class="passion-group" <%= index === 0 ? 'open' : '' %>>
+              <summary>
+                <span><%= group.label %></span>
+                <span class="summary-meta"><%= group.options.length %> options</span>
+              </summary>
+              <div class="checkbox-grid">
+                <% group.options.forEach(function(p) { %>
+                  <label class="checkbox-pill">
+                    <input type="checkbox" name="passions" value="<%= p %>" <%= user.passions.includes(p) ? 'checked' : '' %> />
+                    <span><%= p %></span>
+                  </label>
+                <% }); %>
+              </div>
+            </details>
           <% }); %>
         </div>
+      </div>
+      <!-- Custom Interests -->
+      <div class="form-row">
+        <label for="customInterests" class="form-label">Custom Interests</label>
+        <input
+          id="customInterests"
+          name="customInterests"
+          type="text"
+          class="form-input"
+          value="<%= customPassions.join(', ') %>"
+          placeholder="Add any other interests (comma separated)"
+        />
+        <small class="hint">We’ll save these to your profile alongside your primary passions.</small>
       </div>
       <!-- Skills -->
       <div class="form-row">
