@@ -468,6 +468,19 @@ app.use('/webauthn', express.static(simpleWebAuthnBundlePath));
 // Serve static files from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Ensure PWA assets use the correct headers so browsers can install the app reliably
+app.get('/manifest.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
+});
+
+app.get('/service-worker.js', (req, res) => {
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(__dirname, 'public', 'service-worker.js'));
+});
+
 // Parse URL-encoded bodies (for form submissions)
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
