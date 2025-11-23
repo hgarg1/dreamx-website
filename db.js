@@ -477,6 +477,8 @@ try {
 try { db.exec(`ALTER TABLE posts ADD COLUMN is_reel INTEGER DEFAULT 0;`); } catch (e) {}
 // Posts audio support migration (idempotent)
 try { db.exec(`ALTER TABLE posts ADD COLUMN audio_url TEXT;`); } catch (e) {}
+// Post title migration (idempotent)
+try { db.exec(`ALTER TABLE posts ADD COLUMN title TEXT;`); } catch (e) {}
 // Privacy settings migrations (idempotent)
 try { db.exec(`ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public';`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'everyone';`); } catch (e) {}
@@ -598,6 +600,7 @@ CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
 db.exec(`CREATE TABLE IF NOT EXISTS posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
+  title TEXT,
   content_type TEXT DEFAULT 'text',
   text_content TEXT,
   media_url TEXT,
@@ -607,6 +610,143 @@ db.exec(`CREATE TABLE IF NOT EXISTS posts (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );`);
+
+// Hashtags and tags
+db.exec(`CREATE TABLE IF NOT EXISTS hashtags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  usage_count INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_hashtags_name ON hashtags(name);
+
+CREATE TABLE IF NOT EXISTS post_hashtags (
+  post_id INTEGER NOT NULL,
+  hashtag_id INTEGER NOT NULL,
+  PRIMARY KEY (post_id, hashtag_id),
+  FOREIGN KEY (post_id) REFERENCES posts(id),
+  FOREIGN KEY (hashtag_id) REFERENCES hashtags(id)
+);
+CREATE INDEX IF NOT EXISTS idx_post_hashtags_post ON post_hashtags(post_id);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  usage_count INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+
+CREATE TABLE IF NOT EXISTS post_tags (
+  post_id INTEGER NOT NULL,
+  tag_id INTEGER NOT NULL,
+  PRIMARY KEY (post_id, tag_id),
+  FOREIGN KEY (post_id) REFERENCES posts(id),
+  FOREIGN KEY (tag_id) REFERENCES tags(id)
+);
+CREATE INDEX IF NOT EXISTS idx_post_tags_post ON post_tags(post_id);
+`);
+
+function normalizeTagValue(name = '') {
+  return String(name)
+    .trim()
+    .replace(/^#/, '')
+    .replace(/\s+/g, '-')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '')
+    .slice(0, 40);
+}
+
+const upsertHashtagStmt = db.prepare(`
+  INSERT INTO hashtags (name, usage_count)
+  VALUES (?, 1)
+  ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
+  RETURNING id, name
+`);
+const upsertTagStmt = db.prepare(`
+  INSERT INTO tags (name, usage_count)
+  VALUES (?, 1)
+  ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
+  RETURNING id, name
+`);
+const linkHashtagStmt = db.prepare(`INSERT OR IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?);`);
+const linkTagStmt = db.prepare(`INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?);`);
+const getPostHashtagListStmt = db.prepare(`
+  SELECT h.name
+  FROM hashtags h
+  JOIN post_hashtags ph ON ph.hashtag_id = h.id
+  WHERE ph.post_id = ?
+  ORDER BY h.name ASC
+`);
+const getPostTagListStmt = db.prepare(`
+  SELECT t.name
+  FROM tags t
+  JOIN post_tags pt ON pt.tag_id = t.id
+  WHERE pt.post_id = ?
+  ORDER BY t.name ASC
+`);
+
+function attachHashtagsToPost(postId, hashtags = []) {
+  if (!postId || !Array.isArray(hashtags) || hashtags.length === 0) return [];
+  const normalized = [...new Set(hashtags.map(normalizeTagValue).filter(Boolean))];
+  normalized.forEach((name) => {
+    const result = upsertHashtagStmt.get(name);
+    if (result?.id) {
+      linkHashtagStmt.run(postId, result.id);
+    }
+  });
+  return normalized;
+}
+
+function attachTagsToPost(postId, tags = []) {
+  if (!postId || !Array.isArray(tags) || tags.length === 0) return [];
+  const normalized = [...new Set(tags.map(normalizeTagValue).filter(Boolean))];
+  normalized.forEach((name) => {
+    const result = upsertTagStmt.get(name);
+    if (result?.id) {
+      linkTagStmt.run(postId, result.id);
+    }
+  });
+  return normalized;
+}
+
+function getPostHashtags(postId) {
+  if (!postId) return [];
+  return getPostHashtagListStmt.all(postId).map((row) => row.name);
+}
+
+function getPostTags(postId) {
+  if (!postId) return [];
+  return getPostTagListStmt.all(postId).map((row) => row.name);
+}
+
+function getPopularHashtags(search = '', limit = 8) {
+  const maxLimit = Math.min(Math.max(parseInt(limit, 10) || 8, 1), 25);
+  const query = search ? `${normalizeTagValue(search)}` : '';
+  const stmt = db.prepare(`
+    SELECT name, usage_count
+    FROM hashtags
+    ${query ? 'WHERE name LIKE ?' : ''}
+    ORDER BY usage_count DESC, name ASC
+    LIMIT ?
+  `);
+  const params = query ? [`${query}%`, maxLimit] : [maxLimit];
+  return stmt.all(...params);
+}
+
+function getPopularTags(search = '', limit = 8) {
+  const maxLimit = Math.min(Math.max(parseInt(limit, 10) || 8, 1), 25);
+  const query = search ? `${normalizeTagValue(search)}` : '';
+  const stmt = db.prepare(`
+    SELECT name, usage_count
+    FROM tags
+    ${query ? 'WHERE name LIKE ?' : ''}
+    ORDER BY usage_count DESC, name ASC
+    LIMIT ?
+  `);
+  const params = query ? [`${query}%`, maxLimit] : [maxLimit];
+  return stmt.all(...params);
+}
 
 // Reactions and comments for posts
 db.exec(`CREATE TABLE IF NOT EXISTS post_reactions (
@@ -1326,9 +1466,18 @@ module.exports = {
     return db.prepare(`SELECT COUNT(*) as c FROM audit_logs`).get().c;
   },
   // Posts
-  createPost: ({ userId, contentType, textContent, mediaUrl, audioUrl, activityLabel, isReel }) => {
-    const stmt = db.prepare(`INSERT INTO posts (user_id, content_type, text_content, media_url, audio_url, activity_label, is_reel) VALUES (?,?,?,?,?,?,?)`);
-    const info = stmt.run(userId, contentType || 'text', textContent || null, mediaUrl || null, audioUrl || null, activityLabel || null, isReel ? 1 : 0);
+  createPost: ({ userId, title, contentType, textContent, mediaUrl, audioUrl, activityLabel, isReel }) => {
+    const stmt = db.prepare(`INSERT INTO posts (user_id, title, content_type, text_content, media_url, audio_url, activity_label, is_reel) VALUES (?,?,?,?,?,?,?,?)`);
+    const info = stmt.run(
+      userId,
+      title || null,
+      contentType || 'text',
+      textContent || null,
+      mediaUrl || null,
+      audioUrl || null,
+      activityLabel || null,
+      isReel ? 1 : 0
+    );
     return info.lastInsertRowid;
   },
   getFeedPosts: ({ limit, offset }) => {
@@ -1349,6 +1498,8 @@ module.exports = {
         GROUP BY reaction_type
       `).all(row.id);
       row.reactions = counts.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
+      row.hashtags = getPostHashtags(row.id);
+      row.tags = getPostTags(row.id);
       return row;
     });
   },
@@ -1360,7 +1511,11 @@ module.exports = {
       JOIN users u ON p.user_id = u.id
       WHERE p.user_id = ?
       ORDER BY p.created_at DESC
-    `).all(userId);
+    `).all(userId).map((row) => ({
+      ...row,
+      hashtags: getPostHashtags(row.id),
+      tags: getPostTags(row.id)
+    }));
   },
   getUserReels: (userId) => {
     return db.prepare(`
@@ -1369,7 +1524,11 @@ module.exports = {
       JOIN users u ON p.user_id = u.id
       WHERE p.user_id = ? AND p.is_reel = 1
       ORDER BY p.created_at DESC
-    `).all(userId);
+    `).all(userId).map((row) => ({
+      ...row,
+      hashtags: getPostHashtags(row.id),
+      tags: getPostTags(row.id)
+    }));
   },
   getPostById: (postId) => {
     const row = db.prepare(`
@@ -1387,8 +1546,16 @@ module.exports = {
     `).all(postId);
     row.reactions = counts.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
     row.comments_count = db.prepare(`SELECT COUNT(*) as c FROM post_comments WHERE post_id = ?`).get(postId).c;
+    row.hashtags = getPostHashtags(postId);
+    row.tags = getPostTags(postId);
     return row;
   },
+  getPostHashtags,
+  getPostTags,
+  attachHashtagsToPost: ({ postId, hashtags }) => attachHashtagsToPost(postId, hashtags),
+  attachTagsToPost: ({ postId, tags }) => attachTagsToPost(postId, tags),
+  getPopularHashtags: ({ search, limit } = {}) => getPopularHashtags(search || '', limit),
+  getPopularTags: ({ search, limit } = {}) => getPopularTags(search || '', limit),
   // Reactions
   setPostReaction: ({ postId, userId, reactionType }) => {
     const existing = db.prepare(`SELECT id, reaction_type FROM post_reactions WHERE post_id = ? AND user_id = ?`).get(postId, userId);

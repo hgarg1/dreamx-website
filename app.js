@@ -45,7 +45,7 @@ const {
     // Password resets
     createPasswordResetToken, getPasswordResetToken, markPasswordResetUsed, deleteExpiredPasswordResetTokens, invalidateUserResetTokens,
     // Posts
-    createPost, getFeedPosts, getUserPosts,
+    createPost, getFeedPosts, getUserPosts, getPostHashtags, getPostTags, attachHashtagsToPost, attachTagsToPost, getPopularHashtags, getPopularTags,
     // Post reactions & comments
     setPostReaction, getPostReactionsSummary, getUserReactionForPost,
     addPostComment, getPostComments, getCommentsCount, toggleCommentLike,
@@ -169,6 +169,26 @@ function safeParseArray(value, fallback = []) {
         console.warn('Failed to parse JSON array value:', err.message);
         return fallback;
     }
+}
+
+function extractHashtags(text = '') {
+    const tags = new Set();
+    const regex = /#([A-Za-z0-9_][A-Za-z0-9_-]{0,38})/g;
+    let match;
+    while ((match = regex.exec(text))) {
+        const value = (match[1] || '').toLowerCase();
+        if (value) tags.add(value);
+    }
+    return Array.from(tags);
+}
+
+function parseTagInput(input) {
+    if (!input) return [];
+    const raw = Array.isArray(input) ? input : String(input).split(',');
+    return raw
+        .map((v) => (v || '').toString().trim())
+        .filter(Boolean)
+        .map((v) => v.replace(/^#/, ''));
 }
 
 // Initialize Express app
@@ -2992,8 +3012,9 @@ app.get('/feed', (req, res) => {
     let trendingPosts = [];
     try {
         const trendingQuery = db.prepare(`
-            SELECT 
+            SELECT
                 p.id as post_id,
+                p.title,
                 p.text_content,
                 p.activity_label,
                 p.created_at,
@@ -3016,7 +3037,7 @@ app.get('/feed', (req, res) => {
             full_name: post.full_name,
             userId: post.user_id,
             user_id: post.user_id,
-            title: post.activity_label || (post.text_content ? post.text_content.substring(0, 60) + '...' : 'View post'),
+            title: post.title || post.activity_label || (post.text_content ? post.text_content.substring(0, 60) + '...' : 'View post'),
             text_content: post.text_content,
             profile_picture: post.profile_picture,
             likes_count: post.likes_count,
@@ -3129,6 +3150,8 @@ app.get('/search', (req, res) => {
 app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name: 'audio', maxCount: 1 }]), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     const { contentType, textContent, activityLabel } = req.body;
+    const title = (req.body.title || '').trim();
+    const postTagsInput = req.body.postTags;
     const mediaUrl = req.files && req.files['media'] ? `/uploads/posts/${req.files['media'][0].filename}` : null;
     const audioUrl = req.files && req.files['audio'] ? `/uploads/posts/${req.files['audio'][0].filename}` : null;
     // Server-side validation: no images in reels (allow GIF), enforce media type
@@ -3145,8 +3168,11 @@ app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name
     }
     // Treat 'video' button as Reel; images stay images; text stays text
     const isReel = contentType === 'video' ? 1 : 0;
-    createPost({
+    const hashtags = extractHashtags(textContent || '');
+    const parsedTags = parseTagInput(postTagsInput);
+    const postId = createPost({
         userId: req.session.userId,
+        title,
         contentType: contentType || 'text',
         textContent,
         mediaUrl,
@@ -3154,7 +3180,39 @@ app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name
         activityLabel,
         isReel
     });
+    if (hashtags.length) {
+        attachHashtagsToPost({ postId, hashtags });
+    }
+    if (parsedTags.length) {
+        attachTagsToPost({ postId, tags: parsedTags });
+    }
     res.redirect('/feed');
+});
+
+app.get('/api/hashtags/popular', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const q = (req.query.q || '').toString();
+    const limit = req.query.limit || 8;
+    try {
+        const hashtags = getPopularHashtags({ search: q, limit }) || [];
+        res.json({ success: true, hashtags });
+    } catch (error) {
+        console.error('Error fetching hashtag suggestions', error);
+        res.status(500).json({ error: 'Failed to load hashtags' });
+    }
+});
+
+app.get('/api/tags/popular', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const q = (req.query.q || '').toString();
+    const limit = req.query.limit || 8;
+    try {
+        const tags = getPopularTags({ search: q, limit }) || [];
+        res.json({ success: true, tags });
+    } catch (error) {
+        console.error('Error fetching tag suggestions', error);
+        res.status(500).json({ error: 'Failed to load tags' });
+    }
 });
 
 // Get following users with reel counts (MUST be before /api/users/:id/reels to avoid route collision)

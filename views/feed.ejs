@@ -127,6 +127,20 @@
                 <div class="composer-field">
                   <label for="postContent">What's on your mind?</label>
                   <textarea name="textContent" id="postContent" rows="4" class="composer-textarea" placeholder="Share something insightful..."></textarea>
+                  <div id="hashtagSuggestions" class="hashtag-suggestions" aria-live="polite" style="display:none;"></div>
+                </div>
+
+                <div class="composer-field">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <label for="postTagsInput">Post tags</label>
+                    <small>Organize your update</small>
+                  </div>
+                  <div class="tag-input-row">
+                    <div id="postTagPills" class="tag-pill-container"></div>
+                    <input type="text" id="postTagsInput" autocomplete="off" placeholder="Add tags (e.g. design, launch)" class="composer-input">
+                    <input type="hidden" name="postTags" id="postTagsField" value="">
+                    <div id="tagSuggestions" class="tag-suggestions" style="display:none;"></div>
+                  </div>
                 </div>
 
                 <div id="mediaUploadSection" class="composer-field" style="display:none;">
@@ -266,9 +280,175 @@
       let composerWasOpen = false;
       const modalStack = [];
       let previewMediaUrl = null;
+      let selectedPostTags = [];
+      let tagInputEl = null;
+      let tagPillsEl = null;
+      let tagSuggestionsEl = null;
+      let tagsHiddenField = null;
+      let hashtagSuggestionsEl = null;
 
       const lockBodyScroll = () => document.body.classList.add('modal-open');
       const unlockBodyScroll = () => document.body.classList.remove('modal-open');
+
+      const debounce = (fn, delay = 180) => {
+        let t;
+        return (...args) => {
+          clearTimeout(t);
+          t = setTimeout(() => fn(...args), delay);
+        };
+      };
+
+      function normalizeComposerTag(tag) {
+        return (tag || '')
+          .toString()
+          .trim()
+          .replace(/^#/, '')
+          .replace(/\s+/g, '-')
+          .replace(/[^a-zA-Z0-9_-]/g, '')
+          .toLowerCase();
+      }
+
+      function hideHashtagSuggestions() {
+        if (hashtagSuggestionsEl) {
+          hashtagSuggestionsEl.innerHTML = '';
+          hashtagSuggestionsEl.style.display = 'none';
+        }
+      }
+
+      function hideTagSuggestions() {
+        if (tagSuggestionsEl) {
+          tagSuggestionsEl.innerHTML = '';
+          tagSuggestionsEl.style.display = 'none';
+        }
+      }
+
+      function renderSelectedTags() {
+        if (tagPillsEl) tagPillsEl.innerHTML = '';
+        if (tagsHiddenField) tagsHiddenField.value = selectedPostTags.join(',');
+        if (!tagPillsEl) return;
+        selectedPostTags.forEach((tag) => {
+          const pill = document.createElement('span');
+          pill.className = 'tag-pill';
+          pill.textContent = tag;
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'tag-pill__remove';
+          remove.setAttribute('aria-label', `Remove tag ${tag}`);
+          remove.textContent = '×';
+          remove.addEventListener('click', () => removeComposerTag(tag));
+          pill.appendChild(remove);
+          tagPillsEl.appendChild(pill);
+        });
+      }
+
+      function removeComposerTag(tag) {
+        selectedPostTags = selectedPostTags.filter((t) => t !== tag);
+        renderSelectedTags();
+      }
+
+      function addComposerTag(tag) {
+        const normalized = normalizeComposerTag(tag);
+        if (!normalized || selectedPostTags.includes(normalized)) return;
+        selectedPostTags.push(normalized);
+        renderSelectedTags();
+        hideTagSuggestions();
+      }
+
+      function resetTagInputs() {
+        selectedPostTags = [];
+        if (tagInputEl) tagInputEl.value = '';
+        renderSelectedTags();
+        hideTagSuggestions();
+      }
+
+      function getHashtagFragment() {
+        const textarea = document.getElementById('postContent');
+        if (!textarea) return null;
+        const cursor = textarea.selectionStart || 0;
+        const prefix = textarea.value.slice(0, cursor);
+        const match = prefix.match(/#([A-Za-z0-9_-]*)$/);
+        return match ? match[1] : null;
+      }
+
+      function insertHashtagAtCursor(tag) {
+        const textarea = document.getElementById('postContent');
+        if (!textarea) return;
+        const cursor = textarea.selectionStart || 0;
+        const value = textarea.value;
+        const start = value.lastIndexOf('#', cursor);
+        if (start === -1) return;
+        const before = value.slice(0, start);
+        const after = value.slice(cursor);
+        const newValue = `${before}#${tag} ${after.replace(/^\s*/, '')}`;
+        textarea.value = newValue;
+        const caret = before.length + tag.length + 2;
+        textarea.focus();
+        textarea.setSelectionRange(caret, caret);
+        updateComposerPreview();
+        hideHashtagSuggestions();
+      }
+
+      function renderHashtagSuggestions(items, fragment) {
+        if (!hashtagSuggestionsEl) return;
+        hashtagSuggestionsEl.innerHTML = '';
+        if (!items || items.length === 0) {
+          hashtagSuggestionsEl.style.display = 'none';
+          return;
+        }
+        const title = document.createElement('div');
+        title.className = 'hashtag-suggestions__title';
+        title.textContent = fragment ? `Popular tags for "${fragment}"` : 'Popular hashtags';
+        hashtagSuggestionsEl.appendChild(title);
+        items.forEach((item) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'hashtag-suggestion';
+          btn.textContent = `#${item.name}`;
+          btn.addEventListener('click', () => insertHashtagAtCursor(item.name));
+          hashtagSuggestionsEl.appendChild(btn);
+        });
+        hashtagSuggestionsEl.style.display = 'block';
+      }
+
+      const requestHashtagSuggestions = debounce(async (query) => {
+        if (!query) { hideHashtagSuggestions(); return; }
+        try {
+          const res = await fetch(`/api/hashtags/popular?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          if (data?.success) {
+            renderHashtagSuggestions(data.hashtags || [], query);
+          }
+        } catch (err) {
+          console.error('Hashtag suggestions failed', err);
+        }
+      }, 180);
+
+      const requestTagSuggestions = debounce(async (query) => {
+        if (!query) { hideTagSuggestions(); return; }
+        try {
+          const res = await fetch(`/api/tags/popular?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          if (!data?.success) return;
+          if (!tagSuggestionsEl) return;
+          tagSuggestionsEl.innerHTML = '';
+          const tags = data.tags || [];
+          if (!tags.length) { hideTagSuggestions(); return; }
+          tags.forEach((tag) => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'tag-suggestion';
+            option.textContent = tag.name;
+            option.addEventListener('click', () => {
+              addComposerTag(tag.name);
+              if (tagInputEl) tagInputEl.value = '';
+            });
+            tagSuggestionsEl.appendChild(option);
+          });
+          tagSuggestionsEl.style.display = 'block';
+        } catch (err) {
+          console.error('Tag suggestions failed', err);
+        }
+      }, 180);
 
       function setModalVisibility(modal, shouldShow, { unlock = true } = {}) {
         if (!modal) return;
@@ -351,6 +531,9 @@
         setComposerType('text');
         clearAudioUpload();
         resetComposerPreview();
+        resetTagInputs();
+        hideHashtagSuggestions();
+        hideTagSuggestions();
       }
 
       function suspendPostComposerForAudio() {
@@ -762,6 +945,13 @@
 
       // Wait for DOM to be ready before adding event listeners
       document.addEventListener('DOMContentLoaded', function() {
+        tagInputEl = document.getElementById('postTagsInput');
+        tagPillsEl = document.getElementById('postTagPills');
+        tagSuggestionsEl = document.getElementById('tagSuggestions');
+        tagsHiddenField = document.getElementById('postTagsField');
+        hashtagSuggestionsEl = document.getElementById('hashtagSuggestions');
+        renderSelectedTags();
+
         // Escape key handler
         document.addEventListener('keydown', function(e) {
           if (e.key !== 'Escape') return;
@@ -843,7 +1033,20 @@
         const titleInput = document.getElementById('postTitle');
         if (titleInput) titleInput.addEventListener('input', () => updateComposerPreview());
         const contentInput = document.getElementById('postContent');
-        if (contentInput) contentInput.addEventListener('input', () => updateComposerPreview());
+        if (contentInput) {
+          const handleHashtagPrompts = () => {
+            const fragment = getHashtagFragment();
+            if (fragment === null) { hideHashtagSuggestions(); return; }
+            if (fragment && fragment.length > 0) {
+              requestHashtagSuggestions(fragment);
+            } else {
+              hideHashtagSuggestions();
+            }
+          };
+          contentInput.addEventListener('input', () => { updateComposerPreview(); handleHashtagPrompts(); });
+          contentInput.addEventListener('click', handleHashtagPrompts);
+          contentInput.addEventListener('keyup', handleHashtagPrompts);
+        }
         document.getElementById('openPostComposerBtn').addEventListener('click', function() { openPostComposer('text'); });
         document.getElementById('openImageComposerBtn').addEventListener('click', function() { openPostComposer('image'); });
         document.getElementById('openVideoComposerBtn').addEventListener('click', function() { openPostComposer('video'); });
@@ -960,6 +1163,30 @@
           }
           closeAudioTrimModal();
         });
+
+        if (tagInputEl) {
+          tagInputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault();
+              addComposerTag(tagInputEl.value);
+              tagInputEl.value = '';
+            } else if (e.key === 'Backspace' && !tagInputEl.value && selectedPostTags.length) {
+              removeComposerTag(selectedPostTags[selectedPostTags.length - 1]);
+            }
+          });
+          tagInputEl.addEventListener('input', () => {
+            const val = tagInputEl.value.trim();
+            if (val) {
+              requestTagSuggestions(val);
+            } else {
+              hideTagSuggestions();
+            }
+          });
+          tagInputEl.addEventListener('focus', () => {
+            const val = tagInputEl.value.trim();
+            if (val) requestTagSuggestions(val);
+          });
+        }
 
         document.getElementById('trimPreviewPlayBtn').addEventListener('click', () => togglePreviewPlayback());
         const volumeSlider = document.getElementById('trimPreviewVolume');
