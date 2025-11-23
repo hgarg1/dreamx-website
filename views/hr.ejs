@@ -238,9 +238,13 @@
 .hr-wizard-card, .hr-team-card {
   background: #fff;
   border-radius: 18px;
-  padding: 18px;
+  padding: 20px;
   box-shadow: 0 12px 36px rgba(0,0,0,0.08);
   border: 1px solid rgba(0,0,0,0.04);
+}
+.hr-wizard-shell {
+  display: grid;
+  gap: 14px;
 }
 .hr-wizard-steps {
   display: grid;
@@ -249,19 +253,42 @@
   margin: 12px 0 14px 0;
 }
 .hr-wizard-step {
-  padding: 10px;
-  border-radius: 12px;
+  padding: 12px 10px;
+  border-radius: 16px;
   background: #f3f4f6;
-  font-weight: 700;
-  color: #4b5563;
+  font-weight: 800;
+  color: #374151;
   text-align: center;
   border: 2px solid transparent;
+  display: grid;
+  gap: 6px;
+  align-items: center;
 }
 .hr-wizard-step.active {
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
   border-color: rgba(118,75,162,0.35);
   box-shadow: 0 10px 30px rgba(118,75,162,0.2);
+}
+.hr-wizard-step-number {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  background: rgba(255,255,255,0.85);
+  color: #4b5563;
+}
+.hr-wizard-step.active .hr-wizard-step-number {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+}
+.hr-step-caption {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.85;
 }
 .hr-wizard-body { display: none; }
 .hr-wizard-body.active { display: block; }
@@ -282,6 +309,13 @@
   margin-top: 12px;
 }
 .hr-wizard-actions .hr-btn { padding: 10px 18px; }
+.hr-wizard-footer {
+  border-top: 1px dashed #e5e7eb;
+  margin-top: 14px;
+  padding-top: 12px;
+  display: grid;
+  gap: 10px;
+}
 .hr-scope-cloud {
   display: flex;
   flex-wrap: wrap;
@@ -315,6 +349,11 @@
   padding: 12px;
   margin-bottom: 10px;
   background: #f9fafb;
+}
+.hr-team-row.highlight {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  box-shadow: 0 8px 18px rgba(102,126,234,0.12);
 }
 .hr-team-row .meta { color: #6b7280; font-size: 13px; margin-bottom: 6px; }
 .hr-team-row .row-head { display:flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -1386,93 +1425,122 @@
     <div class="hr-leadership-grid">
       <div class="hr-wizard-card">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-          <h3 style="margin:0;">HR Identity Wizard</h3>
+          <div>
+            <h3 style="margin:0;">HR Identity Wizard</h3>
+            <p style="margin:6px 0 0 0; color:#4b5563;">Craft a scope-aware HR account with a concierge-like flow. Each step locks in confidence.</p>
+          </div>
           <span class="role-pill global-hr">No admin API access</span>
         </div>
-        <p style="margin:6px 0 12px 0; color:#4b5563;">Craft a stunning, scope-aware HR account. Steps flow like a story so every new teammate lands with intent.</p>
 
-        <div class="hr-wizard-steps">
-          <div class="hr-wizard-step active" data-hr-step="1">Identity</div>
-          <div class="hr-wizard-step" data-hr-step="2">Role & Scopes</div>
-          <div class="hr-wizard-step" data-hr-step="3">Review</div>
-        </div>
+        <div class="hr-wizard-shell">
+          <div class="hr-wizard-steps">
+            <div class="hr-wizard-step active" data-hr-step="1">
+              <div class="hr-wizard-step-number">1</div>
+              <div>Identity</div>
+              <div class="hr-step-caption">Lock in the teammate basics</div>
+            </div>
+            <div class="hr-wizard-step" data-hr-step="2">
+              <div class="hr-wizard-step-number">2</div>
+              <div>Role & Scopes</div>
+              <div class="hr-step-caption">Pair duties with where they operate</div>
+            </div>
+            <div class="hr-wizard-step" data-hr-step="3">
+              <div class="hr-wizard-step-number">3</div>
+              <div>Review</div>
+              <div class="hr-step-caption">Preview the launch card</div>
+            </div>
+          </div>
 
-        <div class="hr-wizard-body active" data-hr-body="1">
-          <label for="hrFullName">Full name</label>
-          <input type="text" id="hrFullName" placeholder="Alex Rivera" />
-          <label for="hrEmail">Work email</label>
-          <input type="email" id="hrEmail" placeholder="alex.rivera@dreamx.local" />
-          <label for="hrPassword">Temporary password</label>
-          <input type="password" id="hrPassword" placeholder="Create a launch password" />
-        </div>
+          <div class="hr-wizard-body active" data-hr-body="1">
+            <label for="hrFullName">Full name</label>
+            <input type="text" id="hrFullName" placeholder="Alex Rivera" />
+            <label for="hrEmail">Work email</label>
+            <input type="email" id="hrEmail" placeholder="alex.rivera@dreamx.local" />
+            <label for="hrPassword">Temporary password</label>
+            <input type="password" id="hrPassword" placeholder="Create a launch password" />
+            <div class="hr-wizard-footer">
+              <div style="font-weight:700; color:#111827;">Signal trust at step one.</div>
+              <div style="color:#6b7280;">Clear names and branded inboxes make onboarding notes and assignments instantly personable.</div>
+            </div>
+          </div>
 
-        <div class="hr-wizard-body" data-hr-body="2">
-          <label>Choose role</label>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <label style="flex:1; min-width:140px;" class="job-chip">
-              <input type="radio" name="hrRole" value="hr" checked> HR (regular)
-            </label>
-            <label style="flex:1; min-width:140px;" class="job-chip">
-              <input type="radio" name="hrRole" value="super_hr"> Super HR
-            </label>
+          <div class="hr-wizard-body" data-hr-body="2">
+            <label>Choose role</label>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <label style="flex:1; min-width:140px;" class="job-chip">
+                <input type="radio" name="hrRole" value="hr" checked> HR (regular)
+              </label>
+              <label style="flex:1; min-width:140px;" class="job-chip">
+                <input type="radio" name="hrRole" value="super_hr"> Super HR
+              </label>
+            </div>
+            <label style="margin-top:10px;">Add scopes (think: regions, programs, squads)</label>
+            <div class="hr-scope-cloud" style="margin-bottom:8px;">
+              <% (defaultHrScopes || []).forEach(scope => { %>
+                <div class="hr-scope-chip" style="cursor:pointer;" onclick="addPresetScope('<%- scope %>')"><%= scope %></div>
+              <% }) %>
+            </div>
+            <div class="hr-scope-input">
+              <input type="text" id="hrScopeInput" placeholder="e.g., campus, executive-hiring, LATAM" />
+              <button class="hr-btn hr-btn-secondary" type="button" onclick="addScopeChipFromInput()">Add scope</button>
+            </div>
+            <div class="hr-scope-cloud" id="hrScopeChips"></div>
+            <div style="margin-top:16px;">
+              <p style="color:#111827; font-weight:800; margin:0 0 8px 0;">HR Role Permissions</p>
+              <div id="hrPermissionChecklist" class="hr-scope-cloud" style="gap:8px;"></div>
+            </div>
+            <div style="margin-top:10px; color:#6b7280; font-weight:600; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span>Tip: Super HR can layer scopes for HR teammates later.</span>
+              <% if (authUser.role === 'global_hr') { %>
+                <span class="hr-role-chip" style="background:#0f172a; color:white;">Global HR can lock scope edits</span>
+              <% } %>
+            </div>
+            <div class="hr-wizard-footer">
+              <div style="font-weight:700; color:#111827;">Keep scopes human-readable.</div>
+              <div style="color:#6b7280;">Short hyphenated scopes mirror how squads talk in real life, and make downstream filters delightful.</div>
+            </div>
           </div>
-          <label style="margin-top:10px;">Add scopes (think: regions, programs, squads)</label>
-          <div class="hr-scope-cloud" style="margin-bottom:8px;">
-            <% (defaultHrScopes || []).forEach(scope => { %>
-              <div class="hr-scope-chip" style="cursor:pointer;" onclick="addPresetScope('<%- scope %>')"><%= scope %></div>
-            <% }) %>
-          </div>
-          <div class="hr-scope-input">
-            <input type="text" id="hrScopeInput" placeholder="e.g., campus, executive-hiring, LATAM" />
-            <button class="hr-btn hr-btn-secondary" type="button" onclick="addScopeChipFromInput()">Add scope</button>
-          </div>
-          <div class="hr-scope-cloud" id="hrScopeChips"></div>
-          <div style="margin-top:16px;">
-            <p style="color:#111827; font-weight:800; margin:0 0 8px 0;">HR Role Permissions</p>
-            <div id="hrPermissionChecklist" class="hr-scope-cloud" style="gap:8px;"></div>
-          </div>
-          <div style="margin-top:10px; color:#6b7280; font-weight:600; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span>Tip: Super HR can layer scopes for HR teammates later.</span>
-            <% if (authUser.role === 'global_hr') { %>
-              <span class="hr-role-chip" style="background:#0f172a; color:white;">Global HR can lock scope edits</span>
-            <% } %>
-          </div>
-        </div>
 
-        <div class="hr-wizard-body" data-hr-body="3">
+          <div class="hr-wizard-body" data-hr-body="3">
             <div class="hr-wizard-summary" style="background:#f9fafb; padding:12px; border-radius:12px; border:1px solid #e5e7eb;">
               <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
                 <div>
                   <div style="font-weight:800; font-size:18px;" id="hrReviewName">New HR Teammate</div>
                   <div style="color:#6b7280;" id="hrReviewEmail">email@dreamx.local</div>
+                </div>
+                <div class="role-pill super-hr" id="hrReviewRole">HR</div>
               </div>
-              <div class="role-pill super-hr" id="hrReviewRole">HR</div>
+              <div style="margin-top:12px; color:#374151;" id="hrReviewCopy">Global HR accounts inherit the admin look-and-feel but stay sandboxed from admin pages.</div>
+              <div class="hr-scope-cloud" id="hrReviewScopes" style="margin-top:12px;"></div>
             </div>
-            <div style="margin-top:12px; color:#374151;" id="hrReviewCopy">Global HR accounts inherit the admin look-and-feel but stay sandboxed from admin pages.</div>
-            <div class="hr-scope-cloud" id="hrReviewScopes" style="margin-top:12px;"></div>
-          </div>
-        </div>
-
-        <div class="hr-wizard-actions">
-          <button class="hr-btn hr-btn-secondary" type="button" onclick="hrWizardPrev()">Back</button>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <span id="hrWizardStatus" style="color:#6b7280; font-weight:700;"></span>
-            <button class="hr-btn hr-btn-primary" type="button" onclick="hrWizardNext()">Next</button>
-            <button class="hr-btn hr-btn-primary" type="button" id="hrLaunchBtn" style="display:none;" onclick="submitHrWizard()">Create HR Account</button>
-            </div>
-            <div style="margin-top:12px;">
-              <div style="color:#111827; font-weight:800;">HR Permissions</div>
+            <div class="hr-wizard-footer">
+              <div style="font-weight:700; color:#111827;">Permissions at a glance</div>
               <div class="hr-scope-cloud" id="hrReviewPermissions" style="margin-top:8px;"></div>
             </div>
           </div>
+
+          <div class="hr-wizard-actions">
+            <button class="hr-btn hr-btn-secondary" type="button" onclick="hrWizardPrev()">Back</button>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span id="hrWizardStatus" style="color:#6b7280; font-weight:700;"></span>
+              <button class="hr-btn hr-btn-primary" type="button" onclick="hrWizardNext()">Next</button>
+              <button class="hr-btn hr-btn-primary" type="button" id="hrLaunchBtn" style="display:none;" onclick="submitHrWizard()">Create HR Account</button>
+            </div>
+          </div>
         </div>
+      </div>
 
       <div class="hr-team-card">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-          <h3 style="margin:0;">HR Org Snapshot</h3>
-          <span class="hr-role-chip">Feeds admin dashboard visibility automatically</span>
+          <div>
+            <h3 style="margin:0;">HR Org Snapshot</h3>
+            <p style="margin:6px 0 0 0; color:#4b5563;">Every HR account is visible to admin ledgers. Keep the bench tidy and scoped.</p>
+          </div>
+          <div class="hr-scope-cloud" style="gap:6px;">
+            <span class="hr-role-chip">Feeds admin dashboard visibility automatically</span>
+            <span class="hr-role-chip" id="hrTeamCountBadge">Current HR accounts: <%= (initialHrTeam || []).length %></span>
+          </div>
         </div>
-        <p style="margin:6px 0 12px 0; color:#4b5563;">Every HR account appears in the admin user ledger for oversight. Senior HR can sprinkle scopes onto lower tiers for downstream workflows.</p>
         <div id="hrTeamList"></div>
       </div>
     </div>
@@ -2133,15 +2201,18 @@ function canEditMember(member) {
 
 function renderHrTeam() {
   const list = document.getElementById('hrTeamList');
+  const badge = document.getElementById('hrTeamCountBadge');
   if (!list) return;
   list.innerHTML = '';
+  if (badge) badge.textContent = `Current HR accounts: ${hrTeamState.length}`;
   if (!hrTeamState.length) {
     list.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="empty-state-icon">🧭</div><h3>No HR teammates yet</h3><p>Launch a new HR account to populate the org snapshot.</p></div>';
     return;
   }
-  hrTeamState.forEach(member => {
+  hrTeamState.forEach((member, idx) => {
     const row = document.createElement('div');
     row.className = 'hr-team-row';
+    if (idx === 0) row.classList.add('highlight');
     const roleClass = member.role === 'global_hr' ? 'global-hr' : (member.role === 'super_hr' ? 'super-hr' : '');
     const scopes = member.admin_scopes || [];
     const editable = canEditMember(member);
