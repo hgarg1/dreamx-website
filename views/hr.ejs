@@ -194,6 +194,150 @@
   gap: 12px;
 }
 
+.hr-leadership-shell {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.14));
+  border: 1px solid rgba(102,126,234,0.18);
+  border-radius: 22px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(99,102,241,0.18);
+  margin-bottom: 28px;
+}
+.hr-leadership-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.hr-leadership-copy h2 {
+  margin: 0 0 8px 0;
+  font-size: 26px;
+}
+.hr-leadership-copy p { margin: 0; color: #4b5563; }
+.hr-role-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.hr-role-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.05);
+  color: #1f2937;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+.hr-leadership-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+.hr-wizard-card, .hr-team-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.hr-wizard-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 12px 0 14px 0;
+}
+.hr-wizard-step {
+  padding: 10px;
+  border-radius: 12px;
+  background: #f3f4f6;
+  font-weight: 700;
+  color: #4b5563;
+  text-align: center;
+  border: 2px solid transparent;
+}
+.hr-wizard-step.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-color: rgba(118,75,162,0.35);
+  box-shadow: 0 10px 30px rgba(118,75,162,0.2);
+}
+.hr-wizard-body { display: none; }
+.hr-wizard-body.active { display: block; }
+.hr-wizard-body label { font-weight: 700; display:block; margin-bottom:6px; }
+.hr-wizard-body input, .hr-wizard-body select, .hr-wizard-body textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  background: #f9fafb;
+  margin-bottom: 12px;
+}
+.hr-wizard-body textarea { min-height: 72px; }
+.hr-wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+.hr-wizard-actions .hr-btn { padding: 10px 18px; }
+.hr-scope-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hr-scope-chip {
+  background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+  border: 1px solid rgba(102,126,234,0.25);
+  color: #4338ca;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hr-scope-chip.active {
+  background: linear-gradient(135deg, #c7d2fe, #ede9fe);
+  border-color: #6366f1;
+  color: #1f2937;
+}
+.hr-scope-chip button {
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+}
+.hr-team-row {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #f9fafb;
+}
+.hr-team-row .meta { color: #6b7280; font-size: 13px; margin-bottom: 6px; }
+.hr-team-row .row-head { display:flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hr-team-row .name { font-weight: 800; font-size: 17px; }
+.hr-team-row .role-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #10b981, #059669);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.role-pill.super-hr { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.role-pill.global-hr { background: linear-gradient(135deg, #6366f1, #a855f7); }
+.hr-scope-input {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.hr-scope-input input { flex: 1; }
+.hr-scope-input button { white-space: nowrap; }
+
 .hr-btn {
   padding: 10px 20px;
   border-radius: 10px;
@@ -1225,6 +1369,115 @@
     </div>
   </div>
 
+  <div class="hr-leadership-shell">
+    <div class="hr-leadership-head">
+      <div class="hr-leadership-copy">
+        <h2>🌐 Global HR Control Deck</h2>
+        <p>Global HR mirrors the luxe admin aesthetic but is walled off from admin routes and APIs. Use this deck to stand up Super HR lieutenants, seed regular HR operators, and cascade the scopes they need.</p>
+        <div class="hr-role-legend">
+          <span class="hr-role-chip">Global HR → strategy + governance</span>
+          <span class="hr-role-chip">Super HR → crew chiefs & scope curators</span>
+          <span class="hr-role-chip">HR → talent specialists</span>
+        </div>
+      </div>
+      <div class="hr-role-chip" style="background: #111827; color:white;">Your tier: <%= authUser.role.replace('_',' ').toUpperCase() %></div>
+    </div>
+
+    <div class="hr-leadership-grid">
+      <div class="hr-wizard-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+          <h3 style="margin:0;">HR Identity Wizard</h3>
+          <span class="role-pill global-hr">No admin API access</span>
+        </div>
+        <p style="margin:6px 0 12px 0; color:#4b5563;">Craft a stunning, scope-aware HR account. Steps flow like a story so every new teammate lands with intent.</p>
+
+        <div class="hr-wizard-steps">
+          <div class="hr-wizard-step active" data-hr-step="1">Identity</div>
+          <div class="hr-wizard-step" data-hr-step="2">Role & Scopes</div>
+          <div class="hr-wizard-step" data-hr-step="3">Review</div>
+        </div>
+
+        <div class="hr-wizard-body active" data-hr-body="1">
+          <label for="hrFullName">Full name</label>
+          <input type="text" id="hrFullName" placeholder="Alex Rivera" />
+          <label for="hrEmail">Work email</label>
+          <input type="email" id="hrEmail" placeholder="alex.rivera@dreamx.local" />
+          <label for="hrPassword">Temporary password</label>
+          <input type="password" id="hrPassword" placeholder="Create a launch password" />
+        </div>
+
+        <div class="hr-wizard-body" data-hr-body="2">
+          <label>Choose role</label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <label style="flex:1; min-width:140px;" class="job-chip">
+              <input type="radio" name="hrRole" value="hr" checked> HR (regular)
+            </label>
+            <label style="flex:1; min-width:140px;" class="job-chip">
+              <input type="radio" name="hrRole" value="super_hr"> Super HR
+            </label>
+          </div>
+          <label style="margin-top:10px;">Add scopes (think: regions, programs, squads)</label>
+          <div class="hr-scope-cloud" style="margin-bottom:8px;">
+            <% (defaultHrScopes || []).forEach(scope => { %>
+              <div class="hr-scope-chip" style="cursor:pointer;" onclick="addPresetScope('<%- scope %>')"><%= scope %></div>
+            <% }) %>
+          </div>
+          <div class="hr-scope-input">
+            <input type="text" id="hrScopeInput" placeholder="e.g., campus, executive-hiring, LATAM" />
+            <button class="hr-btn hr-btn-secondary" type="button" onclick="addScopeChipFromInput()">Add scope</button>
+          </div>
+          <div class="hr-scope-cloud" id="hrScopeChips"></div>
+          <div style="margin-top:16px;">
+            <p style="color:#111827; font-weight:800; margin:0 0 8px 0;">HR Role Permissions</p>
+            <div id="hrPermissionChecklist" class="hr-scope-cloud" style="gap:8px;"></div>
+          </div>
+          <div style="margin-top:10px; color:#6b7280; font-weight:600; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>Tip: Super HR can layer scopes for HR teammates later.</span>
+            <% if (authUser.role === 'global_hr') { %>
+              <span class="hr-role-chip" style="background:#0f172a; color:white;">Global HR can lock scope edits</span>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="hr-wizard-body" data-hr-body="3">
+            <div class="hr-wizard-summary" style="background:#f9fafb; padding:12px; border-radius:12px; border:1px solid #e5e7eb;">
+              <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
+                <div>
+                  <div style="font-weight:800; font-size:18px;" id="hrReviewName">New HR Teammate</div>
+                  <div style="color:#6b7280;" id="hrReviewEmail">email@dreamx.local</div>
+              </div>
+              <div class="role-pill super-hr" id="hrReviewRole">HR</div>
+            </div>
+            <div style="margin-top:12px; color:#374151;" id="hrReviewCopy">Global HR accounts inherit the admin look-and-feel but stay sandboxed from admin pages.</div>
+            <div class="hr-scope-cloud" id="hrReviewScopes" style="margin-top:12px;"></div>
+          </div>
+        </div>
+
+        <div class="hr-wizard-actions">
+          <button class="hr-btn hr-btn-secondary" type="button" onclick="hrWizardPrev()">Back</button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span id="hrWizardStatus" style="color:#6b7280; font-weight:700;"></span>
+            <button class="hr-btn hr-btn-primary" type="button" onclick="hrWizardNext()">Next</button>
+            <button class="hr-btn hr-btn-primary" type="button" id="hrLaunchBtn" style="display:none;" onclick="submitHrWizard()">Create HR Account</button>
+            </div>
+            <div style="margin-top:12px;">
+              <div style="color:#111827; font-weight:800;">HR Permissions</div>
+              <div class="hr-scope-cloud" id="hrReviewPermissions" style="margin-top:8px;"></div>
+            </div>
+          </div>
+        </div>
+
+      <div class="hr-team-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <h3 style="margin:0;">HR Org Snapshot</h3>
+          <span class="hr-role-chip">Feeds admin dashboard visibility automatically</span>
+        </div>
+        <p style="margin:6px 0 12px 0; color:#4b5563;">Every HR account appears in the admin user ledger for oversight. Senior HR can sprinkle scopes onto lower tiers for downstream workflows.</p>
+        <div id="hrTeamList"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="analytics-grid">
     <div class="analytics-card">
       <h3>📈 Application Trends (Last 30 Days)</h3>
@@ -1671,6 +1924,346 @@ if (typeof showSuccess !== 'function') window.showSuccess = (msg) => alert(msg);
 if (typeof showError !== 'function') window.showError = (msg) => alert(msg);
 if (typeof showConfirm !== 'function') window.showConfirm = (msg, cb) => { if (confirm(msg)) cb(); };
 
+const hrRoleRankings = { hr: 1, super_hr: 2, global_hr: 3 };
+const hrRoleLabels = { hr: 'HR', super_hr: 'Super HR', global_hr: 'Global HR' };
+const myHrRole = '<%= authUser.role %>';
+const isGlobalHr = myHrRole === 'global_hr';
+const hrPermissionDefinitions = <%- JSON.stringify(hrPermissionDefinitions || []).replace(/</g, '\\u003c') %>;
+const defaultHrScopes = <%- JSON.stringify(defaultHrScopes || []).replace(/</g, '\\u003c') %>;
+const initialHrTeam = <%- JSON.stringify(hrTeam || []).replace(/</g, '\\u003c') %>;
+let hrWizardStage = 1;
+let hrWizardScopes = [...(defaultHrScopes || [])];
+let hrWizardPermissions = new Set(['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages']);
+let hrTeamState = initialHrTeam.map(m => ({ ...m, admin_scopes: m.admin_scopes || [], hr_permissions: m.hr_permissions || [], scope_locked: !!m.scope_locked }));
+
+const hrWizardStatusEl = () => document.getElementById('hrWizardStatus');
+const canCreateHrAccounts = (hrRoleRankings[myHrRole] || 0) >= 2;
+const toastSuccess = (msg) => typeof showSuccess === 'function' ? showSuccess(msg) : alert(msg);
+const toastError = (msg) => typeof showError === 'function' ? showError(msg) : alert(msg);
+const escapeHtml = (val) => String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function setHrWizardStage(step) {
+  hrWizardStage = Math.min(Math.max(step, 1), 3);
+  document.querySelectorAll('[data-hr-body]').forEach(el => {
+    el.classList.toggle('active', Number(el.dataset.hrBody) === hrWizardStage);
+  });
+  document.querySelectorAll('[data-hr-step]').forEach(el => {
+    el.classList.toggle('active', Number(el.dataset.hrStep) === hrWizardStage);
+  });
+  document.getElementById('hrLaunchBtn').style.display = hrWizardStage === 3 ? 'inline-flex' : 'none';
+  const nextBtn = document.querySelector('[onclick="hrWizardNext()"]');
+  if (nextBtn) nextBtn.style.display = hrWizardStage === 3 ? 'none' : 'inline-flex';
+  updateHrReview();
+}
+
+function hrWizardNext() {
+  if (hrWizardStage === 1) {
+    const fullName = document.getElementById('hrFullName').value.trim();
+    const email = document.getElementById('hrEmail').value.trim();
+    const password = document.getElementById('hrPassword').value.trim();
+    if (!fullName || !email || !password) {
+      hrWizardStatusEl().textContent = 'Add name, email, and a launch password to continue.';
+      return;
+    }
+  }
+  setHrWizardStage(hrWizardStage + 1);
+  hrWizardStatusEl().textContent = canCreateHrAccounts ? '' : 'Only Super HR and Global HR can launch new teammates.';
+}
+
+function hrWizardPrev() {
+  setHrWizardStage(hrWizardStage - 1);
+}
+
+function renderHrScopeChips() {
+  const wrap = document.getElementById('hrScopeChips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  hrWizardScopes.forEach(scope => {
+    const chip = document.createElement('div');
+    chip.className = 'hr-scope-chip';
+    chip.innerHTML = `${scope} <button aria-label="Remove scope" onclick="removeScopeChip('${scope.replace(/'/g, "\\'")}')">×</button>`;
+    wrap.appendChild(chip);
+  });
+}
+
+function addScopeChipFromInput() {
+  const input = document.getElementById('hrScopeInput');
+  const val = (input.value || '').trim();
+  if (!val) return;
+  if (!hrWizardScopes.includes(val)) hrWizardScopes.push(val);
+  input.value = '';
+  renderHrScopeChips();
+  updateHrReview();
+}
+
+function addPresetScope(scope) {
+  if (!scope) return;
+  if (!hrWizardScopes.includes(scope)) {
+    hrWizardScopes.push(scope);
+    renderHrScopeChips();
+    updateHrReview();
+  }
+}
+
+function removeScopeChip(scope) {
+  hrWizardScopes = hrWizardScopes.filter(s => s !== scope);
+  renderHrScopeChips();
+  updateHrReview();
+}
+
+function renderHrPermissionChecklist() {
+  const wrap = document.getElementById('hrPermissionChecklist');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  (hrPermissionDefinitions || []).forEach(def => {
+    const chip = document.createElement('div');
+    chip.className = 'hr-scope-chip';
+    chip.style.cursor = 'pointer';
+    chip.dataset.key = def.key;
+    chip.onclick = () => toggleHrPermission(def.key);
+    chip.innerHTML = `${def.label} <span style="display:block; color:#6b7280; font-weight:600; font-size:12px;">${def.desc}</span>`;
+    if (hrWizardPermissions.has(def.key)) chip.classList.add('active');
+    wrap.appendChild(chip);
+  });
+}
+
+function toggleHrPermission(key) {
+  if (!key) return;
+  if (hrWizardPermissions.has(key)) hrWizardPermissions.delete(key); else hrWizardPermissions.add(key);
+  renderHrPermissionChecklist();
+  updateHrReview();
+}
+
+function updateHrReview() {
+  const name = document.getElementById('hrFullName').value || 'New HR Teammate';
+  const email = document.getElementById('hrEmail').value || 'email@dreamx.local';
+  const role = (document.querySelector('input[name="hrRole"]:checked') || { value: 'hr' }).value;
+  document.getElementById('hrReviewName').textContent = name;
+  document.getElementById('hrReviewEmail').textContent = email;
+  const roleBadge = document.getElementById('hrReviewRole');
+  roleBadge.textContent = hrRoleLabels[role] || role;
+  roleBadge.className = `role-pill ${role === 'super_hr' ? 'super-hr' : (role === 'global_hr' ? 'global-hr' : '')}`;
+  const reviewScopes = document.getElementById('hrReviewScopes');
+  reviewScopes.innerHTML = '';
+  if (!hrWizardScopes.length) {
+    const ghost = document.createElement('div');
+    ghost.style.color = '#6b7280';
+    ghost.style.fontWeight = '700';
+    ghost.textContent = 'No scopes yet — add pods, regions, or programs.';
+    reviewScopes.appendChild(ghost);
+  } else {
+    hrWizardScopes.forEach(scope => {
+      const chip = document.createElement('div');
+      chip.className = 'hr-scope-chip';
+      chip.textContent = scope;
+      reviewScopes.appendChild(chip);
+    });
+  }
+  const permWrap = document.getElementById('hrReviewPermissions');
+  if (permWrap) {
+    permWrap.innerHTML = '';
+    const list = Array.from(hrWizardPermissions);
+    if (!list.length) {
+      const ghost = document.createElement('div');
+      ghost.style.color = '#6b7280';
+      ghost.style.fontWeight = '700';
+      ghost.textContent = 'No HR permissions selected yet.';
+      permWrap.appendChild(ghost);
+    } else {
+      list.forEach(key => {
+        const def = (hrPermissionDefinitions || []).find(d => d.key === key);
+        const chip = document.createElement('div');
+        chip.className = 'hr-scope-chip';
+        chip.textContent = def ? def.label : key;
+        permWrap.appendChild(chip);
+      });
+    }
+  }
+}
+
+async function submitHrWizard() {
+  const fullName = document.getElementById('hrFullName').value.trim();
+  const email = document.getElementById('hrEmail').value.trim();
+  const password = document.getElementById('hrPassword').value.trim();
+  const role = (document.querySelector('input[name="hrRole"]:checked') || { value: 'hr' }).value;
+
+  if (!canCreateHrAccounts) {
+    hrWizardStatusEl().textContent = 'Only Super HR or Global HR can launch new teammates.';
+    return;
+  }
+  if (!fullName || !email || !password) {
+    hrWizardStatusEl().textContent = 'Please complete all fields before launching the account.';
+    return;
+  }
+
+  hrWizardStatusEl().textContent = 'Creating account…';
+  try {
+    const res = await fetch('/api/hr/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, email, password, role, scopes: hrWizardScopes, hrPermissions: Array.from(hrWizardPermissions) })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to create account');
+    hrTeamState.unshift({ ...data.user, admin_scopes: data.user.admin_scopes || [], hr_permissions: data.user.hr_permissions || [], scope_locked: !!data.user.scope_locked });
+    renderHrTeam();
+    hrWizardStatusEl().textContent = 'Account created and visible in admin dashboard.';
+    toastSuccess('HR account created');
+    hrWizardScopes = [...(defaultHrScopes || [])];
+    hrWizardPermissions = new Set(['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages']);
+    document.getElementById('hrFullName').value = '';
+    document.getElementById('hrEmail').value = '';
+    document.getElementById('hrPassword').value = '';
+    document.querySelector('input[name="hrRole"][value="hr"]').checked = true;
+    renderHrScopeChips();
+    renderHrPermissionChecklist();
+    setHrWizardStage(1);
+  } catch (err) {
+    console.error(err);
+    hrWizardStatusEl().textContent = err.message;
+    toastError(err.message);
+  }
+}
+
+function canEditMember(member) {
+  const actorRank = hrRoleRankings[myHrRole] || 0;
+  const targetRank = hrRoleRankings[member.role] || 0;
+  return actorRank > targetRank && actorRank >= 2;
+}
+
+function renderHrTeam() {
+  const list = document.getElementById('hrTeamList');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!hrTeamState.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="empty-state-icon">🧭</div><h3>No HR teammates yet</h3><p>Launch a new HR account to populate the org snapshot.</p></div>';
+    return;
+  }
+  hrTeamState.forEach(member => {
+    const row = document.createElement('div');
+    row.className = 'hr-team-row';
+    const roleClass = member.role === 'global_hr' ? 'global-hr' : (member.role === 'super_hr' ? 'super-hr' : '');
+    const scopes = member.admin_scopes || [];
+    const editable = canEditMember(member);
+    const locked = !!member.scope_locked;
+    row.innerHTML = `
+      <div class="row-head">
+        <div class="name">${escapeHtml(member.full_name || member.email)}</div>
+        <div class="role-pill ${roleClass}">${escapeHtml(hrRoleLabels[member.role] || member.role)}</div>
+      </div>
+      <div class="meta">${escapeHtml(member.email)} · Joined ${new Date(member.created_at || Date.now()).toLocaleDateString()}</div>
+      <div class="hr-scope-cloud">${scopes.length ? scopes.map(s => `<div class="hr-scope-chip">${escapeHtml(s)}</div>`).join('') : '<span style="color:#6b7280; font-weight:700;">No scopes yet</span>'}</div>
+      <div style="margin:6px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">${locked ? '<span class="hr-role-chip" style="background:#0f172a; color:white;">Scope edits locked</span>' : ''}${editable && isGlobalHr ? `<button class="hr-btn hr-btn-secondary" type="button" onclick="toggleScopeLock(${member.id}, ${locked ? 'false' : 'true'})">${locked ? 'Unlock scopes' : 'Lock scopes'}</button>` : ''}</div>
+      ${editable && !(locked && !isGlobalHr) ? `<div class="hr-scope-input"><input data-scope-input="${member.id}" type="text" placeholder="Add scope for ${escapeHtml(member.full_name || 'this HR')}"><button class="hr-btn hr-btn-primary" type="button" onclick="addScopeToMember(${member.id})">Add scope</button></div>` : '<div style="margin-top:6px; color:#9ca3af; font-weight:600;">' + (locked && !isGlobalHr ? 'Scopes are locked by Global HR.' : 'Scopes managed by a higher tier HR.') + '</div>'}
+      <div style="margin-top:12px;">
+        <div style="font-weight:800; color:#111827; margin-bottom:6px;">HR Role</div>
+        <div class="hr-scope-cloud">${(member.hr_permissions || []).length ? member.hr_permissions.map(p => `<div class=\"hr-scope-chip\">${escapeHtml((hrPermissionDefinitions.find(d => d.key === p) || {}).label || p)}</div>`).join('') : '<span style=\"color:#6b7280; font-weight:700;\">No permissions assigned</span>'}</div>
+        ${editable ? `<div class=\"hr-scope-cloud\" style=\"margin-top:8px; gap:8px;\">${hrPermissionDefinitions.map(def => {
+            const checked = (member.hr_permissions || []).includes(def.key);
+            return `<label class=\\"job-chip\\" style=\\"display:flex; align-items:center; gap:6px;\\"><input type=\\"checkbox\\" data-hr-perm=\\"${member.id}__${def.key}\\" ${checked ? 'checked' : ''} onchange=\\"updateMemberPermissions(${member.id})\\"> ${escapeHtml(def.label)}</label>`;
+        }).join('')} </div>` : ''}
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+async function addScopeToMember(id) {
+  const input = document.querySelector(`[data-scope-input="${id}"]`);
+  if (!input) return;
+  const val = (input.value || '').trim();
+  if (!val) return;
+  const member = hrTeamState.find(m => m.id === id);
+  if (!member || !canEditMember(member)) return;
+  if (member.scope_locked && !isGlobalHr) {
+    toastError('Scopes are locked by Global HR');
+    return;
+  }
+  const nextScopes = Array.from(new Set([...(member.admin_scopes || []), val]));
+  try {
+    const res = await fetch(`/api/hr/accounts/${id}/scopes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scopes: nextScopes, lock: member.scope_locked })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update scopes');
+    member.admin_scopes = data.scopes || [];
+    member.scope_locked = data.locked ?? member.scope_locked;
+    input.value = '';
+    renderHrTeam();
+    toastSuccess('Scopes updated');
+  } catch (err) {
+    console.error(err);
+    toastError(err.message);
+  }
+}
+
+async function toggleScopeLock(id, lock) {
+  const member = hrTeamState.find(m => m.id === id);
+  if (!member || !canEditMember(member) || !isGlobalHr) return;
+  try {
+    const res = await fetch(`/api/hr/accounts/${id}/scopes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scopes: member.admin_scopes || [], lock })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update lock');
+    member.scope_locked = data.locked ?? lock;
+    renderHrTeam();
+    toastSuccess(lock ? 'Scopes locked' : 'Scopes unlocked');
+  } catch (err) {
+    console.error(err);
+    toastError(err.message);
+  }
+}
+
+async function updateMemberPermissions(id) {
+  const member = hrTeamState.find(m => m.id === id);
+  if (!member || !canEditMember(member)) return;
+  const checkboxes = Array.from(document.querySelectorAll(`[data-hr-perm^="${id}__"]`));
+  const nextPerms = checkboxes.filter(cb => cb.checked).map(cb => cb.dataset.hrPerm.split('__')[1]);
+  try {
+    const res = await fetch(`/api/hr/accounts/${id}/permissions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hrPermissions: nextPerms })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update permissions');
+    member.hr_permissions = data.hrPermissions || [];
+    renderHrTeam();
+    toastSuccess('HR permissions updated');
+  } catch (err) {
+    console.error(err);
+    toastError(err.message);
+  }
+}
+
+async function refreshHrTeam() {
+  try {
+    const res = await fetch('/api/hr/team');
+    const data = await res.json();
+    if (res.ok && data.success) {
+      hrTeamState = (data.team || []).map(m => ({ ...m, admin_scopes: m.admin_scopes || [], hr_permissions: m.hr_permissions || [], scope_locked: !!m.scope_locked }));
+      renderHrTeam();
+    }
+  } catch (e) { console.warn('HR team refresh failed', e); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setHrWizardStage(1);
+  renderHrScopeChips();
+  renderHrPermissionChecklist();
+  renderHrTeam();
+  if (!canCreateHrAccounts) {
+    const launchBtn = document.getElementById('hrLaunchBtn');
+    if (launchBtn) launchBtn.disabled = true;
+    hrWizardStatusEl().textContent = 'Only Super HR and Global HR can launch new HR teammates.';
+  }
+});
+
 const ctx = document.getElementById('trendsChart').getContext('2d');
 new Chart(ctx, {
   type: 'line',
@@ -1693,10 +2286,7 @@ new Chart(ctx, {
   }
 });
 
-const jobPostingsData = <%- JSON.stringify(jobPostings || []).replace(/</g, '\\u003c') %>;
-const toastSuccess = (msg) => typeof showSuccess === 'function' ? showSuccess(msg) : alert(msg);
-const toastError = (msg) => typeof showError === 'function' ? showError(msg) : alert(msg);
-const escapeHtml = (val) => String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const jobPostingsData = <%- JSON.stringify(jobPostings || []).replace(/</g, '\\u003c') %>;
 let jobWizardStep = 1;
 let editingJobId = null;
 const jobPreviewEls = {

@@ -40,7 +40,7 @@ const {
     createMessage, markMessagesAsRead, getUnreadMessageCount,
     updateUserRole, updateAdminPermissions, getAllUsers, getStats,
     // New admin helpers
-    getUsersPaged, getUsersCount, searchUsers,
+    getUsersPaged, getUsersCount, searchUsers, getHrTeam,
     // Audit logs
     addAuditLog, getAuditLogsPaged, getAuditLogCount,
     // Email Verification
@@ -930,7 +930,7 @@ const resolvePostAuthRedirect = (user) => {
     if (!user) return '/login';
 
     // Auto-verify and complete onboarding for admin/HR accounts
-    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || user.role === 'hr') {
+    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || ['hr', 'super_hr', 'global_hr'].includes(user.role)) {
         if (user.email_verified !== 1 || user.onboarding_completed !== 1) {
             db.prepare('UPDATE users SET email_verified = 1, onboarding_completed = 1, needs_onboarding = 0 WHERE id = ?').run(user.id);
             user.email_verified = 1;
@@ -949,7 +949,7 @@ const resolvePostAuthRedirect = (user) => {
     if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin') {
         return '/admin';
     }
-    if (user.role === 'hr') {
+    if (['hr', 'super_hr', 'global_hr'].includes(user.role)) {
         return '/hr';
     }
     return '/feed';
@@ -995,7 +995,18 @@ const ADMIN_PERMISSION_DEFINITIONS = [
     { key: 'platform_metrics', label: 'Platform Metrics', desc: 'View KPIs and real-time operational stats.' }
 ];
 const ADMIN_PERMISSION_KEYS = new Set(ADMIN_PERMISSION_DEFINITIONS.map(p => p.key));
-const roleRank = { user: 1, admin: 2, hr: 2, super_admin: 3, global_admin: 4 };
+const HR_PERMISSION_DEFINITIONS = [
+    { key: 'hr_applications', label: 'Applications & Review', desc: 'View and triage candidate submissions.' },
+    { key: 'hr_pipeline', label: 'Pipeline Moves', desc: 'Advance, reject, and tag candidates in the pipeline.' },
+    { key: 'hr_jobs', label: 'Job Posts', desc: 'Create and update open roles and publishing status.' },
+    { key: 'hr_messages', label: 'Candidate Outreach', desc: 'Email and message candidates from the HR desk.' },
+    { key: 'hr_team', label: 'HR Team Management', desc: 'Create HR teammates and assign their scopes.' },
+    { key: 'hr_scopes', label: 'Scope Stewardship', desc: 'Add or retire scopes for downstream HR workflows.' }
+];
+const HR_PERMISSION_KEYS = new Set(HR_PERMISSION_DEFINITIONS.map(p => p.key));
+const HR_PAGE_SCOPES = ['hr-dashboard', 'candidate-pipeline', 'career-applications', 'job-board', 'hr-org', 'talent-outreach'];
+const roleRank = { user: 1, hr: 2, super_hr: 3, global_hr: 4, admin: 5, super_admin: 6, global_admin: 7 };
+const hrRoleRank = { hr: 1, super_hr: 2, global_hr: 3 };
 const parseAdminMeta = (user) => {
     try {
         const cleanPerms = normalizeArray(user.admin_permissions ? JSON.parse(user.admin_permissions) : [])
@@ -1009,7 +1020,9 @@ const parseAdminMeta = (user) => {
     }
 };
 const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin');
-const isHR = (user) => user && user.role === 'hr';
+const isHR = (user) => user && ['hr', 'super_hr', 'global_hr'].includes(user.role);
+const isSuperHR = (user) => user && (user.role === 'super_hr' || user.role === 'global_hr');
+const isGlobalHR = (user) => user && user.role === 'global_hr';
 const isSuperAdmin = (user) => user && (user.role === 'super_admin' || user.role === 'global_admin');
 const isGlobalAdmin = (user) => user && user.role === 'global_admin';
 const hasPermission = (user, permission) => {
@@ -1017,6 +1030,12 @@ const hasPermission = (user, permission) => {
     if (isSuperAdmin(user)) return true;
     const { permissions } = parseAdminMeta(user);
     return permissions.includes(permission);
+};
+const canManageHrRole = (actor, targetRole) => {
+    if (!actor || !isHR(actor)) return false;
+    const actorRank = hrRoleRank[actor.role] || 0;
+    const targetRank = hrRoleRank[targetRole] || 0;
+    return actorRank > targetRank && actorRank >= 2;
 };
 const requireAdmin = (req, res, next) => {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
@@ -1427,10 +1446,36 @@ app.get('/', (req, res) => {
 
 const normalizeArray = (val) => {
     if (Array.isArray(val)) return val.map(v => String(v).trim()).filter(Boolean);
+    if (val && typeof val === 'object' && Array.isArray(val.scopes)) return val.scopes.map(v => String(v).trim()).filter(Boolean);
     if (typeof val === 'string' && val.length) return [val.trim()];
     return [];
 };
 const sanitizePermissions = (val) => normalizeArray(val).filter(p => ADMIN_PERMISSION_KEYS.has(p));
+const sanitizeHrPermissions = (val) => normalizeArray(val).filter(p => HR_PERMISSION_KEYS.has(p));
+const parseHrMeta = (user) => {
+    let scopes = [];
+    let locked = false;
+    try {
+        const raw = user.admin_scopes ? JSON.parse(user.admin_scopes) : [];
+        if (Array.isArray(raw)) {
+            scopes = normalizeArray(raw);
+        } else if (raw && typeof raw === 'object') {
+            scopes = normalizeArray(raw.scopes || []);
+            locked = !!raw.locked;
+        }
+    } catch (_) {
+        scopes = [];
+    }
+
+    let hrPermissions = [];
+    try {
+        hrPermissions = sanitizeHrPermissions(user.admin_permissions ? JSON.parse(user.admin_permissions) : []);
+    } catch (_) {
+        hrPermissions = [];
+    }
+
+    return { scopes, locked, hrPermissions };
+};
 const defaultPermissionsForRole = (role) => {
     if (role === 'global_admin' || role === 'super_admin') return Array.from(ADMIN_PERMISSION_KEYS);
     if (role === 'admin') return ['manage_users', 'moderate_content', 'billing', 'services_moderation', 'refunds', 'careers', 'appeals'];
@@ -1451,7 +1496,10 @@ app.get('/admin', requireAdmin, (req, res) => {
         let perms = [];
         let scopes = [];
         try { perms = sanitizePermissions(u.admin_permissions ? JSON.parse(u.admin_permissions) : []); } catch (_) { perms = []; }
-        try { scopes = normalizeArray(u.admin_scopes ? JSON.parse(u.admin_scopes) : []); } catch (_) { scopes = []; }
+        try {
+            const rawScopes = u.admin_scopes ? JSON.parse(u.admin_scopes) : [];
+            scopes = Array.isArray(rawScopes) ? normalizeArray(rawScopes) : normalizeArray(rawScopes.scopes || []);
+        } catch (_) { scopes = []; }
         return {
             ...u,
             admin_permissions: perms,
@@ -1550,7 +1598,7 @@ app.post('/admin/users/wizard', requireAdmin, async (req, res) => {
     const email = (req.body.email || '').trim().toLowerCase();
     const password = req.body.password || '';
     let permissions = sanitizePermissions(req.body.permissions);
-    const scopes = normalizeArray(req.body.scopes);
+    let scopes = normalizeArray(req.body.scopes);
 
     if (!fullName || !email || !password) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -1779,7 +1827,7 @@ app.post('/admin/users/:id/role', requireSuperAdmin, (req, res) => {
     const me = getUserById(req.session.userId);
     
     // Validate role
-    if (!['user','admin','super_admin','global_admin','hr'].includes(role)) {
+    if (!['user','admin','super_admin','global_admin','hr','super_hr','global_hr'].includes(role)) {
         return res.redirect('/admin?error=Invalid+role');
     }
     
@@ -1891,11 +1939,119 @@ app.get('/admin/export/messages.csv', requireAdmin, (req, res) => {
     res.send(csv);
 });
 
+// HR leadership APIs
+app.get('/api/hr/team', requireHR, (req, res) => {
+    const team = (getHrTeam() || []).map(member => {
+        const hrMeta = parseHrMeta(member);
+        return { ...member, admin_scopes: hrMeta.scopes, hr_permissions: hrMeta.hrPermissions, scope_locked: hrMeta.locked };
+    });
+    res.json({ success: true, team });
+});
+
+app.post('/api/hr/accounts', requireHR, async (req, res) => {
+    const actor = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!actor) return res.status(403).json({ error: 'Unauthorized' });
+    if (!isSuperHR(actor)) return res.status(403).json({ error: 'Only senior HR can create team members' });
+
+    const fullName = (req.body.fullName || '').trim();
+    const email = (req.body.email || '').trim().toLowerCase();
+    const password = req.body.password || '';
+    const targetRole = (req.body.role || 'hr').toLowerCase();
+    const scopes = normalizeArray(req.body.scopes);
+    let hrPermissions = sanitizeHrPermissions(req.body.hrPermissions || req.body.hr_permissions);
+
+    if (!fullName || !email || !password) {
+        return res.status(400).json({ error: 'Full name, email, and password are required' });
+    }
+    if (!['hr', 'super_hr'].includes(targetRole)) {
+        return res.status(400).json({ error: 'Role must be HR or Super HR' });
+    }
+    if (!canManageHrRole(actor, targetRole)) {
+        return res.status(403).json({ error: 'You can only create roles below your tier' });
+    }
+    if (!scopes.length) {
+        scopes = HR_PAGE_SCOPES;
+    }
+    if (!hrPermissions.length) {
+        hrPermissions = targetRole === 'super_hr'
+            ? Array.from(HR_PERMISSION_KEYS)
+            : ['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages'];
+    }
+    if (getUserByEmail(email)) {
+        return res.status(409).json({ error: 'An account with that email already exists' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newUserId = createUser({ fullName, email, passwordHash });
+    updateUserRole({ userId: newUserId, role: targetRole });
+    updateAdminPermissions({ userId: newUserId, permissions: hrPermissions, scopes: { scopes, locked: false } });
+    addAuditLog({ userId: actor.id, action: 'hr_created_account', details: JSON.stringify({ email, role: targetRole }) });
+
+    const created = getUserById(newUserId);
+    res.json({
+        success: true,
+        user: {
+            id: created.id,
+            full_name: created.full_name,
+            email: created.email,
+            role: created.role,
+            admin_scopes: scopes,
+            hr_permissions: hrPermissions,
+            scope_locked: false,
+            created_at: created.created_at
+        }
+    });
+});
+
+app.post('/api/hr/accounts/:id/scopes', requireHR, (req, res) => {
+    const actor = req.session.userId ? getUserById(req.session.userId) : null;
+    const targetId = parseInt(req.params.id, 10);
+    const targetUser = getUserById(targetId);
+    if (!actor || !targetUser || !isHR(targetUser)) {
+        return res.status(404).json({ error: 'HR account not found' });
+    }
+    if (!canManageHrRole(actor, targetUser.role)) {
+        return res.status(403).json({ error: 'You can only adjust scopes for lower-tier HR accounts' });
+    }
+    const hrMeta = parseHrMeta(targetUser);
+    if (hrMeta.locked && !isGlobalHR(actor)) {
+        return res.status(403).json({ error: 'Scopes are locked by Global HR' });
+    }
+    const scopes = normalizeArray(req.body.scopes);
+    const nextLock = req.body.lock === true ? true : (req.body.lock === false ? false : hrMeta.locked);
+    const shouldLock = isGlobalHR(actor) ? nextLock : hrMeta.locked;
+    const hrPermissions = hrMeta.hrPermissions;
+    updateAdminPermissions({ userId: targetId, permissions: hrPermissions, scopes: { scopes, locked: shouldLock } });
+    addAuditLog({ userId: actor.id, action: 'hr_scopes_updated', details: JSON.stringify({ target: targetUser.email, scopes, locked: shouldLock }) });
+    return res.json({ success: true, scopes, locked: shouldLock });
+});
+
+app.post('/api/hr/accounts/:id/permissions', requireHR, (req, res) => {
+    const actor = req.session.userId ? getUserById(req.session.userId) : null;
+    const targetId = parseInt(req.params.id, 10);
+    const targetUser = getUserById(targetId);
+    if (!actor || !targetUser || !isHR(targetUser)) {
+        return res.status(404).json({ error: 'HR account not found' });
+    }
+    if (!canManageHrRole(actor, targetUser.role)) {
+        return res.status(403).json({ error: 'You can only adjust permissions for lower-tier HR accounts' });
+    }
+    const hrMeta = parseHrMeta(targetUser);
+    const hrPermissions = sanitizeHrPermissions(req.body.hrPermissions || req.body.permissions);
+    updateAdminPermissions({ userId: targetId, permissions: hrPermissions, scopes: { scopes: hrMeta.scopes, locked: hrMeta.locked } });
+    addAuditLog({ userId: actor.id, action: 'hr_permissions_updated', details: JSON.stringify({ target: targetUser.email, hrPermissions }) });
+    return res.json({ success: true, hrPermissions });
+});
+
 // HR review portal
 app.get('/hr', requireHR, (req, res) => {
     const me = getUserById(req.session.userId);
     const careers = require('./db').getCareerApplicationsPaged({ limit: 100, offset: 0 });
     const jobPostings = getCareerJobsForAdmin();
+    const hrTeam = (getHrTeam() || []).map(member => {
+        const hrMeta = parseHrMeta(member);
+        return { ...member, admin_scopes: hrMeta.scopes, hr_permissions: hrMeta.hrPermissions, scope_locked: hrMeta.locked };
+    });
     
     // Calculate counts for each status
     const totalApps = careers.length;
@@ -1915,6 +2071,9 @@ app.get('/hr', requireHR, (req, res) => {
         acceptedApps,
         rejectedApps,
         jobPostings,
+        hrTeam,
+        hrPermissionDefinitions: HR_PERMISSION_DEFINITIONS,
+        defaultHrScopes: HR_PAGE_SCOPES,
         success: req.query.success,
         error: req.query.error
     });

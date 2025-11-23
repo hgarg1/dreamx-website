@@ -367,9 +367,11 @@ try {
   if (!hrExists) {
     const bcrypt = require('bcrypt');
     const hrPassword = bcrypt.hashSync('DreamXHR2025!', 10);
-    db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
-      .run('HR Manager', 'hr@dreamx.local', hrPassword, 'hr', 'active', 'Human Resources Department - Talent Acquisition and Employee Relations');
+    db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`) 
+      .run('Global HR Partner', 'hr@dreamx.local', hrPassword, 'global_hr', 'active', 'Global HR Partner - Talent Architecture and People Experience');
     console.log('✅ HR account created: hr@dreamx.local / DreamXHR2025!');
+  } else {
+    db.prepare(`UPDATE users SET role = 'global_hr' WHERE email = ? AND role != 'global_hr'`).run('hr@dreamx.local');
   }
 } catch (e) {
   console.warn('HR seed error:', e.message);
@@ -1176,6 +1178,14 @@ module.exports = {
       return db.prepare(`SELECT COUNT(*) as c FROM users WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?`).get(s, s).c;
     }
     return db.prepare(`SELECT COUNT(*) as c FROM users`).get().c;
+  },
+  getHrTeam: () => {
+    return db.prepare(`
+      SELECT id, full_name, email, role, account_status, admin_scopes, created_at
+      FROM users
+      WHERE role IN ('hr', 'super_hr', 'global_hr')
+      ORDER BY CASE role WHEN 'global_hr' THEN 3 WHEN 'super_hr' THEN 2 ELSE 1 END DESC, created_at DESC
+    `).all();
   },
   searchUsers: ({ query, limit = 10, excludeUserId }) => {
     const s = `%${(query || '').toLowerCase()}%`;
