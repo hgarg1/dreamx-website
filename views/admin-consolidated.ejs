@@ -86,8 +86,11 @@
       }
       .group-dropdown .tab-btn { width: 100%; justify-content: flex-start; }
       .group-dropdown .tab-btn svg { margin-right: 8px; }
-      @keyframes slideDown { 
-        from { 
+      .role-badge.role-global-hr { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; }
+      .role-badge.role-super-hr { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+      .role-badge.role-hr { background: linear-gradient(135deg, #34d399, #10b981); color: #0f172a; }
+      @keyframes slideDown {
+        from {
           opacity: 0;
           transform: translateY(-15px) scale(0.95);
         }
@@ -446,6 +449,8 @@
                       <% if (authUser && authUser.role === 'global_admin') { %>
                         <option value="global_admin" <%= u.role === 'global_admin' ? 'selected' : '' %>>Global Admin</option>
                       <% } %>
+                      <option value="global_hr" <%= u.role === 'global_hr' ? 'selected' : '' %>>Global HR</option>
+                      <option value="super_hr" <%= u.role === 'super_hr' ? 'selected' : '' %>>Super HR</option>
                       <option value="hr" <%= u.role === 'hr' ? 'selected' : '' %>>HR</option>
                     </select>
                     <button type="submit" class="btn-update">Update</button>
