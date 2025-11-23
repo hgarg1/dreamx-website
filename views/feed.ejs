@@ -2,6 +2,7 @@
 
 <!-- Feed Premium Styles -->
 <link rel="stylesheet" href="/css/feed.css?v=20251118">
+<link rel="stylesheet" href="https://unpkg.com/cropperjs/dist/cropper.min.css">
 
 <div class="feed-layout">
   <!-- Left Sidebar - Reels Bubbles -->
@@ -148,6 +149,12 @@
                   <div class="preview-card" style="border-style:dashed; align-items: stretch;">
                     <input type="file" id="mediaInput" name="media" class="composer-file" accept="image/*,video/*">
                     <div id="mediaPreview" class="preview-card" style="min-height:120px; margin-top:10px; border-style:solid;"></div>
+                    <input type="hidden" name="mediaDuration" id="mediaDuration" value="0">
+                  </div>
+                  <div class="composer-field" style="margin-top:10px;">
+                    <label for="externalVideoUrl">Or paste a video link</label>
+                    <input type="url" id="externalVideoUrl" name="externalVideoUrl" class="composer-input" placeholder="https://www.youtube.com/watch?v=..." aria-describedby="externalVideoHint">
+                    <small id="externalVideoHint">Supports YouTube and Vimeo. Local uploads take priority.</small>
                   </div>
                 </div>
 
@@ -196,6 +203,149 @@
               </div>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="imageEditorModal" class="feed-modal" role="dialog" aria-modal="true" aria-labelledby="imageEditorTitle" aria-hidden="true">
+      <div class="nova-modal__card">
+        <span class="nova-modal__halo"></span>
+        <div class="nova-modal__content">
+          <div class="nova-modal__header">
+            <div>
+              <div id="imageEditorTitle" class="nova-modal__title">Fine-tune your image</div>
+              <div class="nova-modal__subtitle">Crop, rotate, flip, and brighten before posting.</div>
+            </div>
+            <button type="button" id="closeImageEditorBtn" aria-label="Close image editor" class="nova-modal__close">✕</button>
+          </div>
+
+          <div class="image-editor-grid">
+            <div class="image-editor-canvas">
+              <img id="imageEditorPreview" alt="Edit preview" />
+            </div>
+            <div class="image-editor-controls">
+              <div class="nova-pill">Adjustments</div>
+              <div class="control-row">
+                <label>Brightness</label>
+                <input type="range" id="imageBrightness" min="0.5" max="1.5" step="0.05" value="1" class="nova-range">
+              </div>
+              <div class="control-row">
+                <label>Contrast</label>
+                <input type="range" id="imageContrast" min="0.5" max="1.5" step="0.05" value="1" class="nova-range">
+              </div>
+              <div class="control-row">
+                <label>Saturation</label>
+                <input type="range" id="imageSaturation" min="0.6" max="1.6" step="0.05" value="1" class="nova-range">
+              </div>
+              <div class="control-row">
+                <label>Zoom</label>
+                <input type="range" id="imageZoom" min="0.5" max="2" step="0.05" value="1" class="nova-range">
+              </div>
+              <div class="control-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+                <div style="font-weight:800;">Aspect ratio</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button type="button" class="aspect-pill active" data-aspect="NaN">Original</button>
+                  <button type="button" class="aspect-pill" data-aspect="1">1:1</button>
+                  <button type="button" class="aspect-pill" data-aspect="0.8">4:5</button>
+                  <button type="button" class="aspect-pill" data-aspect="1.7777">16:9</button>
+                </div>
+              </div>
+              <div class="control-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+                <div style="font-weight:800;">Looks</div>
+                <div class="preset-grid">
+                  <button type="button" class="filter-chip active" data-filter="neutral">Neutral</button>
+                  <button type="button" class="filter-chip" data-filter="warm">Warm glow</button>
+                  <button type="button" class="filter-chip" data-filter="cool">Cool film</button>
+                  <button type="button" class="filter-chip" data-filter="mono">Monochrome</button>
+                  <button type="button" class="filter-chip" data-filter="punch">Vibrant</button>
+                  <button type="button" class="filter-chip" data-filter="dream">Dreamy</button>
+                </div>
+              </div>
+              <div class="control-row" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" id="rotateLeftBtn" class="btn-ghost" style="flex:1;">↺ Rotate</button>
+                <button type="button" id="rotateRightBtn" class="btn-ghost" style="flex:1;">↻ Rotate</button>
+              </div>
+              <div class="control-row" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" id="flipHorizontalBtn" class="btn-ghost" style="flex:1;">⇋ Flip</button>
+                <button type="button" id="resetImageEditBtn" class="btn-ghost" style="flex:1;">Reset</button>
+              </div>
+              <div class="composer-actions-row" style="margin-top:auto;">
+                <button type="button" id="cancelImageEditorBtn" class="btn-ghost">Cancel</button>
+                <button type="button" id="saveImageEditorBtn" class="btn-primary">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="videoEditorModal" class="feed-modal" role="dialog" aria-modal="true" aria-labelledby="videoEditorTitle" aria-hidden="true">
+      <div class="nova-modal__card">
+        <span class="nova-modal__halo"></span>
+        <div class="nova-modal__content">
+          <div class="nova-modal__header">
+            <div>
+              <div id="videoEditorTitle" class="nova-modal__title">Trim your video</div>
+              <div class="nova-modal__subtitle">Set a start and end point to keep clips under 5 minutes.</div>
+            </div>
+            <button type="button" id="closeVideoEditorBtn" aria-label="Close video editor" class="nova-modal__close">✕</button>
+          </div>
+          <div class="video-editor-grid">
+            <div class="video-editor-player">
+              <video id="videoEditorPlayer" controls preload="metadata" style="width:100%;border-radius:12px;overflow:hidden;"></video>
+            </div>
+            <div class="video-editor-controls">
+              <div class="nova-pill">Trim controls</div>
+              <div class="control-row">
+                <label for="videoStartRange">Start</label>
+                <input type="range" id="videoStartRange" min="0" max="0" step="0.1" value="0" class="nova-range">
+                <div class="control-meta" id="videoStartLabel">0:00</div>
+              </div>
+              <div class="control-row">
+                <label for="videoEndRange">End</label>
+                <input type="range" id="videoEndRange" min="0" max="0" step="0.1" value="0" class="nova-range">
+                <div class="control-meta" id="videoEndLabel">0:00</div>
+              </div>
+              <div class="control-row video-time-row">
+                <label for="videoScrubRange" style="flex:1;">Timeline</label>
+                <input type="range" id="videoScrubRange" min="0" max="0" step="0.05" value="0" class="nova-range" style="flex:3;">
+                <small id="videoNowLabel">0:00</small>
+              </div>
+              <div class="control-row" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" id="setStartFromPlayhead" class="ghost-pill">Set start @ playhead</button>
+                <button type="button" id="setEndFromPlayhead" class="ghost-pill">Set end @ playhead</button>
+                <button type="button" id="snapToMaxBtn" class="ghost-pill">Auto-fit to 5 min</button>
+              </div>
+              <div class="control-row" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" data-nudge="-0.5" class="ghost-pill video-nudge">◀︎ -0.5s</button>
+                <button type="button" data-nudge="0.5" class="ghost-pill video-nudge">+0.5s ▶︎</button>
+                <button type="button" data-nudge="-2" class="ghost-pill video-nudge">◀︎ -2s</button>
+                <button type="button" data-nudge="2" class="ghost-pill video-nudge">+2s ▶︎</button>
+              </div>
+              <div class="control-row" style="align-items:center;gap:10px;">
+                <label for="videoSpeedSelect" style="flex:1;">Playback</label>
+                <select id="videoSpeedSelect" class="composer-input" style="flex:1;">
+                  <option value="0.75">0.75x</option>
+                  <option value="1" selected>1x</option>
+                  <option value="1.25">1.25x</option>
+                  <option value="1.5">1.5x</option>
+                  <option value="2">2x</option>
+                </select>
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <input type="checkbox" id="videoMuteToggle"> Mute preview
+                </label>
+              </div>
+              <div class="control-row" style="justify-content:space-between;">
+                <div>Clip length</div>
+                <div id="videoClipLength">0s</div>
+              </div>
+              <div class="preview-card" id="videoTrimHint" style="text-align:left;">Keep your reel concise—only the selected range will be attached.</div>
+              <div class="composer-actions-row" style="margin-top:auto;">
+                <button type="button" id="cancelVideoEditorBtn" class="btn-ghost">Cancel</button>
+                <button type="button" id="saveVideoEditorBtn" class="btn-primary">Save Clip</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -268,16 +418,93 @@
       body.modal-open { overflow: hidden; }
       .wave-grid span { transition: opacity 0.3s ease, transform 0.3s ease; }
       .wave-wrapper.playing .wave-grid span { opacity: 0.95 !important; transform: scaleY(1.08); }
+      .image-editor-grid, .video-editor-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+        align-items: stretch;
+      }
+      .image-editor-grid img { max-width: 100%; display: block; }
+      .image-editor-canvas, .video-editor-player {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 14px;
+        padding: 8px;
+      }
+      .image-editor-controls, .video-editor-controls {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 14px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .aspect-pill, .filter-chip {
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.06);
+        color: #e5e7eb;
+        padding: 8px 12px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: all 0.2s ease;
+      }
+      .aspect-pill.active, .filter-chip.active { background: linear-gradient(135deg,#7c3aed,#ec4899); color: white; border-color: transparent; }
+      .preset-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
+      .preset-grid button { width:100%; text-align:center; }
+      .video-time-row { display:flex; align-items:center; gap:10px; }
+      .video-time-row small { color:#e5e7eb; opacity:0.9; }
+      .ghost-pill { background: rgba(255,255,255,0.08); color:#e5e7eb; border:1px dashed rgba(255,255,255,0.25); padding:8px 12px; border-radius:10px; font-weight:700; }
+      .control-row { display: flex; align-items: center; gap: 10px; }
+      .control-row label { flex: 1; font-weight: 700; }
+      .control-meta { min-width: 56px; text-align: right; color: #d1d5db; font-size: 0.9rem; }
+      .post-media-stack .external-video-embed { position: relative; padding-bottom: 56.25%; width: 100%; max-width: 780px; margin: 12px auto; border-radius: 14px; overflow: hidden; background: #0f172a; box-shadow: 0 10px 30px rgba(0,0,0,0.18); }
+      .post-media-stack .external-video-embed iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+      .audio-player-wrapper { background: linear-gradient(135deg, rgba(255,79,163,0.08), rgba(118,75,162,0.08)); border: 1px solid rgba(255,79,163,0.25); padding: 10px 12px; border-radius: 14px; margin-top: 12px; position: relative; overflow: hidden; }
+      .audio-player-wrapper .audio-title { display:flex; align-items:center; gap:6px; font-weight:800; color:#111827; }
+      .audio-player-wrapper .audio-track-name { color:#6b7280; font-weight:700; }
+      .audio-player-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+      .audio-player-controls .audio-play { border:none; background:#fff; border-radius:50%; width:44px; height:44px; box-shadow:0 10px 24px rgba(255,79,163,0.18); cursor:pointer; }
+      .audio-player-controls .audio-info { cursor:pointer; border:1px solid rgba(255,79,163,0.35); background:white; border-radius:10px; padding:8px 10px; font-weight:800; color:#9d174d; box-shadow:0 6px 16px rgba(255,79,163,0.15); transition:transform 0.15s ease, box-shadow 0.15s ease; }
+      .audio-player-controls .audio-info:hover { transform: translateY(-1px); box-shadow:0 10px 24px rgba(255,79,163,0.2); }
+      .audio-now-playing { display:flex; align-items:center; gap:8px; margin-top:8px; padding:10px 12px; border:1px dashed rgba(255,79,163,0.35); border-radius:12px; background:rgba(255,79,163,0.06); color:#111827; font-weight:700; }
+      .audio-now-playing .audio-badge { background: linear-gradient(135deg,#f472b6,#ec4899); color:white; padding:4px 10px; border-radius:999px; font-size:0.85rem; box-shadow:0 8px 18px rgba(236,72,153,0.2); }
+      .audio-now-playing__name { color:#6b7280; font-weight:800; }
+      .audio-length { color:#9d174d; font-weight:800; }
+      .audio-info-popover { margin-top:10px; padding:12px; border-radius:12px; background:white; border:1px solid rgba(255,79,163,0.25); box-shadow:0 16px 36px rgba(0,0,0,0.08); display:grid; gap:8px; }
+      .audio-info-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+      .audio-info-label { color:#6b7280; font-weight:700; font-size:0.9rem; }
+      .audio-info-value { color:#111827; font-weight:800; word-break:break-all; }
+      .audio-info-link { color:#ec4899; text-decoration:none; }
+      .audio-info-link:hover { text-decoration:underline; }
+      @media (max-width: 900px) {
+        .image-editor-grid, .video-editor-grid { grid-template-columns: 1fr; }
+      }
     </style>
+
+    <script src="https://unpkg.com/cropperjs/dist/cropper.min.js"></script>
 
     <script>
       // Global functions need to be outside DOMContentLoaded
       let selectedVideoDuration = null;
+      let pendingVideoFile = null;
+      let videoTrimState = { start: 0, end: 0, duration: 0 };
+      let isUserScrubbingVideo = false;
       let pendingAudioFile = null;
       let audioPreviewUrl = null;
       let audioPreviewLoopHandler = null;
       let audioTrimState = { duration: 0, maxDuration: 15, start: 0, file: null };
+      let pendingImageFile = null;
+      let cropperInstance = null;
+      let cropperFlipX = 1;
+      let imageBrightness = 1;
+      let imageContrast = 1;
+      let imageSaturation = 1;
+      let imageZoom = 1;
+      let imageFilterPreset = 'neutral';
       let composerWasOpen = false;
+      const MEDIA_LIMITS = { imageMb: 10, videoMb: 400, audioMb: 25, videoSeconds: 300 };
       const modalStack = [];
       let previewMediaUrl = null;
       let selectedPostTags = [];
@@ -536,7 +763,7 @@
         hideTagSuggestions();
       }
 
-      function suspendPostComposerForAudio() {
+      function suspendPostComposerForChildModal() {
         const modal = document.getElementById('postComposerModal');
         if (modal && modal.classList.contains('is-active')) {
           hideModal(modal, { unlock: false });
@@ -546,7 +773,7 @@
         }
       }
 
-      function resumePostComposerAfterAudio() {
+      function resumePostComposerFromChild() {
         const modal = document.getElementById('postComposerModal');
         if (composerWasOpen && modal) {
           showModal(modal);
@@ -653,6 +880,317 @@
             audioRow.style.display = 'none';
           }
         }
+      }
+
+      function destroyCropper() {
+        if (cropperInstance) {
+          cropperInstance.destroy();
+          cropperInstance = null;
+        }
+      }
+
+      function resetImageEditorUi() {
+        cropperFlipX = 1;
+        imageBrightness = 1;
+        imageContrast = 1;
+        imageSaturation = 1;
+        imageZoom = 1;
+        imageFilterPreset = 'neutral';
+        const brightness = document.getElementById('imageBrightness');
+        const contrast = document.getElementById('imageContrast');
+        const saturation = document.getElementById('imageSaturation');
+        const zoom = document.getElementById('imageZoom');
+        if (brightness) brightness.value = '1';
+        if (contrast) contrast.value = '1';
+        if (saturation) saturation.value = '1';
+        if (zoom) zoom.value = '1';
+        const preview = document.getElementById('imageEditorPreview');
+        if (preview) preview.style.filter = 'none';
+        document.querySelectorAll('.aspect-pill').forEach(btn => btn.classList.toggle('active', btn.dataset.aspect === 'NaN'));
+        document.querySelectorAll('.filter-chip').forEach(btn => btn.classList.toggle('active', btn.dataset.filter === 'neutral'));
+      }
+
+      function openImageEditor(file, dataUrl) {
+        const modal = document.getElementById('imageEditorModal');
+        const preview = document.getElementById('imageEditorPreview');
+        if (!modal || !preview) return;
+        pendingImageFile = file;
+        resetImageEditorUi();
+        suspendPostComposerForChildModal();
+        showModal(modal);
+        preview.onload = () => {
+          destroyCropper();
+          cropperInstance = new Cropper(preview, { viewMode: 1, autoCropArea: 0.95, responsive: true, background: false });
+        };
+        preview.src = dataUrl;
+      }
+
+      function closeImageEditor(resetSelection = true) {
+        const modal = document.getElementById('imageEditorModal');
+        if (resetSelection) {
+          pendingImageFile = null;
+        }
+        destroyCropper();
+        hideModal(modal);
+        resumePostComposerFromChild();
+      }
+
+      function applyImageTransforms() {
+        const preview = document.getElementById('imageEditorPreview');
+        if (preview) {
+          const presetFilters = {
+            neutral: '',
+            warm: 'sepia(0.12) saturate(1.05)',
+            cool: 'hue-rotate(-6deg) saturate(1.05)',
+            mono: 'grayscale(1) contrast(1.05)',
+            punch: 'saturate(1.25) contrast(1.08)',
+            dream: 'saturate(1.1) brightness(1.05) blur(0.3px)'
+          };
+          const baseFilters = [
+            `brightness(${imageBrightness})`,
+            `contrast(${imageContrast})`,
+            `saturate(${imageSaturation})`,
+            presetFilters[imageFilterPreset] || ''
+          ].filter(Boolean);
+          preview.style.filter = baseFilters.join(' ');
+        }
+        if (cropperInstance) {
+          cropperInstance.scaleX(cropperFlipX);
+          cropperInstance.zoomTo(imageZoom);
+        }
+      }
+
+      function saveEditedImage() {
+        if (!cropperInstance || !pendingImageFile) {
+          closeImageEditor(false);
+          return;
+        }
+        const canvas = cropperInstance.getCroppedCanvas({ maxWidth: 2560, maxHeight: 2560 });
+        const filteredCanvas = document.createElement('canvas');
+        filteredCanvas.width = canvas.width;
+        filteredCanvas.height = canvas.height;
+        const ctx = filteredCanvas.getContext('2d');
+        const presetFilters = {
+          neutral: '',
+          warm: 'sepia(0.12) saturate(1.05)',
+          cool: 'hue-rotate(-6deg) saturate(1.05)',
+          mono: 'grayscale(1) contrast(1.05)',
+          punch: 'saturate(1.25) contrast(1.08)',
+          dream: 'saturate(1.1) brightness(1.05) blur(0.3px)'
+        };
+        ctx.filter = [
+          `brightness(${imageBrightness})`,
+          `contrast(${imageContrast})`,
+          `saturate(${imageSaturation})`,
+          presetFilters[imageFilterPreset] || ''
+        ].filter(Boolean).join(' ');
+        ctx.drawImage(canvas, 0, 0);
+        filteredCanvas.toBlob((blob) => {
+          if (!blob) { closeImageEditor(false); return; }
+          const ext = pendingImageFile.name.split('.').pop() || 'png';
+          const newName = pendingImageFile.name.replace(/\.[^.]+$/, '') + '-edited.' + ext;
+          const editedFile = new File([blob], newName, { type: blob.type || 'image/png' });
+          const dt = new DataTransfer();
+          dt.items.add(editedFile);
+          const mediaInput = document.getElementById('mediaInput');
+          if (mediaInput) mediaInput.files = dt.files;
+          renderPreviewMedia(editedFile);
+          updateComposerPreview('image');
+          closeImageEditor(false);
+        }, pendingImageFile.type || 'image/png');
+      }
+
+      function openVideoEditor(file, dataUrl) {
+        const modal = document.getElementById('videoEditorModal');
+        const player = document.getElementById('videoEditorPlayer');
+        const startRange = document.getElementById('videoStartRange');
+        const endRange = document.getElementById('videoEndRange');
+        const hint = document.getElementById('videoTrimHint');
+        const scrubRange = document.getElementById('videoScrubRange');
+        const nowLabel = document.getElementById('videoNowLabel');
+        if (!modal || !player || !startRange || !endRange) return;
+        pendingVideoFile = file;
+        suspendPostComposerForChildModal();
+        showModal(modal);
+        player.src = dataUrl;
+        player.onloadedmetadata = () => {
+          const duration = Math.min(player.duration || 0, MEDIA_LIMITS.videoSeconds);
+          videoTrimState = { start: 0, end: duration, duration: player.duration || duration };
+          startRange.max = duration;
+          endRange.max = duration;
+          startRange.value = 0;
+          endRange.value = duration;
+          if (scrubRange) { scrubRange.max = duration; scrubRange.value = 0; }
+          if (nowLabel) nowLabel.textContent = '0:00';
+          updateVideoTrimLabels();
+          if (hint && player.duration > MEDIA_LIMITS.videoSeconds) {
+            hint.textContent = `Original video is longer than ${MEDIA_LIMITS.videoSeconds / 60} minutes. Please trim before saving.`;
+          }
+          updateVideoPlaybackSettings();
+        };
+        player.ontimeupdate = () => {
+          updateVideoScrubber(player.currentTime || 0);
+        };
+        player.load();
+      }
+
+      function closeVideoEditor(resetSelection = true) {
+        const modal = document.getElementById('videoEditorModal');
+        const player = document.getElementById('videoEditorPlayer');
+        if (player) {
+          player.pause();
+          player.removeAttribute('src');
+          player.load();
+        }
+        if (resetSelection) pendingVideoFile = null;
+        hideModal(modal);
+        resumePostComposerFromChild();
+      }
+
+      function updateVideoTrimLabels() {
+        const startRange = document.getElementById('videoStartRange');
+        const endRange = document.getElementById('videoEndRange');
+        const startLabel = document.getElementById('videoStartLabel');
+        const endLabel = document.getElementById('videoEndLabel');
+        const clipLabel = document.getElementById('videoClipLength');
+        const mediaDurationField = document.getElementById('mediaDuration');
+        const start = parseFloat(startRange?.value || '0');
+        const end = parseFloat(endRange?.value || '0');
+        const maxAllowed = parseFloat(endRange?.max || MEDIA_LIMITS.videoSeconds);
+        const safeEnd = Math.min(Math.max(start + 0.1, end), maxAllowed);
+        videoTrimState = { start, end: safeEnd, duration: safeEnd - start };
+        if (endRange) endRange.value = safeEnd;
+        if (startLabel) startLabel.textContent = formatTime(start);
+        if (endLabel) endLabel.textContent = formatTime(safeEnd);
+        if (clipLabel) clipLabel.textContent = `${formatTime(safeEnd - start)}`;
+        if (mediaDurationField) mediaDurationField.value = (safeEnd - start).toFixed(1);
+        const scrubRange = document.getElementById('videoScrubRange');
+        if (scrubRange) scrubRange.max = safeEnd;
+      }
+
+      function updateVideoScrubber(currentTime = 0) {
+        const scrubRange = document.getElementById('videoScrubRange');
+        const nowLabel = document.getElementById('videoNowLabel');
+        if (scrubRange && !isUserScrubbingVideo) {
+          scrubRange.value = Math.min(currentTime, parseFloat(scrubRange.max || '0')).toFixed(2);
+        }
+        if (nowLabel) nowLabel.textContent = formatTime(currentTime);
+      }
+
+      function updateVideoPlaybackSettings() {
+        const player = document.getElementById('videoEditorPlayer');
+        const speedSelect = document.getElementById('videoSpeedSelect');
+        const muteToggle = document.getElementById('videoMuteToggle');
+        if (!player) return;
+        const rate = parseFloat(speedSelect?.value || '1');
+        player.playbackRate = Number.isFinite(rate) ? rate : 1;
+        if (muteToggle) player.muted = !!muteToggle.checked;
+      }
+
+      function setTrimFromPlayhead(target = 'start') {
+        const player = document.getElementById('videoEditorPlayer');
+        const startRange = document.getElementById('videoStartRange');
+        const endRange = document.getElementById('videoEndRange');
+        if (!player || !startRange || !endRange) return;
+        const current = player.currentTime || 0;
+        if (target === 'start') {
+          startRange.value = Math.min(current, parseFloat(endRange.value || '0') - 0.1);
+        } else {
+          endRange.value = Math.max(current, parseFloat(startRange.value || '0') + 0.1);
+        }
+        updateVideoTrimLabels();
+      }
+
+      function nudgeVideoTrim(delta = 0) {
+        const player = document.getElementById('videoEditorPlayer');
+        const startRange = document.getElementById('videoStartRange');
+        const endRange = document.getElementById('videoEndRange');
+        if (!startRange || !endRange) return;
+        const max = parseFloat(endRange.max || MEDIA_LIMITS.videoSeconds);
+        let start = parseFloat(startRange.value || '0') + delta;
+        let end = parseFloat(endRange.value || '0') + delta;
+        if (start < 0) { end -= start; start = 0; }
+        if (end > max) { start -= (end - max); end = max; }
+        if (end - start < 0.1) end = start + 0.1;
+        startRange.value = Math.max(0, start);
+        endRange.value = Math.min(max, end);
+        updateVideoTrimLabels();
+        if (player) player.currentTime = parseFloat(startRange.value || '0');
+      }
+
+      function snapVideoToMax() {
+        const endRange = document.getElementById('videoEndRange');
+        const startRange = document.getElementById('videoStartRange');
+        if (!startRange || !endRange) return;
+        const max = parseFloat(endRange.max || MEDIA_LIMITS.videoSeconds);
+        startRange.value = '0';
+        endRange.value = max.toString();
+        updateVideoTrimLabels();
+      }
+
+      function recordVideoSegment(player, start, end) {
+        return new Promise((resolve, reject) => {
+          if (!player.captureStream || start >= end) {
+            resolve(null);
+            return;
+          }
+          const stream = player.captureStream();
+          const recorder = new MediaRecorder(stream);
+          const chunks = [];
+          recorder.ondataavailable = (e) => chunks.push(e.data);
+          recorder.onerror = (e) => reject(e.error || e);
+          recorder.onstop = () => {
+            resolve(new Blob(chunks, { type: chunks[0]?.type || 'video/webm' }));
+          };
+          recorder.start();
+          player.currentTime = start;
+          const stopAt = () => {
+            recorder.stop();
+            player.pause();
+          };
+          player.play().then(() => {
+            setTimeout(stopAt, (end - start) * 1000);
+          }).catch((err) => {
+            recorder.stop();
+            reject(err);
+          });
+        });
+      }
+
+      async function saveTrimmedVideo() {
+        if (!pendingVideoFile) {
+          closeVideoEditor(false);
+          return;
+        }
+        const player = document.getElementById('videoEditorPlayer');
+        const mediaInput = document.getElementById('mediaInput');
+        const start = videoTrimState.start;
+        const end = videoTrimState.end;
+        let finalFile = pendingVideoFile;
+        if ((player?.duration || 0) > MEDIA_LIMITS.videoSeconds && !player?.captureStream) {
+          alert(`Your browser cannot trim this clip. Please upload a video under ${MEDIA_LIMITS.videoSeconds / 60} minutes.`);
+          if (mediaInput) mediaInput.value = '';
+          renderPreviewMedia(null);
+          closeVideoEditor();
+          return;
+        }
+        try {
+          const trimmedBlob = await recordVideoSegment(player, start, end);
+          if (trimmedBlob) {
+            finalFile = new File([trimmedBlob], pendingVideoFile.name.replace(/\.[^.]+$/, '') + '-trimmed.webm', { type: trimmedBlob.type });
+          }
+        } catch (err) {
+          console.warn('Video trimming not supported, using original file', err);
+        }
+        const dt = new DataTransfer();
+        dt.items.add(finalFile);
+        if (mediaInput) mediaInput.files = dt.files;
+        renderPreviewMedia(finalFile);
+        selectedVideoDuration = end - start;
+        const mediaDurationField = document.getElementById('mediaDuration');
+        if (mediaDurationField) mediaDurationField.value = (selectedVideoDuration || 0).toFixed(1);
+        updateComposerPreview('video');
+        closeVideoEditor(false);
       }
 
       function formatTime(seconds = 0) {
@@ -851,7 +1389,7 @@
       function openAudioTrimModal() {
         const modal = document.getElementById('audioTrimModal');
         if (!modal) return;
-        suspendPostComposerForAudio();
+          suspendPostComposerForChildModal();
         showModal(modal);
       }
 
@@ -882,7 +1420,7 @@
           clearAudioUpload();
         }
         updateComposerPreview();
-        const postComposerVisible = resumePostComposerAfterAudio();
+        const postComposerVisible = resumePostComposerFromChild();
         if (!postComposerVisible && modalStack.length === 0) {
           unlockBodyScroll();
         }
@@ -895,6 +1433,15 @@
         const postType = document.getElementById('postContentType')?.value || 'text';
         if (!file) {
           if (audioPreview) audioPreview.style.display = 'none';
+          return;
+        }
+
+        const audioSizeMb = file.size / (1024 * 1024);
+        if (audioSizeMb > MEDIA_LIMITS.audioMb) {
+          alert(`Audio too large. Max size is ${MEDIA_LIMITS.audioMb} MB.`);
+          const audioInput = document.getElementById('audioInput');
+          if (audioInput) audioInput.value = '';
+          clearAudioUpload();
           return;
         }
 
@@ -973,9 +1520,12 @@
             const file = e.target.files[0];
             const preview = document.getElementById('mediaPreview');
             preview.innerHTML = '';
-          
-          
+
+
             if (file) {
+              const mediaDurationField = document.getElementById('mediaDuration');
+              if (mediaDurationField) mediaDurationField.value = '0';
+              const sizeMb = file.size / (1024 * 1024);
               const type = document.getElementById('postContentType').value;
               // Enforce: if Reel, disallow static images (allow GIF via image/gif)
               if (type === 'video' && file.type.startsWith('image/') && file.type !== 'image/gif') {
@@ -983,28 +1533,27 @@
                 e.target.value = '';
                 return;
               }
+              if (file.type.startsWith('image/') && sizeMb > MEDIA_LIMITS.imageMb) {
+                alert(`Image too large. Max size is ${MEDIA_LIMITS.imageMb} MB.`);
+                e.target.value = '';
+                return;
+              }
+              if (file.type.startsWith('video/') && sizeMb > MEDIA_LIMITS.videoMb) {
+                alert(`Video too large. Max size is ${MEDIA_LIMITS.videoMb} MB.`);
+                e.target.value = '';
+                return;
+              }
               const reader = new FileReader();
               reader.onload = function(ev) {
-                if (file.type.startsWith('image/')) {
-                  const img = document.createElement('img');
-                  img.src = ev.target.result;
-                  img.style.maxWidth = '100%';
-                  img.style.borderRadius = '8px';
-                  preview.appendChild(img);
-                } else if (file.type.startsWith('video/')) {
-                  const video = document.createElement('video');
-                  video.src = ev.target.result;
-                  video.controls = true;
-                  video.style.maxWidth = '100%';
-                  video.style.borderRadius = '8px';
-                  preview.appendChild(video);
-                  getMediaDuration(file, 'video').then(d => {
-                    selectedVideoDuration = d || null;
-                    if (pendingAudioFile) {
-                      handleAudioSelection(pendingAudioFile, true);
-                    }
-                  }).catch(() => { selectedVideoDuration = null; });
+                if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                  openImageEditor(file, ev.target.result);
+                  return;
                 }
+                if (file.type.startsWith('video/')) {
+                  openVideoEditor(file, ev.target.result);
+                  return;
+                }
+                // GIFs or other images bypass editor for now
                 renderPreviewMedia(file);
                 updateComposerPreview();
               };
@@ -1015,6 +1564,83 @@
             }
           });
         }
+
+        const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+        const rotateRightBtn = document.getElementById('rotateRightBtn');
+        const flipBtn = document.getElementById('flipHorizontalBtn');
+        const resetImageBtn = document.getElementById('resetImageEditBtn');
+        const brightnessInput = document.getElementById('imageBrightness');
+        const contrastInput = document.getElementById('imageContrast');
+        const saturationInput = document.getElementById('imageSaturation');
+        const zoomInput = document.getElementById('imageZoom');
+        const aspectButtons = Array.from(document.querySelectorAll('.aspect-pill'));
+        const filterChips = Array.from(document.querySelectorAll('.filter-chip'));
+        const cancelImageBtn = document.getElementById('cancelImageEditorBtn');
+        const saveImageBtn = document.getElementById('saveImageEditorBtn');
+        const closeImageBtn = document.getElementById('closeImageEditorBtn');
+        if (rotateLeftBtn) rotateLeftBtn.addEventListener('click', () => cropperInstance?.rotate(-90));
+        if (rotateRightBtn) rotateRightBtn.addEventListener('click', () => cropperInstance?.rotate(90));
+        if (flipBtn) flipBtn.addEventListener('click', () => { cropperFlipX = cropperFlipX * -1; applyImageTransforms(); });
+        if (resetImageBtn) resetImageBtn.addEventListener('click', () => { resetImageEditorUi(); destroyCropper(); const preview = document.getElementById('imageEditorPreview'); if (preview && preview.src) { cropperInstance = new Cropper(preview, { viewMode: 1, autoCropArea: 0.95, responsive: true, background: false }); } });
+        if (brightnessInput) brightnessInput.addEventListener('input', (e) => { imageBrightness = parseFloat(e.target.value || '1'); applyImageTransforms(); });
+        if (contrastInput) contrastInput.addEventListener('input', (e) => { imageContrast = parseFloat(e.target.value || '1'); applyImageTransforms(); });
+        if (saturationInput) saturationInput.addEventListener('input', (e) => { imageSaturation = parseFloat(e.target.value || '1'); applyImageTransforms(); });
+        if (zoomInput) zoomInput.addEventListener('input', (e) => { imageZoom = parseFloat(e.target.value || '1'); applyImageTransforms(); });
+        aspectButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            aspectButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const ratio = parseFloat(btn.dataset.aspect);
+            if (cropperInstance) {
+              cropperInstance.setAspectRatio(Number.isNaN(ratio) ? NaN : ratio);
+            }
+          });
+        });
+        filterChips.forEach(chip => {
+          chip.addEventListener('click', () => {
+            filterChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            imageFilterPreset = chip.dataset.filter || 'neutral';
+            applyImageTransforms();
+          });
+        });
+        if (cancelImageBtn) cancelImageBtn.addEventListener('click', () => { const mediaInput = document.getElementById('mediaInput'); if (mediaInput) mediaInput.value = ''; renderPreviewMedia(null); closeImageEditor(); });
+        if (closeImageBtn) closeImageBtn.addEventListener('click', () => { const mediaInput = document.getElementById('mediaInput'); if (mediaInput) mediaInput.value = ''; renderPreviewMedia(null); closeImageEditor(); });
+        if (saveImageBtn) saveImageBtn.addEventListener('click', saveEditedImage);
+
+        const closeVideoBtn = document.getElementById('closeVideoEditorBtn');
+        const cancelVideoBtn = document.getElementById('cancelVideoEditorBtn');
+        const saveVideoBtn = document.getElementById('saveVideoEditorBtn');
+        const videoStartRange = document.getElementById('videoStartRange');
+        const videoEndRange = document.getElementById('videoEndRange');
+        const videoScrubRange = document.getElementById('videoScrubRange');
+        const setStartBtn = document.getElementById('setStartFromPlayhead');
+        const setEndBtn = document.getElementById('setEndFromPlayhead');
+        const snapBtn = document.getElementById('snapToMaxBtn');
+        const videoNudgeButtons = Array.from(document.querySelectorAll('.video-nudge'));
+        const speedSelect = document.getElementById('videoSpeedSelect');
+        const muteToggle = document.getElementById('videoMuteToggle');
+        if (videoStartRange) videoStartRange.addEventListener('input', updateVideoTrimLabels);
+        if (videoEndRange) videoEndRange.addEventListener('input', updateVideoTrimLabels);
+        if (videoScrubRange) {
+          videoScrubRange.addEventListener('pointerdown', () => { isUserScrubbingVideo = true; });
+          videoScrubRange.addEventListener('pointerup', () => { isUserScrubbingVideo = false; });
+          videoScrubRange.addEventListener('input', (e) => {
+            const player = document.getElementById('videoEditorPlayer');
+            const targetTime = parseFloat(e.target.value || '0');
+            if (player) player.currentTime = targetTime;
+            updateVideoScrubber(targetTime);
+          });
+        }
+        if (setStartBtn) setStartBtn.addEventListener('click', () => setTrimFromPlayhead('start'));
+        if (setEndBtn) setEndBtn.addEventListener('click', () => setTrimFromPlayhead('end'));
+        if (snapBtn) snapBtn.addEventListener('click', snapVideoToMax);
+        videoNudgeButtons.forEach(btn => btn.addEventListener('click', () => nudgeVideoTrim(parseFloat(btn.dataset.nudge || '0'))));
+        if (speedSelect) speedSelect.addEventListener('change', updateVideoPlaybackSettings);
+        if (muteToggle) muteToggle.addEventListener('change', updateVideoPlaybackSettings);
+        if (closeVideoBtn) closeVideoBtn.addEventListener('click', () => { const mediaInput = document.getElementById('mediaInput'); if (mediaInput) mediaInput.value = ''; renderPreviewMedia(null); closeVideoEditor(); });
+        if (cancelVideoBtn) cancelVideoBtn.addEventListener('click', () => { const mediaInput = document.getElementById('mediaInput'); if (mediaInput) mediaInput.value = ''; renderPreviewMedia(null); closeVideoEditor(); });
+        if (saveVideoBtn) saveVideoBtn.addEventListener('click', saveTrimmedVideo);
 
         // Audio preview handler
         const audioInput = document.getElementById('audioInput');

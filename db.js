@@ -605,11 +605,28 @@ db.exec(`CREATE TABLE IF NOT EXISTS posts (
   text_content TEXT,
   media_url TEXT,
   audio_url TEXT,
+  image_url TEXT,
+  video_url TEXT,
+  external_video_url TEXT,
   is_reel INTEGER DEFAULT 0,
   activity_label TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );`);
+
+// Backfill legacy databases with new media columns without breaking existing data
+const postColumnAdds = [
+  'ALTER TABLE posts ADD COLUMN image_url TEXT',
+  'ALTER TABLE posts ADD COLUMN video_url TEXT',
+  'ALTER TABLE posts ADD COLUMN external_video_url TEXT'
+];
+postColumnAdds.forEach(sql => {
+  try {
+    db.prepare(sql).run();
+  } catch (err) {
+    // Ignore failures for already-added columns to keep startup idempotent
+  }
+});
 
 // Hashtags and tags
 db.exec(`CREATE TABLE IF NOT EXISTS hashtags (
@@ -1466,8 +1483,8 @@ module.exports = {
     return db.prepare(`SELECT COUNT(*) as c FROM audit_logs`).get().c;
   },
   // Posts
-  createPost: ({ userId, title, contentType, textContent, mediaUrl, audioUrl, activityLabel, isReel }) => {
-    const stmt = db.prepare(`INSERT INTO posts (user_id, title, content_type, text_content, media_url, audio_url, activity_label, is_reel) VALUES (?,?,?,?,?,?,?,?)`);
+  createPost: ({ userId, title, contentType, textContent, mediaUrl, audioUrl, activityLabel, isReel, imageUrl, videoUrl, externalVideoUrl }) => {
+    const stmt = db.prepare(`INSERT INTO posts (user_id, title, content_type, text_content, media_url, audio_url, image_url, video_url, external_video_url, activity_label, is_reel) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
     const info = stmt.run(
       userId,
       title || null,
@@ -1475,6 +1492,9 @@ module.exports = {
       textContent || null,
       mediaUrl || null,
       audioUrl || null,
+      imageUrl || null,
+      videoUrl || null,
+      externalVideoUrl || null,
       activityLabel || null,
       isReel ? 1 : 0
     );

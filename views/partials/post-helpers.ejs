@@ -167,6 +167,179 @@
   window.DXPostHelpers = { updateReactions, loadComments, renderCommentItem, appendCommentToDOM, attachCommentHandlers, sendComment, escapeHtml, ensureSocketSetup };
 })();
 
+// Lightweight audio controller to ensure only one post track plays at a time
+(function(){
+  let activeAudio = null;
+  let activePostId = null;
+  let observer = null;
+  let openInfoPanel = null;
+  const visibilityMap = new Map();
+
+  const formatTime = (seconds = 0) => {
+    if (!Number.isFinite(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2,'0')}`;
+  };
+
+  function stopActiveAudio(){
+    if (activeAudio){
+      activeAudio.pause();
+      activeAudio.currentTime = 0;
+    }
+    activeAudio = null;
+    if (activePostId){
+      const card = document.querySelector(`article.post-card[data-post-id="${activePostId}"]`);
+      const btn = card?.querySelector('.audio-play');
+      if (btn) btn.textContent = '▶️';
+      const now = card?.querySelector('.audio-now-playing');
+      if (now) now.style.display = 'none';
+      const infoBtn = card?.querySelector('.audio-info');
+      const infoPanel = card?.querySelector('.audio-info-popover');
+      if (infoBtn) infoBtn.setAttribute('aria-expanded','false');
+      if (infoPanel) { infoPanel.hidden = true; if (openInfoPanel === infoPanel) openInfoPanel = null; }
+    }
+    activePostId = null;
+  }
+
+  function attachControls(card){
+    const wrapper = card.querySelector('.audio-player-wrapper');
+    if (!wrapper) return;
+    const src = wrapper.getAttribute('data-post-audio');
+    const trackName = wrapper.getAttribute('data-track-name');
+    if (!src) return;
+    const button = wrapper.querySelector('.audio-play');
+    const volume = wrapper.querySelector('.audio-volume');
+    const time = wrapper.querySelector('.audio-time');
+    const info = wrapper.querySelector('.audio-info');
+    const infoPanel = wrapper.querySelector('.audio-info-popover');
+    const infoDuration = wrapper.querySelector('.audio-info-duration');
+    const nowPlaying = wrapper.querySelector('.audio-now-playing');
+    const nowPlayingName = wrapper.querySelector('.audio-now-playing__name');
+    const nowPlayingLength = wrapper.querySelector('.audio-length');
+
+    const toggleNowPlaying = (isActive) => {
+      if (!nowPlaying) return;
+      nowPlaying.style.display = isActive ? 'flex' : 'none';
+      if (nowPlayingName) nowPlayingName.textContent = trackName || src.split('/').pop();
+      if (activeAudio && nowPlayingLength && Number.isFinite(activeAudio.duration)) {
+        nowPlayingLength.textContent = formatTime(activeAudio.duration);
+      }
+    };
+
+    const ensureAudio = () => {
+      if (!activeAudio || activeAudio.dataset?.src !== src){
+        stopActiveAudio();
+        activeAudio = new Audio(src);
+        activeAudio.loop = true;
+        activeAudio.dataset.src = src;
+        if (volume) activeAudio.volume = Number(volume.value || 30)/100;
+        activeAudio.addEventListener('timeupdate', () => {
+          if (!time) return;
+          time.textContent = formatTime(activeAudio.currentTime);
+        });
+        activeAudio.addEventListener('loadedmetadata', () => {
+          if (infoDuration) infoDuration.textContent = formatTime(activeAudio.duration);
+          if (nowPlayingLength) nowPlayingLength.textContent = formatTime(activeAudio.duration);
+        });
+      }
+      return activeAudio;
+    };
+
+    button?.addEventListener('click', () => {
+      const audio = ensureAudio();
+      if (!audio) return;
+      if (activePostId && activePostId !== card.dataset.postId) {
+        stopActiveAudio();
+      }
+      if (activePostId !== card.dataset.postId){
+        activePostId = card.dataset.postId;
+      }
+      if (audio.paused){
+        audio.play().then(() => { button.textContent = '⏸️'; toggleNowPlaying(true); }).catch(()=>{});
+      } else {
+        audio.pause();
+        button.textContent = '▶️';
+        toggleNowPlaying(false);
+      }
+    });
+
+    volume?.addEventListener('input', () => {
+      if (!activeAudio) return;
+      activeAudio.volume = Number(volume.value || 30)/100;
+    });
+
+    info?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const audio = ensureAudio();
+      if (audio && audio.readyState === 0) { try { audio.load(); } catch(_){} }
+      if (!infoPanel) return;
+      if (openInfoPanel && openInfoPanel !== infoPanel){
+        openInfoPanel.hidden = true;
+        openInfoPanel.trigger?.setAttribute('aria-expanded','false');
+      }
+      infoPanel.hidden = !infoPanel.hidden;
+      info.setAttribute('aria-expanded', String(!infoPanel.hidden));
+      infoPanel.trigger = info;
+      if (!infoPanel.hidden) {
+        openInfoPanel = infoPanel;
+        if (infoDuration && activeAudio?.duration) infoDuration.textContent = formatTime(activeAudio.duration);
+      } else {
+        if (openInfoPanel === infoPanel) openInfoPanel = null;
+      }
+    });
+  }
+
+  function setupObserver(){
+    if (observer) observer.disconnect();
+    visibilityMap.clear();
+    const evaluateActive = () => {
+      let bestId = null;
+      let bestRatio = 0;
+      visibilityMap.forEach((ratio, id) => {
+        if (ratio > bestRatio) { bestRatio = ratio; bestId = id; }
+      });
+      if (!bestId || bestRatio < 0.35) { stopActiveAudio(); return; }
+      if (bestId !== activePostId) {
+        const bestCard = document.querySelector(`article.post-card[data-post-id="${bestId}"]`);
+        if (!bestCard) return;
+        stopActiveAudio();
+        const btn = bestCard.querySelector('.audio-play');
+        if (btn) btn.click();
+      }
+    };
+
+    observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const card = entry.target.closest('article.post-card');
+        if (!card) return;
+        visibilityMap.set(card.dataset.postId, entry.isIntersecting ? entry.intersectionRatio : 0);
+      });
+      evaluateActive();
+    }, { threshold:[0.35,0.5,0.65,0.8] });
+
+    document.querySelectorAll('article.post-card .audio-player-wrapper').forEach(w => {
+      const card = w.closest('article.post-card');
+      if (card) observer.observe(card);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('article.post-card').forEach(attachControls);
+    setupObserver();
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden){ stopActiveAudio(); }
+    });
+    document.addEventListener('click', (e) => {
+      if (openInfoPanel && !openInfoPanel.contains(e.target) && !openInfoPanel.trigger?.contains(e.target)) {
+        openInfoPanel.hidden = true;
+        openInfoPanel.trigger?.setAttribute('aria-expanded','false');
+        openInfoPanel = null;
+      }
+    });
+  });
+})();
+
 // Comment admin actions (global functions)
 function toggleCommentActions(commentId) {
   const menu = document.getElementById('comment-actions-' + commentId);
