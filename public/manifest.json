@@ -2,6 +2,7 @@
   "name": "Dream X - The Social Network for Productive People",
   "short_name": "Dream X",
   "description": "Connect, collaborate, and grow with the social network designed for productive professionals",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
