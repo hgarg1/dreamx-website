@@ -8,8 +8,11 @@ const crypto = require('crypto');
 require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
+const ffmpeg = require('fluent-ffmpeg');
+const ffprobeStatic = require('ffprobe-static');
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const https = require('https');
@@ -102,6 +105,40 @@ try {
 } catch (e) {
     // Node 18+ has global fetch; fallback
     fetch = global.fetch;
+}
+
+// Centralized media configuration for feed posts
+const MEDIA_LIMITS = {
+    MAX_IMAGE_SIZE_MB: 10,
+    MAX_VIDEO_SIZE_MB: 400,
+    MAX_AUDIO_SIZE_MB: 25,
+    MAX_VIDEO_DURATION_SECONDS: 300
+};
+
+if (ffprobeStatic?.path) {
+    try {
+        ffmpeg.setFfprobePath(ffprobeStatic.path);
+    } catch (err) {
+        console.warn('Could not set ffprobe path', err.message);
+    }
+}
+
+function getVideoDurationSeconds(filePath) {
+    return new Promise((resolve, reject) => {
+        if (!filePath) return resolve(0);
+        ffmpeg.ffprobe(filePath, (err, metadata) => {
+            if (err) return reject(err);
+            const duration = metadata?.format?.duration;
+            resolve(Number.isFinite(duration) ? Number(duration) : 0);
+        });
+    });
+}
+
+function deleteUploadFile(file) {
+    if (!file) return;
+    const target = file.path || path.join(file.destination || '', file.filename || '');
+    if (!target) return;
+    fs.unlink(target, () => {});
 }
 
 // Optional: configure Web Push if VAPID keys are provided
@@ -297,7 +334,7 @@ const postStorage = multer.diskStorage({
 });
 const postUpload = multer({
     storage: postStorage,
-    limits: { fileSize: 50 * 1024 * 1024 },
+    limits: { fileSize: MEDIA_LIMITS.MAX_VIDEO_SIZE_MB * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
         if (m.startsWith('image/') || m.startsWith('video/') || m.startsWith('audio/')) return cb(null, true);
@@ -2905,6 +2942,9 @@ app.get('/feed', (req, res) => {
             p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
             // Ensure reactions object exists even if empty
             p.reactions = p.reactions || {};
+            // Prefer explicit media fields while maintaining legacy support
+            if (!p.media_url && p.image_url) p.media_url = p.image_url;
+            if (!p.media_url && p.video_url) p.media_url = p.video_url;
             // Normalize media_url to new uploads structure for legacy rows
             if (p.media_url) {
                 let m = String(p.media_url);
@@ -3176,46 +3216,116 @@ app.get('/search', (req, res) => {
 });
 
 // Create post
-app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name: 'audio', maxCount: 1 }]), (req, res) => {
+app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name: 'audio', maxCount: 1 }]), async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    const { contentType, textContent, activityLabel } = req.body;
-    const title = (req.body.title || '').trim();
-    const postTagsInput = req.body.postTags;
-    const mediaUrl = req.files && req.files['media'] ? `/uploads/posts/${req.files['media'][0].filename}` : null;
-    const audioUrl = req.files && req.files['audio'] ? `/uploads/posts/${req.files['audio'][0].filename}` : null;
-    // Server-side validation: no images in reels (allow GIF), enforce media type
-    const mime = (req.files && req.files['media'] && req.files['media'][0].mimetype ? req.files['media'][0].mimetype.toLowerCase() : null);
-    if (contentType === 'video') {
-        if (!mime || !(mime.startsWith('video/') || mime === 'image/gif')) {
-            return res.status(400).send('Reels require a video or GIF.');
+    try {
+        const { contentType, textContent, activityLabel, externalVideoUrl } = req.body;
+        const title = (req.body.title || '').trim();
+        const postTagsInput = req.body.postTags;
+        const mediaFile = req.files && req.files['media'] ? req.files['media'][0] : null;
+        const audioFile = req.files && req.files['audio'] ? req.files['audio'][0] : null;
+        const mediaUrl = mediaFile ? `/uploads/posts/${mediaFile.filename}` : null;
+        const audioUrl = audioFile ? `/uploads/posts/${audioFile.filename}` : null;
+        const externalVideo = (externalVideoUrl || '').trim();
+        let parsedDuration = Number(req.body.mediaDuration || 0);
+        const mediaSizeMb = mediaFile ? mediaFile.size / (1024 * 1024) : 0;
+        const audioSizeMb = audioFile ? audioFile.size / (1024 * 1024) : 0;
+        const cleanUpInvalidUploads = () => {
+            deleteUploadFile(mediaFile);
+            deleteUploadFile(audioFile);
+        };
+
+        if (audioFile && audioSizeMb > MEDIA_LIMITS.MAX_AUDIO_SIZE_MB) {
+            cleanUpInvalidUploads();
+            return res.status(400).send(`Audio too large. Max size is ${MEDIA_LIMITS.MAX_AUDIO_SIZE_MB} MB.`);
         }
-    }
-    if (contentType === 'image') {
-        if (!mime || !mime.startsWith('image/')) {
-            return res.status(400).send('Image posts require an image file.');
+        if (mediaFile) {
+            const mime = (mediaFile.mimetype || '').toLowerCase();
+            if (mime.startsWith('image/') && mediaSizeMb > MEDIA_LIMITS.MAX_IMAGE_SIZE_MB) {
+                cleanUpInvalidUploads();
+                return res.status(400).send(`Image too large. Max size is ${MEDIA_LIMITS.MAX_IMAGE_SIZE_MB} MB.`);
+            }
+            if (mime.startsWith('video/') && mediaSizeMb > MEDIA_LIMITS.MAX_VIDEO_SIZE_MB) {
+                cleanUpInvalidUploads();
+                return res.status(400).send(`Video too large. Max size is ${MEDIA_LIMITS.MAX_VIDEO_SIZE_MB} MB.`);
+            }
+            if (mime.startsWith('video/')) {
+                try {
+                    const probedDuration = await getVideoDurationSeconds(mediaFile.path || (mediaFile.destination && mediaFile.filename ? path.join(mediaFile.destination, mediaFile.filename) : null));
+                    if (Number.isFinite(probedDuration) && probedDuration > 0) parsedDuration = probedDuration;
+                } catch (err) {
+                    console.warn('Failed to probe video duration, using client duration if provided.', err.message);
+                }
+                if (parsedDuration > MEDIA_LIMITS.MAX_VIDEO_DURATION_SECONDS) {
+                    cleanUpInvalidUploads();
+                    return res.status(400).send(`Video too long. Max length is ${MEDIA_LIMITS.MAX_VIDEO_DURATION_SECONDS / 60} minutes.`);
+                }
+            }
         }
+        // Server-side validation: no images in reels (allow GIF), enforce media type
+        const mime = mediaFile && mediaFile.mimetype ? mediaFile.mimetype.toLowerCase() : null;
+        if (contentType === 'video') {
+            if (!mime || !(mime.startsWith('video/') || mime === 'image/gif')) {
+                cleanUpInvalidUploads();
+                return res.status(400).send('Reels require a video or GIF.');
+            }
+        }
+        if (contentType === 'image') {
+            if (!mime || !mime.startsWith('image/')) {
+                cleanUpInvalidUploads();
+                return res.status(400).send('Image posts require an image file.');
+            }
+        }
+        // Treat 'video' button as Reel; images stay images; text stays text
+        const isReel = contentType === 'video' ? 1 : 0;
+        let imageUrl = null;
+        let videoUrl = null;
+        let externalVideoClean = null;
+
+        if (mediaUrl) {
+            if (contentType === 'image') imageUrl = mediaUrl; else videoUrl = mediaUrl;
+        }
+        if (externalVideo) {
+            if (videoUrl) {
+                cleanUpInvalidUploads();
+                return res.status(400).send('Please choose either a local video or an external video link, not both.');
+            }
+            const ytMatch = externalVideo.match(/(?:v=|youtu\.be\/)([\w-]{6,})/i);
+            const vimeoMatch = externalVideo.match(/vimeo\.com\/(\d+)/i);
+            if (ytMatch) {
+                externalVideoClean = `https://www.youtube.com/embed/${ytMatch[1]}`;
+            } else if (vimeoMatch) {
+                externalVideoClean = `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+            } else {
+                externalVideoClean = externalVideo;
+            }
+        }
+        const hashtags = extractHashtags(textContent || '');
+        const parsedTags = parseTagInput(postTagsInput);
+        const postId = createPost({
+            userId: req.session.userId,
+            title,
+            contentType: contentType || 'text',
+            textContent,
+            mediaUrl,
+            audioUrl,
+            activityLabel,
+            isReel,
+            imageUrl,
+            videoUrl,
+            externalVideoUrl: externalVideoClean
+        });
+        if (hashtags.length) {
+            attachHashtagsToPost({ postId, hashtags });
+        }
+        if (parsedTags.length) {
+            attachTagsToPost({ postId, tags: parsedTags });
+        }
+        res.redirect('/feed');
+    } catch (error) {
+        console.error('Failed to create post with media', error);
+        res.status(500).send('Unable to create post right now. Please try again.');
     }
-    // Treat 'video' button as Reel; images stay images; text stays text
-    const isReel = contentType === 'video' ? 1 : 0;
-    const hashtags = extractHashtags(textContent || '');
-    const parsedTags = parseTagInput(postTagsInput);
-    const postId = createPost({
-        userId: req.session.userId,
-        title,
-        contentType: contentType || 'text',
-        textContent,
-        mediaUrl,
-        audioUrl,
-        activityLabel,
-        isReel
-    });
-    if (hashtags.length) {
-        attachHashtagsToPost({ postId, hashtags });
-    }
-    if (parsedTags.length) {
-        attachTagsToPost({ postId, tags: parsedTags });
-    }
-    res.redirect('/feed');
 });
 
 app.get('/api/hashtags/popular', (req, res) => {

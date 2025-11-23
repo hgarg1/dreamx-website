@@ -93,45 +93,64 @@
     <% if (post.text_content) { %>
       <p class="post-text"><%= post.text_content %></p>
     <% } %>
-    <% if (post.media_url) { 
-         let mediaUrl = String(post.media_url);
-         if (!mediaUrl.startsWith('/')) mediaUrl = '/' + mediaUrl;
-         // Normalize to /uploads/posts/ if not already under /uploads
-         if (!mediaUrl.startsWith('/uploads/')) {
-           mediaUrl = '/uploads/posts/' + mediaUrl.replace(/^\/+/, '');
-         }
-         const isImage = /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(mediaUrl) || post.content_type === 'image';
-         const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(mediaUrl) || post.content_type === 'video';
-    %>
-      <% if (post.is_reel && isVideo) { %>
-        <div style="position:relative;margin-top:1rem;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 8px 24px rgba(0,0,0,0.15);">
-          <video src="<%= mediaUrl %>" controls playsinline style="width:100%;max-height:640px;display:block;"></video>
-          <div style="position:absolute;top:12px;left:12px;background:linear-gradient(135deg,rgba(255,79,163,0.95),rgba(230,62,143,0.95));color:#fff;padding:6px 14px;border-radius:50px;font-size:0.75rem;font-weight:700;box-shadow:0 4px 12px rgba(255,79,163,0.4);backdrop-filter:blur(10px);">🎬 Reel</div>
-        </div>
-      <% } else if (isImage) { %>
-        <img src="<%= mediaUrl %>" alt="Post image" class="post-image" loading="lazy" onerror="console.error('Failed to load image:', this.src); this.style.border='3px solid red'; this.style.minHeight='200px'; this.alt='Image failed to load: ' + this.src;">
-      <% } else if (isVideo) { %>
-        <video src="<%= mediaUrl %>" controls class="post-video" loading="lazy"></video>
-      <% } else { %>
-        <div style="margin-top:1rem;padding:2rem;border:2px dashed #e5e7eb;border-radius:16px;text-align:center;font-size:.85rem;color:#6b7280;">Unsupported media format</div>
-      <% } %>
-    <% } %>
-    <% if (post.audio_url) { %>
-      <div class="audio-player-wrapper" style="margin-top:12px;background:linear-gradient(135deg, rgba(255,79,163,0.08) 0%, rgba(118,75,162,0.08) 100%);border-radius:12px;padding:16px;border:1px solid rgba(255,79,163,0.2);">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <button class="audio-play-btn" data-audio-src="<%= post.audio_url %>" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg, #ff4fa3, #e63e8f);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.2rem;transition:all 0.3s ease;box-shadow:0 4px 12px rgba(255,79,163,0.3);" onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 16px rgba(255,79,163,0.4)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 12px rgba(255,79,163,0.3)'">▶️</button>
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-              <span style="font-weight:700;color:#374151;font-size:0.9rem;">🎵 Background Audio</span>
-              <span class="audio-time" style="font-size:0.8rem;color:#6b7280;font-weight:600;">0:00</span>
+    <% const mediaUrl = post.image_url || post.video_url || post.media_url; %>
+    <% if (mediaUrl || post.external_video_url) { %>
+      <div class="post-media-stack">
+        <% if (mediaUrl) {
+             let normalized = String(mediaUrl);
+             if (!normalized.startsWith('/')) normalized = '/' + normalized;
+             if (!normalized.startsWith('/uploads/')) normalized = '/uploads/posts/' + normalized.replace(/^\/+/, '');
+             const isImage = /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(normalized) || post.content_type === 'image';
+             const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(normalized) || post.content_type === 'video';
+        %>
+          <% if (post.is_reel && isVideo) { %>
+            <div class="post-media-shell reel">
+              <video src="<%= normalized %>" controls playsinline style="width:100%;max-height:640px;display:block;"></video>
+              <div class="post-media-badge">🎬 Reel</div>
             </div>
-            <div style="background:rgba(0,0,0,0.1);height:4px;border-radius:2px;overflow:hidden;cursor:pointer;" class="audio-progress-bar">
-              <div class="audio-progress" style="background:linear-gradient(135deg, #ff4fa3, #e63e8f);height:100%;width:0%;transition:width 0.1s linear;"></div>
-            </div>
+          <% } else if (isImage) { %>
+            <img src="<%= normalized %>" alt="Post image" class="post-image" loading="lazy">
+          <% } else if (isVideo) { %>
+            <video src="<%= normalized %>" controls class="post-video" loading="lazy"></video>
+          <% } else { %>
+            <div class="post-media-unsupported">Unsupported media format</div>
+          <% } %>
+        <% } %>
+        <% if (!mediaUrl && post.external_video_url) { %>
+          <div class="external-video-embed">
+            <iframe src="<%= post.external_video_url %>" title="Embedded video" frameborder="0" allowfullscreen loading="lazy"></iframe>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:0.75rem;color:#6b7280;">🔊</span>
-            <input type="range" class="audio-volume" min="0" max="100" value="30" style="width:80px;accent-color:#ff4fa3;cursor:pointer;">
+        <% } %>
+      </div>
+    <% } %>
+    <% if (post.audio_url) { const audioLabel = (post.audio_url || '').split('/').pop(); %>
+      <div class="audio-player-wrapper" data-post-audio="<%= post.audio_url %>" data-track-name="<%= audioLabel %>">
+        <div class="audio-player-controls">
+          <button class="audio-play" type="button" aria-label="Toggle audio">▶️</button>
+          <div class="audio-meta">
+            <div class="audio-title">🎵 Background Audio <small class="audio-track-name"><%= audioLabel %></small></div>
+            <div class="audio-time">0:00</div>
+          </div>
+          <input type="range" class="audio-volume" min="0" max="100" value="30" aria-label="Audio volume">
+          <button class="audio-info" type="button" aria-expanded="false" aria-controls="audioInfo-<%= post.id %>" title="Track details">ℹ️</button>
+        </div>
+        <div class="audio-now-playing" role="status" aria-live="polite" style="display:none;">
+          <span class="audio-badge">Now playing</span>
+          <span class="audio-now-playing__name"><%= audioLabel %></span>
+          <span class="audio-length" aria-label="Audio length"></span>
+        </div>
+        <div class="audio-info-popover" id="audioInfo-<%= post.id %>" hidden>
+          <div class="audio-info-row">
+            <span class="audio-info-label">Track</span>
+            <span class="audio-info-value audio-info-name"><%= audioLabel %></span>
+          </div>
+          <div class="audio-info-row">
+            <span class="audio-info-label">Length</span>
+            <span class="audio-info-value audio-info-duration">Loading…</span>
+          </div>
+          <div class="audio-info-row">
+            <span class="audio-info-label">Source</span>
+            <a class="audio-info-value audio-info-link" href="<%= post.audio_url %>" target="_blank" rel="noopener">Open track</a>
           </div>
         </div>
       </div>
@@ -281,152 +300,6 @@
       // Initialize label on load
       setToggleLabel(false);
       
-      // Audio player functionality with automatic play/pause based on visibility
-      const audioWrapper = article.querySelector('.audio-player-wrapper');
-      if (audioWrapper) {
-        const playBtn = audioWrapper.querySelector('.audio-play-btn');
-        const progressBar = audioWrapper.querySelector('.audio-progress-bar');
-        const progress = audioWrapper.querySelector('.audio-progress');
-        const volumeSlider = audioWrapper.querySelector('.audio-volume');
-        const timeDisplay = audioWrapper.querySelector('.audio-time');
-        const audioSrc = playBtn.getAttribute('data-audio-src');
-        
-        let audio = null;
-        let userWantsToPlay = false; // Track user's intent
-        let isCurrentlyPlaying = false;
-        
-        // Initialize audio element
-        function initAudio() {
-          if (!audio) {
-            audio = new Audio(audioSrc);
-            audio.loop = true;
-            audio.volume = 0.3; // 30% default volume
-            
-            // Update progress bar and time
-            audio.addEventListener('timeupdate', () => {
-              if (audio.duration) {
-                const percent = (audio.currentTime / audio.duration) * 100;
-                progress.style.width = percent + '%';
-                const mins = Math.floor(audio.currentTime / 60);
-                const secs = Math.floor(audio.currentTime % 60);
-                timeDisplay.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-              }
-            });
-            
-            // Update playing state when audio actually plays/pauses
-            audio.addEventListener('play', () => {
-              isCurrentlyPlaying = true;
-              playBtn.innerHTML = '⏸️';
-            });
-            
-            audio.addEventListener('pause', () => {
-              isCurrentlyPlaying = false;
-              playBtn.innerHTML = '▶️';
-            });
-          }
-        }
-        
-        // Play/Pause toggle
-        playBtn.addEventListener('click', () => {
-          initAudio();
-          
-          if (isCurrentlyPlaying) {
-            userWantsToPlay = false;
-            audio.pause();
-          } else {
-            userWantsToPlay = true;
-            audio.play().catch(err => {
-              console.log('Audio play failed:', err);
-              userWantsToPlay = false;
-            });
-          }
-        });
-        
-        // Volume control
-        volumeSlider.addEventListener('input', (e) => {
-          if (audio) {
-            audio.volume = e.target.value / 100;
-          }
-        });
-        
-        // Progress bar click to seek
-        progressBar.addEventListener('click', (e) => {
-          if (audio && audio.duration) {
-            const rect = progressBar.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const percent = x / rect.width;
-            audio.currentTime = percent * audio.duration;
-          }
-        });
-        
-        // Intersection Observer to auto-play/pause based on visibility
-        // Only play if user wants to play AND post is significantly visible
-        const observerOptions = {
-          root: null, // viewport
-          rootMargin: '0px',
-          threshold: 0.5 // 50% of the post must be visible
-        };
-        
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (!audio) return;
-            
-            // Check if page/tab is visible
-            const isPageVisible = !document.hidden;
-            
-            if (entry.isIntersecting && isPageVisible && userWantsToPlay) {
-              // Post is visible, page is active, user wants audio: play
-              audio.play().catch(err => console.log('Auto-play failed:', err));
-            } else {
-              // Post not visible, page hidden, or user paused: pause
-              if (isCurrentlyPlaying) {
-                audio.pause();
-              }
-            }
-          });
-        }, observerOptions);
-        
-        // Start observing this post
-        observer.observe(article);
-        
-        // Handle page visibility changes (tab switching, window minimizing)
-        const handleVisibilityChange = () => {
-          if (!audio) return;
-          
-          if (document.hidden) {
-            // Page is hidden, pause audio
-            if (isCurrentlyPlaying) {
-              audio.pause();
-            }
-          } else {
-            // Page is visible again, check if post is in view
-            const rect = article.getBoundingClientRect();
-            const isInView = (
-              rect.top >= 0 &&
-              rect.left >= 0 &&
-              rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-              rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-            );
-            
-            // Only resume if user wants to play AND post is visible
-            if (isInView && userWantsToPlay && !isCurrentlyPlaying) {
-              audio.play().catch(err => console.log('Resume play failed:', err));
-            }
-          }
-        };
-        
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        
-        // Clean up on page unload
-        window.addEventListener('beforeunload', () => {
-          if (audio) {
-            audio.pause();
-            audio.src = '';
-          }
-          observer.disconnect();
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-        });
-      }
     })();
   </script>
 </article>
