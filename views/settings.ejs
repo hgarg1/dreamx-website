@@ -3,6 +3,37 @@
 <section class="settings-wrapper">
   <h1 class="settings-title">Settings</h1>
 
+  <!-- Settings Response Modal -->
+  <div id="settingsResponseModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsResponseTitle" aria-describedby="settingsResponseMessage" style="display:none;">
+    <div class="settings-modal-backdrop"></div>
+    <div class="settings-modal-content">
+      <div class="settings-modal-header">
+        <div id="settingsResponseBadge" class="settings-modal-badge">✓</div>
+        <div>
+          <p id="settingsResponseTitle" class="settings-modal-title">Updated</p>
+          <p id="settingsResponseMessage" class="settings-modal-message"></p>
+        </div>
+      </div>
+      <div class="settings-modal-actions">
+        <button type="button" id="settingsModalClose" class="settings-btn primary" style="width:100%;">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .settings-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:1100; }
+    .settings-modal[style*="display:flex"], .settings-modal[style*="display: flex"] { display:flex !important; }
+    .settings-modal-backdrop { position:absolute; inset:0; background:rgba(17,24,39,0.55); }
+    .settings-modal-content { position:relative; z-index:1; background:white; border-radius:16px; padding:24px; width:90%; max-width:480px; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
+    .settings-modal-header { display:flex; gap:12px; align-items:flex-start; }
+    .settings-modal-badge { width:44px; height:44px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem; color:white; background:linear-gradient(135deg,#10b981,#059669); box-shadow:0 10px 30px rgba(16,185,129,0.25); }
+    .settings-modal-title { margin:0 0 4px; font-size:1.2rem; font-weight:800; color:#111827; }
+    .settings-modal-message { margin:0; color:#374151; line-height:1.6; }
+    .settings-modal-actions { margin-top:18px; }
+    .settings-modal.is-error .settings-modal-badge { background:linear-gradient(135deg,#ef4444,#dc2626); box-shadow:0 10px 30px rgba(239,68,68,0.2); }
+    .settings-modal.is-error .settings-modal-title { color:#b91c1c; }
+  </style>
+
   <!-- Toast Notification (replaces bulky inline success/error banners) -->
   <!-- Toasts now provided globally via footer include -->
   
@@ -854,6 +885,74 @@
     #deleteAccountModal { display: none; }
     #deleteAccountModal[style*="display:flex"], #deleteAccountModal[style*="display: flex"] { display: flex !important; }
   </style>
+
+  <script>
+    (function() {
+      // Prefer modal responses on the settings page to highlight server feedback
+      window.__skipFlashToast = true;
+
+      const modal = document.getElementById('settingsResponseModal');
+      if (!modal) return;
+
+      const badge = document.getElementById('settingsResponseBadge');
+      const titleEl = document.getElementById('settingsResponseTitle');
+      const messageEl = document.getElementById('settingsResponseMessage');
+      const closeBtn = document.getElementById('settingsModalClose');
+
+      const setType = (type) => {
+        modal.classList.remove('is-error', 'is-success');
+        if (type === 'error') {
+          modal.classList.add('is-error');
+          badge.textContent = '!';
+          titleEl.textContent = 'Something went wrong';
+        } else {
+          modal.classList.add('is-success');
+          badge.textContent = '✓';
+          titleEl.textContent = 'Changes saved';
+        }
+      };
+
+      const hideModal = () => { modal.style.display = 'none'; };
+      const showModal = (type, message) => {
+        setType(type);
+        messageEl.textContent = message || '';
+        modal.style.display = 'flex';
+      };
+
+      closeBtn?.addEventListener('click', hideModal);
+      modal.addEventListener('click', (ev) => {
+        if (ev.target === modal || ev.target.classList.contains('settings-modal-backdrop')) {
+          hideModal();
+        }
+      });
+
+      const consumeResponse = () => {
+        const pf = (window.pageFlash || {});
+        let type, message;
+
+        if (pf.success) { type = 'success'; message = pf.success; }
+        else if (pf.error) { type = 'error'; message = pf.error; }
+        else {
+          const sp = new URLSearchParams(window.location.search || '');
+          if (sp.has('success')) { type = 'success'; message = sp.get('success'); }
+          else if (sp.has('error')) { type = 'error'; message = sp.get('error'); }
+        }
+
+        if (type && message) {
+          showModal(type, message);
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('success');
+            url.searchParams.delete('error');
+            window.history.replaceState({}, '', url.toString());
+          } catch (e) { /* noop */ }
+          window.pageFlash = { success: null, error: null };
+        }
+      };
+
+      document.addEventListener('DOMContentLoaded', consumeResponse);
+    })();
+  </script>
 
   <!-- Your Passions Section -->
   <div class="settings-card">

@@ -80,6 +80,7 @@
   window.showToast = showToast;
 
   document.addEventListener('DOMContentLoaded', function(){
+    if (window.__skipFlashToast) { return; }
     if(!maybeFromPageFlash()){
       maybeFromQuery();
     }
