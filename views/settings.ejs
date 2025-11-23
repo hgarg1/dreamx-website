@@ -357,18 +357,20 @@
         const btn = document.getElementById('btn-create-passkey');
         if (!btn || !window.SimpleWebAuthnBrowser) return;
         btn.addEventListener('click', async () => {
+          const modalApi = window.settingsResponseModal;
           try {
             const optsRes = await fetch('/webauthn/registration/options', { credentials: 'same-origin' });
             if (!optsRes.ok) {
               const err = await optsRes.json().catch(() => ({}));
               const msg = err && err.error ? err.error : `Failed to get registration options (${optsRes.status})`;
-              alert(msg);
+              modalApi?.show('error', msg) || alert(msg);
               return;
             }
             const opts = await optsRes.json();
             if (!opts || !opts.challenge) {
               console.error('Invalid registration options:', opts);
-              alert('Passkey setup unavailable: invalid options received.');
+              const msg = 'Passkey setup unavailable: invalid options received.';
+              modalApi?.show('error', msg) || alert(msg);
               return;
             }
             const attResp = await SimpleWebAuthnBrowser.startRegistration(opts);
@@ -377,13 +379,16 @@
             });
             const out = await verifyRes.json();
             if (out.verified) {
-              alert('Passkey saved to this device!');
+              const msg = 'Passkey saved to this device!';
+              modalApi?.show('success', msg) || alert(msg);
             } else {
-              alert('Could not save passkey on this device.');
+              const msg = 'Could not save passkey on this device.';
+              modalApi?.show('error', msg) || alert(msg);
             }
           } catch (e) {
             console.error(e);
-            alert('Passkey setup is not available on this browser or origin.');
+            const msg = 'Passkey setup is not available on this browser or origin.';
+            modalApi?.show('error', msg) || alert(msg);
           }
         });
       });
@@ -815,32 +820,22 @@
 
             if (data.success || res.ok) {
               if (tile) tile.remove();
-              if (typeof showSuccess === 'function') {
-                showSuccess('User unblocked successfully.', 'Unblocked');
-              } else {
-                alert('User unblocked successfully.');
-              }
+              const msg = 'User unblocked successfully.';
+              (window.settingsResponseModal?.show('success', msg)) || alert(msg);
 
               if (blockedGrid && blockedGrid.querySelectorAll('.blocked-tile').length === 0 && emptyState) {
                 emptyState.style.display = 'block';
               }
             } else {
               const errMsg = data.error || 'Failed to unblock user';
-              if (typeof showError === 'function') {
-                showError(errMsg, 'Unblock Failed');
-              } else {
-                alert(errMsg);
-              }
+              (window.settingsResponseModal?.show('error', errMsg)) || alert(errMsg);
               btn.disabled = false;
               btn.textContent = originalText;
             }
           } catch (error) {
             console.error('Unblock settings error:', error);
-            if (typeof showError === 'function') {
-              showError('An error occurred while unblocking. Please try again.', 'Unblock Failed');
-            } else {
-              alert('An error occurred while unblocking. Please try again.');
-            }
+            const msg = 'An error occurred while unblocking. Please try again.';
+            (window.settingsResponseModal?.show('error', msg)) || alert(msg);
             btn.disabled = false;
             btn.textContent = originalText;
           }
@@ -899,22 +894,22 @@
       const messageEl = document.getElementById('settingsResponseMessage');
       const closeBtn = document.getElementById('settingsModalClose');
 
-      const setType = (type) => {
+      const setType = (type, titleOverride) => {
         modal.classList.remove('is-error', 'is-success');
         if (type === 'error') {
           modal.classList.add('is-error');
           badge.textContent = '!';
-          titleEl.textContent = 'Something went wrong';
+          titleEl.textContent = titleOverride || 'Something went wrong';
         } else {
           modal.classList.add('is-success');
           badge.textContent = '✓';
-          titleEl.textContent = 'Changes saved';
+          titleEl.textContent = titleOverride || 'Changes saved';
         }
       };
 
       const hideModal = () => { modal.style.display = 'none'; };
-      const showModal = (type, message) => {
-        setType(type);
+      const showModal = (type, message, title) => {
+        setType(type, title);
         messageEl.textContent = message || '';
         modal.style.display = 'flex';
       };
@@ -948,6 +943,12 @@
           } catch (e) { /* noop */ }
           window.pageFlash = { success: null, error: null };
         }
+      };
+
+      window.settingsResponseModal = {
+        show: showModal,
+        hide: hideModal,
+        setType
       };
 
       document.addEventListener('DOMContentLoaded', consumeResponse);
