@@ -100,12 +100,16 @@ const createTransporter = async (req) => {
 // Generic email sender (optionally uses the request to resolve redirect URI)
 async function sendEmail(to, subject, htmlContent, textContent = null, req) {
     try {
-        console.log('[EmailService] Preparing to send email', {
-            to,
-            subject,
-            usingGmailUser: process.env.GMAIL_USER,
-            redirectUri: getGmailRedirectUri(req)
-        });
+   
+        // Normalize HTML/text to ensure the HTML part always renders
+        const html = typeof htmlContent === 'string' ? htmlContent : (htmlContent ? String(htmlContent) : '');
+        const text = typeof textContent === 'string'
+            ? textContent
+            : (html ? html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+
+        if (!html) {
+            console.warn('[EmailService] Warning: htmlContent was empty for subject', subject);
+        }
 
         const transporter = await createTransporter(req);
 
@@ -113,8 +117,9 @@ async function sendEmail(to, subject, htmlContent, textContent = null, req) {
             from: `Dream X <${process.env.GMAIL_USER}>`,
             to: to,
             subject: subject,
-            text: textContent || htmlContent.replace(/<[^>]*>/g, ''), // Strip HTML for text fallback
-            html: htmlContent
+            html: html || text || '',
+            text: text || undefined,
+            encoding: 'utf-8'
         };
 
         const result = await transporter.sendMail(mailOptions);

@@ -103,13 +103,23 @@ const createBasicTransporter = () => {
 async function sendEmail(to, subject, htmlContent, textContent = null, req) {
     try {
         const transporter = await createTransporter(req);
+
+        const html = typeof htmlContent === 'string' ? htmlContent : (htmlContent ? String(htmlContent) : '');
+        const text = typeof textContent === 'string'
+            ? textContent
+            : (html ? html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+
+        if (!html) {
+            console.warn('[Email] Warning: htmlContent was empty for subject', subject);
+        }
         
         const mailOptions = {
             from: `Dream X <${process.env.GMAIL_USER || 'noreply@dreamx.app'}>`,
             to: to,
             subject: subject,
-            text: textContent || htmlContent.replace(/<[^>]*>/g, ''), // Strip HTML for text fallback
-            html: htmlContent
+            html: html || text || '',
+            text: text || undefined,
+            encoding: 'utf-8'
         };
 
         const result = await transporter.sendMail(mailOptions);

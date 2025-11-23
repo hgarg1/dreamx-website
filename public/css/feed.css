@@ -78,8 +78,8 @@ body.modal-open {
         rgba(6, 8, 24, 0.6);
     backdrop-filter: blur(16px) saturate(160%);
     -webkit-backdrop-filter: blur(16px) saturate(160%);
-    z-index: 12000;
-    overflow-y: auto;
+    z-index: 20000;
+    overflow: hidden;
     opacity: 0;
     transition: opacity 0.3s ease;
     pointer-events: none;
@@ -489,6 +489,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    position: relative;
     z-index: 1;
 }
 
@@ -600,7 +601,8 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 .feed-main {
     grid-column: 2;
     min-width: 0;
-    z-index: 1;
+    position: relative;
+    z-index: 3;
     animation: fadeInUp 0.6s ease-out 0.2s backwards;
 }
 
@@ -962,28 +964,28 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 .reactions-row {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.4rem;
     flex-wrap: nowrap;
 }
 
 .reactions-container {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
+    gap: 0.4rem;
+    flex-wrap: nowrap;
     flex: 1;
 }
 
 .rx-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.65rem 1rem;
+    gap: 0.35rem;
+    padding: 0.45rem 0.8rem;
     background: linear-gradient(135deg, #ffffff, #f9fafb);
     border: 2px solid #e5e7eb;
-    border-radius: 50px;
+    border-radius: 40px;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     color: #6b7280;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1025,7 +1027,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .rx-btn span:first-child {
-    font-size: 1.2rem;
+    font-size: 1rem;
     transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
@@ -1040,12 +1042,13 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 /* === COMMENT TOGGLE === */
 .comment-toggle {
     margin-left: auto;
-    flex-shrink: 0;
-    white-space: nowrap;
+    flex: 0 1 auto;
+    white-space: normal;
+    text-align: center;
     background: linear-gradient(135deg, #ffffff, #f9fafb);
     border: 2px solid #e5e7eb;
     border-radius: 50px;
-    padding: 0.65rem 1.25rem;
+    padding: 0.55rem 0.95rem;
     font-weight: 700;
     font-size: 0.9rem;
     color: #374151;
@@ -1148,6 +1151,41 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 .passion-pill:hover * {
     position: relative;
     z-index: 1;
+}
+
+.manage-passions-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-weight: 700;
+    color: #7C3AED;
+    text-decoration: none;
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(255, 79, 163, 0.12));
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    padding: 10px 12px;
+    border-radius: 14px;
+    transition: all 0.25s ease;
+    box-shadow: 0 6px 18px rgba(124, 58, 237, 0.18);
+}
+
+.manage-passions-link::after {
+    content: '→';
+    display: inline-block;
+    transition: transform 0.2s ease;
+    font-weight: 800;
+}
+
+.manage-passions-link:hover {
+    color: white;
+    background: linear-gradient(135deg, #7C3AED, #ff4fa3);
+    border-color: rgba(255, 79, 163, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(255, 79, 163, 0.26);
+}
+
+.manage-passions-link:hover::after {
+    transform: translateX(2px);
 }
 
 /* === TRENDING POSTS === */
@@ -1346,17 +1384,21 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .reels-empty-state {
-    color: #9ca3af;
-    font-size: 0.95rem;
+    color: #6b7280;
+    font-size: 1rem;
     text-align: center;
-    padding: 16px;
-    min-height: 120px;
+    padding: 28px;
+    min-height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, rgba(255, 79, 163, 0.02), rgba(118, 75, 162, 0.02));
-    border: 1px dashed rgba(255, 79, 163, 0.2);
-    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(248, 248, 255, 0.92));
+    border: 1px solid rgba(255, 79, 163, 0.14);
+    border-radius: 18px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.06);
+    width: 100%;
+    line-height: 1.6;
+    letter-spacing: 0.01em;
 }
 
 /* === RESPONSIVE DESIGN === */
