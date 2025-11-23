@@ -32,6 +32,7 @@ body.admin {
     background: var(--admin-bg);
     color: var(--admin-text);
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 .admin-dashboard-container {
@@ -851,17 +852,19 @@ body.admin {
     z-index: 9999;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .modal-content {
     background: var(--admin-card);
     border: 2px solid var(--admin-border-light);
     border-radius: 20px;
-    padding: 2rem;
-    max-width: 600px;
+    padding: 1.75rem;
+    max-width: min(600px, 96vw);
     width: 100%;
-    max-height: 80vh;
+    max-height: 82vh;
     overflow-y: auto;
     position: relative;
     animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -925,7 +928,16 @@ body.admin {
     .admin-dashboard-container {
         padding: 1rem;
     }
-    
+
+    .modal {
+        padding: 0.75rem;
+    }
+
+    .modal-content {
+        padding: 1.25rem;
+        max-height: 88vh;
+    }
+
     .header-content {
         flex-direction: column;
         gap: 1rem;
