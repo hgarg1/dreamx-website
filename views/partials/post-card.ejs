@@ -100,8 +100,8 @@
              let normalized = String(mediaUrl);
              if (!normalized.startsWith('/')) normalized = '/' + normalized;
              if (!normalized.startsWith('/uploads/')) normalized = '/uploads/posts/' + normalized.replace(/^\/+/, '');
-             const isImage = /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(normalized) || post.content_type === 'image';
-             const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(normalized) || post.content_type === 'video';
+             const isImage = /\.(jpg|jpeg|png|gif|webp|avif|heic|heif)$/i.test(normalized) || post.content_type === 'image';
+             const isVideo = /\.(mp4|webm|ogg|mov|m4v|mkv|avi|wmv)$/i.test(normalized) || post.content_type === 'video';
         %>
           <% if (post.is_reel && isVideo) { %>
             <div class="post-media-shell reel">
