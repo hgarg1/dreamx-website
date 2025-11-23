@@ -478,8 +478,32 @@
       .audio-info-value { color:#111827; font-weight:800; word-break:break-all; }
       .audio-info-link { color:#ec4899; text-decoration:none; }
       .audio-info-link:hover { text-decoration:underline; }
+      .feed-modal { padding: clamp(12px, 3vw, 28px); }
+      .feed-modal .nova-modal__card { width: min(1040px, 96vw); margin: 0 auto; }
+      .feed-modal .nova-modal__content { border-radius: 20px; }
+      .image-editor-controls .composer-actions-row button,
+      .video-editor-controls .composer-actions-row button { flex: 1; }
+      .video-editor-controls .ghost-pill,
+      .image-editor-controls .ghost-pill { width: 100%; text-align: center; }
       @media (max-width: 900px) {
         .image-editor-grid, .video-editor-grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 720px) {
+        .feed-modal { padding: 10px; align-items: flex-start; }
+        .feed-modal .nova-modal__card { height: calc(100vh - 20px); max-height: unset; }
+        .feed-modal .nova-modal__content { height: 100%; padding: 14px; gap: 12px; display: flex; flex-direction: column; }
+        .feed-modal .nova-modal__header { position: sticky; top: 0; background: linear-gradient(180deg, rgba(17,24,39,0.95), rgba(17,24,39,0.8)); padding-bottom: 10px; z-index: 3; }
+        .image-editor-grid, .video-editor-grid { gap: 12px; }
+        .image-editor-canvas, .video-editor-player { padding: 10px; border-color: rgba(255,255,255,0.08); box-shadow: 0 10px 28px rgba(0,0,0,0.22); }
+        .image-editor-controls, .video-editor-controls { padding: 12px; gap: 12px; border-color: rgba(255,255,255,0.12); box-shadow: 0 14px 34px rgba(0,0,0,0.18); }
+        .control-row { align-items: flex-start; flex-wrap: wrap; }
+        .control-row label { min-width: 120px; }
+        .ghost-pill, .btn-ghost, .btn-primary { touch-action: manipulation; }
+        .image-editor-controls .composer-actions-row,
+        .video-editor-controls .composer-actions-row { position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(17,24,39,0.6), rgba(17,24,39,0.92)); padding: 12px 8px 4px; margin: 0 -4px -6px; border-radius: 14px; backdrop-filter: blur(10px); z-index: 2; gap: 10px; }
+        .image-editor-controls .composer-actions-row button,
+        .video-editor-controls .composer-actions-row button { min-height: 44px; font-weight: 800; }
+        .preset-grid { grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); }
       }
     </style>
 
@@ -1054,6 +1078,7 @@
         const endLabel = document.getElementById('videoEndLabel');
         const clipLabel = document.getElementById('videoClipLength');
         const mediaDurationField = document.getElementById('mediaDuration');
+        const player = document.getElementById('videoEditorPlayer');
         const start = parseFloat(startRange?.value || '0');
         const end = parseFloat(endRange?.value || '0');
         const maxAllowed = parseFloat(endRange?.max || MEDIA_LIMITS.videoSeconds);
@@ -1065,7 +1090,18 @@
         if (clipLabel) clipLabel.textContent = `${formatTime(safeEnd - start)}`;
         if (mediaDurationField) mediaDurationField.value = (safeEnd - start).toFixed(1);
         const scrubRange = document.getElementById('videoScrubRange');
-        if (scrubRange) scrubRange.max = safeEnd;
+        if (scrubRange) {
+          scrubRange.max = safeEnd;
+          scrubRange.min = start;
+          if (!isUserScrubbingVideo) {
+            const clamped = Math.min(Math.max(parseFloat(scrubRange.value || '0'), start), safeEnd);
+            scrubRange.value = clamped.toFixed(2);
+          }
+        }
+        if (player && (player.currentTime < start || player.currentTime > safeEnd)) {
+          player.currentTime = start;
+          updateVideoScrubber(start);
+        }
       }
 
       function updateVideoScrubber(currentTime = 0) {
@@ -1098,6 +1134,7 @@
         } else {
           endRange.value = Math.max(current, parseFloat(startRange.value || '0') + 0.1);
         }
+        updateVideoScrubber(current);
         updateVideoTrimLabels();
       }
 
@@ -1116,6 +1153,7 @@
         endRange.value = Math.min(max, end);
         updateVideoTrimLabels();
         if (player) player.currentTime = parseFloat(startRange.value || '0');
+        updateVideoScrubber(parseFloat(startRange.value || '0'));
       }
 
       function snapVideoToMax() {
@@ -1126,6 +1164,11 @@
         startRange.value = '0';
         endRange.value = max.toString();
         updateVideoTrimLabels();
+        const player = document.getElementById('videoEditorPlayer');
+        if (player) {
+          player.currentTime = 0;
+          updateVideoScrubber(0);
+        }
       }
 
       function recordVideoSegment(player, start, end) {
@@ -1726,6 +1769,8 @@
 
         setupModalBackdrop('postComposerModal', closePostComposer);
         setupModalBackdrop('audioTrimModal', () => closeAudioTrimModal());
+        setupModalBackdrop('imageEditorModal', () => closeImageEditor());
+        setupModalBackdrop('videoEditorModal', () => closeVideoEditor());
 
         // Audio trim modal wiring
         const trimRange = document.getElementById('audioTrimRange');
