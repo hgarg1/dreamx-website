@@ -87,6 +87,9 @@
     <% } %>
   </header>
   <div class="post-body">
+    <% if (post.title) { %>
+      <h4 class="post-title"><%= post.title %></h4>
+    <% } %>
     <% if (post.text_content) { %>
       <p class="post-text"><%= post.text_content %></p>
     <% } %>
@@ -131,6 +134,25 @@
             <input type="range" class="audio-volume" min="0" max="100" value="30" style="width:80px;accent-color:#ff4fa3;cursor:pointer;">
           </div>
         </div>
+      </div>
+    <% } %>
+    <% const hasHashtags = post.hashtags && post.hashtags.length; const hasTags = post.tags && post.tags.length; %>
+    <% if (hasHashtags || hasTags) { %>
+      <div class="post-taxonomy">
+        <% if (hasHashtags) { %>
+          <div class="post-pill-row" aria-label="Hashtags">
+            <% post.hashtags.forEach(function(tag){ %>
+              <span class="post-pill hashtag">#<%= tag %></span>
+            <% }); %>
+          </div>
+        <% } %>
+        <% if (hasTags) { %>
+          <div class="post-pill-row" aria-label="Tags">
+            <% post.tags.forEach(function(tag){ %>
+              <span class="post-pill tag"><%= tag %></span>
+            <% }); %>
+          </div>
+        <% } %>
       </div>
     <% } %>
   </div>

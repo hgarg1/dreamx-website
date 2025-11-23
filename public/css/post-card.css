@@ -53,6 +53,13 @@
 /* === POST BODY === */
 .post-body { margin-bottom:1rem; position:relative; z-index:5; }
 .post-text { font-size:.95rem; line-height:1.7; color:#1f2937; margin:0 0 1rem 0; letter-spacing:.01em; }
+.post-title { margin:0 0 .35rem 0; font-size:1.15rem; line-height:1.4; color:#0f172a; font-weight:800; letter-spacing:.01em; }
+.post-taxonomy { display:flex; flex-direction:column; gap:.35rem; margin-top:.75rem; }
+.post-pill-row { display:flex; flex-wrap:wrap; gap:.35rem; }
+.post-pill { display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .7rem; border-radius:999px; font-weight:700; font-size:.78rem; border:1px solid rgba(229,231,235,0.9); color:#374151; background:linear-gradient(135deg,#fff,#f9fafb); }
+.post-pill.hashtag { border-color:rgba(255,79,163,0.25); color:#b91c1c; background:linear-gradient(135deg, rgba(255,79,163,0.08), rgba(255,79,163,0.02)); }
+.post-pill.tag { border-color:rgba(124,58,237,0.25); color:#4c1d95; background:linear-gradient(135deg, rgba(124,58,237,0.08), rgba(124,58,237,0.02)); }
+.post-pill:hover { transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,0.05); }
 
 .post-body img, .post-body video, .post-image, .post-video {
   width:100%; border-radius:16px; margin-top:1rem; box-shadow:0 8px 24px rgba(0,0,0,0.1);
