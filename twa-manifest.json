@@ -14,7 +14,7 @@
   "enableNotifications": true,
   "startUrl": "/",
   "iconUrl": "https://dreamx-website.onrender.com/img/icon-512.png",
-  "maskableIconUrl": "https://dreamx-website.onrender.com/img/icon-512.png",
+  "maskableIconUrl": "https://dreamx-website.onrender.com/img/icon-512-maskable.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "C:\\Users\\archi\\OneDrive - University of Maryland\\Documents\\DreamX Website\\android.keystore",

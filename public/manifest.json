@@ -60,6 +60,20 @@
       "icons": [{ "src": "/img/icon-services.png", "sizes": "96x96" }]
     },
     {
+      "name": "Map",
+      "short_name": "Map",
+      "description": "See where other dreamers are located",
+      "url": "/map",
+      "icons": [{ "src": "/img/icon-map.png", "sizes": "96x96" }]
+    },
+     {
+      "name": "Billing",
+      "short_name": "Billing",
+      "description": "Manage your billing information",
+      "url": "/billing",
+      "icons": [{ "src": "/img/icon-billing.png", "sizes": "96x96" }]
+    },
+    {
       "name": "Profile",
       "short_name": "Profile",
       "description": "View your profile",
