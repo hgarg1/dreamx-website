@@ -3,3 +3,13 @@ node_modules/
 .DS_Store
 *.backup
 *.bak
+app/
+android.keystore
+app-release-signed.apk
+app-release-unsigned-aligned.apk
+app-release-bundle.aab
+local.properties
+gradele.properties
+gradelew
+gradelew.bat
+twa-manifest.json

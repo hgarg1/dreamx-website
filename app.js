@@ -5,7 +5,6 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
 const AppleStrategy = require('passport-apple');
 const crypto = require('crypto');
-require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -17,6 +16,12 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const https = require('https');
 const http = require('http');
+
+
+if(process.env.NODE_ENV !== 'Production'){
+    require('dotenv').config();
+}
+
 
 // Configure Multer for Career Assets
 
