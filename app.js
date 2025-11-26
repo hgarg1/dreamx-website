@@ -16,6 +16,8 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const https = require('https');
 const http = require('http');
+const robots = require('express-robots-txt');
+const { SitemapStream, streamToPromise } = require('sitemap');
 
 
 if(process.env.NODE_ENV !== 'Production'){
@@ -268,6 +270,32 @@ function parseTagInput(input) {
         .map((v) => v.replace(/^#/, ''));
 }
 
+
+function getAllEjsRoutes(dir, baseUrl = '') {
+  let routes = [];
+
+  const files = fs.readdirSync(dir);
+
+  files.forEach(file => {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
+
+    const excludedFolders = ['partials', 'includes'];
+
+    if (stat.isDirectory() && !excludedFolders.includes(file)) {
+      routes = routes.concat(getAllEjsRoutes(fullPath, baseUrl + '/' + file));
+    } else if (file.endsWith('.ejs')) {
+      const route = file === 'index.ejs'
+        ? baseUrl || '/'
+        : `${baseUrl}/${file.replace('.ejs', '')}`;
+
+      routes.push(route.replace(/\\/g, '/'));
+    }
+  });
+
+  return routes;
+}
+
 // Initialize Express app
 const app = express();
 // Trust proxy headers (needed on Render/other proxies for correct host/proto)
@@ -471,10 +499,17 @@ const simpleWebAuthnBundlePath = path.join(
     'dist',
     'bundle'
 );
+
+
 app.use('/webauthn', express.static(simpleWebAuthnBundlePath));
 
 // Serve static files from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(robots({
+  UserAgent: '*',
+  Disallow: '',
+  Sitemap: 'https://dream-x.app/sitemap.xml'
+}));
 
 // Ensure PWA assets use the correct headers so browsers can install the app reliably
 app.get('/manifest.json', (req, res) => {
@@ -487,6 +522,29 @@ app.get('/service-worker.js', (req, res) => {
     res.setHeader('Service-Worker-Allowed', '/');
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(__dirname, 'public', 'service-worker.js'));
+});
+
+
+app.get('/sitemap.xml', async (req, res) => {
+  res.header('Content-Type', 'application/xml');
+
+  const sitemap = new SitemapStream({ hostname: 'https://dream-x.app' });
+
+  const viewsDir = path.join(__dirname, 'views');
+  const routes = getAllEjsRoutes(viewsDir);
+
+  routes.forEach(url => {
+    sitemap.write({
+      url,
+      changefreq: 'weekly',
+      priority: url === '/' ? 1.0 : 0.7
+    });
+  });
+
+  sitemap.end();
+
+  const xml = await streamToPromise(sitemap);
+  res.send(xml.toString());
 });
 
 // Parse URL-encoded bodies (for form submissions)
