@@ -367,7 +367,7 @@ try {
   if (!hrExists) {
     const bcrypt = require('bcrypt');
     const hrPassword = bcrypt.hashSync('DreamXHR2025!', 10);
-    db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`) 
+    db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
       .run('Global HR Partner', 'hr@dreamx.local', hrPassword, 'global_hr', 'active', 'Global HR Partner - Talent Architecture and People Experience');
     console.log('✅ HR account created: hr@dreamx.local / DreamXHR2025!');
   } else {
@@ -476,18 +476,18 @@ try {
   // ignore
 }
 // Posts reels support migration (idempotent)
-try { db.exec(`ALTER TABLE posts ADD COLUMN is_reel INTEGER DEFAULT 0;`); } catch (e) {}
+try { db.exec(`ALTER TABLE posts ADD COLUMN is_reel INTEGER DEFAULT 0;`); } catch (e) { }
 // Posts audio support migration (idempotent)
-try { db.exec(`ALTER TABLE posts ADD COLUMN audio_url TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE posts ADD COLUMN audio_url TEXT;`); } catch (e) { }
 // Post title migration (idempotent)
-try { db.exec(`ALTER TABLE posts ADD COLUMN title TEXT;`); } catch (e) {}
+try { db.exec(`ALTER TABLE posts ADD COLUMN title TEXT;`); } catch (e) { }
 // Privacy settings migrations (idempotent)
-try { db.exec(`ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public';`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'everyone';`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN discoverable_by_email INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN show_online_status INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN read_receipts INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN chat_privileges_frozen INTEGER DEFAULT 0;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public';`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'everyone';`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN discoverable_by_email INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN show_online_status INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN read_receipts INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN chat_privileges_frozen INTEGER DEFAULT 0;`); } catch (e) { }
 // Messages attachments migration (idempotent)
 try {
   db.exec(`ALTER TABLE messages ADD COLUMN attachment_url TEXT;`);
@@ -508,10 +508,10 @@ try {
 // Group conversations migration
 try {
   db.exec(`ALTER TABLE conversations ADD COLUMN is_group INTEGER DEFAULT 0;`);
-} catch (e) {}
+} catch (e) { }
 try {
   db.exec(`ALTER TABLE conversations ADD COLUMN group_name TEXT;`);
-} catch (e) {}
+} catch (e) { }
 // Handle column migration (can't add UNIQUE directly in ALTER TABLE)
 try {
   db.exec(`ALTER TABLE users ADD COLUMN handle TEXT;`);
@@ -534,43 +534,43 @@ try {
     FOREIGN KEY (user_id) REFERENCES users(id),
     UNIQUE(conversation_id, user_id)
   );`);
-} catch (e) {}
+} catch (e) { }
 
 // Comments replies migration (idempotent)
-try { db.exec(`ALTER TABLE post_comments ADD COLUMN parent_id INTEGER;`); } catch (e) {}
-try { db.exec(`CREATE INDEX IF NOT EXISTS idx_post_comments_parent ON post_comments(parent_id);`); } catch (e) {}
+try { db.exec(`ALTER TABLE post_comments ADD COLUMN parent_id INTEGER;`); } catch (e) { }
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_post_comments_parent ON post_comments(parent_id);`); } catch (e) { }
 
 // Comment moderation columns
-try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_hidden INTEGER DEFAULT 0;`); } catch (e) {}
-try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
+try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_hidden INTEGER DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) { }
 
 // Onboarding enhancements migration (idempotent)
-try { db.exec(`ALTER TABLE users ADD COLUMN daily_time_commitment TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN best_time TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN reminder_frequency TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN accountability_style TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN progress_visibility TEXT DEFAULT 'public';`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN content_preferences TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN content_format_preference TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN open_to_mentoring TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN first_goal TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_date TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_metric TEXT;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_public INTEGER DEFAULT 0;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_followers INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_likes_comments INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_milestones INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_inspiration INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_community INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_weekly_summary INTEGER DEFAULT 1;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_method TEXT DEFAULT 'both';`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0;`); } catch (e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN needs_onboarding INTEGER DEFAULT 1;`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN daily_time_commitment TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN best_time TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN reminder_frequency TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN accountability_style TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN progress_visibility TEXT DEFAULT 'public';`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN content_preferences TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN content_format_preference TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN open_to_mentoring TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN first_goal TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_date TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_metric TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_public INTEGER DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_followers INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_likes_comments INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_milestones INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_inspiration INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_community INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_weekly_summary INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN notify_method TEXT DEFAULT 'both';`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE users ADD COLUMN needs_onboarding INTEGER DEFAULT 1;`); } catch (e) { }
 
 // Backfill needs_onboarding where missing to align with onboarding completion state
 try {
   db.exec(`UPDATE users SET needs_onboarding = CASE WHEN onboarding_completed = 1 THEN 0 ELSE 1 END WHERE needs_onboarding IS NULL`);
-} catch (e) {}
+} catch (e) { }
 
 // Ensure audit logs table exists
 try {
@@ -582,7 +582,7 @@ try {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );`);
-} catch (e) {}
+} catch (e) { }
 
 // Follows table
 db.exec(`CREATE TABLE IF NOT EXISTS follows (
@@ -805,9 +805,66 @@ db.exec(`CREATE TABLE IF NOT EXISTS comment_likes (
   UNIQUE(comment_id, user_id),
   FOREIGN KEY (comment_id) REFERENCES post_comments(id),
   FOREIGN KEY (user_id) REFERENCES users(id)
-);
-CREATE INDEX IF NOT EXISTS idx_comment_likes_comment ON comment_likes(comment_id);
-`);
+);`);
+
+// HR & Careers Tables
+db.exec(`CREATE TABLE IF NOT EXISTS career_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  location TEXT,
+  team TEXT,
+  employment_type TEXT,
+  seniority TEXT,
+  headline TEXT,
+  description TEXT,
+  responsibilities TEXT,
+  requirements TEXT,
+  perks TEXT,
+  tags TEXT,
+  salary_min REAL,
+  salary_max REAL,
+  salary_currency TEXT,
+  apply_url TEXT,
+  workplace_type TEXT,
+  visibility TEXT DEFAULT 'public',
+  priority INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'draft',
+  go_live_at DATETIME,
+  freeze_until DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS career_job_assets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id INTEGER NOT NULL,
+  label TEXT,
+  file_name TEXT,
+  file_path TEXT,
+  file_size INTEGER,
+  mime_type TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (job_id) REFERENCES career_jobs(id)
+);`);
+
+db.exec(`CREATE TABLE IF NOT EXISTS career_applications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id INTEGER,
+  user_id INTEGER,
+  name TEXT,
+  email TEXT,
+  phone TEXT,
+  position TEXT,
+  resume_url TEXT,
+  cover_letter TEXT,
+  status TEXT DEFAULT 'new',
+  reviewer_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (job_id) REFERENCES career_jobs(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);`);
+
 
 // User blocks and reports
 db.exec(`CREATE TABLE IF NOT EXISTS user_blocks (
@@ -906,13 +963,13 @@ CREATE INDEX IF NOT EXISTS idx_career_jobs_live ON career_jobs(go_live_at);
 `);
 
 // Backfill new career job columns if schema pre-existed
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_min REAL`); } catch (_) {}
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_max REAL`); } catch (_) {}
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_currency TEXT`); } catch (_) {}
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN apply_url TEXT`); } catch (_) {}
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN workplace_type TEXT`); } catch (_) {}
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN visibility TEXT DEFAULT 'public'`); } catch (_) {}
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN priority TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_min REAL`); } catch (_) { }
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_max REAL`); } catch (_) { }
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_currency TEXT`); } catch (_) { }
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN apply_url TEXT`); } catch (_) { }
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN workplace_type TEXT`); } catch (_) { }
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN visibility TEXT DEFAULT 'public'`); } catch (_) { }
+try { db.exec(`ALTER TABLE career_jobs ADD COLUMN priority TEXT`); } catch (_) { }
 
 // Assets attached to job postings (downloadable by applicants)
 db.exec(`CREATE TABLE IF NOT EXISTS career_job_assets (
@@ -966,10 +1023,10 @@ db.exec(`CREATE TABLE IF NOT EXISTS account_appeals (
 // Add moderation columns to service_reviews if they don't exist
 try {
   db.exec(`ALTER TABLE service_reviews ADD COLUMN is_hidden INTEGER DEFAULT 0`);
-} catch(e) { /* Column already exists */ }
+} catch (e) { /* Column already exists */ }
 try {
   db.exec(`ALTER TABLE service_reviews ADD COLUMN is_deleted INTEGER DEFAULT 0`);
-} catch(e) { /* Column already exists */ }
+} catch (e) { /* Column already exists */ }
 
 // Livestreams table for video streaming infrastructure
 db.exec(`CREATE TABLE IF NOT EXISTS livestreams (
@@ -1080,7 +1137,7 @@ try {
   CREATE INDEX IF NOT EXISTS idx_user_admin_notes_user ON user_admin_notes(user_id);
   CREATE INDEX IF NOT EXISTS idx_user_admin_notes_admin ON user_admin_notes(admin_id);
   `);
-} catch (e) {}
+} catch (e) { }
 
 module.exports = {
   db,
@@ -1113,7 +1170,7 @@ module.exports = {
       userId
     );
   },
-  
+
   // Email Verification
   createVerificationCode: ({ userId, email, code, expiresAt }) => {
     const stmt = db.prepare(`INSERT INTO email_verification_codes (user_id, email, code, expires_at) VALUES (?,?,?,?)`);
@@ -1220,7 +1277,7 @@ module.exports = {
   },
   updateUserProvider: ({ userId, provider, providerId }) => {
     // Back-compat: also store on users table if columns exist
-    try { db.prepare(`UPDATE users SET provider = ?, provider_id = ? WHERE id = ?`).run(provider, providerId, userId); } catch (e) {}
+    try { db.prepare(`UPDATE users SET provider = ?, provider_id = ? WHERE id = ?`).run(provider, providerId, userId); } catch (e) { }
     // Preferred: link in oauth_accounts
     db.prepare(`INSERT OR IGNORE INTO oauth_accounts (user_id, provider, provider_id) VALUES (?,?,?)`).run(userId, provider, providerId);
   },
@@ -1269,7 +1326,7 @@ module.exports = {
         needs_onboarding = ?
       WHERE id = ?
     `);
-    
+
     updateStmt.run(
       JSON.stringify(categories || []),
       JSON.stringify(goals || []),
@@ -1628,10 +1685,10 @@ module.exports = {
     return info.lastInsertRowid;
   },
   getPostComments: ({ postId, limit = 20, offset = 0, isAdmin = false }) => {
-    const whereClause = isAdmin 
-      ? 'WHERE c.post_id = ?' 
+    const whereClause = isAdmin
+      ? 'WHERE c.post_id = ?'
       : 'WHERE c.post_id = ? AND c.is_hidden = 0 AND c.is_deleted = 0';
-    
+
     const comments = db.prepare(`
       SELECT c.*, u.full_name, u.profile_picture,
         (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS star_count,
@@ -1648,8 +1705,8 @@ module.exports = {
     return comments;
   },
   getCommentsCount: (postId, isAdmin = false) => {
-    const whereClause = isAdmin 
-      ? 'WHERE post_id = ?' 
+    const whereClause = isAdmin
+      ? 'WHERE post_id = ?'
       : 'WHERE post_id = ? AND is_hidden = 0 AND is_deleted = 0';
     return db.prepare(`SELECT COUNT(*) as c FROM post_comments ${whereClause}`).get(postId).c;
   },
@@ -1931,7 +1988,7 @@ module.exports = {
   checkAccountStatus: (userId) => {
     const user = db.prepare(`SELECT account_status, suspension_until, suspension_reason FROM users WHERE id = ?`).get(userId);
     if (!user) return { status: 'not_found' };
-    
+
     // Check if suspension has expired
     if (user.account_status === 'suspended' && user.suspension_until) {
       const now = new Date();
@@ -1941,7 +1998,7 @@ module.exports = {
         return { status: 'active' };
       }
     }
-    
+
     return {
       status: user.account_status || 'active',
       suspensionUntil: user.suspension_until,
@@ -2145,7 +2202,7 @@ module.exports = {
   // Get recent activity for feed sidebar
   getRecentActivity: (limit = 5) => {
     const activities = [];
-    
+
     // Get recent posts (with user info)
     const recentPosts = db.prepare(`
       SELECT p.created_at, u.full_name
@@ -2155,7 +2212,7 @@ module.exports = {
       ORDER BY p.created_at DESC
       LIMIT ?
     `).all(limit);
-    
+
     recentPosts.forEach(post => {
       activities.push({
         type: 'post',
@@ -2164,7 +2221,7 @@ module.exports = {
         timestamp: new Date(post.created_at).getTime()
       });
     });
-    
+
     // Get recent follows
     const recentFollows = db.prepare(`
       SELECT f.created_at, 
@@ -2176,7 +2233,7 @@ module.exports = {
       ORDER BY f.created_at DESC
       LIMIT ?
     `).all(limit);
-    
+
     recentFollows.forEach(follow => {
       activities.push({
         type: 'follow',
@@ -2185,7 +2242,7 @@ module.exports = {
         timestamp: new Date(follow.created_at).getTime()
       });
     });
-    
+
     // Get recent profile updates (we'll check for recent updates based on created_at being close to current time)
     const recentUpdates = db.prepare(`
       SELECT created_at, full_name
@@ -2194,7 +2251,7 @@ module.exports = {
       ORDER BY created_at DESC
       LIMIT ?
     `).all(limit);
-    
+
     recentUpdates.forEach(update => {
       activities.push({
         type: 'update',
@@ -2203,10 +2260,10 @@ module.exports = {
         timestamp: new Date(update.created_at).getTime()
       });
     });
-    
+
     // Sort all activities by timestamp descending and format time
     activities.sort((a, b) => b.timestamp - a.timestamp);
-    
+
     // Format time strings
     const now = Date.now();
     activities.forEach(act => {
@@ -2214,7 +2271,7 @@ module.exports = {
       const minutes = Math.floor(diff / 60000);
       const hours = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
-      
+
       if (minutes < 1) {
         act.time = 'just now';
       } else if (minutes < 60) {
@@ -2224,11 +2281,11 @@ module.exports = {
       } else {
         act.time = `${days}d ago`;
       }
-      
+
       // Clean up internal fields
       delete act.timestamp;
     });
-    
+
     return activities.slice(0, limit);
   },
   // Comment moderation
@@ -2354,7 +2411,7 @@ module.exports = {
       WHERE s.status = 'active'
     `;
     const params = [];
-    
+
     if (category) {
       query += ` AND s.category = ?`;
       params.push(category);
@@ -2373,10 +2430,10 @@ module.exports = {
       query += ` AND s.format = ?`;
       params.push(format);
     }
-    
+
     query += ` ORDER BY s.created_at DESC LIMIT ?`;
     params.push(limit);
-    
+
     return db.prepare(query).all(...params);
   },
 
@@ -2442,10 +2499,10 @@ module.exports = {
     return info.lastInsertRowid;
   },
   getServiceReviews: ({ serviceId, limit = 20, offset = 0, isAdmin = false }) => {
-    const whereClause = isAdmin 
-      ? 'WHERE r.service_id = ?' 
+    const whereClause = isAdmin
+      ? 'WHERE r.service_id = ?'
       : 'WHERE r.service_id = ? AND r.is_hidden = 0 AND r.is_deleted = 0';
-    
+
     return db.prepare(`
       SELECT r.*, u.full_name, u.profile_picture
       FROM service_reviews r
@@ -2467,7 +2524,7 @@ module.exports = {
     return result.changes > 0;
   },
   adminUpdateServiceContent: ({ serviceId, fields }) => {
-    const allowed = ['title','description','category','price_per_hour','duration_minutes','experience_level','format','availability','location','tags','image_url'];
+    const allowed = ['title', 'description', 'category', 'price_per_hour', 'duration_minutes', 'experience_level', 'format', 'availability', 'location', 'tags', 'image_url'];
     const sets = [];
     const params = [];
     for (const key of allowed) {
@@ -2738,7 +2795,7 @@ module.exports = {
       WHERE id = ?
     `);
     stmt.run(recordingUrl || null, streamId);
-    
+
     // Mark all viewers as left
     db.prepare(`
       UPDATE livestream_viewers
@@ -2920,7 +2977,7 @@ module.exports = {
   // User Location functions for MapBox
   saveUserLocation: ({ userId, city, latitude, longitude }) => {
     const existing = db.prepare(`SELECT id FROM user_locations WHERE user_id = ?`).get(userId);
-    
+
     if (existing) {
       // Update existing location
       db.prepare(`
@@ -2954,12 +3011,99 @@ module.exports = {
   shouldUpdateLocation: (userId) => {
     const location = db.prepare(`SELECT last_updated FROM user_locations WHERE user_id = ?`).get(userId);
     if (!location) return true; // No location set
-    
+
     // Check if location is older than 7 days
     const lastUpdate = new Date(location.last_updated);
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-    
+
     return lastUpdate < weekAgo;
+  },
+
+  getPublicCareerJobs: () => {
+    try {
+      const jobs = db.prepare("SELECT * FROM career_jobs WHERE status = 'live' AND visibility = 'public' ORDER BY created_at DESC").all();
+      for (const job of jobs) {
+        job.assets = db.prepare("SELECT * FROM career_job_assets WHERE job_id = ?").all(job.id);
+      }
+      return jobs;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  getCareerJobAssets: (jobId) => {
+    return db.prepare("SELECT * FROM career_job_assets WHERE job_id = ?").all(jobId);
+  },
+
+  getCareerJobsForAdmin: () => {
+    try {
+      const jobs = db.prepare("SELECT * FROM career_jobs ORDER BY created_at DESC").all();
+      for (const job of jobs) {
+        job.assets = db.prepare("SELECT * FROM career_job_assets WHERE job_id = ?").all(job.id);
+      }
+      return jobs;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  getCareerApplicationsPaged: ({ limit, offset }) => {
+    try {
+      return db.prepare("SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?").all(limit, offset);
+    } catch (e) {
+      return [];
+    }
+  },
+
+  createCareerJob: (job) => {
+    const { title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority, status, goLiveAt, freezeUntil, isFrozen } = job;
+    const info = db.prepare(`
+      INSERT INTO career_jobs (title, location, team, employment_type, seniority, headline, description, responsibilities, requirements, perks, tags, salary_min, salary_max, salary_currency, apply_url, workplace_type, visibility, priority, status, go_live_at, freeze_until)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, JSON.stringify(tags), salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority, status, goLiveAt, freezeUntil);
+    return info.lastInsertRowid;
+  },
+
+  updateCareerJob: (job) => {
+    const { id, title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority, status, goLiveAt, freezeUntil } = job;
+    db.prepare(`
+      UPDATE career_jobs SET title=?, location=?, team=?, employment_type=?, seniority=?, headline=?, description=?, responsibilities=?, requirements=?, perks=?, tags=?, salary_min=?, salary_max=?, salary_currency=?, apply_url=?, workplace_type=?, visibility=?, priority=?, status=?, go_live_at=?, freeze_until=?, updated_at=CURRENT_TIMESTAMP
+      WHERE id=?
+    `).run(title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, JSON.stringify(tags), salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority, status, goLiveAt, freezeUntil, id);
+    return db.prepare("SELECT * FROM career_jobs WHERE id=?").get(id);
+  },
+
+  getCareerJobById: (id) => {
+    const job = db.prepare("SELECT * FROM career_jobs WHERE id=?").get(id);
+    if (job) {
+      job.assets = db.prepare("SELECT * FROM career_job_assets WHERE job_id = ?").all(id);
+    }
+    return job;
+  },
+
+  setCareerJobStatus: ({ id, status, freezeUntil }) => {
+    db.prepare("UPDATE career_jobs SET status=?, freeze_until=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").run(status, freezeUntil, id);
+    return db.prepare("SELECT * FROM career_jobs WHERE id=?").get(id);
+  },
+
+  addCareerJobAsset: (asset) => {
+    db.prepare(`
+      INSERT INTO career_job_assets (job_id, label, file_name, file_path, file_size, mime_type)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(asset.jobId, asset.label, asset.fileName, asset.filePath, asset.fileSize, asset.mimeType);
+  },
+
+  removeCareerJobAsset: ({ assetId, jobId }) => {
+    const info = db.prepare("DELETE FROM career_job_assets WHERE id=? AND job_id=?").run(assetId, jobId);
+    return info.changes > 0;
+  },
+
+  getCareerApplicationById: (id) => {
+    return db.prepare("SELECT * FROM career_applications WHERE id=?").get(id);
+  },
+
+  updateCareerApplicationStatus: ({ id, status, reviewerId }) => {
+    db.prepare("UPDATE career_applications SET status=?, reviewer_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").run(status, reviewerId, id);
   }
 };

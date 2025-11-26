@@ -12,20 +12,7 @@
 /* =============================
    BASE MOBILE OPTIMIZATIONS
    ============================= */
-@media (max-width: 768px) {
-  /* Typography - Better readability on mobile */
-  html {
-    font-size: 14px;
-  }
-
-  body {
-    overflow-x: hidden;
-  }
-
-  /* Improved spacing for mobile */
-  .container {
-    padding: 0 var(--spacing-sm);
-  }
+@media (max-width: 1200px) {
 
   /* =============================
      NAVIGATION
@@ -45,7 +32,7 @@
   .mobile-menu-toggle {
     display: flex !important;
   }
-  
+
   .nav-links {
     position: fixed;
     top: 60px;
@@ -95,6 +82,26 @@
     padding-left: var(--spacing-md);
     margin-top: var(--spacing-xs);
   }
+}
+
+
+@media (max-width: 768px) {
+
+  /* Typography - Better readability on mobile */
+  html {
+    font-size: 14px;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Improved spacing for mobile */
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+
+
 
   /* =============================
      HERO SECTION
@@ -335,8 +342,8 @@
   }
 
   /* Group modals */
-  #groupModal > div,
-  #groupSettingsModal > div,
+  #groupModal>div,
+  #groupSettingsModal>div,
   #imageCarouselOverlay {
     max-width: 95%;
     max-height: 90vh;
@@ -638,8 +645,8 @@
 
   /* Modals */
   .admin-modal-content,
-  #groupModal > div,
-  #groupSettingsModal > div,
+  #groupModal>div,
+  #groupSettingsModal>div,
   #addAdminModal .admin-modal-content,
   #banUserModal .admin-modal-content,
   #suspendUserModal .admin-modal-content {
@@ -879,6 +886,7 @@
   .page-info {
     font-size: var(--font-size-sm);
   }
+
   /* =============================
      PROFILE & SETTINGS
      ============================= */
@@ -998,6 +1006,7 @@
    TABLET STYLES (768px - 1024px)
    ============================= */
 @media (min-width: 769px) and (max-width: 1024px) {
+
   .metrics-overview,
   .admin-metrics-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1256,16 +1265,16 @@
 
 /* Complete the previous media query properly */
 @media (max-width: 480px) {
-    padding: var(--spacing-sm);
-  }
+  /* padding: var(--spacing-sm); - Invalid CSS, missing selector */
+}
 
-  .moderation-header h1 {
-    font-size: var(--font-size-xl);
-  }
+.moderation-header h1 {
+  font-size: var(--font-size-xl);
+}
 
-  .stat-value {
-    font-size: var(--font-size-2xl);
-  }
+.stat-value {
+  font-size: var(--font-size-2xl);
+}
 }
 
 /* =============================
@@ -1293,6 +1302,7 @@
    TOUCH-FRIENDLY TAP TARGETS
    ============================= */
 @media (hover: none) and (pointer: coarse) {
+
   /* Ensure minimum tap target size of 44x44px */
   .btn,
   .tab-btn,
@@ -1324,6 +1334,7 @@
    PRINT STYLES
    ============================= */
 @media print {
+
   /* Hide navigation and non-essential elements */
   .navbar,
   .footer,
@@ -1372,6 +1383,7 @@
    ============================= */
 /* Reduce motion for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -1384,6 +1396,7 @@
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
+
   .btn,
   .card,
   .feature-card {

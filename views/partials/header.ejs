@@ -1,250 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Dream X - The Social Network for Productive People">
-    <meta name="theme-color" content="#6366f1">
-    <title><%= title %></title>
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
-    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
-    
-    <!-- iOS PWA Support -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Dream X">
-    
-    <!-- CSS Stylesheets -->
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/post-card.css">
-    <link rel="stylesheet" href="/css/enhanced-ui.css">
-    <link rel="stylesheet" href="/css/polish.css">
-    <link rel="stylesheet" href="/css/toast.css">
-    <link rel="stylesheet" href="/css/enhanced-animations.css">
-    <link rel="stylesheet" href="/css/notifications.css">
-    <link rel="stylesheet" href="/css/mobile.css">
-    <link rel="stylesheet" href="/css/pwa.css">
-    
 
-    
-    <% if(authUser){ %>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dream X - The Social Network for Productive People">
+  <meta name="theme-color" content="#6366f1">
+  <title>
+    <%= title %>
+  </title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+
+  <!-- iOS PWA Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Dream X">
+
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/post-card.css">
+  <link rel="stylesheet" href="/css/enhanced-ui.css">
+  <link rel="stylesheet" href="/css/polish.css">
+  <link rel="stylesheet" href="/css/toast.css">
+  <link rel="stylesheet" href="/css/enhanced-animations.css">
+  <link rel="stylesheet" href="/css/notifications.css">
+  <link rel="stylesheet" href="/css/mobile.css">
+  <link rel="stylesheet" href="/css/pwa.css">
+
+
+
+  <% if(authUser){ %>
     <!-- Socket.IO for real-time notifications -->
     <script src="/socket.io/socket.io.js"></script>
     <% } %>
-    
-    <!-- Global Notification System -->
-    <script src="/js/notification-system.js"></script>
-    
-    <!-- Cheeky Modal System -->
-    <script src="/js/cheeky-modal.js"></script>
-    
-    <!-- Modal Alert System -->
-    <script src="/js/modal-alerts.js"></script>
 
-    <% if (typeof authUser === 'undefined' || !authUser || !(['admin','super_admin','global_admin'].includes(authUser.role))) { %>
-      <!-- Custom Animated Cursor (enabled for non-admins) -->
-      <link rel="stylesheet" href="/css/custom-cursor.css" />
-      <script src="/js/custom-cursor.js"></script>
-      <script>
-        window.addEventListener('DOMContentLoaded', function(){
-          window.enableCustomCursor && window.enableCustomCursor();
-        });
-      </script>
-    <% } %>
-    
-    <!-- Global Profile Picture Click Handler -->
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        // Handle double-click on own profile picture with cheeky modal
-        const ownProfilePics = document.querySelectorAll('#profileAvatar, .avatar[data-is-own="true"]');
-        ownProfilePics.forEach(pic => {
-          pic.style.cursor = 'pointer';
-          pic.addEventListener('dblclick', function(e) {
-            e.preventDefault();
-            if (typeof showCheekyModal === 'function') {
-              const messages = [
-                "Looking good! 💁",
-                "Admiring yourself? We don't blame you! 😎",
-                "Yes, that's you! Looking sharp! ✨",
-                "Self-love is important! 💖",
-                "Narcissus would be proud! 🪞",
-                "10/10 would double-click again! ⭐"
-              ];
-              const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-              showCheekyModal(randomMsg);
-            }
+      <!-- Global Notification System -->
+      <script src="/js/notification-system.js"></script>
+
+      <!-- Cheeky Modal System -->
+      <script src="/js/cheeky-modal.js"></script>
+
+      <!-- Modal Alert System -->
+      <script src="/js/modal-alerts.js"></script>
+
+      <% if (typeof authUser==='undefined' || !authUser ||
+        !(['admin','super_admin','global_admin'].includes(authUser.role))) { %>
+        <!-- Custom Animated Cursor (enabled for non-admins) -->
+        <link rel="stylesheet" href="/css/custom-cursor.css" />
+        <script src="/js/custom-cursor.js"></script>
+        <script>
+          window.addEventListener('DOMContentLoaded', function () {
+            window.enableCustomCursor && window.enableCustomCursor();
           });
-        });
-      });
-    </script>
-    
-    <!-- Service Worker Registration -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .then((registration) => {
-              console.log('✅ Service Worker registered:', registration.scope);
-              
-              // Check for updates periodically
-              setInterval(() => {
-                registration.update();
-              }, 60000); // Check every minute
-              
-              // Listen for updates
-              registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
-                newWorker.addEventListener('statechange', () => {
-                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // New service worker available - activate immediately
-                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                    if (typeof showInfo === 'function') {
-                      showInfo('New version available! Page will refresh...');
-                      setTimeout(() => window.location.reload(), 2000);
-                    } else {
-                      window.location.reload();
-                    }
+        </script>
+        <% } %>
+
+          <!-- Global Profile Picture Click Handler -->
+          <script>
+            document.addEventListener('DOMContentLoaded', function () {
+              // Handle double-click on own profile picture with cheeky modal
+              const ownProfilePics = document.querySelectorAll('#profileAvatar, .avatar[data-is-own="true"]');
+              ownProfilePics.forEach(pic => {
+                pic.style.cursor = 'pointer';
+                pic.addEventListener('dblclick', function (e) {
+                  e.preventDefault();
+                  if (typeof showCheekyModal === 'function') {
+                    const messages = [
+                      "Looking good! 💁",
+                      "Admiring yourself? We don't blame you! 😎",
+                      "Yes, that's you! Looking sharp! ✨",
+                      "Self-love is important! 💖",
+                      "Narcissus would be proud! 🪞",
+                      "10/10 would double-click again! ⭐"
+                    ];
+                    const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+                    showCheekyModal(randomMsg);
                   }
                 });
               });
-            })
-            .catch((error) => {
-              console.error('❌ Service Worker registration failed:', error);
             });
-        });
-        
-        // Clear service worker cache on auth state changes
-        window.clearServiceWorkerCache = function() {
-          if (navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
-          }
-        };
-      }
-      
-      // Handle PWA install prompt
-      let deferredPrompt;
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        
-        // Show install button or banner
-        const installBanner = document.getElementById('pwa-install-banner');
-        if (installBanner) {
-          installBanner.style.display = 'block';
-        }
-      });
-      
-      function installPWA() {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-              console.log('User accepted the install prompt');
-            }
-            deferredPrompt = null;
-            const installBanner = document.getElementById('pwa-install-banner');
-            if (installBanner) {
-              installBanner.style.display = 'none';
-            }
-          });
-        }
-      }
-      
-      // Detect if running as PWA
-      window.addEventListener('DOMContentLoaded', () => {
-        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-          console.log('✅ Running as PWA');
-          document.body.classList.add('pwa-mode');
-        }
-      });
-    </script>
-</head>
-<body>
-    <!-- Navigation Bar -->
-    <nav class="navbar">
-        <div class="container">
-            <!-- Logo -->
-            <div class="logo">
-                <a href="/">
-                    <img src="/img/logo.svg" alt="Dream X" height="40">
-                </a>
-            </div>
-            
-            <!-- Mobile Menu Toggle -->
-            <button class="mobile-menu-toggle" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-            
-                        <!-- Navigation Links -->
-                        <ul class="nav-links">
-                                <li><a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Home</a></li>
-                                <% if(authUser){ %>
-                                    <li><a href="/feed" class="<%= currentPage === 'feed' ? 'active' : '' %>">Feed</a></li>
-                                    <li><a href="/services" class="<%= currentPage === 'services' ? 'active' : '' %>">Services</a></li>
-                                    <li><a href="/map" class="<%= currentPage === 'map' ? 'active' : '' %>">Map</a></li>
-                                    <li><a href="/pricing" class="<%= currentPage === 'pricing' ? 'active' : '' %>">Pricing</a></li>
-                                    <li><a href="/billing" class="<%= currentPage === 'billing' ? 'active' : '' %>">Billing</a></li>
-                                    <li style="position:relative;"><a href="/messages" class="<%= currentPage === 'messages' ? 'active' : '' %>">Messages</a><% if(unreadMessageCount > 0){ %><span style="position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);"><%= unreadMessageCount %></span><% } %></li>
-                                    <li style="position:relative;"><a href="#" id="notificationBell">🔔</a><span id="notificationBadge" style="display:none;position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);"></span></li>
-                                    
-                                    <!-- User Dropdown -->
-                                    <li class="nav-user dropdown">
-                                        <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">
-                                            <% if (authUser.profile_picture) { %>
-                                                <img src="/uploads/<%= authUser.profile_picture %>" alt="<%= authUser.displayName %>" class="nav-avatar">
-                                            <% } else { %>
-                                                <div class="nav-avatar nav-avatar-fallback"><%= (authUser.displayName || authUser.email || 'U').charAt(0) %></div>
-                                            <% } %>
-                                            <span class="caret">▾</span>
-                                        </button>
-                                        <ul class="dropdown-menu" role="menu">
-                                            <li><a href="/profile">Profile</a></li>
-                                            <li><a href="/settings">Settings</a></li>
-                                            <% if (authUser.role === 'admin' || authUser.role === 'super_admin' || authUser.role === 'global_admin') { %>
-                                                <li><a href="/admin">Admin</a></li>
-                                            <% } %>
-                                            <% if (authUser.role === 'hr') { %>
-                                                <li><a href="/hr">HR Portal</a></li>
-                                            <% } %>
-                                            <li class="divider" role="separator"></li>
-                                            <li><a href="/logout" id="logout-link">Logout</a></li>
-                                        </ul>
-                                    </li>
-                                <% } else { %>
-                                    <li><a href="/about" class="<%= currentPage === 'about' ? 'active' : '' %>">About</a></li>
-                                    <li><a href="/features" class="<%= currentPage === 'features' ? 'active' : '' %>">Features</a></li>
-                                    <li><a href="/pricing" class="<%= currentPage === 'pricing' ? 'active' : '' %>">Pricing</a></li>
-                                    <li><a href="/help-center" class="<%= currentPage === 'help-center' ? 'active' : '' %>">Help</a></li>
-                                    <li><a href="/register" class="<%= currentPage === 'register' ? 'active' : '' %>">Register</a></li>
-                                    <li><a href="/login" class="<%= currentPage === 'login' ? 'active' : '' %>">Login</a></li>
-                                <% } %>
-                        </ul>
-        </div>
-    </nav>
+          </script>
 
-    <script>
+          <!-- Service Worker Registration -->
+          <script>
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+                  .then((registration) => {
+                    console.log('✅ Service Worker registered:', registration.scope);
+
+                    // Check for updates periodically
+                    setInterval(() => {
+                      registration.update();
+                    }, 60000); // Check every minute
+
+                    // Listen for updates
+                    registration.addEventListener('updatefound', () => {
+                      const newWorker = registration.installing;
+                      newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                          // New service worker available - activate immediately
+                          newWorker.postMessage({ type: 'SKIP_WAITING' });
+                          if (typeof showInfo === 'function') {
+                            showInfo('New version available! Page will refresh...');
+                            setTimeout(() => window.location.reload(), 2000);
+                          } else {
+                            window.location.reload();
+                          }
+                        }
+                      });
+                    });
+                  })
+                  .catch((error) => {
+                    console.error('❌ Service Worker registration failed:', error);
+                  });
+              });
+
+              // Clear service worker cache on auth state changes
+              window.clearServiceWorkerCache = function () {
+                if (navigator.serviceWorker.controller) {
+                  navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+                }
+              };
+            }
+
+            // Handle PWA install prompt
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+              e.preventDefault();
+              deferredPrompt = e;
+
+              // Show install button or banner
+              const installBanner = document.getElementById('pwa-install-banner');
+              if (installBanner) {
+                installBanner.style.display = 'block';
+              }
+            });
+
+            function installPWA() {
+              if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                  if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                  }
+                  deferredPrompt = null;
+                  const installBanner = document.getElementById('pwa-install-banner');
+                  if (installBanner) {
+                    installBanner.style.display = 'none';
+                  }
+                });
+              }
+            }
+
+            // Detect if running as PWA
+            window.addEventListener('DOMContentLoaded', () => {
+              if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+                console.log('✅ Running as PWA');
+                document.body.classList.add('pwa-mode');
+              }
+            });
+          </script>
+</head>
+
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="container">
+      <!-- Logo -->
+      <div class="logo">
+        <a href="/">
+          <img src="/img/logo.svg" alt="Dream X" height="40">
+        </a>
+      </div>
+
+      <!-- Mobile Menu Toggle -->
+      <button class="mobile-menu-toggle" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <!-- Navigation Links -->
+      <ul class="nav-links">
+        <% if(!authUser){ %>
+          <li><a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Home</a></li>
+          <% } %>
+            <% if(authUser){ %>
+              <li><a href="/feed" class="<%= currentPage === 'feed' ? 'active' : '' %>">Feed</a></li>
+              <li><a href="/services" class="<%= currentPage === 'services' ? 'active' : '' %>">Services</a></li>
+              <li><a href="/map" class="<%= currentPage === 'map' ? 'active' : '' %>">Map</a></li>
+              <li><a href="/billing" class="<%= currentPage === 'billing' ? 'active' : '' %>">Billing</a></li>
+              <li style="position:relative;"><a href="/messages"
+                  class="<%= currentPage === 'messages' ? 'active' : '' %>">Messages</a>
+                <% if(unreadMessageCount> 0){ %><span
+                    style="position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);">
+                    <%= unreadMessageCount %>
+                  </span>
+                  <% } %>
+              </li>
+              <li style="position:relative;"><a href="#" id="notificationBell">🔔</a><span id="notificationBadge"
+                  style="display:none;position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);"></span>
+              </li>
+              <!-- User Dropdown -->
+              <li class="nav-user dropdown">
+                <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+                  <% if (authUser.profile_picture) { %>
+                    <img src="/uploads/<%= authUser.profile_picture %>" alt="<%= authUser.displayName %>"
+                      class="nav-avatar">
+                    <% } else { %>
+                      <div class="nav-avatar nav-avatar-fallback">
+                        <%= (authUser.displayName || authUser.email || 'U' ).charAt(0) %>
+                      </div>
+                      <% } %>
+                        <span class="caret">▾</span>
+                </button>
+                <ul class="dropdown-menu" role="menu">
+                  <li><a href="/profile">Profile</a></li>
+                  <li><a href="/settings">Settings</a></li>
+                  <% if (authUser.role==='admin' || authUser.role==='super_admin' || authUser.role==='global_admin' ) {
+                    %>
+                    <li><a href="/admin">Admin</a></li>
+                    <% } %>
+                      <% if (authUser.role==='hr' ) { %>
+                        <li><a href="/hr">HR Portal</a></li>
+                        <% } %>
+                          <li class="divider" role="separator"></li>
+                          <li><a href="/logout" id="logout-link">Logout</a></li>
+                </ul>
+              </li>
+              <% } else { %>
+                <li><a href="/about" class="<%= currentPage === 'about' ? 'active' : '' %>">About</a></li>
+                <li><a href="/features" class="<%= currentPage === 'features' ? 'active' : '' %>">Features</a></li>
+                <li><a href="/pricing" class="<%= currentPage === 'pricing' ? 'active' : '' %>">Pricing</a></li>
+                <li><a href="/help-center" class="<%= currentPage === 'help-center' ? 'active' : '' %>">Help</a></li>
+                <li><a href="/register" class="<%= currentPage === 'register' ? 'active' : '' %>">Register</a></li>
+                <li><a href="/login" class="<%= currentPage === 'login' ? 'active' : '' %>">Login</a></li>
+                <% } %>
+      </ul>
+    </div>
+  </nav>
+
+  <script>
     // Mobile menu toggle
-    (function() {
+    (function () {
       const toggle = document.querySelector('.mobile-menu-toggle');
       const navLinks = document.querySelector('.nav-links');
       if (toggle && navLinks) {
-        toggle.addEventListener('click', function() {
+        toggle.addEventListener('click', function () {
           toggle.classList.toggle('active');
           navLinks.classList.toggle('active');
         });
       }
     })();
-    </script>
+  </script>
 
-    <!-- Main Content Area -->
-    <main>
-        <!-- Your main content goes here -->
+  <!-- Main Content Area -->
+  <main>
+    <!-- Your main content goes here -->

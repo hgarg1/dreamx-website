@@ -19,6 +19,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@bubblewrap/cli": "^1.24.1",
     "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "@simplewebauthn/browser": "^13.2.2",
     "@simplewebauthn/server": "^10.0.0",

@@ -1,1425 +1,1545 @@
 <!-- Basic HR view kept for backwards compatibility -->
 <!-- For enhanced experience, see hr-enhanced.ejs -->
 <%- include('partials/header') %>
-<link rel="stylesheet" href="/css/admin.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-<style>
-:root {
-  --hr-primary: #667eea;
-  --hr-secondary: #764ba2;
-  --hr-success: #10b981;
-  --hr-warning: #f59e0b;
-  --hr-danger: #ef4444;
-  --hr-info: #3b82f6;
-}
-
-.hr-dashboard {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 20px;
-  background: #f9fafb;
-  min-height: 100vh;
-}
-
-.hr-header {
-  background: linear-gradient(135deg, var(--hr-primary) 0%, var(--hr-secondary) 100%);
-  color: white;
-  padding: 48px;
-  border-radius: 20px;
-  margin-bottom: 32px;
-  box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.hr-header::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -10%;
-  width: 40%;
-  height: 200%;
-  background: rgba(255,255,255,0.1);
-  transform: rotate(15deg);
-}
-
-.hr-header h1 {
-  margin: 0 0 12px 0;
-  font-size: 42px;
-  font-weight: 800;
-  position: relative;
-  z-index: 1;
-}
-
-.hr-header p {
-  margin: 0;
-  font-size: 18px;
-  opacity: 0.95;
-  position: relative;
-  z-index: 1;
-}
-
-.hr-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.hr-stat-card {
-  background: white;
-  padding: 28px;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  border-left: 5px solid var(--hr-primary);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.hr-stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.15);
-}
-
-.hr-stat-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 120px;
-  height: 120px;
-  background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.1));
-  border-radius: 50%;
-  transform: translate(40%, -40%);
-}
-
-.hr-stat-card h3 {
-  font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 12px 0;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 700;
-}
-
-.hr-stat-card .stat-value {
-  font-size: 44px;
-  font-weight: 900;
-  color: #1f2937;
-  margin: 0 0 8px 0;
-  position: relative;
-  z-index: 1;
-}
-
-.hr-stat-card .stat-change {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--hr-success);
-}
-
-.hr-stat-card .stat-icon {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  font-size: 36px;
-  opacity: 0.3;
-}
-
-.hr-toolbar {
-  background: white;
-  padding: 20px 24px;
-  border-radius: 16px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.hr-search {
-  flex: 1;
-  min-width: 300px;
-  position: relative;
-}
-
-.hr-search input {
-  width: 100%;
-  padding: 12px 16px 12px 44px;
-  border: 2px solid #e5e7eb;
-  border-radius: 10px;
-  font-size: 15px;
-  transition: all 0.3s;
-}
-
-.hr-search input:focus {
-  outline: none;
-  border-color: var(--hr-primary);
-  box-shadow: 0 0 0 4px rgba(102,126,234,0.1);
-}
-
-.hr-search svg {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-}
-
-.hr-filters {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.filter-select {
-  padding: 10px 16px;
-  border: 2px solid #e5e7eb;
-  border-radius: 10px;
-  background: white;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.filter-select:hover {
-  border-color: var(--hr-primary);
-}
-
-.hr-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.hr-leadership-shell {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.14));
-  border: 1px solid rgba(102,126,234,0.18);
-  border-radius: 22px;
-  padding: 24px;
-  box-shadow: 0 20px 60px rgba(99,102,241,0.18);
-  margin-bottom: 28px;
-}
-.hr-leadership-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-.hr-leadership-copy h2 {
-  margin: 0 0 8px 0;
-  font-size: 26px;
-}
-.hr-leadership-copy p { margin: 0; color: #4b5563; }
-.hr-role-legend {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-.hr-role-chip {
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-weight: 700;
-  background: white;
-  border: 1px solid rgba(0,0,0,0.05);
-  color: #1f2937;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-}
-.hr-leadership-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 18px;
-}
-.hr-wizard-card, .hr-team-card {
-  background: #fff;
-  border-radius: 18px;
-  padding: 20px;
-  box-shadow: 0 12px 36px rgba(0,0,0,0.08);
-  border: 1px solid rgba(0,0,0,0.04);
-}
-.hr-wizard-shell {
-  display: grid;
-  gap: 14px;
-}
-.hr-wizard-steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin: 12px 0 14px 0;
-}
-.hr-wizard-step {
-  padding: 12px 10px;
-  border-radius: 16px;
-  background: #f3f4f6;
-  font-weight: 800;
-  color: #374151;
-  text-align: center;
-  border: 2px solid transparent;
-  display: grid;
-  gap: 6px;
-  align-items: center;
-}
-.hr-wizard-step.active {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-color: rgba(118,75,162,0.35);
-  box-shadow: 0 10px 30px rgba(118,75,162,0.2);
-}
-.hr-wizard-step-number {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  margin: 0 auto;
-  display: grid;
-  place-items: center;
-  font-weight: 900;
-  background: rgba(255,255,255,0.85);
-  color: #4b5563;
-}
-.hr-wizard-step.active .hr-wizard-step-number {
-  background: rgba(255,255,255,0.18);
-  color: #fff;
-}
-.hr-step-caption {
-  font-size: 13px;
-  font-weight: 700;
-  opacity: 0.85;
-}
-.hr-wizard-body { display: none; }
-.hr-wizard-body.active { display: block; }
-.hr-wizard-body label { font-weight: 700; display:block; margin-bottom:6px; }
-.hr-wizard-body input, .hr-wizard-body select, .hr-wizard-body textarea {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  border: 2px solid #e5e7eb;
-  background: #f9fafb;
-  margin-bottom: 12px;
-}
-.hr-wizard-body textarea { min-height: 72px; }
-.hr-wizard-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
-}
-.hr-wizard-actions .hr-btn { padding: 10px 18px; }
-.hr-wizard-footer {
-  border-top: 1px dashed #e5e7eb;
-  margin-top: 14px;
-  padding-top: 12px;
-  display: grid;
-  gap: 10px;
-}
-.hr-scope-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.hr-scope-chip {
-  background: linear-gradient(135deg, #eef2ff, #f5f3ff);
-  border: 1px solid rgba(102,126,234,0.25);
-  color: #4338ca;
-  padding: 8px 10px;
-  border-radius: 12px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.hr-scope-chip.active {
-  background: linear-gradient(135deg, #c7d2fe, #ede9fe);
-  border-color: #6366f1;
-  color: #1f2937;
-}
-.hr-scope-chip button {
-  border: none;
-  background: transparent;
-  color: #4b5563;
-  cursor: pointer;
-}
-.hr-team-row {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 10px;
-  background: #f9fafb;
-}
-.hr-team-row.highlight {
-  border-color: #c7d2fe;
-  background: #eef2ff;
-  box-shadow: 0 8px 18px rgba(102,126,234,0.12);
-}
-.hr-team-row .meta { color: #6b7280; font-size: 13px; margin-bottom: 6px; }
-.hr-team-row .row-head { display:flex; justify-content: space-between; align-items: center; gap: 8px; }
-.hr-team-row .name { font-weight: 800; font-size: 17px; }
-.hr-team-row .role-pill {
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 800;
-  color: #fff;
-  background: linear-gradient(135deg, #10b981, #059669);
-  text-transform: uppercase;
-  letter-spacing: .5px;
-}
-.role-pill.super-hr { background: linear-gradient(135deg, #f59e0b, #d97706); }
-.role-pill.global-hr { background: linear-gradient(135deg, #6366f1, #a855f7); }
-.hr-scope-input {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-.hr-scope-input input { flex: 1; }
-.hr-scope-input button { white-space: nowrap; }
-
-.hr-btn {
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hr-btn-primary {
-  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
-  color: white;
-  box-shadow: 0 4px 12px rgba(102,126,234,0.3);
-}
-
-.hr-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102,126,234,0.4);
-}
-
-.job-board {
-  background: linear-gradient(135deg, rgba(102,126,234,0.12), rgba(118,75,162,0.12));
-  border: 1px solid rgba(118,75,162,0.1);
-  border-radius: 18px;
-  padding: 24px;
-  margin: 20px 0 32px 0;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.06);
-}
-
-.job-board h2 {
-  margin: 0 0 6px 0;
-  font-size: 24px;
-  font-weight: 800;
-}
-
-.job-board .subhead {
-  margin: 0 0 18px 0;
-  color: #4b5563;
-}
-
-.job-panel-grid {
-  display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 18px;
-  align-items: start;
-}
-
-.job-form-card, .job-feed-card {
-  background: white;
-  border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  padding: 18px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-}
-
-.job-form-card h3, .job-feed-card h3 {
-  margin: 0 0 12px 0;
-  font-weight: 800;
-  font-size: 18px;
-}
-
-.job-form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.job-form-grid .full-row {
-  grid-column: span 2;
-}
-
-.job-form-card label {
-  display: block;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  color: #6b7280;
-  margin-bottom: 6px;
-  text-transform: uppercase;
-}
-
-.job-form-card input, .job-form-card textarea {
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 14px;
-}
-
-.job-form-card textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 12px;
-  border: 1px solid rgba(102,126,234,0.25);
-  background: rgba(102,126,234,0.08);
-  color: #27303f;
-}
-
-.job-feed-list {
-  display: grid;
-  gap: 12px;
-}
-
-.job-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 14px;
-  background: linear-gradient(120deg, rgba(255,255,255,0.92), rgba(246,248,255,0.98));
-  box-shadow: 0 8px 24px rgba(0,0,0,0.04);
-}
-
-.job-card header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.job-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.job-meta {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  color: #6b7280;
-  font-weight: 700;
-}
-
-.status-pill {
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  font-size: 11px;
-}
-
-.status-live { background: #ecfdf3; color: #166534; }
-.status-scheduled { background: #eff6ff; color: #1d4ed8; }
-.status-draft { background: #f3f4f6; color: #374151; }
-.status-frozen { background: #fef3c7; color: #92400e; }
-.status-closed { background: #fee2e2; color: #991b1b; }
-
-.job-card .actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.job-card .actions button {
-  border: none;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-weight: 800;
-  cursor: pointer;
-  background: #eef2ff;
-  color: #312e81;
-}
-
-.job-card .actions button.primary {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  color: white;
-}
-
-.job-card .tag-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 10px 0;
-}
-
-.job-card .tag {
-  background: rgba(79,70,229,0.08);
-  color: #312e81;
-  border: 1px solid rgba(79,70,229,0.2);
-  padding: 6px 8px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.asset-preview-modal .modal-content {
-  max-width: 900px;
-  width: 90%;
-  height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.asset-preview-frame {
-  flex: 1;
-  border: none;
-  border-radius: 12px;
-  background: #f9fafb;
-}
-
-.job-assets {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-}
-
-.job-assets a, .job-assets button {
-  padding: 6px 10px;
-  border-radius: 10px;
-  border: 1px dashed #d1d5db;
-  color: #374151;
-  background: #fff;
-  font-weight: 700;
-}
-
-.job-assets button {
-  cursor: pointer;
-}
-
-.job-asset-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.job-wizard-modal .modal-content {
-  max-width: 980px;
-  width: 90%;
-}
-
-.wizard-shell {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-.wizard-progress {
-  height: 8px;
-  border-radius: 999px;
-  background: #e5e7eb;
-  overflow: hidden;
-}
-
-.wizard-progress .bar {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
-  transition: width 0.25s ease;
-}
-
-.wizard-body {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 16px;
-}
-
-.wizard-preview {
-  background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08));
-  border: 1px solid rgba(102,126,234,0.12);
-  border-radius: 14px;
-  padding: 14px;
-  display: grid;
-  gap: 12px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.06);
-}
-
-.wizard-preview h4 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.wizard-preview .preview-title {
-  font-size: 20px;
-  font-weight: 900;
-  color: #111827;
-}
-
-.wizard-preview .preview-meta {
-  color: #4b5563;
-  font-weight: 700;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.wizard-preview .preview-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.wizard-preview .preview-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 10px;
-  background: white;
-  border-radius: 999px;
-  border: 1px solid rgba(102,126,234,0.2);
-  font-weight: 700;
-  color: #312e81;
-  max-width: 180px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.1;
-}
-
-.wizard-preview .preview-copy {
-  color: #1f2937;
-  line-height: 1.5;
-}
-
-.wizard-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 800;
-  background: #eef2ff;
-  color: #312e81;
-}
-
-@media (max-width: 1024px) {
-  .wizard-body {
-    grid-template-columns: 1fr;
-  }
-}
-
-.wizard-steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.wizard-step {
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f8fafc;
-  font-weight: 800;
-  text-align: center;
-  color: #6b7280;
-}
-
-.wizard-step.active {
-  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
-  color: white;
-  border-color: transparent;
-  box-shadow: 0 8px 20px rgba(102,126,234,0.25);
-}
-
-.job-progress {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.job-progress .metric {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 10px;
-  text-align: center;
-  font-weight: 800;
-}
-
-.job-progress .metric span {
-  display: block;
-  font-size: 26px;
-}
-
-.job-step {
-  display: none;
-}
-
-.job-step.active {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.job-step .full-row {
-  grid-column: span 2;
-}
-
-.job-form-card input,
-.job-form-card textarea,
-.job-form-card select {
-  width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 11px 12px;
-  font-size: 14px;
-  background: #f9fafb;
-  transition: all 0.2s ease;
-}
-
-.job-form-card input:focus,
-.job-form-card textarea:focus,
-.job-form-card select:focus {
-  outline: none;
-  border-color: var(--hr-primary);
-  box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
-  background: white;
-}
-
-.wizard-body input,
-.wizard-body textarea,
-.wizard-body select {
-  width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 11px 12px;
-  font-size: 14px;
-  background: #f9fafb;
-  transition: all 0.2s ease;
-}
-
-.wizard-body input:focus,
-.wizard-body textarea:focus,
-.wizard-body select:focus {
-  outline: none;
-  border-color: var(--hr-primary);
-  box-shadow: 0 0 0 3px rgba(102,126,234,0.18);
-  background: white;
-}
-
-.wizard-footer-note {
-  padding: 8px 12px;
-  border: 1px dashed #d1d5db;
-  border-radius: 12px;
-  background: #f9fafb;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.wizard-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 14px;
-}
-
-.wizard-actions .hr-btn {
-  padding: 10px 16px;
-}
-.hr-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  background: white;
-  padding: 8px;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  overflow-x: auto;
-}
-
-.hr-tab {
-  padding: 14px 28px;
-  background: transparent;
-  border: none;
-  border-radius: 12px;
-  color: #6b7280;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-  white-space: nowrap;
-  font-size: 15px;
-}
-
-.hr-tab.active {
-  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
-  color: white;
-  box-shadow: 0 4px 12px rgba(102,126,234,0.3);
-}
-
-.hr-tab-content {
-  display: none;
-}
-
-.hr-tab-content.active {
-  display: block;
-}
-
-.application-grid {
-  display: grid;
-  gap: 20px;
-}
-
-.application-card {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  border-left: 5px solid var(--hr-primary);
-  transition: all 0.3s;
-  position: relative;
-}
-
-.application-card:hover {
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  transform: translateX(4px);
-}
-
-.application-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.applicant-info h3 {
-  margin: 0 0 8px 0;
-  font-size: 22px;
-  color: #1f2937;
-  font-weight: 800;
-}
-
-.applicant-position {
-  color: var(--hr-primary);
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.applicant-meta {
-  display: flex;
-  gap: 16px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.applicant-meta span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.status-badge {
-  padding: 8px 16px;
-  border-radius: 24px;
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.status-new { 
-  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-  color: #1e40af;
-}
-
-.status-under_review { 
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
-  color: #92400e;
-}
-
-.status-accepted { 
-  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
-  color: #065f46;
-}
-
-.status-rejected { 
-  background: linear-gradient(135deg, #fee2e2, #fecaca);
-  color: #991b1b;
-}
-
-.application-excerpt {
-  background: #f9fafb;
-  padding: 18px;
-  border-radius: 12px;
-  margin-bottom: 18px;
-  border-left: 3px solid var(--hr-primary);
-}
-
-.application-excerpt strong {
-  color: #374151;
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-
-.application-excerpt p {
-  margin: 0;
-  color: #6b7280;
-  line-height: 1.7;
-  font-size: 14px;
-}
-
-.application-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-.tag {
-  padding: 6px 14px;
-  background: #e5e7eb;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4b5563;
-}
-
-.tag.tag-experience {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.quick-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.quick-actions button,
-.quick-actions a {
-  padding: 10px 18px;
-  border-radius: 10px;
-  border: none;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-view {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-}
-
-.btn-accept {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-}
-
-.btn-reject {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
-}
-
-.btn-review {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: white;
-}
-
-.btn-email {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
-}
-
-.btn-schedule {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  color: white;
-}
-
-.btn-portfolio {
-  background: linear-gradient(135deg, #ec4899, #db2777);
-  color: white;
-}
-
-.btn-resume {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: white;
-}
-
-.quick-actions button:hover,
-.quick-actions a:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-.analytics-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.analytics-card {
-  background: white;
-  padding: 28px;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.analytics-card h3 {
-  margin: 0 0 20px 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #1f2937;
-}
-
-.chart-container {
-  position: relative;
-  height: 300px;
-}
-
-.pipeline-stage {
-  padding: 16px;
-  background: #f9fafb;
-  border-radius: 12px;
-  margin-bottom: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: all 0.3s;
-}
-
-.pipeline-stage:hover {
-  background: #f3f4f6;
-  transform: translateX(4px);
-}
-
-.pipeline-stage-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.pipeline-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
-  color: white;
-}
-
-.pipeline-details h4 {
-  margin: 0 0 4px 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.pipeline-details p {
-  margin: 0;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.pipeline-count {
-  font-size: 28px;
-  font-weight: 900;
-  color: var(--hr-primary);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  color: #9ca3af;
-}
-
-.empty-state-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
-  opacity: 0.6;
-}
-
-.empty-state h3 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-  color: #6b7280;
-}
-
-.empty-state p {
-  margin: 0;
-  font-size: 16px;
-}
-
-.hr-modal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.6);
-  z-index: 9999;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
-}
-
-.hr-modal.show {
-  display: flex;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 20px;
-  padding: 36px;
-  max-width: 900px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 25px 75px rgba(0,0,0,0.3);
-  animation: modalSlideIn 0.3s ease;
-}
-
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 3px solid #f3f4f6;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 800;
-  color: #1f2937;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 36px;
-  color: #9ca3af;
-  cursor: pointer;
-  transition: all 0.2s;
-  line-height: 1;
-  padding: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-}
-
-.modal-close:hover {
-  background: #f3f4f6;
-  color: #4b5563;
-  transform: rotate(90deg);
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  background: #f9fafb;
-  padding: 24px;
-  border-radius: 16px;
-  margin-bottom: 24px;
-}
-
-.info-item label {
-  display: block;
-  font-size: 13px;
-  color: #6b7280;
-  margin-bottom: 6px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.info-item value {
-  display: block;
-  font-size: 16px;
-  color: #1f2937;
-  font-weight: 700;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #1f2937;
-  margin: 24px 0 16px 0;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #f3f4f6;
-}
-
-.cover-letter-box {
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 24px;
-  line-height: 1.8;
-  color: #374151;
-  margin-bottom: 24px;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 2px solid #f3f4f6;
-}
-
-@media (max-width: 768px) {
-  .analytics-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .hr-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .hr-search {
-    min-width: 100%;
-  }
-
-  .job-panel-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .job-wizard-modal .modal-content {
-    width: 100%;
-    max-width: 640px;
-    padding: 14px;
-  }
-
-  .wizard-shell {
-    gap: 10px;
-  }
-
-  .wizard-steps {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  }
-
-  .wizard-body {
-    gap: 12px;
-  }
-
-  .job-step.active {
-    grid-template-columns: 1fr;
-  }
-
-  .wizard-preview {
-    order: 2;
-  }
-
-  .wizard-actions {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-</style>
-
-<div class="hr-dashboard">
-  <header class="hr-header">
-    <h1>🎯 HR Command Center</h1>
-    <p>Next-Generation Talent Acquisition & Employee Relations Management System</p>
-  </header>
-
-  <% if (typeof success !== 'undefined' && success) { %>
-    <div class="admin-alert admin-alert-success" style="margin-bottom: 24px;"><%= success %></div>
-  <% } %>
-  <% if (typeof error !== 'undefined' && error) { %>
-    <div class="admin-alert admin-alert-error" style="margin-bottom: 24px;"><%= error %></div>
-  <% } %>
-
-  <% 
-    const totalApps = careers.length;
-    const newApps = careers.filter(c => c.status === 'new').length;
-    const reviewApps = careers.filter(c => c.status === 'under_review').length;
-    const acceptedApps = careers.filter(c => c.status === 'accepted').length;
-    const rejectedApps = careers.filter(c => c.status === 'rejected').length;
-    const thisWeek = careers.filter(c => new Date(c.created_at) > new Date(Date.now() - 7*24*60*60*1000)).length;
-  %>
-
-  <div class="hr-stats-grid">
-    <div class="hr-stat-card">
-      <span class="stat-icon">📊</span>
-      <h3>Total Applications</h3>
-      <p class="stat-value"><%= totalApps %></p>
-      <p class="stat-change">+<%= thisWeek %> this week</p>
-    </div>
-    <div class="hr-stat-card" style="border-left-color: var(--hr-warning);">
-      <span class="stat-icon">⏳</span>
-      <h3>Pending Review</h3>
-      <p class="stat-value"><%= newApps + reviewApps %></p>
-      <p class="stat-change"><%= newApps %> new submissions</p>
-    </div>
-    <div class="hr-stat-card" style="border-left-color: var(--hr-success);">
-      <span class="stat-icon">✅</span>
-      <h3>Accepted</h3>
-      <p class="stat-value"><%= acceptedApps %></p>
-      <p class="stat-change"><%= totalApps > 0 ? Math.round(acceptedApps/totalApps*100) : 0 %>% acceptance rate</p>
-    </div>
-    <div class="hr-stat-card" style="border-left-color: var(--hr-danger);">
-      <span class="stat-icon">❌</span>
-      <h3>Rejected</h3>
-      <p class="stat-value"><%= rejectedApps %></p>
-      <p class="stat-change"><%= totalApps > 0 ? Math.round(rejectedApps/totalApps*100) : 0 %>% rejection rate</p>
-    </div>
-  </div>
-
-  <div class="hr-leadership-shell">
-    <div class="hr-leadership-head">
-      <div class="hr-leadership-copy">
-        <h2>🌐 Global HR Control Deck</h2>
-        <p>Global HR mirrors the luxe admin aesthetic but is walled off from admin routes and APIs. Use this deck to stand up Super HR lieutenants, seed regular HR operators, and cascade the scopes they need.</p>
-        <div class="hr-role-legend">
-          <span class="hr-role-chip">Global HR → strategy + governance</span>
-          <span class="hr-role-chip">Super HR → crew chiefs & scope curators</span>
-          <span class="hr-role-chip">HR → talent specialists</span>
-        </div>
+  <link rel="stylesheet" href="/css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --hr-primary: #667eea;
+      --hr-secondary: #764ba2;
+      --hr-success: #10b981;
+      --hr-warning: #f59e0b;
+      --hr-danger: #ef4444;
+      --hr-info: #3b82f6;
+    }
+
+    .hr-dashboard {
+      max-width: 1600 px;
+      margin: 0 auto;
+      padding: 20 px;
+      background: #f9fafb;
+      min-height: 100 vh;
+    }
+
+    .hr-header {
+      background: linear-gradient(135deg, var(--hr-primary) 0%, var(--hr-secondary) 100%);
+      color: white;
+      padding: 48 px;
+      border-radius: 20 px;
+      margin-bottom: 32 px;
+      box-shadow: 0 20 px 60 px rgba(102, 126, 234, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hr-header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 40%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.1);
+      transform: rotate(15deg);
+    }
+
+    .hr-header h1 {
+      margin: 0 0 12px 0;
+      font-size: 42px;
+      font-weight: 800;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hr-header p {
+      margin: 0;
+      font-size: 18px;
+      opacity: 0.95;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hr-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .hr-stat-card {
+      background: white;
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      border-left: 5px solid var(--hr-primary);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hr-stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .hr-stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
+      height: 120px;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+      border-radius: 50%;
+      transform: translate(40%, -40%);
+    }
+
+    .hr-stat-card h3 {
+      font-size: 14px;
+      color: #6b7280;
+      margin: 0 0 12px 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .hr-stat-card .stat-value {
+      font-size: 44px;
+      font-weight: 900;
+      color: #1f2937;
+      margin: 0 0 8px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hr-stat-card .stat-change {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--hr-success);
+    }
+
+    .hr-stat-card .stat-icon {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      font-size: 36px;
+      opacity: 0.3;
+    }
+
+    .hr-toolbar {
+      background: white;
+      padding: 20px 24px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hr-search {
+      flex: 1;
+      min-width: 300px;
+      position: relative;
+    }
+
+    .hr-search input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 15px;
+      transition: all 0.3s;
+    }
+
+    .hr-search input:focus {
+      outline: none;
+      border-color: var(--hr-primary);
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+
+    .hr-search svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+    }
+
+    .hr-filters {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-select {
+      padding: 10px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      background: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .filter-select:hover {
+      border-color: var(--hr-primary);
+    }
+
+    .hr-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .hr-leadership-shell {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.14));
+      border: 1px solid rgba(102, 126, 234, 0.18);
+      border-radius: 22px;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(99, 102, 241, 0.18);
+      margin-bottom: 28px;
+    }
+
+    .hr-leadership-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .hr-leadership-copy h2 {
+      margin: 0 0 8px 0;
+      font-size: 26px;
+    }
+
+    .hr-leadership-copy p {
+      margin: 0;
+      color: #4b5563;
+    }
+
+    .hr-role-legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .hr-role-chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      color: #1f2937;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    }
+
+    .hr-leadership-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .hr-wizard-card,
+    .hr-team-card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .hr-wizard-shell {
+      display: grid;
+      gap: 14px;
+    }
+
+    .hr-wizard-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 12px 0 14px 0;
+    }
+
+    .hr-wizard-step {
+      padding: 12px 10px;
+      border-radius: 16px;
+      background: #f3f4f6;
+      font-weight: 800;
+      color: #374151;
+      text-align: center;
+      border: 2px solid transparent;
+      display: grid;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .hr-wizard-step.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border-color: rgba(118, 75, 162, 0.35);
+      box-shadow: 0 10px 30px rgba(118, 75, 162, 0.2);
+    }
+
+    .hr-wizard-step-number {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      background: rgba(255, 255, 255, 0.85);
+      color: #4b5563;
+    }
+
+    .hr-wizard-step.active .hr-wizard-step-number {
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+    }
+
+    .hr-step-caption {
+      font-size: 13px;
+      font-weight: 700;
+      opacity: 0.85;
+    }
+
+    .hr-wizard-body {
+      display: none;
+    }
+
+    .hr-wizard-body.active {
+      display: block;
+    }
+
+    .hr-wizard-body label {
+      font-weight: 700;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .hr-wizard-body input,
+    .hr-wizard-body select,
+    .hr-wizard-body textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 2px solid #e5e7eb;
+      background: #f9fafb;
+      margin-bottom: 12px;
+    }
+
+    .hr-wizard-body textarea {
+      min-height: 72px;
+    }
+
+    .hr-wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .hr-wizard-actions .hr-btn {
+      padding: 10px 18px;
+    }
+
+    .hr-wizard-footer {
+      border-top: 1px dashed #e5e7eb;
+      margin-top: 14px;
+      padding-top: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .hr-scope-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .hr-scope-chip {
+      background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+      border: 1px solid rgba(102, 126, 234, 0.25);
+      color: #4338ca;
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hr-scope-chip.active {
+      background: linear-gradient(135deg, #c7d2fe, #ede9fe);
+      border-color: #6366f1;
+      color: #1f2937;
+    }
+
+    .hr-scope-chip button {
+      border: none;
+      background: transparent;
+      color: #4b5563;
+      cursor: pointer;
+    }
+
+    .hr-team-row {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #f9fafb;
+    }
+
+    .hr-team-row.highlight {
+      border-color: #c7d2fe;
+      background: #eef2ff;
+      box-shadow: 0 8px 18px rgba(102, 126, 234, 0.12);
+    }
+
+    .hr-team-row .meta {
+      color: #6b7280;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .hr-team-row .row-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hr-team-row .name {
+      font-weight: 800;
+      font-size: 17px;
+    }
+
+    .hr-team-row .role-pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, #10b981, #059669);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .role-pill.super-hr {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .role-pill.global-hr {
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+    }
+
+    .hr-scope-input {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .hr-scope-input input {
+      flex: 1;
+    }
+
+    .hr-scope-input button {
+      white-space: nowrap;
+    }
+
+    .hr-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hr-btn-primary {
+      background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+      color: white;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .hr-btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .job-board {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.12));
+      border: 1px solid rgba(118, 75, 162, 0.1);
+      border-radius: 18px;
+      padding: 24px;
+      margin: 20px 0 32px 0;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.06);
+    }
+
+    .job-board h2 {
+      margin: 0 0 6px 0;
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .job-board .subhead {
+      margin: 0 0 18px 0;
+      color: #4b5563;
+    }
+
+    .job-panel-grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .job-form-card,
+    .job-feed-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    }
+
+    .job-form-card h3,
+    .job-feed-card h3 {
+      margin: 0 0 12px 0;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .job-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .job-form-grid .full-row {
+      grid-column: span 2;
+    }
+
+    .job-form-card label {
+      display: block;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .job-form-card input,
+    .job-form-card textarea {
+      width: 100%;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    .job-form-card textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 12px;
+      border: 1px solid rgba(102, 126, 234, 0.25);
+      background: rgba(102, 126, 234, 0.08);
+      color: #27303f;
+    }
+
+    .job-feed-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .job-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 14px;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.92), rgba(246, 248, 255, 0.98));
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+    }
+
+    .job-card header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .job-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .job-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: #6b7280;
+      font-weight: 700;
+    }
+
+    .status-pill {
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+
+    .status-live {
+      background: #ecfdf3;
+      color: #166534;
+    }
+
+    .status-scheduled {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .status-draft {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .status-frozen {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-closed {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .job-card .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .job-card .actions button {
+      border: none;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 800;
+      cursor: pointer;
+      background: #eef2ff;
+      color: #312e81;
+    }
+
+    .job-card .actions button.primary {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: white;
+    }
+
+    .job-card .tag-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 10px 0;
+    }
+
+    .job-card .tag {
+      background: rgba(79, 70, 229, 0.08);
+      color: #312e81;
+      border: 1px solid rgba(79, 70, 229, 0.2);
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .asset-preview-modal .modal-content {
+      max-width: 900px;
+      width: 90%;
+      height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .asset-preview-frame {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      background: #f9fafb;
+    }
+
+    .job-assets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .job-assets a,
+    .job-assets button {
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px dashed #d1d5db;
+      color: #374151;
+      background: #fff;
+      font-weight: 700;
+    }
+
+    .job-assets button {
+      cursor: pointer;
+    }
+
+    .job-asset-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .job-wizard-modal .modal-content {
+      max-width: 980px;
+      width: 90%;
+    }
+
+    .wizard-shell {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .wizard-progress {
+      height: 8px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+    }
+
+    .wizard-progress .bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+      transition: width 0.25s ease;
+    }
+
+    .wizard-body {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+    }
+
+    .wizard-preview {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+      border: 1px solid rgba(102, 126, 234, 0.12);
+      border-radius: 14px;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+    }
+
+    .wizard-preview h4 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .wizard-preview .preview-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .wizard-preview .preview-meta {
+      color: #4b5563;
+      font-weight: 700;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .wizard-preview .preview-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .wizard-preview .preview-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      background: white;
+      border-radius: 999px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      font-weight: 700;
+      color: #312e81;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.1;
+    }
+
+    .wizard-preview .preview-copy {
+      color: #1f2937;
+      line-height: 1.5;
+    }
+
+    .wizard-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      background: #eef2ff;
+      color: #312e81;
+    }
+
+    @media (max-width: 1024px) {
+      .wizard-body {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .wizard-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .wizard-step {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+      font-weight: 800;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    .wizard-step.active {
+      background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.25);
+    }
+
+    .job-progress {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .job-progress .metric {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .job-progress .metric span {
+      display: block;
+      font-size: 26px;
+    }
+
+    .job-step {
+      display: none;
+    }
+
+    .job-step.active {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .job-step .full-row {
+      grid-column: span 2;
+    }
+
+    .job-form-card input,
+    .job-form-card textarea,
+    .job-form-card select {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: 14px;
+      background: #f9fafb;
+      transition: all 0.2s ease;
+    }
+
+    .job-form-card input:focus,
+    .job-form-card textarea:focus,
+    .job-form-card select:focus {
+      outline: none;
+      border-color: var(--hr-primary);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
+      background: white;
+    }
+
+    .wizard-body input,
+    .wizard-body textarea,
+    .wizard-body select {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: 14px;
+      background: #f9fafb;
+      transition: all 0.2s ease;
+    }
+
+    .wizard-body input:focus,
+    .wizard-body textarea:focus,
+    .wizard-body select:focus {
+      outline: none;
+      border-color: var(--hr-primary);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
+      background: white;
+    }
+
+    .wizard-footer-note {
+      padding: 8px 12px;
+      border: 1px dashed #d1d5db;
+      border-radius: 12px;
+      background: #f9fafb;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .wizard-actions .hr-btn {
+      padding: 10px 16px;
+    }
+
+    .hr-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      background: white;
+      padding: 8px;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      overflow-x: auto;
+    }
+
+    .hr-tab {
+      padding: 14px 28px;
+      background: transparent;
+      border: none;
+      border-radius: 12px;
+      color: #6b7280;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap;
+      font-size: 15px;
+    }
+
+    .hr-tab.active {
+      background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+      color: white;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .hr-tab-content {
+      display: none;
+    }
+
+    .hr-tab-content.active {
+      display: block;
+    }
+
+    .application-grid {
+      display: grid;
+      gap: 20px;
+    }
+
+    .application-card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      border-left: 5px solid var(--hr-primary);
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .application-card:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      transform: translateX(4px);
+    }
+
+    .application-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .applicant-info h3 {
+      margin: 0 0 8px 0;
+      font-size: 22px;
+      color: #1f2937;
+      font-weight: 800;
+    }
+
+    .applicant-position {
+      color: var(--hr-primary);
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .applicant-meta {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .applicant-meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-badge {
+      padding: 8px 16px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-new {
+      background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+      color: #1e40af;
+    }
+
+    .status-under_review {
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      color: #92400e;
+    }
+
+    .status-accepted {
+      background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+      color: #065f46;
+    }
+
+    .status-rejected {
+      background: linear-gradient(135deg, #fee2e2, #fecaca);
+      color: #991b1b;
+    }
+
+    .application-excerpt {
+      background: #f9fafb;
+      padding: 18px;
+      border-radius: 12px;
+      margin-bottom: 18px;
+      border-left: 3px solid var(--hr-primary);
+    }
+
+    .application-excerpt strong {
+      color: #374151;
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .application-excerpt p {
+      margin: 0;
+      color: #6b7280;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .application-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .tag {
+      padding: 6px 14px;
+      background: #e5e7eb;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4b5563;
+    }
+
+    .tag.tag-experience {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .quick-actions button,
+    .quick-actions a {
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-view {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+    }
+
+    .btn-accept {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+    }
+
+    .btn-reject {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
+    }
+
+    .btn-review {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+    }
+
+    .btn-email {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+    }
+
+    .btn-schedule {
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: white;
+    }
+
+    .btn-portfolio {
+      background: linear-gradient(135deg, #ec4899, #db2777);
+      color: white;
+    }
+
+    .btn-resume {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white;
+    }
+
+    .quick-actions button:hover,
+    .quick-actions a:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .analytics-card {
+      background: white;
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .analytics-card h3 {
+      margin: 0 0 20px 0;
+      font-size: 18px;
+      font-weight: 800;
+      color: #1f2937;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+    }
+
+    .pipeline-stage {
+      padding: 16px;
+      background: #f9fafb;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.3s;
+    }
+
+    .pipeline-stage:hover {
+      background: #f3f4f6;
+      transform: translateX(4px);
+    }
+
+    .pipeline-stage-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pipeline-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      background: linear-gradient(135deg, var(--hr-primary), var(--hr-secondary));
+      color: white;
+    }
+
+    .pipeline-details h4 {
+      margin: 0 0 4px 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .pipeline-details p {
+      margin: 0;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .pipeline-count {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--hr-primary);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: #9ca3af;
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.6;
+    }
+
+    .empty-state h3 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+      color: #6b7280;
+    }
+
+    .empty-state p {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .hr-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .hr-modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 20px;
+      padding: 36px;
+      max-width: 900px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 75px rgba(0, 0, 0, 0.3);
+      animation: modalSlideIn 0.3s ease;
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #f3f4f6;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 800;
+      color: #1f2937;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 36px;
+      color: #9ca3af;
+      cursor: pointer;
+      transition: all 0.2s;
+      line-height: 1;
+      padding: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
+
+    .modal-close:hover {
+      background: #f3f4f6;
+      color: #4b5563;
+      transform: rotate(90deg);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      background: #f9fafb;
+      padding: 24px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+    }
+
+    .info-item label {
+      display: block;
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 6px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .info-item value {
+      display: block;
+      font-size: 16px;
+      color: #1f2937;
+      font-weight: 700;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #1f2937;
+      margin: 24px 0 16px 0;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #f3f4f6;
+    }
+
+    .cover-letter-box {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 24px;
+      line-height: 1.8;
+      color: #374151;
+      margin-bottom: 24px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 2px solid #f3f4f6;
+    }
+
+    @media (max-width: 768px) {
+      .analytics-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hr-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .hr-search {
+        min-width: 100%;
+      }
+
+      .job-panel-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .job-wizard-modal .modal-content {
+        width: 100%;
+        max-width: 640px;
+        padding: 14px;
+      }
+
+      .wizard-shell {
+        gap: 10px;
+      }
+
+      .wizard-steps {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+
+      .wizard-body {
+        gap: 12px;
+      }
+
+      .job-step.active {
+        grid-template-columns: 1fr;
+      }
+
+      .wizard-preview {
+        order: 2;
+      }
+
+      .wizard-actions {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+
+  <div class="hr-dashboard">
+    <header class="hr-header">
+      <h1>🎯 HR Command Center</h1>
+      <p>Next-Generation Talent Acquisition & Employee Relations Management System</p>
+    </header>
+
+    <% if (typeof success !=='undefined' && success) { %>
+      <div class="admin-alert admin-alert-success" style="margin-bottom: 24px;">
+        <%= success %>
       </div>
-      <div class="hr-role-chip" style="background: #111827; color:white;">Your tier: <%= authUser.role.replace('_',' ').toUpperCase() %></div>
+      <% } %>
+        <% if (typeof error !=='undefined' && error) { %>
+          <div class="admin-alert admin-alert-error" style="margin-bottom: 24px;">
+            <%= error %>
+          </div>
+          <% } %>
+
+            <% const totalApps=careers.length; const newApps=careers.filter(c=> c.status === 'new').length;
+              const reviewApps = careers.filter(c => c.status === 'under_review').length;
+              const acceptedApps = careers.filter(c => c.status === 'accepted').length;
+              const rejectedApps = careers.filter(c => c.status === 'rejected').length;
+              const thisWeek = careers.filter(c => new Date(c.created_at) > new Date(Date.now() -
+              7*24*60*60*1000)).length;
+              %>
+
+              <div class="hr-stats-grid">
+                <div class="hr-stat-card">
+                  <span class="stat-icon">📊</span>
+                  <h3>Total Applications</h3>
+                  <p class="stat-value">
+                    <%= totalApps %>
+                  </p>
+                  <p class="stat-change">+<%= thisWeek %> this week</p>
+                </div>
+                <div class="hr-stat-card" style="border-left-color: var(--hr-warning);">
+                  <span class="stat-icon">⏳</span>
+                  <h3>Pending Review</h3>
+                  <p class="stat-value">
+                    <%= newApps + reviewApps %>
+                  </p>
+                  <p class="stat-change">
+                    <%= newApps %> new submissions
+                  </p>
+                </div>
+                <div class="hr-stat-card" style="border-left-color: var(--hr-success);">
+                  <span class="stat-icon">✅</span>
+                  <h3>Accepted</h3>
+                  <p class="stat-value">
+                    <%= acceptedApps %>
+                  </p>
+                  <p class="stat-change">
+                    <%= totalApps> 0 ? Math.round(acceptedApps/totalApps*100) : 0 %>% acceptance rate
+                  </p>
+                </div>
+                <div class="hr-stat-card" style="border-left-color: var(--hr-danger);">
+                  <span class="stat-icon">❌</span>
+                  <h3>Rejected</h3>
+                  <p class="stat-value">
+                    <%= rejectedApps %>
+                  </p>
+                  <p class="stat-change">
+                    <%= totalApps> 0 ? Math.round(rejectedApps/totalApps*100) : 0 %>% rejection rate
+                  </p>
+                </div>
+              </div>
+
+              <div class="hr-leadership-shell">
+                <div class="hr-leadership-head">
+                  <div class="hr-leadership-copy">
+                    <h2>🌐 Global HR Control Deck</h2>
+                    <p>Global HR mirrors the luxe admin aesthetic but is walled off from admin routes and APIs. Use this
+                      deck to stand up Super HR lieutenants, seed regular HR operators, and cascade the scopes they
+                      need.</p>
+                    <div class="hr-role-legend">
+                      <span class="hr-role-chip">Global HR → strategy + governance</span>
+                      <span class="hr-role-chip">Super HR → crew chiefs & scope curators</span>
+                      <span class="hr-role-chip">HR → talent specialists</span>
+                    </div>
+                  </div>
+                  <div class="hr-role-chip" style="background: #111827; color:white;">Your tier: <%=
+                      authUser.role.replace('_',' ').toUpperCase() %></div>
     </div>
 
     <div class="hr-leadership-grid">
@@ -1477,73 +1597,83 @@
             <label style="margin-top:10px;">Add scopes (think: regions, programs, squads)</label>
             <div class="hr-scope-cloud" style="margin-bottom:8px;">
               <% (defaultHrScopes || []).forEach(scope => { %>
-                <div class="hr-scope-chip" style="cursor:pointer;" onclick="addPresetScope('<%- scope %>')"><%= scope %></div>
-              <% }) %>
-            </div>
-            <div class="hr-scope-input">
-              <input type="text" id="hrScopeInput" placeholder="e.g., campus, executive-hiring, LATAM" />
-              <button class="hr-btn hr-btn-secondary" type="button" onclick="addScopeChipFromInput()">Add scope</button>
-            </div>
-            <div class="hr-scope-cloud" id="hrScopeChips"></div>
-            <div style="margin-top:16px;">
-              <p style="color:#111827; font-weight:800; margin:0 0 8px 0;">HR Role Permissions</p>
-              <div id="hrPermissionChecklist" class="hr-scope-cloud" style="gap:8px;"></div>
-            </div>
-            <div style="margin-top:10px; color:#6b7280; font-weight:600; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <span>Tip: Super HR can layer scopes for HR teammates later.</span>
-              <% if (authUser.role === 'global_hr') { %>
-                <span class="hr-role-chip" style="background:#0f172a; color:white;">Global HR can lock scope edits</span>
-              <% } %>
-            </div>
-            <div class="hr-wizard-footer">
-              <div style="font-weight:700; color:#111827;">Keep scopes human-readable.</div>
-              <div style="color:#6b7280;">Short hyphenated scopes mirror how squads talk in real life, and make downstream filters delightful.</div>
-            </div>
-          </div>
-
-          <div class="hr-wizard-body" data-hr-body="3">
-            <div class="hr-wizard-summary" style="background:#f9fafb; padding:12px; border-radius:12px; border:1px solid #e5e7eb;">
-              <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
-                <div>
-                  <div style="font-weight:800; font-size:18px;" id="hrReviewName">New HR Teammate</div>
-                  <div style="color:#6b7280;" id="hrReviewEmail">email@dreamx.local</div>
+                <div class="hr-scope-chip" style="cursor:pointer;" onclick="addPresetScope(' <%- scope %>')"><%= scope
+                        %>
+                  </div>
+                  <% }) %>
                 </div>
-                <div class="role-pill super-hr" id="hrReviewRole">HR</div>
+                <div class="hr-scope-input">
+                  <input type="text" id="hrScopeInput" placeholder="e.g., campus, executive-hiring, LATAM" />
+                  <button class="hr-btn hr-btn-secondary" type="button" onclick="addScopeChipFromInput()">Add
+                    scope</button>
+                </div>
+                <div class="hr-scope-cloud" id="hrScopeChips"></div>
+                <div style="margin-top:16px;">
+                  <p style="color:#111827; font-weight:800; margin:0 0 8px 0;">HR Role Permissions</p>
+                  <div id="hrPermissionChecklist" class="hr-scope-cloud" style="gap:8px;"></div>
+                </div>
+                <div
+                  style="margin-top:10px; color:#6b7280; font-weight:600; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span>Tip: Super HR can layer scopes for HR teammates later.</span>
+                  <% if (authUser.role==='global_hr' ) { %>
+                    <span class="hr-role-chip" style="background:#0f172a; color:white;">Global HR can lock scope
+                      edits</span>
+                    <% } %>
+                </div>
+                <div class="hr-wizard-footer">
+                  <div style="font-weight:700; color:#111827;">Keep scopes human-readable.</div>
+                  <div style="color:#6b7280;">Short hyphenated scopes mirror how squads talk in real life, and make
+                    downstream filters delightful.</div>
+                </div>
               </div>
-              <div style="margin-top:12px; color:#374151;" id="hrReviewCopy">Global HR accounts inherit the admin look-and-feel but stay sandboxed from admin pages.</div>
-              <div class="hr-scope-cloud" id="hrReviewScopes" style="margin-top:12px;"></div>
-            </div>
-            <div class="hr-wizard-footer">
-              <div style="font-weight:700; color:#111827;">Permissions at a glance</div>
-              <div class="hr-scope-cloud" id="hrReviewPermissions" style="margin-top:8px;"></div>
-            </div>
-          </div>
 
-          <div class="hr-wizard-actions">
-            <button class="hr-btn hr-btn-secondary" type="button" onclick="hrWizardPrev()">Back</button>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <span id="hrWizardStatus" style="color:#6b7280; font-weight:700;"></span>
-              <button class="hr-btn hr-btn-primary" type="button" onclick="hrWizardNext()">Next</button>
-              <button class="hr-btn hr-btn-primary" type="button" id="hrLaunchBtn" style="display:none;" onclick="submitHrWizard()">Create HR Account</button>
-            </div>
-          </div>
-        </div>
+              <div class="hr-wizard-body" data-hr-body="3">
+                <div class="hr-wizard-summary"
+                  style="background:#f9fafb; padding:12px; border-radius:12px; border:1px solid #e5e7eb;">
+                  <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
+                    <div>
+                      <div style="font-weight:800; font-size:18px;" id="hrReviewName">New HR Teammate</div>
+                      <div style="color:#6b7280;" id="hrReviewEmail">email@dreamx.local</div>
+                    </div>
+                    <div class="role-pill super-hr" id="hrReviewRole">HR</div>
+                  </div>
+                  <div style="margin-top:12px; color:#374151;" id="hrReviewCopy">Global HR accounts inherit the admin
+                    look-and-feel but stay sandboxed from admin pages.</div>
+                  <div class="hr-scope-cloud" id="hrReviewScopes" style="margin-top:12px;"></div>
+                </div>
+                <div class="hr-wizard-footer">
+                  <div style="font-weight:700; color:#111827;">Permissions at a glance</div>
+                  <div class="hr-scope-cloud" id="hrReviewPermissions" style="margin-top:8px;"></div>
+                </div>
+              </div>
+
+              <div class="hr-wizard-actions">
+                <button class="hr-btn hr-btn-secondary" type="button" onclick="hrWizardPrev()">Back</button>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <span id="hrWizardStatus" style="color:#6b7280; font-weight:700;"></span>
+                  <button class="hr-btn hr-btn-primary" type="button" onclick="hrWizardNext()">Next</button>
+                  <button class="hr-btn hr-btn-primary" type="button" id="hrLaunchBtn" style="display:none;"
+                    onclick="submitHrWizard()">Create HR Account</button>
+                </div>
+              </div>
+  </div>
+  </div>
+
+  <div class="hr-team-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div>
+        <h3 style="margin:0;">HR Org Snapshot</h3>
+        <p style="margin:6px 0 0 0; color:#4b5563;">Every HR account is visible to admin ledgers. Keep the bench tidy
+          and scoped.</p>
       </div>
-
-      <div class="hr-team-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-          <div>
-            <h3 style="margin:0;">HR Org Snapshot</h3>
-            <p style="margin:6px 0 0 0; color:#4b5563;">Every HR account is visible to admin ledgers. Keep the bench tidy and scoped.</p>
-          </div>
-          <div class="hr-scope-cloud" style="gap:6px;">
-            <span class="hr-role-chip">Feeds admin dashboard visibility automatically</span>
-            <span class="hr-role-chip" id="hrTeamCountBadge">Current HR accounts: <%= (initialHrTeam || []).length %></span>
-          </div>
-        </div>
-        <div id="hrTeamList"></div>
+      <div class="hr-scope-cloud" style="gap:6px;">
+        <span class="hr-role-chip">Feeds admin dashboard visibility automatically</span>
+        <span class="hr-role-chip" id="hrTeamCountBadge">Current HR accounts: <%= (hrTeam || []).length %></span>
       </div>
     </div>
+    <div id="hrTeamList"></div>
+  </div>
+  </div>
   </div>
 
   <div class="analytics-grid">
@@ -1563,7 +1693,9 @@
             <p>Needs initial review</p>
           </div>
         </div>
-        <div class="pipeline-count"><%= newApps %></div>
+        <div class="pipeline-count">
+          <%= newApps %>
+        </div>
       </div>
       <div class="pipeline-stage">
         <div class="pipeline-stage-info">
@@ -1573,7 +1705,9 @@
             <p>Currently evaluating</p>
           </div>
         </div>
-        <div class="pipeline-count" style="color: var(--hr-warning);"><%= reviewApps %></div>
+        <div class="pipeline-count" style="color: var(--hr-warning);">
+          <%= reviewApps %>
+        </div>
       </div>
       <div class="pipeline-stage">
         <div class="pipeline-stage-info">
@@ -1583,641 +1717,703 @@
             <p>Ready for onboarding</p>
           </div>
         </div>
-        <div class="pipeline-count" style="color: var(--hr-success);"><%= acceptedApps %></div>
+        <div class="pipeline-count" style="color: var(--hr-success);">
+          <%= acceptedApps %>
+        </div>
       </div>
     </div>
   </div>
 
-  <%
-    const liveJobs = (jobPostings || []).filter(j => j.status === 'live').length;
+  <% const liveJobs=(jobPostings || []).filter(j=> j.status === 'live').length;
     const scheduledJobs = (jobPostings || []).filter(j => j.status === 'scheduled').length;
     const frozenJobs = (jobPostings || []).filter(j => j.status === 'frozen').length;
-  %>
-  <div class="job-board">
-    <h2>Careers Launchpad</h2>
-    <p class="subhead">Ship dazzling job stories, attach assets, schedule launches, and freeze openings in one sleek view.</p>
+    %>
+    <div class="job-board">
+      <h2>Careers Launchpad</h2>
+      <p class="subhead">Ship dazzling job stories, attach assets, schedule launches, and freeze openings in one sleek
+        view.</p>
 
-    <div class="job-progress">
-      <div class="metric"><span data-role-count="live"><%= liveJobs %></span>Live</div>
-      <div class="metric"><span data-role-count="scheduled"><%= scheduledJobs %></span>Scheduled</div>
-      <div class="metric"><span data-role-count="frozen"><%= frozenJobs %></span>Frozen</div>
-      <div class="metric"><span data-role-count="total"><%= (jobPostings || []).length %></span>Total</div>
-    </div>
+      <div class="job-progress">
+        <div class="metric"><span data-role-count="live">
+            <%= liveJobs %>
+          </span>Live</div>
+        <div class="metric"><span data-role-count="scheduled">
+            <%= scheduledJobs %>
+          </span>Scheduled</div>
+        <div class="metric"><span data-role-count="frozen">
+            <%= frozenJobs %>
+          </span>Frozen</div>
+        <div class="metric"><span data-role-count="total">
+            <%= (jobPostings || []).length %>
+          </span>Total</div>
+      </div>
 
-    <div class="job-panel-grid">
-      <div class="job-form-card">
-        <h3>Create or Schedule a Role</h3>
-        <p style="margin:6px 0 12px 0; color:#4b5563;">Launch a cinematic wizard to craft the posting, schedule go-live, freeze windows, and drop assets.</p>
-        <button class="hr-btn hr-btn-primary" style="width:100%; justify-content:center; padding:14px;" onclick="openJobWizard()">Open Role Wizard</button>
-        <div style="margin-top:12px; color:#6b7280; font-weight:600;">
-          Drafts stay private until you launch. Scheduled roles auto-publish when the clock hits your go-live time.
+      <div class="job-panel-grid">
+        <div class="job-form-card">
+          <h3>Create or Schedule a Role</h3>
+          <p style="margin:6px 0 12px 0; color:#4b5563;">Launch a cinematic wizard to craft the posting, schedule
+            go-live, freeze windows, and drop assets.</p>
+          <button class="hr-btn hr-btn-primary" style="width:100%; justify-content:center; padding:14px;"
+            onclick="openJobWizard()">Open Role Wizard</button>
+          <div style="margin-top:12px; color:#6b7280; font-weight:600;">
+            Drafts stay private until you launch. Scheduled roles auto-publish when the clock hits your go-live time.
+          </div>
+        </div>
+
+        <div class="job-feed-card">
+          <h3>Live & Scheduled Roles</h3>
+          <div id="jobCards" class="job-feed-list"></div>
         </div>
       </div>
+    </div>
 
-      <div class="job-feed-card">
-        <h3>Live & Scheduled Roles</h3>
-        <div id="jobCards" class="job-feed-list"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="hr-toolbar">
-    <div class="hr-search">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="11" cy="11" r="8"></circle>
-        <path d="m21 21-4.35-4.35"></path>
-      </svg>
-      <input 
-        type="text" 
-        id="searchApplications" 
-        placeholder="Search by name, email, position, or keywords..."
-        oninput="filterApplications()"
-      >
-    </div>
-    <div class="hr-filters">
-      <select class="filter-select" id="positionFilter" onchange="filterApplications()">
-        <option value="">All Positions</option>
-        <% [...new Set(careers.map(c => c.position))].forEach(pos => { %>
-          <option value="<%= pos %>"><%= pos %></option>
-        <% }) %>
-      </select>
-      <select class="filter-select" id="sortFilter" onchange="filterApplications()">
-        <option value="newest">Newest First</option>
-        <option value="oldest">Oldest First</option>
-        <option value="name">Name (A-Z)</option>
-      </select>
-    </div>
-    <div class="hr-actions">
-      <button class="hr-btn hr-btn-primary" onclick="exportApplications()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="7 10 12 15 17 10"></polyline>
-          <line x1="12" y1="15" x2="12" y2="3"></line>
+    <div class="hr-toolbar">
+      <div class="hr-search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
         </svg>
-        Export CSV
-      </button>
+        <input type="text" id="searchApplications" placeholder="Search by name, email, position, or keywords..."
+          oninput="filterApplications()">
+      </div>
+      <div class="hr-filters">
+        <select class="filter-select" id="positionFilter" onchange="filterApplications()">
+          <option value="">All Positions</option>
+          <% [...new Set(careers.map(c=> c.position))].forEach(pos => { %>
+            <option value="<%= pos %>">
+              <%= pos %>
+            </option>
+            <% }) %>
+        </select>
+        <select class="filter-select" id="sortFilter" onchange="filterApplications()">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="name">Name (A-Z)</option>
+        </select>
+      </div>
+      <div class="hr-actions">
+        <button class="hr-btn hr-btn-primary" onclick="exportApplications()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Export CSV
+        </button>
+      </div>
     </div>
-  </div>
 
-  <div class="hr-tabs">
-    <button class="hr-tab active" data-tab="all">All Applications (<%= totalApps %>)</button>
-    <button class="hr-tab" data-tab="new">🆕 New (<%= newApps %>)</button>
-    <button class="hr-tab" data-tab="review">🔍 Under Review (<%= reviewApps %>)</button>
-    <button class="hr-tab" data-tab="accepted">✅ Accepted (<%= acceptedApps %>)</button>
-    <button class="hr-tab" data-tab="rejected">❌ Rejected (<%= rejectedApps %>)</button>
-  </div>
-
-  <div class="hr-tab-content active" data-content="all">
-    <div class="application-grid" id="allApplications">
-      <% (careers || []).forEach(c => { %>
-        <div class="application-card" 
-             data-id="<%= c.id %>"
-             data-status="<%= c.status || 'new' %>"
-             data-name="<%= c.name.toLowerCase() %>"
-             data-email="<%= c.email.toLowerCase() %>"
-             data-position="<%= c.position.toLowerCase() %>"
-             data-date="<%= new Date(c.created_at).getTime() %>">
-          <div class="application-header">
-            <div class="applicant-info">
-              <h3><%= c.name %> <span class="applicant-position">• <%= c.position %></span></h3>
-              <div class="applicant-meta">
-                <span>📧 <a href="mailto:<%= c.email %>"><%= c.email %></a></span>
-                <% if (c.phone) { %><span>📞 <%= c.phone %></span><% } %>
-                <span>🕒 <%= new Date(c.created_at).toLocaleDateString() %></span>
-              </div>
-            </div>
-            <span class="status-badge status-<%= c.status || 'new' %>"><%= (c.status || 'new').replace('_', ' ') %></span>
-          </div>
-          
-          <% if (c.cover_letter) { %>
-            <div class="application-excerpt">
-              <strong>📝 Cover Letter Excerpt:</strong>
-              <p><%= (c.cover_letter || '').substring(0, 250) %><%= c.cover_letter && c.cover_letter.length > 250 ? '...' : '' %></p>
-            </div>
-          <% } %>
-
-          <div class="application-tags">
-            <span class="tag tag-experience">🎓 <%= c.position %></span>
-            <% if (c.resume_file) { %><span class="tag">📄 Resume</span><% } %>
-            <% if (c.portfolio_file) { %><span class="tag">🎨 Portfolio</span><% } %>
-          </div>
-
-          <div class="quick-actions">
-            <button class="btn-view" onclick='viewApplication(<%= c.id %>, {id: <%= c.id %>, name: "<%= c.name.replace(/"/g, "&quot;") %>", position: "<%= c.position.replace(/"/g, "&quot;") %>", email: "<%= c.email %>", phone: "<%= c.phone || "" %>", status: "<%= c.status || "new" %>", created_at: "<%= c.created_at %>", cover_letter: "<%= (c.cover_letter || "").replace(/"/g, "&quot;").replace(/\n/g, " ") %>", resume_file: "<%= c.resume_file || "" %>", portfolio_file: "<%= c.portfolio_file || "" %>"})'>👁️ View</button>
-            <% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank" class="btn-resume">📄</a><% } %>
-            <% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank" class="btn-portfolio">🎨</a><% } %>
-            <button class="btn-email" onclick="emailApplicant('<%= c.email %>', '<%= c.name.replace(/'/g, "\\'") %>')">✉️</button>
-            <button class="btn-review" onclick="updateStatus(<%= c.id %>, 'under_review')">🔍</button>
-            <button class="btn-accept" onclick="updateStatus(<%= c.id %>, 'accepted')">✅</button>
-            <button class="btn-reject" onclick="updateStatus(<%= c.id %>, 'rejected')">❌</button>
-          </div>
-        </div>
-      <% }) %>
-      
-      <% if (!careers || !careers.length) { %>
-        <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
-          <h3>No Applications Yet</h3>
-          <p>Career applications will appear here when candidates apply</p>
-        </div>
-      <% } %>
+    <div class="hr-tabs">
+      <button class="hr-tab active" data-tab="all">All Applications (<%= totalApps %>)</button>
+      <button class="hr-tab" data-tab="new">🆕 New (<%= newApps %>)</button>
+      <button class="hr-tab" data-tab="review">🔍 Under Review (<%= reviewApps %>)</button>
+      <button class="hr-tab" data-tab="accepted">✅ Accepted (<%= acceptedApps %>)</button>
+      <button class="hr-tab" data-tab="rejected">❌ Rejected (<%= rejectedApps %>)</button>
     </div>
-  </div>
 
-  <% ['new', 'review', 'accepted', 'rejected'].forEach(tab => { %>
-    <div class="hr-tab-content" data-content="<%= tab %>">
-      <div class="application-grid">
-        <% 
-          const statusMatch = tab === 'review' ? 'under_review' : tab;
-          const filtered = careers.filter(c => c.status === statusMatch); 
-        %>
-        <% filtered.forEach(c => { %>
-          <div class="application-card">
+    <div class="hr-tab-content active" data-content="all">
+      <div class="application-grid" id="allApplications">
+        <% (careers || []).forEach(c=> { %>
+          <div class="application-card" data-id="<%= c.id %>" data-status="<%= c.status || 'new' %>"
+            data-name="<%= c.name.toLowerCase() %>" data-email="<%= c.email.toLowerCase() %>"
+            data-position="<%= c.position.toLowerCase() %>" data-date="<%= new Date(c.created_at).getTime() %>">
             <div class="application-header">
               <div class="applicant-info">
-                <h3><%= c.name %> <span class="applicant-position">• <%= c.position %></span></h3>
+                <h3>
+                  <%= c.name %> <span class="applicant-position">• <%= c.position %></span>
+                </h3>
                 <div class="applicant-meta">
-                  <span>📧 <a href="mailto:<%= c.email %>"><%= c.email %></a></span>
-                  <% if (c.phone) { %><span>📞 <%= c.phone %></span><% } %>
-                  <span>🕒 <%= new Date(c.created_at).toLocaleDateString() %></span>
+                  <span>📧 <a href="mailto:<%= c.email %>">
+                      <%= c.email %>
+                    </a></span>
+                  <% if (c.phone) { %><span>📞 <%= c.phone %></span>
+                    <% } %>
+                      <span>🕒 <%= new Date(c.created_at).toLocaleDateString() %></span>
                 </div>
               </div>
-              <span class="status-badge status-<%= c.status || 'new' %>"><%= (c.status || 'new').replace('_', ' ') %></span>
+              <span class="status-badge status-<%= c.status || 'new' %>">
+                <%= (c.status || 'new' ).replace('_', ' ' ) %>
+              </span>
             </div>
+
             <% if (c.cover_letter) { %>
               <div class="application-excerpt">
                 <strong>📝 Cover Letter Excerpt:</strong>
-                <p><%= (c.cover_letter || '').substring(0, 250) %><%= c.cover_letter && c.cover_letter.length > 250 ? '...' : '' %></p>
+                <p>
+                  <%= (c.cover_letter || '' ).substring(0, 250) %>
+                    <%= c.cover_letter && c.cover_letter.length> 250 ? '...' : '' %>
+                </p>
               </div>
-            <% } %>
-            <div class="application-tags">
-              <span class="tag tag-experience">🎓 <%= c.position %></span>
-              <% if (c.resume_file) { %><span class="tag">📄</span><% } %>
-              <% if (c.portfolio_file) { %><span class="tag">🎨</span><% } %>
-            </div>
-            <div class="quick-actions">
-              <button class="btn-view" onclick='viewApplication(<%= c.id %>, {id: <%= c.id %>, name: "<%= c.name.replace(/"/g, "&quot;") %>", position: "<%= c.position.replace(/"/g, "&quot;") %>", email: "<%= c.email %>", phone: "<%= c.phone || "" %>", status: "<%= c.status || "new" %>", created_at: "<%= c.created_at %>", cover_letter: "<%= (c.cover_letter || "").replace(/"/g, "&quot;").replace(/\n/g, " ") %>", resume_file: "<%= c.resume_file || "" %>", portfolio_file: "<%= c.portfolio_file || "" %>"})'>👁️</button>
-              <% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank" class="btn-resume">📄</a><% } %>
-              <% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank" class="btn-portfolio">🎨</a><% } %>
-              <button class="btn-email" onclick="emailApplicant('<%= c.email %>', '<%= c.name.replace(/'/g, "\\'") %>')">✉️</button>
-              <button class="btn-review" onclick="updateStatus(<%= c.id %>, 'under_review')">🔍</button>
-              <button class="btn-accept" onclick="updateStatus(<%= c.id %>, 'accepted')">✅</button>
-              <button class="btn-reject" onclick="updateStatus(<%= c.id %>, 'rejected')">❌</button>
-            </div>
-          </div>
-        <% }) %>
-        <% if (!filtered.length) { %>
-          <div class="empty-state">
-            <div class="empty-state-icon">📋</div>
-            <h3>No Applications in This Category</h3>
-            <p>Applications with status "<%= tab.replace('_', ' ') %>" will appear here</p>
-          </div>
-        <% } %>
-      </div>
-    </div>
-  <% }) %>
-</div>
+              <% } %>
 
-<div id="appModal" class="hr-modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2 id="modalTitle">Application Details</h2>
-      <button class="modal-close" onclick="closeModal()">&times;</button>
-    </div>
-    <div id="modalBody"></div>
-  </div>
-</div>
+                <div class="application-tags">
+                  <span class="tag tag-experience">🎓 <%= c.position %></span>
+                  <% if (c.resume_file) { %><span class="tag">📄 Resume</span>
+                    <% } %>
+                      <% if (c.portfolio_file) { %><span class="tag">🎨 Portfolio</span>
+                        <% } %>
+                </div>
 
-<div id="emailModal" class="hr-modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>📧 Send Email</h2>
-      <button class="modal-close" onclick="closeEmailModal()">&times;</button>
-    </div>
-    <div>
-      <input type="hidden" id="applicantId">
-      <input type="hidden" id="emailToName">
-      <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 8px; font-weight: 700;">To:</label>
-        <input type="email" id="emailTo" readonly style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; background: #f9fafb;">
-      </div>
-      <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 8px; font-weight: 700;">Template:</label>
-        <select id="emailTemplate" onchange="loadEmailTemplate()" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px;">
-          <option value="">Select template...</option>
-          <option value="interview">Interview Invitation</option>
-          <option value="accepted">Offer Letter</option>
-          <option value="rejected">Rejection</option>
-          <option value="followup">Follow-up</option>
-        </select>
-      </div>
-      <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 8px; font-weight: 700;">Subject:</label>
-        <input type="text" id="emailSubject" placeholder="Email subject..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px;">
-      </div>
-      <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 8px; font-weight: 700;">Message:</label>
-        <textarea id="emailBody" rows="10" placeholder="Type your message..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-family: inherit; resize: vertical;"></textarea>
-      </div>
-      <div class="modal-actions">
-        <button class="hr-btn hr-btn-primary modal-btn-primary" onclick="sendEmail()">Send</button>
-        <button class="hr-btn" style="background: #e5e7eb; color: #4b5563;" onclick="closeEmailModal()">Cancel</button>
-      </div>
-    </div>
-  </div>
-</div>
+                <div class="quick-actions">
+                  <button class="btn-view"
+                    onclick='viewApplication(<%= c.id %>, {id: <%= c.id %>, name: "<%= c.name.replace(/"/g, "&quot;") %>", position: "<%= c.position.replace(/"/g, "&quot;") %>", email: "<%= c.email %>", phone: "<%= c.phone || "" %>", status: "<%= c.status || "new" %>", created_at: "<%= c.created_at %>", cover_letter: "<%= (c.cover_letter || "").replace(/"/g, "&quot;").replace(/\n/g, " ") %>", resume_file: "<%= c.resume_file || "" %>", portfolio_file: "<%= c.portfolio_file || "" %>"})'>👁️
+                    View</button>
+                  <% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank" class="btn-resume">📄</a>
+                    <% } %>
+                      <% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank"
+                          class="btn-portfolio">🎨</a>
+                        <% } %>
+                          <button class="btn-email"
+                            onclick="emailApplicant('<%= c.email %>', '<%= c.name.replace(/'/g, " \\'")
+                            %>')">✉️</button>
+                          <button class="btn-review" onclick="updateStatus(<%= c.id %>, 'under_review')">🔍</button>
+                          <button class="btn-accept" onclick="updateStatus(<%= c.id %>, 'accepted')">✅</button>
+                          <button class="btn-reject" onclick="updateStatus(<%= c.id %>, 'rejected')">❌</button>
+                </div>
+          </div>
+          <% }) %>
 
-<div id="jobWizardModal" class="hr-modal job-wizard-modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>New Role Wizard</h2>
-      <button class="modal-close" onclick="closeJobWizard()">&times;</button>
+            <% if (!careers || !careers.length) { %>
+              <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <h3>No Applications Yet</h3>
+                <p>Career applications will appear here when candidates apply</p>
+              </div>
+              <% } %>
+      </div>
     </div>
-      <div class="wizard-shell">
-        <div class="wizard-progress"><div class="bar" id="wizardProgressBar"></div></div>
-        <div class="wizard-steps">
-          <div class="wizard-step active" data-step="1">Basics</div>
-          <div class="wizard-step" data-step="2">Story</div>
-          <div class="wizard-step" data-step="3">Comp & Apply</div>
-          <div class="wizard-step" data-step="4">Timing & Assets</div>
-        </div>
-        <div class="wizard-body">
-          <form id="jobForm" onsubmit="createJob(event)">
-            <div class="job-step active" data-step="1">
-              <div>
-              <label>Title *</label>
-              <input type="text" name="title" required placeholder="Senior Product Designer" oninput="updateJobPreview()">
-            </div>
-            <div>
-              <label>Location</label>
-              <input type="text" name="location" placeholder="Remote, NYC, Hybrid" oninput="updateJobPreview()">
-            </div>
-            <div>
-              <label>Team</label>
-              <input type="text" name="team" placeholder="Design, Engineering, Ops" oninput="updateJobPreview()">
-            </div>
-            <div>
-              <label>Employment Type</label>
-              <input type="text" name="employmentType" placeholder="Full-time, Contract" oninput="updateJobPreview()">
-            </div>
-            <div>
-              <label>Seniority</label>
-              <input type="text" name="seniority" placeholder="Senior, Lead, IC5" oninput="updateJobPreview()">
-            </div>
-            <div>
-              <label>Tags (comma separated)</label>
-              <input type="text" name="tags" placeholder="Figma, Systems, WebGL" oninput="updateJobPreview()">
-            </div>
-          </div>
-          <div class="job-step" data-step="2">
-            <div class="full-row">
-              <label>Headline</label>
-              <input type="text" name="headline" placeholder="Design the canvas for millions of creators" oninput="updateJobPreview()">
-            </div>
-            <div class="full-row">
-              <label>Description *</label>
-              <textarea name="description" required placeholder="Why this role exists and the impact area" oninput="updateJobPreview()"></textarea>
-            </div>
-            <div class="full-row">
-              <label>Responsibilities</label>
-              <textarea name="responsibilities" placeholder="Bullet list preferred; shown on careers page" oninput="updateJobPreview()"></textarea>
-            </div>
-            <div class="full-row">
-              <label>Requirements</label>
-              <textarea name="requirements" placeholder="Must-have skills, tooling, mindset" oninput="updateJobPreview()"></textarea>
-            </div>
-            <div class="full-row">
-              <label>Perks</label>
-              <textarea name="perks" placeholder="Learning budget, wellness, 25% time" oninput="updateJobPreview()"></textarea>
-            </div>
-          </div>
-            <div class="job-step" data-step="3">
-              <div>
-                <label>Workplace Type</label>
-                <select name="workplaceType" onchange="updateJobPreview()">
-                  <option value="">Select...</option>
-                  <option value="Remote">Remote</option>
-                  <option value="Hybrid">Hybrid</option>
-                  <option value="Onsite">Onsite</option>
-                </select>
+
+    <% ['new', 'review' , 'accepted' , 'rejected' ].forEach(tab=> { %>
+      <div class="hr-tab-content" data-content="<%= tab %>">
+        <div class="application-grid">
+          <% const statusMatch=tab==='review' ? 'under_review' : tab; const filtered=careers.filter(c=> c.status ===
+            statusMatch);
+            %>
+            <% filtered.forEach(c=> { %>
+              <div class="application-card">
+                <div class="application-header">
+                  <div class="applicant-info">
+                    <h3>
+                      <%= c.name %> <span class="applicant-position">• <%= c.position %></span>
+                    </h3>
+                    <div class="applicant-meta">
+                      <span>📧 <a href="mailto:<%= c.email %>">
+                          <%= c.email %>
+                        </a></span>
+                      <% if (c.phone) { %><span>📞 <%= c.phone %></span>
+                        <% } %>
+                          <span>🕒 <%= new Date(c.created_at).toLocaleDateString() %></span>
+                    </div>
+                  </div>
+                  <span class="status-badge status-<%= c.status || 'new' %>">
+                    <%= (c.status || 'new' ).replace('_', ' ' ) %>
+                  </span>
+                </div>
+                <% if (c.cover_letter) { %>
+                  <div class="application-excerpt">
+                    <strong>📝 Cover Letter Excerpt:</strong>
+                    <p>
+                      <%= (c.cover_letter || '' ).substring(0, 250) %>
+                        <%= c.cover_letter && c.cover_letter.length> 250 ? '...' : '' %>
+                    </p>
+                  </div>
+                  <% } %>
+                    <div class="application-tags">
+                      <span class="tag tag-experience">🎓 <%= c.position %></span>
+                      <% if (c.resume_file) { %><span class="tag">📄</span>
+                        <% } %>
+                          <% if (c.portfolio_file) { %><span class="tag">🎨</span>
+                            <% } %>
+                    </div>
+                    <div class="quick-actions">
+                      <button class="btn-view"
+                        onclick='viewApplication(<%= c.id %>, {id: <%= c.id %>, name: "<%= c.name.replace(/"/g, "&quot;") %>", position: "<%= c.position.replace(/"/g, "&quot;") %>", email: "<%= c.email %>", phone: "<%= c.phone || "" %>", status: "<%= c.status || "new" %>", created_at: "<%= c.created_at %>", cover_letter: "<%= (c.cover_letter || "").replace(/"/g, "&quot;").replace(/\n/g, " ") %>", resume_file: "<%= c.resume_file || "" %>", portfolio_file: "<%= c.portfolio_file || "" %>"})'>👁️</button>
+                      <% if (c.resume_file) { %><a href="<%= c.resume_file %>" target="_blank" class="btn-resume">📄</a>
+                        <% } %>
+                          <% if (c.portfolio_file) { %><a href="<%= c.portfolio_file %>" target="_blank"
+                              class="btn-portfolio">🎨</a>
+                            <% } %>
+                              <button class="btn-email"
+                                onclick="emailApplicant('<%= c.email %>', '<%= c.name.replace(/'/g, " \\'")
+                                %>')">✉️</button>
+                              <button class="btn-review" onclick="updateStatus(<%= c.id %>, 'under_review')">🔍</button>
+                              <button class="btn-accept" onclick="updateStatus(<%= c.id %>, 'accepted')">✅</button>
+                              <button class="btn-reject" onclick="updateStatus(<%= c.id %>, 'rejected')">❌</button>
+                    </div>
               </div>
-              <div>
-                <label>Visibility</label>
-                <select name="visibility">
-                  <option value="public">Public</option>
-                  <option value="internal">Internal only</option>
-                </select>
-              </div>
-              <div>
-                <label>Priority</label>
-                <select name="priority">
-                  <option value="">Standard</option>
-                  <option value="hot">🔥 Hot</option>
-                  <option value="featured">⭐ Featured</option>
-                </select>
-              </div>
-              <div>
-                <label>Apply URL (optional)</label>
-                <input type="url" name="applyUrl" placeholder="https://jobs.dreamx.com/role" oninput="updateJobPreview()">
-              </div>
-              <div>
-                <label>Salary Min</label>
-                <input type="number" name="salaryMin" min="0" step="1000" placeholder="90000">
-              </div>
-              <div>
-                <label>Salary Max</label>
-                <input type="number" name="salaryMax" min="0" step="1000" placeholder="140000">
-              </div>
-              <div>
-                <label>Currency</label>
-                <select name="salaryCurrency">
-                  <option value="">Select</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="CAD">CAD</option>
-                  <option value="AUD">AUD</option>
-                </select>
-              </div>
-            </div>
-            <div class="job-step" data-step="4">
-              <div>
-                <label>Go Live At</label>
-                <input type="datetime-local" name="goLiveAt">
-              </div>
-              <div>
-              <label>Freeze Until</label>
-              <input type="datetime-local" name="freezeUntil">
-            </div>
-            <div class="full-row">
-              <label>Attach files (visible on careers page)</label>
-              <input type="file" name="assetFiles" multiple>
-            </div>
-            </div>
-            <div class="wizard-actions">
-              <div class="wizard-footer-note">Draft → schedule → freeze. Nothing publishes until you hit Launch.</div>
-              <div style="display:flex; gap:8px;">
-                <button class="hr-btn" type="button" onclick="jobWizardPrev()">Back</button>
-                <button class="hr-btn hr-btn-primary" type="button" id="jobNextBtn" onclick="jobWizardNext()">Next</button>
-                <button class="hr-btn hr-btn-primary" type="submit" id="jobSubmitBtn" style="display:none;">Launch Role</button>
-              </div>
-          </div>
-        </form>
-        <div class="wizard-preview">
-          <div class="wizard-badge">Live preview</div>
-          <div class="preview-title" id="previewTitle">Your role title</div>
-          <div class="preview-meta" id="previewMeta">Location · Employment type · Seniority</div>
-          <div class="preview-tags" id="previewTags"></div>
-          <div class="preview-copy" id="previewDescription">Use the wizard to craft the perfect job story; it will mirror here in real time.</div>
+              <% }) %>
+                <% if (!filtered.length) { %>
+                  <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <h3>No Applications in This Category</h3>
+                    <p>Applications with status "<%= tab.replace('_', ' ' ) %>" will appear here</p>
+                  </div>
+                  <% } %>
         </div>
       </div>
-    </div>
-  </div>
-</div>
+      <% }) %>
+        </div>
 
-<div id="assetPreviewModal" class="hr-modal asset-preview-modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>Attachment Preview</h2>
-      <button class="modal-close" onclick="closeAssetPreview()">&times;</button>
-    </div>
-    <iframe id="assetPreviewFrame" class="asset-preview-frame" allowfullscreen></iframe>
-  </div>
-</div>
+        <div id="appModal" class="hr-modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 id="modalTitle">Application Details</h2>
+              <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+          </div>
+        </div>
 
-<%- include('partials/footer') %>
+        <div id="emailModal" class="hr-modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>📧 Send Email</h2>
+              <button class="modal-close" onclick="closeEmailModal()">&times;</button>
+            </div>
+            <div>
+              <input type="hidden" id="applicantId">
+              <input type="hidden" id="emailToName">
+              <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 700;">To:</label>
+                <input type="email" id="emailTo" readonly
+                  style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; background: #f9fafb;">
+              </div>
+              <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 700;">Template:</label>
+                <select id="emailTemplate" onchange="loadEmailTemplate()"
+                  style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px;">
+                  <option value="">Select template...</option>
+                  <option value="interview">Interview Invitation</option>
+                  <option value="accepted">Offer Letter</option>
+                  <option value="rejected">Rejection</option>
+                  <option value="followup">Follow-up</option>
+                </select>
+              </div>
+              <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 700;">Subject:</label>
+                <input type="text" id="emailSubject" placeholder="Email subject..."
+                  style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px;">
+              </div>
+              <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 700;">Message:</label>
+                <textarea id="emailBody" rows="10" placeholder="Type your message..."
+                  style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 10px; font-family: inherit; resize: vertical;"></textarea>
+              </div>
+              <div class="modal-actions">
+                <button class="hr-btn hr-btn-primary modal-btn-primary" onclick="sendEmail()">Send</button>
+                <button class="hr-btn" style="background: #e5e7eb; color: #4b5563;"
+                  onclick="closeEmailModal()">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-<script>
-if (typeof showSuccess !== 'function') window.showSuccess = (msg) => alert(msg);
-if (typeof showError !== 'function') window.showError = (msg) => alert(msg);
-if (typeof showConfirm !== 'function') window.showConfirm = (msg, cb) => { if (confirm(msg)) cb(); };
+        <div id="jobWizardModal" class="hr-modal job-wizard-modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>New Role Wizard</h2>
+              <button class="modal-close" onclick="closeJobWizard()">&times;</button>
+            </div>
+            <div class="wizard-shell">
+              <div class="wizard-progress">
+                <div class="bar" id="wizardProgressBar"></div>
+              </div>
+              <div class="wizard-steps">
+                <div class="wizard-step active" data-step="1">Basics</div>
+                <div class="wizard-step" data-step="2">Story</div>
+                <div class="wizard-step" data-step="3">Comp & Apply</div>
+                <div class="wizard-step" data-step="4">Timing & Assets</div>
+              </div>
+              <div class="wizard-body">
+                <form id="jobForm" onsubmit="createJob(event)">
+                  <div class="job-step active" data-step="1">
+                    <div>
+                      <label>Title *</label>
+                      <input type="text" name="title" required placeholder="Senior Product Designer"
+                        oninput="updateJobPreview()">
+                    </div>
+                    <div>
+                      <label>Location</label>
+                      <input type="text" name="location" placeholder="Remote, NYC, Hybrid" oninput="updateJobPreview()">
+                    </div>
+                    <div>
+                      <label>Team</label>
+                      <input type="text" name="team" placeholder="Design, Engineering, Ops"
+                        oninput="updateJobPreview()">
+                    </div>
+                    <div>
+                      <label>Employment Type</label>
+                      <input type="text" name="employmentType" placeholder="Full-time, Contract"
+                        oninput="updateJobPreview()">
+                    </div>
+                    <div>
+                      <label>Seniority</label>
+                      <input type="text" name="seniority" placeholder="Senior, Lead, IC5" oninput="updateJobPreview()">
+                    </div>
+                    <div>
+                      <label>Tags (comma separated)</label>
+                      <input type="text" name="tags" placeholder="Figma, Systems, WebGL" oninput="updateJobPreview()">
+                    </div>
+                  </div>
+                  <div class="job-step" data-step="2">
+                    <div class="full-row">
+                      <label>Headline</label>
+                      <input type="text" name="headline" placeholder="Design the canvas for millions of creators"
+                        oninput="updateJobPreview()">
+                    </div>
+                    <div class="full-row">
+                      <label>Description *</label>
+                      <textarea name="description" required placeholder="Why this role exists and the impact area"
+                        oninput="updateJobPreview()"></textarea>
+                    </div>
+                    <div class="full-row">
+                      <label>Responsibilities</label>
+                      <textarea name="responsibilities" placeholder="Bullet list preferred; shown on careers page"
+                        oninput="updateJobPreview()"></textarea>
+                    </div>
+                    <div class="full-row">
+                      <label>Requirements</label>
+                      <textarea name="requirements" placeholder="Must-have skills, tooling, mindset"
+                        oninput="updateJobPreview()"></textarea>
+                    </div>
+                    <div class="full-row">
+                      <label>Perks</label>
+                      <textarea name="perks" placeholder="Learning budget, wellness, 25% time"
+                        oninput="updateJobPreview()"></textarea>
+                    </div>
+                  </div>
+                  <div class="job-step" data-step="3">
+                    <div>
+                      <label>Workplace Type</label>
+                      <select name="workplaceType" onchange="updateJobPreview()">
+                        <option value="">Select...</option>
+                        <option value="Remote">Remote</option>
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="Onsite">Onsite</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label>Visibility</label>
+                      <select name="visibility">
+                        <option value="public">Public</option>
+                        <option value="internal">Internal only</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label>Priority</label>
+                      <select name="priority">
+                        <option value="">Standard</option>
+                        <option value="hot">🔥 Hot</option>
+                        <option value="featured">⭐ Featured</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label>Apply URL (optional)</label>
+                      <input type="url" name="applyUrl" placeholder="https://jobs.dreamx.com/role"
+                        oninput="updateJobPreview()">
+                    </div>
+                    <div>
+                      <label>Salary Min</label>
+                      <input type="number" name="salaryMin" min="0" step="1000" placeholder="90000">
+                    </div>
+                    <div>
+                      <label>Salary Max</label>
+                      <input type="number" name="salaryMax" min="0" step="1000" placeholder="140000">
+                    </div>
+                    <div>
+                      <label>Currency</label>
+                      <select name="salaryCurrency">
+                        <option value="">Select</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="CAD">CAD</option>
+                        <option value="AUD">AUD</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="job-step" data-step="4">
+                    <div>
+                      <label>Go Live At</label>
+                      <input type="datetime-local" name="goLiveAt">
+                    </div>
+                    <div>
+                      <label>Freeze Until</label>
+                      <input type="datetime-local" name="freezeUntil">
+                    </div>
+                    <div class="full-row">
+                      <label>Attach files (visible on careers page)</label>
+                      <input type="file" name="assetFiles" multiple>
+                    </div>
+                  </div>
+                  <div class="wizard-actions">
+                    <div class="wizard-footer-note">Draft → schedule → freeze. Nothing publishes until you hit Launch.
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                      <button class="hr-btn" type="button" onclick="jobWizardPrev()">Back</button>
+                      <button class="hr-btn hr-btn-primary" type="button" id="jobNextBtn"
+                        onclick="jobWizardNext()">Next</button>
+                      <button class="hr-btn hr-btn-primary" type="submit" id="jobSubmitBtn" style="display:none;">Launch
+                        Role</button>
+                    </div>
+                  </div>
+                </form>
+                <div class="wizard-preview">
+                  <div class="wizard-badge">Live preview</div>
+                  <div class="preview-title" id="previewTitle">Your role title</div>
+                  <div class="preview-meta" id="previewMeta">Location · Employment type · Seniority</div>
+                  <div class="preview-tags" id="previewTags"></div>
+                  <div class="preview-copy" id="previewDescription">Use the wizard to craft the perfect job story; it
+                    will mirror here in real time.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-const hrRoleRankings = { hr: 1, super_hr: 2, global_hr: 3 };
-const hrRoleLabels = { hr: 'HR', super_hr: 'Super HR', global_hr: 'Global HR' };
-const myHrRole = '<%= authUser.role %>';
-const isGlobalHr = myHrRole === 'global_hr';
-const hrPermissionDefinitions = <%- JSON.stringify(hrPermissionDefinitions || []).replace(/</g, '\\u003c') %>;
-const defaultHrScopes = <%- JSON.stringify(defaultHrScopes || []).replace(/</g, '\\u003c') %>;
-const initialHrTeam = <%- JSON.stringify(hrTeam || []).replace(/</g, '\\u003c') %>;
-let hrWizardStage = 1;
-let hrWizardScopes = [...(defaultHrScopes || [])];
-let hrWizardPermissions = new Set(['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages']);
-let hrTeamState = initialHrTeam.map(m => ({ ...m, admin_scopes: m.admin_scopes || [], hr_permissions: m.hr_permissions || [], scope_locked: !!m.scope_locked }));
+        <div id="assetPreviewModal" class="hr-modal asset-preview-modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>Attachment Preview</h2>
+              <button class="modal-close" onclick="closeAssetPreview()">&times;</button>
+            </div>
+            <iframe id="assetPreviewFrame" class="asset-preview-frame" allowfullscreen></iframe>
+          </div>
+        </div>
 
-const hrWizardStatusEl = () => document.getElementById('hrWizardStatus');
-const canCreateHrAccounts = (hrRoleRankings[myHrRole] || 0) >= 2;
-const toastSuccess = (msg) => typeof showSuccess === 'function' ? showSuccess(msg) : alert(msg);
-const toastError = (msg) => typeof showError === 'function' ? showError(msg) : alert(msg);
-const escapeHtml = (val) => String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        <%- include('partials/footer') %>
 
-function setHrWizardStage(step) {
-  hrWizardStage = Math.min(Math.max(step, 1), 3);
-  document.querySelectorAll('[data-hr-body]').forEach(el => {
-    el.classList.toggle('active', Number(el.dataset.hrBody) === hrWizardStage);
-  });
-  document.querySelectorAll('[data-hr-step]').forEach(el => {
-    el.classList.toggle('active', Number(el.dataset.hrStep) === hrWizardStage);
-  });
-  document.getElementById('hrLaunchBtn').style.display = hrWizardStage === 3 ? 'inline-flex' : 'none';
-  const nextBtn = document.querySelector('[onclick="hrWizardNext()"]');
-  if (nextBtn) nextBtn.style.display = hrWizardStage === 3 ? 'none' : 'inline-flex';
-  updateHrReview();
-}
+          <script>
+            if (typeof showSuccess !== 'function') window.showSuccess = (msg) => alert(msg);
+            if (typeof showError !== 'function') window.showError = (msg) => alert(msg);
+            if (typeof showConfirm !== 'function') window.showConfirm = (msg, cb) => { if (confirm(msg)) cb(); };
 
-function hrWizardNext() {
-  if (hrWizardStage === 1) {
-    const fullName = document.getElementById('hrFullName').value.trim();
-    const email = document.getElementById('hrEmail').value.trim();
-    const password = document.getElementById('hrPassword').value.trim();
-    if (!fullName || !email || !password) {
-      hrWizardStatusEl().textContent = 'Add name, email, and a launch password to continue.';
-      return;
-    }
-  }
-  setHrWizardStage(hrWizardStage + 1);
-  hrWizardStatusEl().textContent = canCreateHrAccounts ? '' : 'Only Super HR and Global HR can launch new teammates.';
-}
+            const hrRoleRankings = { hr: 1, super_hr: 2, global_hr: 3 };
+            const hrRoleLabels = { hr: 'HR', super_hr: 'Super HR', global_hr: 'Global HR' };
+            const myHrRole = '<%= authUser.role %>';
+            const isGlobalHr = myHrRole === 'global_hr';
+            const hrPermissionDefinitions = <%- JSON.stringify(hrPermissionDefinitions || []) %>;
+            const defaultHrScopes = <%- JSON.stringify(defaultHrScopes || []) %>;
+            const initialHrTeam = <%- JSON.stringify(hrTeam || []) %>;
+            let hrWizardStage = 1;
+            let hrWizardScopes = [...(defaultHrScopes || [])];
+            let hrWizardPermissions = new Set(['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages']);
+            let hrTeamState = initialHrTeam.map(m => ({ ...m, admin_scopes: m.admin_scopes || [], hr_permissions: m.hr_permissions || [], scope_locked: !!m.scope_locked }));
 
-function hrWizardPrev() {
-  setHrWizardStage(hrWizardStage - 1);
-}
+            const hrWizardStatusEl = () => document.getElementById('hrWizardStatus');
+            const canCreateHrAccounts = (hrRoleRankings[myHrRole] || 0) >= 2;
+            const toastSuccess = (msg) => typeof showSuccess === 'function' ? showSuccess(msg) : alert(msg);
+            const toastError = (msg) => typeof showError === 'function' ? showError(msg) : alert(msg);
+            const escapeHtml = (val) => String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-function renderHrScopeChips() {
-  const wrap = document.getElementById('hrScopeChips');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-  hrWizardScopes.forEach(scope => {
-    const chip = document.createElement('div');
-    chip.className = 'hr-scope-chip';
-    chip.innerHTML = `${scope} <button aria-label="Remove scope" onclick="removeScopeChip('${scope.replace(/'/g, "\\'")}')">×</button>`;
-    wrap.appendChild(chip);
-  });
-}
+            function setHrWizardStage(step) {
+              hrWizardStage = Math.min(Math.max(step, 1), 3);
+              document.querySelectorAll('[data-hr-body]').forEach(el => {
+                el.classList.toggle('active', Number(el.dataset.hrBody) === hrWizardStage);
+              });
+              document.querySelectorAll('[data-hr-step]').forEach(el => {
+                el.classList.toggle('active', Number(el.dataset.hrStep) === hrWizardStage);
+              });
+              document.getElementById('hrLaunchBtn').style.display = hrWizardStage === 3 ? 'inline-flex' : 'none';
+              const nextBtn = document.querySelector('[onclick="hrWizardNext()"]');
+              if (nextBtn) nextBtn.style.display = hrWizardStage === 3 ? 'none' : 'inline-flex';
+              updateHrReview();
+            }
 
-function addScopeChipFromInput() {
-  const input = document.getElementById('hrScopeInput');
-  const val = (input.value || '').trim();
-  if (!val) return;
-  if (!hrWizardScopes.includes(val)) hrWizardScopes.push(val);
-  input.value = '';
-  renderHrScopeChips();
-  updateHrReview();
-}
+            function hrWizardNext() {
+              if (hrWizardStage === 1) {
+                const fullName = document.getElementById('hrFullName').value.trim();
+                const email = document.getElementById('hrEmail').value.trim();
+                const password = document.getElementById('hrPassword').value.trim();
+                if (!fullName || !email || !password) {
+                  hrWizardStatusEl().textContent = 'Add name, email, and a launch password to continue.';
+                  return;
+                }
+              }
+              setHrWizardStage(hrWizardStage + 1);
+              hrWizardStatusEl().textContent = canCreateHrAccounts ? '' : 'Only Super HR and Global HR can launch new teammates.';
+            }
 
-function addPresetScope(scope) {
-  if (!scope) return;
-  if (!hrWizardScopes.includes(scope)) {
-    hrWizardScopes.push(scope);
-    renderHrScopeChips();
-    updateHrReview();
-  }
-}
+            function hrWizardPrev() {
+              setHrWizardStage(hrWizardStage - 1);
+            }
 
-function removeScopeChip(scope) {
-  hrWizardScopes = hrWizardScopes.filter(s => s !== scope);
-  renderHrScopeChips();
-  updateHrReview();
-}
+            function renderHrScopeChips() {
+              const wrap = document.getElementById('hrScopeChips');
+              if (!wrap) return;
+              wrap.innerHTML = '';
+              hrWizardScopes.forEach(scope => {
+                const chip = document.createElement('div');
+                chip.className = 'hr-scope-chip';
+                chip.innerHTML = `${scope} <button aria-label="Remove scope" onclick="removeScopeChip('${scope.replace(/'/g, "\\'")}')">×</button>`;
+                wrap.appendChild(chip);
+              });
+            }
 
-function renderHrPermissionChecklist() {
-  const wrap = document.getElementById('hrPermissionChecklist');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-  (hrPermissionDefinitions || []).forEach(def => {
-    const chip = document.createElement('div');
-    chip.className = 'hr-scope-chip';
-    chip.style.cursor = 'pointer';
-    chip.dataset.key = def.key;
-    chip.onclick = () => toggleHrPermission(def.key);
-    chip.innerHTML = `${def.label} <span style="display:block; color:#6b7280; font-weight:600; font-size:12px;">${def.desc}</span>`;
-    if (hrWizardPermissions.has(def.key)) chip.classList.add('active');
-    wrap.appendChild(chip);
-  });
-}
+            function addScopeChipFromInput() {
+              const input = document.getElementById('hrScopeInput');
+              const val = (input.value || '').trim();
+              if (!val) return;
+              if (!hrWizardScopes.includes(val)) hrWizardScopes.push(val);
+              input.value = '';
+              renderHrScopeChips();
+              updateHrReview();
+            }
 
-function toggleHrPermission(key) {
-  if (!key) return;
-  if (hrWizardPermissions.has(key)) hrWizardPermissions.delete(key); else hrWizardPermissions.add(key);
-  renderHrPermissionChecklist();
-  updateHrReview();
-}
+            function addPresetScope(scope) {
+              if (!scope) return;
+              if (!hrWizardScopes.includes(scope)) {
+                hrWizardScopes.push(scope);
+                renderHrScopeChips();
+                updateHrReview();
+              }
+            }
 
-function updateHrReview() {
-  const name = document.getElementById('hrFullName').value || 'New HR Teammate';
-  const email = document.getElementById('hrEmail').value || 'email@dreamx.local';
-  const role = (document.querySelector('input[name="hrRole"]:checked') || { value: 'hr' }).value;
-  document.getElementById('hrReviewName').textContent = name;
-  document.getElementById('hrReviewEmail').textContent = email;
-  const roleBadge = document.getElementById('hrReviewRole');
-  roleBadge.textContent = hrRoleLabels[role] || role;
-  roleBadge.className = `role-pill ${role === 'super_hr' ? 'super-hr' : (role === 'global_hr' ? 'global-hr' : '')}`;
-  const reviewScopes = document.getElementById('hrReviewScopes');
-  reviewScopes.innerHTML = '';
-  if (!hrWizardScopes.length) {
-    const ghost = document.createElement('div');
-    ghost.style.color = '#6b7280';
-    ghost.style.fontWeight = '700';
-    ghost.textContent = 'No scopes yet — add pods, regions, or programs.';
-    reviewScopes.appendChild(ghost);
-  } else {
-    hrWizardScopes.forEach(scope => {
-      const chip = document.createElement('div');
-      chip.className = 'hr-scope-chip';
-      chip.textContent = scope;
-      reviewScopes.appendChild(chip);
-    });
-  }
-  const permWrap = document.getElementById('hrReviewPermissions');
-  if (permWrap) {
-    permWrap.innerHTML = '';
-    const list = Array.from(hrWizardPermissions);
-    if (!list.length) {
-      const ghost = document.createElement('div');
-      ghost.style.color = '#6b7280';
-      ghost.style.fontWeight = '700';
-      ghost.textContent = 'No HR permissions selected yet.';
-      permWrap.appendChild(ghost);
-    } else {
-      list.forEach(key => {
-        const def = (hrPermissionDefinitions || []).find(d => d.key === key);
-        const chip = document.createElement('div');
-        chip.className = 'hr-scope-chip';
-        chip.textContent = def ? def.label : key;
-        permWrap.appendChild(chip);
-      });
-    }
-  }
-}
+            function removeScopeChip(scope) {
+              hrWizardScopes = hrWizardScopes.filter(s => s !== scope);
+              renderHrScopeChips();
+              updateHrReview();
+            }
 
-async function submitHrWizard() {
-  const fullName = document.getElementById('hrFullName').value.trim();
-  const email = document.getElementById('hrEmail').value.trim();
-  const password = document.getElementById('hrPassword').value.trim();
-  const role = (document.querySelector('input[name="hrRole"]:checked') || { value: 'hr' }).value;
+            function renderHrPermissionChecklist() {
+              const wrap = document.getElementById('hrPermissionChecklist');
+              if (!wrap) return;
+              wrap.innerHTML = '';
+              (hrPermissionDefinitions || []).forEach(def => {
+                const chip = document.createElement('div');
+                chip.className = 'hr-scope-chip';
+                chip.style.cursor = 'pointer';
+                chip.dataset.key = def.key;
+                chip.onclick = () => toggleHrPermission(def.key);
+                chip.innerHTML = `${def.label} <span style="display:block; color:#6b7280; font-weight:600; font-size:12px;">${def.desc}</span>`;
+                if (hrWizardPermissions.has(def.key)) chip.classList.add('active');
+                wrap.appendChild(chip);
+              });
+            }
 
-  if (!canCreateHrAccounts) {
-    hrWizardStatusEl().textContent = 'Only Super HR or Global HR can launch new teammates.';
-    return;
-  }
-  if (!fullName || !email || !password) {
-    hrWizardStatusEl().textContent = 'Please complete all fields before launching the account.';
-    return;
-  }
+            function toggleHrPermission(key) {
+              if (!key) return;
+              if (hrWizardPermissions.has(key)) hrWizardPermissions.delete(key); else hrWizardPermissions.add(key);
+              renderHrPermissionChecklist();
+              updateHrReview();
+            }
 
-  hrWizardStatusEl().textContent = 'Creating account…';
-  try {
-    const res = await fetch('/api/hr/accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email, password, role, scopes: hrWizardScopes, hrPermissions: Array.from(hrWizardPermissions) })
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to create account');
-    hrTeamState.unshift({ ...data.user, admin_scopes: data.user.admin_scopes || [], hr_permissions: data.user.hr_permissions || [], scope_locked: !!data.user.scope_locked });
-    renderHrTeam();
-    hrWizardStatusEl().textContent = 'Account created and visible in admin dashboard.';
-    toastSuccess('HR account created');
-    hrWizardScopes = [...(defaultHrScopes || [])];
-    hrWizardPermissions = new Set(['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages']);
-    document.getElementById('hrFullName').value = '';
-    document.getElementById('hrEmail').value = '';
-    document.getElementById('hrPassword').value = '';
-    document.querySelector('input[name="hrRole"][value="hr"]').checked = true;
-    renderHrScopeChips();
-    renderHrPermissionChecklist();
-    setHrWizardStage(1);
-  } catch (err) {
-    console.error(err);
-    hrWizardStatusEl().textContent = err.message;
-    toastError(err.message);
-  }
-}
+            function updateHrReview() {
+              const name = document.getElementById('hrFullName').value || 'New HR Teammate';
+              const email = document.getElementById('hrEmail').value || 'email@dreamx.local';
+              const role = (document.querySelector('input[name="hrRole"]:checked') || { value: 'hr' }).value;
+              document.getElementById('hrReviewName').textContent = name;
+              document.getElementById('hrReviewEmail').textContent = email;
+              const roleBadge = document.getElementById('hrReviewRole');
+              roleBadge.textContent = hrRoleLabels[role] || role;
+              roleBadge.className = `role-pill ${role === 'super_hr' ? 'super-hr' : (role === 'global_hr' ? 'global-hr' : '')}`;
+              const reviewScopes = document.getElementById('hrReviewScopes');
+              reviewScopes.innerHTML = '';
+              if (!hrWizardScopes.length) {
+                const ghost = document.createElement('div');
+                ghost.style.color = '#6b7280';
+                ghost.style.fontWeight = '700';
+                ghost.textContent = 'No scopes yet — add pods, regions, or programs.';
+                reviewScopes.appendChild(ghost);
+              } else {
+                hrWizardScopes.forEach(scope => {
+                  const chip = document.createElement('div');
+                  chip.className = 'hr-scope-chip';
+                  chip.textContent = scope;
+                  reviewScopes.appendChild(chip);
+                });
+              }
+              const permWrap = document.getElementById('hrReviewPermissions');
+              if (permWrap) {
+                permWrap.innerHTML = '';
+                const list = Array.from(hrWizardPermissions);
+                if (!list.length) {
+                  const ghost = document.createElement('div');
+                  ghost.style.color = '#6b7280';
+                  ghost.style.fontWeight = '700';
+                  ghost.textContent = 'No HR permissions selected yet.';
+                  permWrap.appendChild(ghost);
+                } else {
+                  list.forEach(key => {
+                    const def = (hrPermissionDefinitions || []).find(d => d.key === key);
+                    const chip = document.createElement('div');
+                    chip.className = 'hr-scope-chip';
+                    chip.textContent = def ? def.label : key;
+                    permWrap.appendChild(chip);
+                  });
+                }
+              }
+            }
 
-function canEditMember(member) {
-  const actorRank = hrRoleRankings[myHrRole] || 0;
-  const targetRank = hrRoleRankings[member.role] || 0;
-  return actorRank > targetRank && actorRank >= 2;
-}
+            async function submitHrWizard() {
+              const fullName = document.getElementById('hrFullName').value.trim();
+              const email = document.getElementById('hrEmail').value.trim();
+              const password = document.getElementById('hrPassword').value.trim();
+              const role = (document.querySelector('input[name="hrRole"]:checked') || { value: 'hr' }).value;
 
-function renderHrTeam() {
-  const list = document.getElementById('hrTeamList');
-  const badge = document.getElementById('hrTeamCountBadge');
-  if (!list) return;
-  list.innerHTML = '';
-  if (badge) badge.textContent = `Current HR accounts: ${hrTeamState.length}`;
-  if (!hrTeamState.length) {
-    list.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="empty-state-icon">🧭</div><h3>No HR teammates yet</h3><p>Launch a new HR account to populate the org snapshot.</p></div>';
-    return;
-  }
-  hrTeamState.forEach((member, idx) => {
-    const row = document.createElement('div');
-    row.className = 'hr-team-row';
-    if (idx === 0) row.classList.add('highlight');
-    const roleClass = member.role === 'global_hr' ? 'global-hr' : (member.role === 'super_hr' ? 'super-hr' : '');
-    const scopes = member.admin_scopes || [];
-    const editable = canEditMember(member);
-    const locked = !!member.scope_locked;
-    row.innerHTML = `
+              if (!canCreateHrAccounts) {
+                hrWizardStatusEl().textContent = 'Only Super HR or Global HR can launch new teammates.';
+                return;
+              }
+              if (!fullName || !email || !password) {
+                hrWizardStatusEl().textContent = 'Please complete all fields before launching the account.';
+                return;
+              }
+
+              hrWizardStatusEl().textContent = 'Creating account…';
+              try {
+                const res = await fetch('/api/hr/accounts', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ fullName, email, password, role, scopes: hrWizardScopes, hrPermissions: Array.from(hrWizardPermissions) })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Unable to create account');
+                hrTeamState.unshift({ ...data.user, admin_scopes: data.user.admin_scopes || [], hr_permissions: data.user.hr_permissions || [], scope_locked: !!data.user.scope_locked });
+                renderHrTeam();
+                hrWizardStatusEl().textContent = 'Account created and visible in admin dashboard.';
+                toastSuccess('HR account created');
+                hrWizardScopes = [...(defaultHrScopes || [])];
+                hrWizardPermissions = new Set(['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages']);
+                document.getElementById('hrFullName').value = '';
+                document.getElementById('hrEmail').value = '';
+                document.getElementById('hrPassword').value = '';
+                document.querySelector('input[name="hrRole"][value="hr"]').checked = true;
+                renderHrScopeChips();
+                renderHrPermissionChecklist();
+                setHrWizardStage(1);
+              } catch (err) {
+                console.error(err);
+                hrWizardStatusEl().textContent = err.message;
+                toastError(err.message);
+              }
+            }
+
+            function canEditMember(member) {
+              const actorRank = hrRoleRankings[myHrRole] || 0;
+              const targetRank = hrRoleRankings[member.role] || 0;
+              return actorRank > targetRank && actorRank >= 2;
+            }
+
+            function renderHrTeam() {
+              const list = document.getElementById('hrTeamList');
+              const badge = document.getElementById('hrTeamCountBadge');
+              if (!list) return;
+              list.innerHTML = '';
+              if (badge) badge.textContent = `Current HR accounts: ${hrTeamState.length}`;
+              if (!hrTeamState.length) {
+                list.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="empty-state-icon">🧭</div><h3>No HR teammates yet</h3><p>Launch a new HR account to populate the org snapshot.</p></div>';
+                return;
+              }
+              hrTeamState.forEach((member, idx) => {
+                const row = document.createElement('div');
+                row.className = 'hr-team-row';
+                if (idx === 0) row.classList.add('highlight');
+                const roleClass = member.role === 'global_hr' ? 'global-hr' : (member.role === 'super_hr' ? 'super-hr' : '');
+                const scopes = member.admin_scopes || [];
+                const editable = canEditMember(member);
+                const locked = !!member.scope_locked;
+                row.innerHTML = `
       <div class="row-head">
         <div class="name">${escapeHtml(member.full_name || member.email)}</div>
         <div class="role-pill ${roleClass}">${escapeHtml(hrRoleLabels[member.role] || member.role)}</div>
@@ -2230,274 +2426,274 @@ function renderHrTeam() {
         <div style="font-weight:800; color:#111827; margin-bottom:6px;">HR Role</div>
         <div class="hr-scope-cloud">${(member.hr_permissions || []).length ? member.hr_permissions.map(p => `<div class=\"hr-scope-chip\">${escapeHtml((hrPermissionDefinitions.find(d => d.key === p) || {}).label || p)}</div>`).join('') : '<span style=\"color:#6b7280; font-weight:700;\">No permissions assigned</span>'}</div>
         ${editable ? `<div class=\"hr-scope-cloud\" style=\"margin-top:8px; gap:8px;\">${hrPermissionDefinitions.map(def => {
-            const checked = (member.hr_permissions || []).includes(def.key);
-            return `<label class=\\"job-chip\\" style=\\"display:flex; align-items:center; gap:6px;\\"><input type=\\"checkbox\\" data-hr-perm=\\"${member.id}__${def.key}\\" ${checked ? 'checked' : ''} onchange=\\"updateMemberPermissions(${member.id})\\"> ${escapeHtml(def.label)}</label>`;
-        }).join('')} </div>` : ''}
+                  const checked = (member.hr_permissions || []).includes(def.key);
+                  return `<label class=\\"job-chip\\" style=\\"display:flex; align-items:center; gap:6px;\\"><input type=\\"checkbox\\" data-hr-perm=\\"${member.id}__${def.key}\\" ${checked ? 'checked' : ''} onchange=\\"updateMemberPermissions(${member.id})\\"> ${escapeHtml(def.label)}</label>`;
+                }).join('')} </div>` : ''}
       </div>
     `;
-    list.appendChild(row);
-  });
-}
+                list.appendChild(row);
+              });
+            }
 
-async function addScopeToMember(id) {
-  const input = document.querySelector(`[data-scope-input="${id}"]`);
-  if (!input) return;
-  const val = (input.value || '').trim();
-  if (!val) return;
-  const member = hrTeamState.find(m => m.id === id);
-  if (!member || !canEditMember(member)) return;
-  if (member.scope_locked && !isGlobalHr) {
-    toastError('Scopes are locked by Global HR');
-    return;
-  }
-  const nextScopes = Array.from(new Set([...(member.admin_scopes || []), val]));
-  try {
-    const res = await fetch(`/api/hr/accounts/${id}/scopes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scopes: nextScopes, lock: member.scope_locked })
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update scopes');
-    member.admin_scopes = data.scopes || [];
-    member.scope_locked = data.locked ?? member.scope_locked;
-    input.value = '';
-    renderHrTeam();
-    toastSuccess('Scopes updated');
-  } catch (err) {
-    console.error(err);
-    toastError(err.message);
-  }
-}
+            async function addScopeToMember(id) {
+              const input = document.querySelector(`[data-scope-input="${id}"]`);
+              if (!input) return;
+              const val = (input.value || '').trim();
+              if (!val) return;
+              const member = hrTeamState.find(m => m.id === id);
+              if (!member || !canEditMember(member)) return;
+              if (member.scope_locked && !isGlobalHr) {
+                toastError('Scopes are locked by Global HR');
+                return;
+              }
+              const nextScopes = Array.from(new Set([...(member.admin_scopes || []), val]));
+              try {
+                const res = await fetch(`/api/hr/accounts/${id}/scopes`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ scopes: nextScopes, lock: member.scope_locked })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update scopes');
+                member.admin_scopes = data.scopes || [];
+                member.scope_locked = data.locked ?? member.scope_locked;
+                input.value = '';
+                renderHrTeam();
+                toastSuccess('Scopes updated');
+              } catch (err) {
+                console.error(err);
+                toastError(err.message);
+              }
+            }
 
-async function toggleScopeLock(id, lock) {
-  const member = hrTeamState.find(m => m.id === id);
-  if (!member || !canEditMember(member) || !isGlobalHr) return;
-  try {
-    const res = await fetch(`/api/hr/accounts/${id}/scopes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scopes: member.admin_scopes || [], lock })
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update lock');
-    member.scope_locked = data.locked ?? lock;
-    renderHrTeam();
-    toastSuccess(lock ? 'Scopes locked' : 'Scopes unlocked');
-  } catch (err) {
-    console.error(err);
-    toastError(err.message);
-  }
-}
+            async function toggleScopeLock(id, lock) {
+              const member = hrTeamState.find(m => m.id === id);
+              if (!member || !canEditMember(member) || !isGlobalHr) return;
+              try {
+                const res = await fetch(`/api/hr/accounts/${id}/scopes`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ scopes: member.admin_scopes || [], lock })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update lock');
+                member.scope_locked = data.locked ?? lock;
+                renderHrTeam();
+                toastSuccess(lock ? 'Scopes locked' : 'Scopes unlocked');
+              } catch (err) {
+                console.error(err);
+                toastError(err.message);
+              }
+            }
 
-async function updateMemberPermissions(id) {
-  const member = hrTeamState.find(m => m.id === id);
-  if (!member || !canEditMember(member)) return;
-  const checkboxes = Array.from(document.querySelectorAll(`[data-hr-perm^="${id}__"]`));
-  const nextPerms = checkboxes.filter(cb => cb.checked).map(cb => cb.dataset.hrPerm.split('__')[1]);
-  try {
-    const res = await fetch(`/api/hr/accounts/${id}/permissions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hrPermissions: nextPerms })
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update permissions');
-    member.hr_permissions = data.hrPermissions || [];
-    renderHrTeam();
-    toastSuccess('HR permissions updated');
-  } catch (err) {
-    console.error(err);
-    toastError(err.message);
-  }
-}
+            async function updateMemberPermissions(id) {
+              const member = hrTeamState.find(m => m.id === id);
+              if (!member || !canEditMember(member)) return;
+              const checkboxes = Array.from(document.querySelectorAll(`[data-hr-perm^="${id}__"]`));
+              const nextPerms = checkboxes.filter(cb => cb.checked).map(cb => cb.dataset.hrPerm.split('__')[1]);
+              try {
+                const res = await fetch(`/api/hr/accounts/${id}/permissions`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ hrPermissions: nextPerms })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update permissions');
+                member.hr_permissions = data.hrPermissions || [];
+                renderHrTeam();
+                toastSuccess('HR permissions updated');
+              } catch (err) {
+                console.error(err);
+                toastError(err.message);
+              }
+            }
 
-async function refreshHrTeam() {
-  try {
-    const res = await fetch('/api/hr/team');
-    const data = await res.json();
-    if (res.ok && data.success) {
-      hrTeamState = (data.team || []).map(m => ({ ...m, admin_scopes: m.admin_scopes || [], hr_permissions: m.hr_permissions || [], scope_locked: !!m.scope_locked }));
-      renderHrTeam();
-    }
-  } catch (e) { console.warn('HR team refresh failed', e); }
-}
+            async function refreshHrTeam() {
+              try {
+                const res = await fetch('/api/hr/team');
+                const data = await res.json();
+                if (res.ok && data.success) {
+                  hrTeamState = (data.team || []).map(m => ({ ...m, admin_scopes: m.admin_scopes || [], hr_permissions: m.hr_permissions || [], scope_locked: !!m.scope_locked }));
+                  renderHrTeam();
+                }
+              } catch (e) { console.warn('HR team refresh failed', e); }
+            }
 
-document.addEventListener('DOMContentLoaded', () => {
-  setHrWizardStage(1);
-  renderHrScopeChips();
-  renderHrPermissionChecklist();
-  renderHrTeam();
-  if (!canCreateHrAccounts) {
-    const launchBtn = document.getElementById('hrLaunchBtn');
-    if (launchBtn) launchBtn.disabled = true;
-    hrWizardStatusEl().textContent = 'Only Super HR and Global HR can launch new HR teammates.';
-  }
-});
+            document.addEventListener('DOMContentLoaded', () => {
+              setHrWizardStage(1);
+              renderHrScopeChips();
+              renderHrPermissionChecklist();
+              renderHrTeam();
+              if (!canCreateHrAccounts) {
+                const launchBtn = document.getElementById('hrLaunchBtn');
+                if (launchBtn) launchBtn.disabled = true;
+                hrWizardStatusEl().textContent = 'Only Super HR and Global HR can launch new HR teammates.';
+              }
+            });
 
-const ctx = document.getElementById('trendsChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-    datasets: [{
-      label: 'Applications',
-      data: [12, 19, 15, 25],
-      borderColor: '#667eea',
-      backgroundColor: 'rgba(102, 126, 234, 0.1)',
-      tension: 0.4,
-      fill: true
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true } }
-  }
-});
+            const ctx = document.getElementById('trendsChart').getContext('2d');
+            new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                datasets: [{
+                  label: 'Applications',
+                  data: [12, 19, 15, 25],
+                  borderColor: '#667eea',
+                  backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                  tension: 0.4,
+                  fill: true
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+              }
+            });
 
-  const jobPostingsData = <%- JSON.stringify(jobPostings || []).replace(/</g, '\\u003c') %>;
-let jobWizardStep = 1;
-let editingJobId = null;
-const jobPreviewEls = {
-  title: document.getElementById('previewTitle'),
-  meta: document.getElementById('previewMeta'),
-  tags: document.getElementById('previewTags'),
-  desc: document.getElementById('previewDescription')
-};
+            const jobPostingsData = <% - JSON.stringify(jobPostings || []).replace(/</g, '\\u003c') %>;
+            let jobWizardStep = 1;
+            let editingJobId = null;
+            const jobPreviewEls = {
+              title: document.getElementById('previewTitle'),
+              meta: document.getElementById('previewMeta'),
+              tags: document.getElementById('previewTags'),
+              desc: document.getElementById('previewDescription')
+            };
 
-function updateJobPreview() {
-  const form = document.getElementById('jobForm');
-  if (!form) return;
-  const title = form.title.value || 'Your role title';
-  const location = form.location.value || 'Location TBD';
-  const employment = form.employmentType.value || 'Employment type';
-  const seniority = form.seniority.value || 'Seniority';
-  const workplace = form.workplaceType.value || '';
-  const priority = form.priority.value || '';
-  const headline = form.headline.value || '';
-  const desc = headline || form.description.value || 'Use the wizard to craft the perfect job story; it will mirror here in real time.';
-  const tagString = form.tags.value || '';
-  const tags = tagString.split(',').map(t => t.trim()).filter(Boolean);
-  const salaryMin = form.salaryMin.value;
-  const salaryMax = form.salaryMax.value;
-  const currency = form.salaryCurrency.value || '';
-  const salaryCopy = (salaryMin || salaryMax) ? `${currency || ''} ${salaryMin || ''}${salaryMax ? ' - ' + salaryMax : ''}`.trim() : '';
-  if (jobPreviewEls.title) jobPreviewEls.title.textContent = title;
-  const metaParts = [location, employment, seniority, workplace].filter(Boolean).join(' · ');
-  if (jobPreviewEls.meta) jobPreviewEls.meta.textContent = metaParts || 'Location · Employment type · Seniority';
-  if (jobPreviewEls.desc) jobPreviewEls.desc.textContent = desc;
-  if (jobPreviewEls.tags) {
-    const baseTags = tags.slice(0,6).map(t => `<span class="preview-tag">${escapeHtml(t)}</span>`);
-    if (salaryCopy) baseTags.push(`<span class="preview-tag">${escapeHtml(salaryCopy)}</span>`);
-    if (priority) baseTags.push(`<span class="preview-tag">${escapeHtml(priority)}</span>`);
-    jobPreviewEls.tags.innerHTML = baseTags.join('') || '<span class="preview-tag">Add tags to highlight focus areas</span>';
-  }
-}
+            function updateJobPreview() {
+              const form = document.getElementById('jobForm');
+              if (!form) return;
+              const title = form.title.value || 'Your role title';
+              const location = form.location.value || 'Location TBD';
+              const employment = form.employmentType.value || 'Employment type';
+              const seniority = form.seniority.value || 'Seniority';
+              const workplace = form.workplaceType.value || '';
+              const priority = form.priority.value || '';
+              const headline = form.headline.value || '';
+              const desc = headline || form.description.value || 'Use the wizard to craft the perfect job story; it will mirror here in real time.';
+              const tagString = form.tags.value || '';
+              const tags = tagString.split(',').map(t => t.trim()).filter(Boolean);
+              const salaryMin = form.salaryMin.value;
+              const salaryMax = form.salaryMax.value;
+              const currency = form.salaryCurrency.value || '';
+              const salaryCopy = (salaryMin || salaryMax) ? `${currency || ''} ${salaryMin || ''}${salaryMax ? ' - ' + salaryMax : ''}`.trim() : '';
+              if (jobPreviewEls.title) jobPreviewEls.title.textContent = title;
+              const metaParts = [location, employment, seniority, workplace].filter(Boolean).join(' · ');
+              if (jobPreviewEls.meta) jobPreviewEls.meta.textContent = metaParts || 'Location · Employment type · Seniority';
+              if (jobPreviewEls.desc) jobPreviewEls.desc.textContent = desc;
+              if (jobPreviewEls.tags) {
+                const baseTags = tags.slice(0, 6).map(t => `<span class="preview-tag">${escapeHtml(t)}</span>`);
+                if (salaryCopy) baseTags.push(`<span class="preview-tag">${escapeHtml(salaryCopy)}</span>`);
+                if (priority) baseTags.push(`<span class="preview-tag">${escapeHtml(priority)}</span>`);
+                jobPreviewEls.tags.innerHTML = baseTags.join('') || '<span class="preview-tag">Add tags to highlight focus areas</span>';
+              }
+            }
 
-function openJobWizard() {
-  setJobWizardStep(1);
-  document.getElementById('jobForm').reset();
-  updateJobPreview();
-  document.getElementById('jobWizardModal').classList.add('show');
-  editingJobId = null;
-  const submitBtn = document.getElementById('jobSubmitBtn');
-  if (submitBtn) submitBtn.textContent = 'Launch Role';
-}
+            function openJobWizard() {
+              setJobWizardStep(1);
+              document.getElementById('jobForm').reset();
+              updateJobPreview();
+              document.getElementById('jobWizardModal').classList.add('show');
+              editingJobId = null;
+              const submitBtn = document.getElementById('jobSubmitBtn');
+              if (submitBtn) submitBtn.textContent = 'Launch Role';
+            }
 
-function closeJobWizard() {
-  document.getElementById('jobWizardModal').classList.remove('show');
-}
+            function closeJobWizard() {
+              document.getElementById('jobWizardModal').classList.remove('show');
+            }
 
-const setJobWizardStep = (step) => {
-  jobWizardStep = Math.min(4, Math.max(1, step));
-  document.querySelectorAll('.job-step').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === jobWizardStep));
-  document.querySelectorAll('.wizard-step').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === jobWizardStep));
-  const nextBtn = document.getElementById('jobNextBtn');
-  const submitBtn = document.getElementById('jobSubmitBtn');
-    const progressBar = document.getElementById('wizardProgressBar');
-    if (progressBar) {
-      const pct = jobWizardStep === 1 ? 25 : jobWizardStep === 2 ? 50 : jobWizardStep === 3 ? 75 : 100;
-      progressBar.style.width = pct + '%';
-    }
-  if (jobWizardStep === 4) {
-    if (nextBtn) nextBtn.style.display = 'none';
-    if (submitBtn) submitBtn.style.display = 'inline-flex';
-  } else {
-    if (nextBtn) nextBtn.style.display = 'inline-flex';
-    if (submitBtn) submitBtn.style.display = 'none';
-  }
-};
+            const setJobWizardStep = (step) => {
+              jobWizardStep = Math.min(4, Math.max(1, step));
+              document.querySelectorAll('.job-step').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === jobWizardStep));
+              document.querySelectorAll('.wizard-step').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === jobWizardStep));
+              const nextBtn = document.getElementById('jobNextBtn');
+              const submitBtn = document.getElementById('jobSubmitBtn');
+              const progressBar = document.getElementById('wizardProgressBar');
+              if (progressBar) {
+                const pct = jobWizardStep === 1 ? 25 : jobWizardStep === 2 ? 50 : jobWizardStep === 3 ? 75 : 100;
+                progressBar.style.width = pct + '%';
+              }
+              if (jobWizardStep === 4) {
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (submitBtn) submitBtn.style.display = 'inline-flex';
+              } else {
+                if (nextBtn) nextBtn.style.display = 'inline-flex';
+                if (submitBtn) submitBtn.style.display = 'none';
+              }
+            };
 
-function jobWizardNext() {
-  const form = document.getElementById('jobForm');
-  if (jobWizardStep === 1 && !form.title.value.trim()) {
-    toastError('Title is required to proceed.');
-    return;
-  }
-  if (jobWizardStep === 2 && !form.description.value.trim()) {
-    toastError('Add a short description before scheduling.');
-    return;
-  }
-  updateJobPreview();
-  setJobWizardStep(jobWizardStep + 1);
-}
+            function jobWizardNext() {
+              const form = document.getElementById('jobForm');
+              if (jobWizardStep === 1 && !form.title.value.trim()) {
+                toastError('Title is required to proceed.');
+                return;
+              }
+              if (jobWizardStep === 2 && !form.description.value.trim()) {
+                toastError('Add a short description before scheduling.');
+                return;
+              }
+              updateJobPreview();
+              setJobWizardStep(jobWizardStep + 1);
+            }
 
-function jobWizardPrev() {
-  updateJobPreview();
-  setJobWizardStep(jobWizardStep - 1);
-}
+            function jobWizardPrev() {
+              updateJobPreview();
+              setJobWizardStep(jobWizardStep - 1);
+            }
 
-function renderJobStats() {
-  const counts = { live: 0, scheduled: 0, frozen: 0, total: jobPostingsData.length };
-  jobPostingsData.forEach(j => {
-    if (counts[j.status] !== undefined) counts[j.status] += 1;
-  });
-  ['live','scheduled','frozen','total'].forEach(key => {
-    const el = document.querySelector(`[data-role-count="${key}"]`);
-    if (el) el.textContent = counts[key] || 0;
-  });
-}
+            function renderJobStats() {
+              const counts = { live: 0, scheduled: 0, frozen: 0, total: jobPostingsData.length };
+              jobPostingsData.forEach(j => {
+                if (counts[j.status] !== undefined) counts[j.status] += 1;
+              });
+              ['live', 'scheduled', 'frozen', 'total'].forEach(key => {
+                const el = document.querySelector(`[data-role-count="${key}"]`);
+                if (el) el.textContent = counts[key] || 0;
+              });
+            }
 
-const formatJobDate = (value) => {
-  if (!value) return 'Now';
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return value;
-  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
+            const formatJobDate = (value) => {
+              if (!value) return 'Now';
+              const date = new Date(value);
+              if (isNaN(date.getTime())) return value;
+              return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            };
 
-const jobCardsEl = document.getElementById('jobCards');
-function upsertJob(job) {
-  const idx = jobPostingsData.findIndex(j => j.id === job.id);
-  if (idx >= 0) jobPostingsData[idx] = job;
-  else jobPostingsData.unshift(job);
-  renderJobCards();
-  renderJobStats();
-}
+            const jobCardsEl = document.getElementById('jobCards');
+            function upsertJob(job) {
+              const idx = jobPostingsData.findIndex(j => j.id === job.id);
+              if (idx >= 0) jobPostingsData[idx] = job;
+              else jobPostingsData.unshift(job);
+              renderJobCards();
+              renderJobStats();
+            }
 
-function renderJobCards() {
-  if (!jobCardsEl) return;
-  if (!jobPostingsData.length) {
-    jobCardsEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">dY\"<</div><h3>No openings yet</h3><p>Launch a role on the left to light up the careers page</p></div>';
-    return;
-  }
-  jobCardsEl.innerHTML = jobPostingsData.map(job => {
-    const statusLabel = job.status.replace('_', ' ').toUpperCase();
-    const tags = (job.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
-    const assets = (job.assets || []).map(a => `<span class="job-asset-chip"><a href="${a.file_path}" target="_blank">${a.label || a.file_name}</a><button type="button" onclick="removeJobAsset(${job.id}, ${a.id})">Remove</button></span>`).join('');
-    const goLiveCopy = job.status === 'scheduled' ? `Goes live ${formatJobDate(job.go_live_at)}` : (job.status === 'frozen' && job.freeze_until ? `Frozen until ${formatJobDate(job.freeze_until)}` : 'Live now');
-    const secondaryTags = [
-      job.location || 'Flexible location',
-      job.workplace_type || '',
-      job.employment_type || 'Full-time',
-      job.team || 'All teams',
-      job.seniority || ''
-    ].filter(Boolean).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
-    const salaryCopy = (job.salary_min || job.salary_max) ? `${job.salary_currency || ''} ${job.salary_min || ''}${job.salary_max ? ' - ' + job.salary_max : ''}`.trim() : '';
-    const priorityTag = job.priority ? `<span class="tag">${escapeHtml(job.priority)}</span>` : '';
-    const applyTag = job.apply_url ? `<span class="tag">Apply link</span>` : '';
-    return `
+            function renderJobCards() {
+              if (!jobCardsEl) return;
+              if (!jobPostingsData.length) {
+                jobCardsEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">dY\"<</div><h3>No openings yet</h3><p>Launch a role on the left to light up the careers page</p></div>';
+                return;
+              }
+              jobCardsEl.innerHTML = jobPostingsData.map(job => {
+                const statusLabel = job.status.replace('_', ' ').toUpperCase();
+                const tags = (job.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+                const assets = (job.assets || []).map(a => `<span class="job-asset-chip"><a href="${a.file_path}" target="_blank">${a.label || a.file_name}</a><button type="button" onclick="removeJobAsset(${job.id}, ${a.id})">Remove</button></span>`).join('');
+                const goLiveCopy = job.status === 'scheduled' ? `Goes live ${formatJobDate(job.go_live_at)}` : (job.status === 'frozen' && job.freeze_until ? `Frozen until ${formatJobDate(job.freeze_until)}` : 'Live now');
+                const secondaryTags = [
+                  job.location || 'Flexible location',
+                  job.workplace_type || '',
+                  job.employment_type || 'Full-time',
+                  job.team || 'All teams',
+                  job.seniority || ''
+                ].filter(Boolean).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+                const salaryCopy = (job.salary_min || job.salary_max) ? `${job.salary_currency || ''} ${job.salary_min || ''}${job.salary_max ? ' - ' + job.salary_max : ''}`.trim() : '';
+                const priorityTag = job.priority ? `<span class="tag">${escapeHtml(job.priority)}</span>` : '';
+                const applyTag = job.apply_url ? `<span class="tag">Apply link</span>` : '';
+                return `
       <div class="job-card">
         <header>
           <div>
@@ -2526,166 +2722,166 @@ function renderJobCards() {
         </div>
       </div>
     `;
-  }).join('');
-}
+              }).join('');
+            }
 
-async function createJob(e) {
-  e.preventDefault();
-  const form = document.getElementById('jobForm');
-  const fd = new FormData(form);
-  const submitBtn = form.querySelector('button[type="submit"]');
-  if (submitBtn) submitBtn.disabled = true;
-  try {
-    let url = '/api/hr/career-jobs';
-    let method = 'POST';
-    if (editingJobId) {
-      url = `/api/hr/career-jobs/${editingJobId}`;
-      method = 'PATCH';
-    }
-    const res = await fetch(url, { method, body: fd });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to create job');
-    upsertJob(data.job);
-    form.reset();
-    closeJobWizard();
-    toastSuccess(editingJobId ? 'Job updated' : 'Job posted to Careers');
-    editingJobId = null;
-  } catch (err) {
-    console.error(err);
-    toastError(err.message || 'Failed to create job');
-  } finally {
-    if (submitBtn) submitBtn.disabled = false;
-  }
-}
+            async function createJob(e) {
+              e.preventDefault();
+              const form = document.getElementById('jobForm');
+              const fd = new FormData(form);
+              const submitBtn = form.querySelector('button[type="submit"]');
+              if (submitBtn) submitBtn.disabled = true;
+              try {
+                let url = '/api/hr/career-jobs';
+                let method = 'POST';
+                if (editingJobId) {
+                  url = `/api/hr/career-jobs/${editingJobId}`;
+                  method = 'PATCH';
+                }
+                const res = await fetch(url, { method, body: fd });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Unable to create job');
+                upsertJob(data.job);
+                form.reset();
+                closeJobWizard();
+                toastSuccess(editingJobId ? 'Job updated' : 'Job posted to Careers');
+                editingJobId = null;
+              } catch (err) {
+                console.error(err);
+                toastError(err.message || 'Failed to create job');
+              } finally {
+                if (submitBtn) submitBtn.disabled = false;
+              }
+            }
 
-async function updateJobPostingStatus(id, status) {
-  try {
-    const res = await fetch(`/api/hr/career-jobs/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update status');
-    upsertJob(data.job);
-    toastSuccess('Job status updated');
-  } catch (err) {
-    console.error(err);
-    toastError(err.message || 'Failed to update job');
-  }
-}
+            async function updateJobPostingStatus(id, status) {
+              try {
+                const res = await fetch(`/api/hr/career-jobs/${id}/status`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Unable to update status');
+                upsertJob(data.job);
+                toastSuccess('Job status updated');
+              } catch (err) {
+                console.error(err);
+                toastError(err.message || 'Failed to update job');
+              }
+            }
 
-function uploadJobAssets(id) {
-  const picker = document.createElement('input');
-  picker.type = 'file';
-  picker.multiple = true;
-  picker.onchange = async () => {
-    if (!picker.files.length) return;
-    const fd = new FormData();
-    Array.from(picker.files).forEach(f => fd.append('assetFiles', f));
-    try {
-      const res = await fetch(`/api/hr/career-jobs/${id}`, { method: 'PATCH', body: fd });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Unable to attach files');
-      upsertJob(data.job);
-      toastSuccess('Assets added');
-    } catch (err) {
-      console.error(err);
-      toastError(err.message || 'Failed to upload asset');
-    }
-  };
-  picker.click();
-}
+            function uploadJobAssets(id) {
+              const picker = document.createElement('input');
+              picker.type = 'file';
+              picker.multiple = true;
+              picker.onchange = async () => {
+                if (!picker.files.length) return;
+                const fd = new FormData();
+                Array.from(picker.files).forEach(f => fd.append('assetFiles', f));
+                try {
+                  const res = await fetch(`/api/hr/career-jobs/${id}`, { method: 'PATCH', body: fd });
+                  const data = await res.json();
+                  if (!res.ok || !data.success) throw new Error(data.error || 'Unable to attach files');
+                  upsertJob(data.job);
+                  toastSuccess('Assets added');
+                } catch (err) {
+                  console.error(err);
+                  toastError(err.message || 'Failed to upload asset');
+                }
+              };
+              picker.click();
+            }
 
-function startEditJob(id) {
-  const job = jobPostingsData.find(j => j.id === id);
-  if (!job) return toastError('Job not found');
-  const form = document.getElementById('jobForm');
-  if (!form) return;
-  editingJobId = id;
-  form.title.value = job.title || '';
-  form.location.value = job.location || '';
-  form.team.value = job.team || '';
-  form.employmentType.value = job.employment_type || '';
-  form.seniority.value = job.seniority || '';
-  form.tags.value = (job.tags || []).join(', ');
-  form.headline.value = job.headline || '';
-  form.description.value = job.description || '';
-  form.responsibilities.value = job.responsibilities || '';
-  form.requirements.value = job.requirements || '';
-  form.perks.value = job.perks || '';
-  form.goLiveAt.value = job.go_live_at ? job.go_live_at.slice(0,16) : '';
-  form.freezeUntil.value = job.freeze_until ? job.freeze_until.slice(0,16) : '';
-  form.workplaceType.value = job.workplace_type || '';
-  form.visibility.value = job.visibility || 'public';
-  form.priority.value = job.priority || '';
-  form.applyUrl.value = job.apply_url || '';
-  form.salaryMin.value = job.salary_min || '';
-  form.salaryMax.value = job.salary_max || '';
-  form.salaryCurrency.value = job.salary_currency || '';
-  const submitBtn = document.getElementById('jobSubmitBtn');
-  if (submitBtn) submitBtn.textContent = 'Save Changes';
-  setJobWizardStep(1);
-  updateJobPreview();
-  document.getElementById('jobWizardModal').classList.add('show');
-}
+            function startEditJob(id) {
+              const job = jobPostingsData.find(j => j.id === id);
+              if (!job) return toastError('Job not found');
+              const form = document.getElementById('jobForm');
+              if (!form) return;
+              editingJobId = id;
+              form.title.value = job.title || '';
+              form.location.value = job.location || '';
+              form.team.value = job.team || '';
+              form.employmentType.value = job.employment_type || '';
+              form.seniority.value = job.seniority || '';
+              form.tags.value = (job.tags || []).join(', ');
+              form.headline.value = job.headline || '';
+              form.description.value = job.description || '';
+              form.responsibilities.value = job.responsibilities || '';
+              form.requirements.value = job.requirements || '';
+              form.perks.value = job.perks || '';
+              form.goLiveAt.value = job.go_live_at ? job.go_live_at.slice(0, 16) : '';
+              form.freezeUntil.value = job.freeze_until ? job.freeze_until.slice(0, 16) : '';
+              form.workplaceType.value = job.workplace_type || '';
+              form.visibility.value = job.visibility || 'public';
+              form.priority.value = job.priority || '';
+              form.applyUrl.value = job.apply_url || '';
+              form.salaryMin.value = job.salary_min || '';
+              form.salaryMax.value = job.salary_max || '';
+              form.salaryCurrency.value = job.salary_currency || '';
+              const submitBtn = document.getElementById('jobSubmitBtn');
+              if (submitBtn) submitBtn.textContent = 'Save Changes';
+              setJobWizardStep(1);
+              updateJobPreview();
+              document.getElementById('jobWizardModal').classList.add('show');
+            }
 
-async function removeJobAsset(jobId, assetId) {
-  try {
-    const res = await fetch(`/api/hr/career-jobs/${jobId}/assets/${assetId}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Unable to remove asset');
-    const job = jobPostingsData.find(j => j.id === jobId);
-    if (job) job.assets = (job.assets || []).filter(a => a.id !== assetId);
-    renderJobCards();
-    toastSuccess('Attachment removed');
-  } catch (err) {
-    console.error(err);
-    toastError(err.message || 'Failed to remove attachment');
-  }
-}
+            async function removeJobAsset(jobId, assetId) {
+              try {
+                const res = await fetch(`/api/hr/career-jobs/${jobId}/assets/${assetId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Unable to remove asset');
+                const job = jobPostingsData.find(j => j.id === jobId);
+                if (job) job.assets = (job.assets || []).filter(a => a.id !== assetId);
+                renderJobCards();
+                toastSuccess('Attachment removed');
+              } catch (err) {
+                console.error(err);
+                toastError(err.message || 'Failed to remove attachment');
+              }
+            }
 
-renderJobCards();
-renderJobStats();
-setJobWizardStep(1);
-updateJobPreview();
+            renderJobCards();
+            renderJobStats();
+            setJobWizardStep(1);
+            updateJobPreview();
 
-// Asset preview modal
-function previewAsset(path) {
-  const modal = document.getElementById('assetPreviewModal');
-  const frame = document.getElementById('assetPreviewFrame');
-  if (!modal || !frame) return;
-  const lower = (path || '').toLowerCase();
-  let src = path;
-  if (lower.endsWith('.doc') || lower.endsWith('.docx') || lower.endsWith('.ppt') || lower.endsWith('.pptx')) {
-    const absolute = window.location.origin + path;
-    src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolute)}`;
-  }
-  frame.src = src;
-  modal.classList.add('show');
-}
+            // Asset preview modal
+            function previewAsset(path) {
+              const modal = document.getElementById('assetPreviewModal');
+              const frame = document.getElementById('assetPreviewFrame');
+              if (!modal || !frame) return;
+              const lower = (path || '').toLowerCase();
+              let src = path;
+              if (lower.endsWith('.doc') || lower.endsWith('.docx') || lower.endsWith('.ppt') || lower.endsWith('.pptx')) {
+                const absolute = window.location.origin + path;
+                src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolute)}`;
+              }
+              frame.src = src;
+              modal.classList.add('show');
+            }
 
-function closeAssetPreview() {
-  const modal = document.getElementById('assetPreviewModal');
-  const frame = document.getElementById('assetPreviewFrame');
-  if (frame) frame.src = '';
-  if (modal) modal.classList.remove('show');
-}
+            function closeAssetPreview() {
+              const modal = document.getElementById('assetPreviewModal');
+              const frame = document.getElementById('assetPreviewFrame');
+              if (frame) frame.src = '';
+              if (modal) modal.classList.remove('show');
+            }
 
-document.querySelectorAll('.hr-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.hr-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.hr-tab-content').forEach(c => c.classList.remove('active'));
-    tab.classList.add('active');
-    document.querySelector(`[data-content="${tab.dataset.tab}"]`).classList.add('active');
-  });
-});
+            document.querySelectorAll('.hr-tab').forEach(tab => {
+              tab.addEventListener('click', () => {
+                document.querySelectorAll('.hr-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.hr-tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelector(`[data-content="${tab.dataset.tab}"]`).classList.add('active');
+              });
+            });
 
-function viewApplication(id, data) {
-  const modal = document.getElementById('appModal');
-  const body = document.getElementById('modalBody');
-  
-  body.innerHTML = `
+            function viewApplication(id, data) {
+              const modal = document.getElementById('appModal');
+              const body = document.getElementById('modalBody');
+
+              body.innerHTML = `
     <div class="info-grid">
       <div class="info-item"><label>Name</label><value>${data.name}</value></div>
       <div class="info-item"><label>Position</label><value style="color: var(--hr-primary);">${data.position}</value></div>
@@ -2704,167 +2900,167 @@ function viewApplication(id, data) {
       <button class="btn-reject" onclick="updateStatus(${data.id}, 'rejected'); closeModal();">❌ Reject</button>
     </div>
   `;
-  modal.classList.add('show');
-}
+              modal.classList.add('show');
+            }
 
-function closeModal() {
-  document.getElementById('appModal').classList.remove('show');
-}
+            function closeModal() {
+              document.getElementById('appModal').classList.remove('show');
+            }
 
-let currentApplicantName = '';
-function emailApplicant(email, name, applicantId) {
-  currentApplicantName = name;
-  document.getElementById('emailTo').value = email;
-  document.getElementById('emailToName').value = name;
-  document.getElementById('applicantId').value = applicantId || '';
-  document.getElementById('emailSubject').value = '';
-  document.getElementById('emailBody').value = '';
-  document.getElementById('emailTemplate').value = '';
-  document.getElementById('emailModal').classList.add('show');
-}
+            let currentApplicantName = '';
+            function emailApplicant(email, name, applicantId) {
+              currentApplicantName = name;
+              document.getElementById('emailTo').value = email;
+              document.getElementById('emailToName').value = name;
+              document.getElementById('applicantId').value = applicantId || '';
+              document.getElementById('emailSubject').value = '';
+              document.getElementById('emailBody').value = '';
+              document.getElementById('emailTemplate').value = '';
+              document.getElementById('emailModal').classList.add('show');
+            }
 
-function closeEmailModal() {
-  document.getElementById('emailModal').classList.remove('show');
-}
+            function closeEmailModal() {
+              document.getElementById('emailModal').classList.remove('show');
+            }
 
-function loadEmailTemplate() {
-  const template = document.getElementById('emailTemplate').value;
-  const name = currentApplicantName;
-  const templates = {
-    interview: {
-      subject: 'Interview Invitation - Dream X',
-      body: `Dear ${name},\n\nThank you for your interest in Dream X! We'd like to invite you for an interview.\n\nPlease let us know your availability.\n\nBest regards,\nDream X HR Team`
-    },
-    accepted: {
-      subject: 'Congratulations! Offer from Dream X',
-      body: `Dear ${name},\n\nCongratulations! We're pleased to offer you a position at Dream X.\n\nWelcome to the team!\n\nBest regards,\nDream X HR Team`
-    },
-    rejected: {
-      subject: 'Application Status - Dream X',
-      body: `Dear ${name},\n\nThank you for applying. After careful consideration, we've decided to move forward with other candidates.\n\nWe encourage you to apply for future positions.\n\nBest regards,\nDream X HR Team`
-    },
-    followup: {
-      subject: 'Follow-up: Your Application at Dream X',
-      body: `Dear ${name},\n\nWe're still reviewing applications and will be in touch soon.\n\nThank you for your patience.\n\nBest regards,\nDream X HR Team`
-    }
-  };
-  
-  if (templates[template]) {
-    document.getElementById('emailSubject').value = templates[template].subject;
-    document.getElementById('emailBody').value = templates[template].body;
-  }
-}
+            function loadEmailTemplate() {
+              const template = document.getElementById('emailTemplate').value;
+              const name = currentApplicantName;
+              const templates = {
+                interview: {
+                  subject: 'Interview Invitation - Dream X',
+                  body: `Dear ${name},\n\nThank you for your interest in Dream X! We'd like to invite you for an interview.\n\nPlease let us know your availability.\n\nBest regards,\nDream X HR Team`
+                },
+                accepted: {
+                  subject: 'Congratulations! Offer from Dream X',
+                  body: `Dear ${name},\n\nCongratulations! We're pleased to offer you a position at Dream X.\n\nWelcome to the team!\n\nBest regards,\nDream X HR Team`
+                },
+                rejected: {
+                  subject: 'Application Status - Dream X',
+                  body: `Dear ${name},\n\nThank you for applying. After careful consideration, we've decided to move forward with other candidates.\n\nWe encourage you to apply for future positions.\n\nBest regards,\nDream X HR Team`
+                },
+                followup: {
+                  subject: 'Follow-up: Your Application at Dream X',
+                  body: `Dear ${name},\n\nWe're still reviewing applications and will be in touch soon.\n\nThank you for your patience.\n\nBest regards,\nDream X HR Team`
+                }
+              };
 
-async function sendEmail() {
-  const to = document.getElementById('emailTo').value;
-  const toName = document.getElementById('emailToName')?.value || 'Applicant';
-  const applicantId = document.getElementById('applicantId')?.value;
-  const subject = document.getElementById('emailSubject').value;
-  const body = document.getElementById('emailBody').value;
-  
-  if (!subject || !body) return showError('Please fill in subject and message');
-  if (!to) return showError('Recipient email is missing');
-  
-  try {
-    const sendBtn = document.querySelector('#emailModal .modal-btn-primary');
-    const originalText = sendBtn.textContent;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<span class="modal-loading"></span>Sending...';
-    
-    const res = await fetch('/hr/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        applicantId,
-        applicantEmail: to,
-        applicantName: toName,
-        subject,
-        message: body
-      })
-    });
-    
-    const data = await res.json();
-    
-    if (data.success) {
-      closeEmailModal();
-      showSuccess('Email sent successfully to ' + to);
-    } else {
-      showError(data.error || 'Failed to send email');
-    }
-    
-    sendBtn.disabled = false;
-    sendBtn.textContent = originalText;
-  } catch (err) {
-    console.error('Email send error:', err);
-    showError('Error sending email. Please try again.');
-    const sendBtn = document.querySelector('#emailModal .modal-btn-primary');
-    if (sendBtn) {
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send Email';
-    }
-  }
-}
+              if (templates[template]) {
+                document.getElementById('emailSubject').value = templates[template].subject;
+                document.getElementById('emailBody').value = templates[template].body;
+              }
+            }
 
-async function updateStatus(id, status) {
-  const confirmMsg = status === 'accepted' ? 'Accept this candidate?' : status === 'rejected' ? 'Reject this application?' : `Update to "${status.replace('_', ' ')}"?`;
-  
-  showConfirm(confirmMsg, async () => {
-    try {
-      const res = await fetch(`/admin/careers/${id}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `status=${status}`
-      });
-      
-      if (res.ok) {
-        showSuccess('Status updated successfully');
-        setTimeout(() => window.location.reload(), 1500);
-      } else {
-        showError('Failed to update status');
-      }
-    } catch (err) {
-      console.error('Status update error:', err);
-      showError('Error updating status');
-    }
-  });
-}
+            async function sendEmail() {
+              const to = document.getElementById('emailTo').value;
+              const toName = document.getElementById('emailToName')?.value || 'Applicant';
+              const applicantId = document.getElementById('applicantId')?.value;
+              const subject = document.getElementById('emailSubject').value;
+              const body = document.getElementById('emailBody').value;
 
-function filterApplications() {
-  const searchTerm = document.getElementById('searchApplications').value.toLowerCase();
-  const positionFilter = document.getElementById('positionFilter').value.toLowerCase();
-  const sortFilter = document.getElementById('sortFilter').value;
-  
-  const cards = Array.from(document.querySelectorAll('#allApplications .application-card'));
-  
-  cards.forEach(card => {
-    const matchesSearch = !searchTerm || card.dataset.name.includes(searchTerm) || card.dataset.email.includes(searchTerm) || card.dataset.position.includes(searchTerm);
-    const matchesPosition = !positionFilter || card.dataset.position.includes(positionFilter);
-    card.style.display = (matchesSearch && matchesPosition) ? '' : 'none';
-  });
-  
-  const visibleCards = cards.filter(c => c.style.display !== 'none');
-  
-  if (sortFilter === 'newest') {
-    visibleCards.sort((a, b) => parseInt(b.dataset.date) - parseInt(a.dataset.date));
-  } else if (sortFilter === 'oldest') {
-    visibleCards.sort((a, b) => parseInt(a.dataset.date) - parseInt(b.dataset.date));
-  } else if (sortFilter === 'name') {
-    visibleCards.sort((a, b) => a.dataset.name.localeCompare(b.dataset.name));
-  }
-  
-  const container = document.getElementById('allApplications');
-  visibleCards.forEach(card => container.appendChild(card));
-}
+              if (!subject || !body) return showError('Please fill in subject and message');
+              if (!to) return showError('Recipient email is missing');
 
-function exportApplications() {
-  window.location.href = '/admin/export/careers.csv';
-}
+              try {
+                const sendBtn = document.querySelector('#emailModal .modal-btn-primary');
+                const originalText = sendBtn.textContent;
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = '<span class="modal-loading"></span>Sending...';
 
-window.addEventListener('click', (e) => {
-  if (e.target.classList.contains('hr-modal')) e.target.classList.remove('show');
-});
+                const res = await fetch('/hr/send-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    applicantId,
+                    applicantEmail: to,
+                    applicantName: toName,
+                    subject,
+                    message: body
+                  })
+                });
 
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') document.querySelectorAll('.hr-modal').forEach(m => m.classList.remove('show'));
-});
-</script>
+                const data = await res.json();
+
+                if (data.success) {
+                  closeEmailModal();
+                  showSuccess('Email sent successfully to ' + to);
+                } else {
+                  showError(data.error || 'Failed to send email');
+                }
+
+                sendBtn.disabled = false;
+                sendBtn.textContent = originalText;
+              } catch (err) {
+                console.error('Email send error:', err);
+                showError('Error sending email. Please try again.');
+                const sendBtn = document.querySelector('#emailModal .modal-btn-primary');
+                if (sendBtn) {
+                  sendBtn.disabled = false;
+                  sendBtn.textContent = 'Send Email';
+                }
+              }
+            }
+
+            async function updateStatus(id, status) {
+              const confirmMsg = status === 'accepted' ? 'Accept this candidate?' : status === 'rejected' ? 'Reject this application?' : `Update to "${status.replace('_', ' ')}"?`;
+
+              showConfirm(confirmMsg, async () => {
+                try {
+                  const res = await fetch(`/admin/careers/${id}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `status=${status}`
+                  });
+
+                  if (res.ok) {
+                    showSuccess('Status updated successfully');
+                    setTimeout(() => window.location.reload(), 1500);
+                  } else {
+                    showError('Failed to update status');
+                  }
+                } catch (err) {
+                  console.error('Status update error:', err);
+                  showError('Error updating status');
+                }
+              });
+            }
+
+            function filterApplications() {
+              const searchTerm = document.getElementById('searchApplications').value.toLowerCase();
+              const positionFilter = document.getElementById('positionFilter').value.toLowerCase();
+              const sortFilter = document.getElementById('sortFilter').value;
+
+              const cards = Array.from(document.querySelectorAll('#allApplications .application-card'));
+
+              cards.forEach(card => {
+                const matchesSearch = !searchTerm || card.dataset.name.includes(searchTerm) || card.dataset.email.includes(searchTerm) || card.dataset.position.includes(searchTerm);
+                const matchesPosition = !positionFilter || card.dataset.position.includes(positionFilter);
+                card.style.display = (matchesSearch && matchesPosition) ? '' : 'none';
+              });
+
+              const visibleCards = cards.filter(c => c.style.display !== 'none');
+
+              if (sortFilter === 'newest') {
+                visibleCards.sort((a, b) => parseInt(b.dataset.date) - parseInt(a.dataset.date));
+              } else if (sortFilter === 'oldest') {
+                visibleCards.sort((a, b) => parseInt(a.dataset.date) - parseInt(b.dataset.date));
+              } else if (sortFilter === 'name') {
+                visibleCards.sort((a, b) => a.dataset.name.localeCompare(b.dataset.name));
+              }
+
+              const container = document.getElementById('allApplications');
+              visibleCards.forEach(card => container.appendChild(card));
+            }
+
+            function exportApplications() {
+              window.location.href = '/admin/export/careers.csv';
+            }
+
+            window.addEventListener('click', (e) => {
+              if (e.target.classList.contains('hr-modal')) e.target.classList.remove('show');
+            });
+
+            window.addEventListener('keydown', (e) => {
+              if (e.key === 'Escape') document.querySelectorAll('.hr-modal').forEach(m => m.classList.remove('show'));
+            });
+          </script>
