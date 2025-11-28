@@ -203,21 +203,22 @@ try {
 }
 
 // Helper to generate full callback URL for OAuth
+// Note: This is only used as a fallback when strategies are initialized.
+// The actual callback URL is determined dynamically from the request in routes/auth.js
 function getCallbackURL(path) {
-    // Use BASE_URL if explicitly set, otherwise detect environment
+    // Use explicit callback URL env var if set (provider-specific)
+    // Otherwise use BASE_URL if explicitly set
     if (process.env.BASE_URL) {
         return `${process.env.BASE_URL}${path}`;
     }
 
-    // Auto-detect: use localhost in development, production URL otherwise
-    const isDevelopment = process.env.NODE_ENV !== 'production';
-    const baseUrl = isDevelopment ? 'http://localhost' : 'https://dreamx-website.onrender.com';
-    return `${baseUrl}${path}`;
+    // Default to production domain (dream-x.app or www.dream-x.app)
+    // The actual callback URL will be determined dynamically from the request
+    return `https://dream-x.app${path}`;
 }
 
 // Resolve the best-effort base URL for links sent to users (prefers request host; defaults to production domain for emails)
 function getRequestBaseUrl(req) {
-    const productionHost = 'dreamx-website.onrender.com';
     const forwardedHost = (req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
     const rawHost = forwardedHost || (req?.get ? req.get('host') : req?.headers?.host || '').trim();
     const host = rawHost || '';
@@ -230,14 +231,14 @@ function getRequestBaseUrl(req) {
         if (isLocal) {
             return `http://${host}`;
         }
-        // Force the known production domain for hosted traffic; otherwise use the observed host
-        const finalHost = lowerHost.includes(productionHost) ? productionHost : host;
+        // Use the actual request host (supports both dream-x.app and www.dream-x.app)
         const safeProto = protocol === 'http' ? 'http' : 'https';
-        return `${safeProto}://${finalHost}`;
+        return `${safeProto}://${host}`;
     }
 
     // No host available (e.g., background job): assume production domain
-    return `https://${productionHost}`;
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    return isDevelopment ? 'http://localhost' : 'https://dream-x.app';
 }
 
 function safeParseArray(value, fallback = []) {

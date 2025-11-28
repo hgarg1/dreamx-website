@@ -3,7 +3,6 @@ const { db } = require('../db');
 
 // Resolve the best-effort base URL for links sent to users
 function getRequestBaseUrl(req) {
-    const productionHost = 'dreamx-website.onrender.com';
     const forwardedHost = (req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
     const rawHost = forwardedHost || (req?.get ? req.get('host') : req?.headers?.host || '').trim();
     const host = rawHost || '';
@@ -16,12 +15,14 @@ function getRequestBaseUrl(req) {
         if (isLocal) {
             return `http://${host}`;
         }
-        const finalHost = lowerHost.includes(productionHost) ? productionHost : host;
+        // Use the actual request host (supports both dream-x.app and www.dream-x.app)
         const safeProto = protocol === 'http' ? 'http' : 'https';
-        return `${safeProto}://${finalHost}`;
+        return `${safeProto}://${host}`;
     }
 
-    return `https://${productionHost}`;
+    // Fallback to production domain
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    return isDevelopment ? 'http://localhost' : 'https://dream-x.app';
 }
 
 // Check if user needs onboarding

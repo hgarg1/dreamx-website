@@ -663,12 +663,50 @@ router.get('/logout', (req, res) => {
     });
 });
 
+// Helper to get callback URL from request
+function getCallbackURLFromRequest(req, path) {
+    // Use explicit callback URL env var if set
+    if (process.env.GOOGLE_CALLBACK_URL && path.includes('google')) return process.env.GOOGLE_CALLBACK_URL;
+    if (process.env.MICROSOFT_CALLBACK_URL && path.includes('microsoft')) return process.env.MICROSOFT_CALLBACK_URL;
+    if (process.env.APPLE_CALLBACK_URL && path.includes('apple')) return process.env.APPLE_CALLBACK_URL;
+    
+    // Use BASE_URL if set
+    if (process.env.BASE_URL) {
+        return `${process.env.BASE_URL}${path}`;
+    }
+    
+    // Build from request headers (handles both direct requests and proxied requests)
+    const forwardedHost = (req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
+    const rawHost = forwardedHost || (req?.get ? req.get('host') : req?.headers?.host || '').trim();
+    const forwardedProto = (req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim();
+    const protocol = forwardedProto || req?.protocol || 'https';
+    
+    if (rawHost) {
+        const lowerHost = rawHost.toLowerCase();
+        const isLocal = lowerHost.includes('localhost') || lowerHost.includes('127.0.0.1') || lowerHost.includes('0.0.0.0');
+        if (isLocal) {
+            return `http://${rawHost}${path}`;
+        }
+        // For production domains (dream-x.app, www.dream-x.app, etc.), use https
+        const safeProto = protocol === 'http' ? 'http' : 'https';
+        return `${safeProto}://${rawHost}${path}`;
+    }
+    
+    // Fallback to production domain (default to production since NODE_ENV is not available)
+    return `https://dream-x.app${path}`;
+}
+
 // OAuth routes - these need to be set up in app.js with passport strategies
 // They're included here for reference but need passport middleware
 router.get('/auth/google', (req, res, next) => {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return res.status(503).send('Google OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    const options = { scope: ['profile', 'email'], state: mode };
+    const callbackURL = getCallbackURLFromRequest(req, '/auth/google/callback');
+    const options = { 
+        scope: ['profile', 'email'], 
+        state: mode,
+        callbackURL: callbackURL
+    };
     passport.authenticate('google', options)(req, res, next);
 });
 
@@ -714,7 +752,8 @@ router.get('/auth/google/callback', passport.authenticate('google', { failureRed
 router.get('/auth/microsoft', (req, res, next) => {
     if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) return res.status(503).send('Microsoft OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    passport.authenticate('microsoft', { state: mode })(req, res, next);
+    const callbackURL = getCallbackURLFromRequest(req, '/auth/microsoft/callback');
+    passport.authenticate('microsoft', { state: mode, callbackURL: callbackURL })(req, res, next);
 });
 
 router.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), async (req, res) => {
@@ -756,7 +795,8 @@ router.get('/auth/microsoft/callback', passport.authenticate('microsoft', { fail
 router.get('/auth/apple', (req, res, next) => {
     if (!process.env.APPLE_CLIENT_ID || !process.env.APPLE_TEAM_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY) return res.status(503).send('Apple Sign-In not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    passport.authenticate('apple', { state: mode })(req, res, next);
+    const callbackURL = getCallbackURLFromRequest(req, '/auth/apple/callback');
+    passport.authenticate('apple', { state: mode, callbackURL: callbackURL })(req, res, next);
 });
 
 router.post('/auth/apple/callback', passport.authenticate('apple', { failureRedirect: '/login' }), async (req, res) => {

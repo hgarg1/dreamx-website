@@ -253,6 +253,15 @@ function initMiscRoutes() {
         });
     });
 
+    // Downloads page
+    router.get('/downloads', preventCache, (req, res) => {
+        res.render('downloads', {
+            title: 'Downloads - Dream X',
+            currentPage: 'downloads',
+            authUser: res.locals.authUser
+        });
+    });
+
     return router;
 }
 
