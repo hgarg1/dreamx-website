@@ -5,20 +5,23 @@
 
 :root {
     /* Map admin theme to global site variables for visual consistency */
-    --admin-bg: var(--bg-light);
-    --admin-bg-2: var(--bg-white);
-    --admin-card: var(--bg-white);
-    --admin-card-hover: var(--bg-light);
-    --admin-border: var(--border-color);
-    --admin-border-light: var(--border-color);
-    --admin-text: var(--text-dark);
-    --admin-dim: var(--text-light);
-    --admin-muted: #6b7280;
+    --admin-bg: var(--bg-midnight-void);
+    --admin-bg-2: var(--bg-deep-galaxy);
+    --admin-card: var(--bg-cosmic-shadow);
+    --admin-card-hover: var(--bg-deep-galaxy);
+    --admin-border: rgba(255, 77, 255, 0.2);
+    --admin-border-light: rgba(63, 214, 255, 0.2);
+    --admin-text: #ffffff;
+    --admin-dim: rgba(255, 255, 255, 0.7);
+    --admin-muted: rgba(255, 255, 255, 0.5);
     --accent: var(--primary-color);
-    /* Use site’s secondary purple seen across gradients */
-    --accent-2: #764ba2;
-    --accent-3: #667eea;
-    --accent-4: #ffd700;
+    /* Logo theme colors */
+    --accent-2: #A53CFF;
+    /* Soft Magenta Glow */
+    --accent-3: #3FD6FF;
+    /* Cyber Cyan */
+    --accent-4: #2BB6FF;
+    /* Sky Neon */
     --success: #10b981;
     --error: #ef4444;
     --warning: #f59e0b;
@@ -58,13 +61,13 @@ body.admin {
    =================================== */
 
 .admin-dashboard-header {
-    background: linear-gradient(135deg, rgba(124, 92, 255, 0.1) 0%, rgba(255, 79, 163, 0.1) 100%);
+    background: linear-gradient(135deg, rgba(255, 77, 255, 0.1) 0%, rgba(165, 60, 255, 0.1) 50%, rgba(63, 214, 255, 0.08) 100%);
     border: 2px solid var(--admin-border-light);
     border-radius: 24px;
     padding: 2rem;
     margin-bottom: 2rem;
     backdrop-filter: blur(20px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 77, 255, 0.1);
     position: relative;
     overflow: hidden;
 }
@@ -76,10 +79,11 @@ body.admin {
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at 20% 50%, rgba(124, 92, 255, 0.15), transparent 50%),
-                radial-gradient(circle at 80% 50%, rgba(255, 79, 163, 0.15), transparent 50%);
+    background: radial-gradient(circle at 20% 50%, rgba(255, 77, 255, 0.15), transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(63, 214, 255, 0.12), transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(165, 60, 255, 0.1), transparent 50%);
     pointer-events: none;
-    animation: pulse 8s ease-in-out infinite;
+    animation: pulse 8s ease-in-out infinite, cosmicPulse 12s ease-in-out infinite;
 }
 
 @keyframes pulse {
@@ -135,7 +139,7 @@ body.admin {
     background: rgba(255, 255, 255, 0.1);
     border-color: var(--accent);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 79, 163, 0.3);
+    box-shadow: 0 6px 20px rgba(255, 77, 255, 0.3);
 }
 
 .admin-role-badge {
@@ -146,7 +150,7 @@ body.admin {
     font-weight: 700;
     font-size: 0.9rem;
     letter-spacing: 0.05em;
-    box-shadow: 0 4px 16px rgba(255, 79, 163, 0.4);
+    box-shadow: 0 4px 16px rgba(255, 77, 255, 0.4);
 }
 
 /* ===================================
@@ -185,7 +189,7 @@ body.admin {
     background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
     color: white;
     border-color: transparent;
-    box-shadow: 0 6px 20px rgba(255, 79, 163, 0.4);
+    box-shadow: 0 6px 20px rgba(255, 77, 255, 0.4);
 }
 
 .tab-btn svg {
@@ -271,7 +275,7 @@ body.admin {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 79, 163, 0.05) 0%, rgba(124, 92, 255, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(255, 77, 255, 0.05) 0%, rgba(165, 60, 255, 0.05) 100%);
     opacity: 0;
     transition: opacity 0.4s ease;
 }
@@ -283,7 +287,7 @@ body.admin {
 .metric-card.glow:hover {
     border-color: var(--accent);
     transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(255, 79, 163, 0.3);
+    box-shadow: 0 12px 40px rgba(255, 77, 255, 0.3);
 }
 
 .metric-icon {
@@ -295,19 +299,19 @@ body.admin {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 8px 24px rgba(255, 79, 163, 0.4);
+    box-shadow: 0 8px 24px rgba(255, 77, 255, 0.4);
 }
 
 .metric-icon.accent-2 {
-    background: linear-gradient(135deg, var(--accent-2) 0%, #9370db 100%);
+    background: linear-gradient(135deg, var(--accent-2) 0%, #A53CFF 100%);
 }
 
 .metric-icon.accent-3 {
-    background: linear-gradient(135deg, var(--accent-3) 0%, #00b4d8 100%);
+    background: linear-gradient(135deg, var(--accent-3) 0%, var(--accent-4) 100%);
 }
 
 .metric-icon.accent-4 {
-    background: linear-gradient(135deg, var(--accent-4) 0%, #ff9500 100%);
+    background: linear-gradient(135deg, var(--accent-4) 0%, var(--accent-3) 100%);
 }
 
 .metric-icon svg {
@@ -373,7 +377,7 @@ body.admin {
 }
 
 .analytics-badge {
-    background: rgba(124, 92, 255, 0.2);
+    background: rgba(165, 60, 255, 0.2);
     color: var(--accent-2);
     padding: 0.5rem 1rem;
     border-radius: 8px;
@@ -382,7 +386,7 @@ body.admin {
 }
 
 .analytics-badge.urgent {
-    background: rgba(255, 79, 163, 0.2);
+    background: rgba(255, 77, 255, 0.2);
     color: var(--accent);
 }
 
@@ -559,7 +563,7 @@ body.admin {
     outline: none;
     border-color: var(--accent);
     background: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 0 0 4px rgba(255, 79, 163, 0.1);
+    box-shadow: 0 0 0 4px rgba(255, 77, 255, 0.1);
 }
 
 .admin-search-btn {
@@ -571,12 +575,12 @@ body.admin {
     font-weight: 700;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 16px rgba(255, 79, 163, 0.3);
+    box-shadow: 0 4px 16px rgba(255, 77, 255, 0.3);
 }
 
 .admin-search-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 79, 163, 0.4);
+    box-shadow: 0 6px 20px rgba(255, 77, 255, 0.4);
 }
 
 .admin-search-clear {
@@ -686,7 +690,7 @@ body.admin {
 }
 
 .role-badge.role-admin {
-    background: rgba(124, 92, 255, 0.2);
+    background: rgba(165, 60, 255, 0.2);
     color: var(--accent-2);
 }
 
@@ -709,7 +713,7 @@ body.admin {
 
 .role-badge.role-new,
 .role-badge.role-open {
-    background: rgba(124, 92, 255, 0.2);
+    background: rgba(165, 60, 255, 0.2);
     color: var(--accent-2);
 }
 
@@ -751,7 +755,7 @@ body.admin {
 .role-select:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 4px rgba(255, 79, 163, 0.1);
+    box-shadow: 0 0 0 4px rgba(255, 77, 255, 0.1);
 }
 
 .btn-update {
@@ -768,7 +772,7 @@ body.admin {
 
 .btn-update:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(255, 79, 163, 0.4);
+    box-shadow: 0 4px 16px rgba(255, 77, 255, 0.4);
 }
 
 .no-results {
@@ -1069,7 +1073,7 @@ body.admin {
 .admin-actions-btn:hover {
     background: var(--admin-card-hover);
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 77, 255, 0.1);
 }
 
 .admin-actions-menu {
@@ -1158,7 +1162,7 @@ body.admin {
 }
 
 .admin-modal-content {
-    background: white;
+    background: var(--bg-cosmic-shadow);
     border-radius: 16px;
     max-width: 540px;
     width: 90%;
@@ -1170,18 +1174,18 @@ body.admin {
 
 .admin-modal-header {
     padding: 24px 28px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid rgba(255, 77, 255, 0.2);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, rgba(255,79,163,0.05) 0%, rgba(118,75,162,0.05) 100%);
+    background: linear-gradient(135deg, rgba(255,77,255,0.05) 0%, rgba(165,60,255,0.05) 100%);
 }
 
 .admin-modal-header h3 {
     margin: 0;
     font-size: 1.5rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    background: linear-gradient(135deg, #FF4DFF, #A53CFF);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -1214,11 +1218,11 @@ body.admin {
 
 .admin-modal-footer {
     padding: 20px 28px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid rgba(255, 77, 255, 0.2);
     display: flex;
     gap: 12px;
     justify-content: flex-end;
-    background: #f9fafb;
+    background: var(--bg-deep-galaxy);
     border-bottom-left-radius: 16px;
     border-bottom-right-radius: 16px;
 }
@@ -1234,24 +1238,25 @@ body.admin {
 }
 
 .admin-modal-btn.secondary {
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #e5e7eb;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(255, 77, 255, 0.3);
 }
 
 .admin-modal-btn.secondary:hover {
-    background: #e5e7eb;
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 77, 255, 0.5);
 }
 
 .admin-modal-btn.primary {
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     color: white;
-    box-shadow: 0 4px 16px rgba(124, 92, 255, 0.3);
+    box-shadow: 0 4px 16px rgba(165, 60, 255, 0.3);
 }
 
 .admin-modal-btn.primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(124, 92, 255, 0.4);
+    box-shadow: 0 8px 24px rgba(165, 60, 255, 0.4);
 }
 
 .admin-modal-btn.danger {

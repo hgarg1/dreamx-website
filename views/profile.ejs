@@ -390,6 +390,12 @@
         <span class="tab-badge reels-count-badge" style="background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:700;">0</span>
       </span>
     </button>
+    <button class="tab-btn" data-tab="reposts">
+      Reposts
+      <span class="tab-badge" style="margin-left:6px;background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:700;">
+        <%= (Array.isArray(userReposts) ? userReposts.length : 0) %>
+      </span>
+    </button>
     <button class="tab-btn" data-tab="projects">Projects</button>
     <button class="tab-btn" data-tab="services">Services
       <span class="tab-badge" style="margin-left:6px;background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:700;">
@@ -474,6 +480,29 @@
           <p style="font-size:1.125rem;margin:0 0 8px 0;">No reels yet</p>
           <p style="margin:0;">When <%= isOwnProfile ? 'you post reels, they\'ll' : 'this user posts reels, they\'ll' %> show up here.</p>
         </div>
+      </section>
+    </div>
+
+    <!-- Reposts Panel -->
+    <div class="tab-panel" id="reposts">
+      <%- include('partials/post-helpers') %>
+      <section class="posts-stream" style="max-width:900px;margin:0 auto;">
+        <% if (Array.isArray(userReposts) && userReposts.length > 0) { %>
+          <% userReposts.forEach(function(post){ 
+               // Enrich repost with original post data
+               if (post.repost_info) {
+                 post.reactions = post.reactions || {};
+                 post.user_reaction = null;
+               }
+          %>
+            <%- include('partials/post-card', { post }) %>
+          <% }); %>
+        <% } else { %>
+          <div style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;">
+            <p style="font-size:1.125rem;margin:0 0 8px 0;">No reposts yet</p>
+            <p style="margin:0;">When <%= isOwnProfile ? 'you repost content, it\'ll' : 'this user reposts content, it\'ll' %> show up here.</p>
+          </div>
+        <% } %>
       </section>
     </div>
 

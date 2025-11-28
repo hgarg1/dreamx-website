@@ -48,8 +48,19 @@
   <!-- Security Section -->
   <div class="settings-card">
     <h2 class="settings-card-title">Security</h2>
+    <% if (typeof linked !== 'undefined' && (linked.google || linked.microsoft || linked.apple)) { %>
+      <div style="background:#fef3c7;padding:12px;border-radius:10px;border:1px solid #fbbf24;margin-bottom:16px;">
+        <p style="margin:0 0 8px 0;font-weight:600;color:#92400e;">SSO Account Detected</p>
+        <p style="margin:0 0 8px 0;color:#78350f;font-size:0.9rem;">Your account is connected to SSO providers. If you haven't set a password, password changes won't be available. You can still create passkeys for easier sign-in.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <% if (linked.google) { %><span style="background:white;padding:6px 10px;border-radius:6px;border:1px solid #e5e7eb;color:#111827;font-weight:500;font-size:0.85rem;">Google</span><% } %>
+          <% if (linked.microsoft) { %><span style="background:white;padding:6px 10px;border-radius:6px;border:1px solid #e5e7eb;color:#111827;font-weight:500;font-size:0.85rem;">Microsoft</span><% } %>
+          <% if (linked.apple) { %><span style="background:white;padding:6px 10px;border-radius:6px;border:1px solid #e5e7eb;color:#111827;font-weight:500;font-size:0.85rem;">Apple</span><% } %>
+        </div>
+      </div>
+    <% } %>
     <p style="color:#4b5563;margin-top:-4px;margin-bottom:16px;">Update your password with the same strength requirements we enforce during sign up.</p>
-    <form action="/settings/password" method="POST">
+    <form action="/settings/password" method="POST" id="passwordForm">
       <div class="settings-field-group">
         <label class="settings-label" for="currentPassword">Current Password</label>
         <input id="currentPassword" name="currentPassword" type="password" class="settings-input" required autocomplete="current-password" />

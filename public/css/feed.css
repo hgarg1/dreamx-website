@@ -8,21 +8,39 @@
    - Tap to quickly react with default option
    =================================== */
 
-/* === CUSTOM VARIABLES === */
+/* === CUSTOM VARIABLES - Glowing X Logo Theme === */
 :root {
-    --feed-gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --feed-gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    --feed-gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    --feed-gradient-4: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-    --feed-gradient-5: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    /* Logo-Inspired Gradients */
+    --feed-gradient-1: linear-gradient(135deg, #FF4DFF 0%, #A53CFF 100%);
+    /* Magenta to Purple (Left Arm) */
+    --feed-gradient-2: linear-gradient(135deg, #3FD6FF 0%, #2BB6FF 50%, #6AE6FF 100%);
+    /* Cyan to Blue (Right Arm) */
+    --feed-gradient-3: linear-gradient(135deg, #A53CFF 0%, #6AE6FF 50%, #3FD6FF 100%);
+    /* Purple to Cyan (Center Blend) */
+    --feed-gradient-4: linear-gradient(135deg, #FF4DFF 0%, #A53CFF 50%, #3FD6FF 100%);
+    /* Full X Logo Gradient */
+    --feed-gradient-5: linear-gradient(135deg, #D845FF 0%, #cc3575 50%, #A53CFF 100%);
+    /* Darker Magenta to Purple */
+    
+    /* Glass Effects */
     --feed-glass: rgba(255, 255, 255, 0.7);
     --feed-glass-border: rgba(255, 255, 255, 0.18);
+    --feed-glass-cosmic: rgba(10, 14, 39, 0.8);
+    /* Cosmic glass effect */
+    
+    /* Shadows with Electric Glow */
     --feed-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
     --feed-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
     --feed-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.12);
     --feed-shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.15);
-    --feed-shadow-pink: 0 12px 32px rgba(255, 79, 163, 0.3);
-    --feed-shadow-purple: 0 12px 32px rgba(118, 75, 162, 0.3);
+    --feed-shadow-pink: 0 12px 32px rgba(255, 79, 163, 0.3), 0 0 20px rgba(255, 79, 163, 0.2);
+    /* Electric pink glow */
+    --feed-shadow-cyan: 0 12px 32px rgba(0, 242, 254, 0.3), 0 0 20px rgba(0, 242, 254, 0.2);
+    /* Electric cyan glow */
+    --feed-shadow-purple: 0 12px 32px rgba(118, 75, 162, 0.3), 0 0 20px rgba(118, 75, 162, 0.2);
+    /* Electric purple glow */
+    --feed-shadow-electric: 0 12px 32px rgba(255, 79, 163, 0.3), 0 0 30px rgba(0, 242, 254, 0.25), 0 0 40px rgba(118, 75, 162, 0.2);
+    /* Combined electric glow */
 }
 
 /* === MOBILE OVERFLOW PREVENTION === */
@@ -415,7 +433,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 .btn-ghost:focus-visible { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(255, 255, 255, 0.12); outline: none; }
 
 .btn-primary {
-    background: linear-gradient(135deg, #ff4fa3, #9b5de5);
+    background: linear-gradient(135deg, #FF4DFF, #9b5de5);
     box-shadow: 0 18px 44px rgba(255, 79, 163, 0.35);
     color: #fff;
 }
@@ -445,9 +463,9 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .wave-grid { display: grid; grid-template-columns: repeat(24, 1fr); gap: 6px; align-items: end; min-height: 70px; }
-.wave-grid span { display: block; border-radius: 8px; background: linear-gradient(180deg, #ff4fa3, #7c3aed); opacity: 0.45; }
+.wave-grid span { display: block; border-radius: 8px; background: linear-gradient(180deg, #FF4DFF, #7c3aed); opacity: 0.45; }
 
-.nova-range { accent-color: #ff4fa3; width: 100%; }
+.nova-range { accent-color: #FF4DFF; width: 100%; }
 
 .nova-pill {
     display: inline-flex;
@@ -482,17 +500,10 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     right: 0;
     bottom: 0;
     background: 
-        radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(255, 79, 163, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 40% 20%, rgba(118, 75, 162, 0.06) 0%, transparent 50%);
+        radial-gradient(circle at 20% 50%, rgba(255, 79, 163, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 242, 254, 0.04) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
-    animation: backgroundPulse 20s ease-in-out infinite;
-}
-
-@keyframes backgroundPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
 }
 
 /* === GLASS MORPHISM SIDEBARS === */
@@ -529,24 +540,16 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 .feed-sidebar.left-sidebar::-webkit-scrollbar-thumb { background: linear-gradient(135deg, rgba(255,79,163,0.3), rgba(118,75,162,0.3)); border-radius:10px; }
 .feed-sidebar.left-sidebar::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, rgba(255,79,163,0.5), rgba(118,75,162,0.5)); }
 
-/* Sidebar sections with glassmorphism */
+/* Sidebar sections - optimized */
 .feed-sidebar > div,
 .feed-sidebar > section,
 .feed-sidebar > aside {
-    background: var(--feed-glass);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid var(--feed-glass-border);
+    background: #ffffff;
+    border: 1px solid rgba(229, 231, 235, 0.5);
     border-radius: 20px;
     padding: 1.5rem;
-    box-shadow: var(--feed-shadow-md);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: slideInLeft 0.6s ease-out backwards;
-}
-
-.feed-sidebar.right-sidebar > div,
-.feed-sidebar.right-sidebar > section {
-    animation: slideInRight 0.6s ease-out backwards;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.3s ease;
 }
 
 @keyframes slideInLeft {
@@ -573,9 +576,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 
 .feed-sidebar > div:hover,
 .feed-sidebar > section:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--feed-shadow-lg);
-    border-color: rgba(255, 79, 163, 0.3);
+    box-shadow: 0 6px 16px rgba(255, 79, 163, 0.15);
 }
 
 /* === SIDEBAR TITLES === */
@@ -584,7 +585,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     font-weight: 800;
     letter-spacing: 1px;
     text-transform: uppercase;
-    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    background: linear-gradient(135deg, #FF4DFF, #A53CFF);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -600,9 +601,8 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     left: 0;
     width: 40px;
     height: 3px;
-    background: linear-gradient(90deg, #ff4fa3, #764ba2);
+    background: linear-gradient(90deg, #FF4DFF, #A53CFF);
     border-radius: 2px;
-    animation: expandWidth 0.6s ease-out;
 }
 
 @keyframes expandWidth {
@@ -616,7 +616,6 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     min-width: 0;
     position: relative;
     z-index: 3;
-    animation: fadeInUp 0.6s ease-out 0.2s backwards;
 }
 
 .feed-sidebar {
@@ -634,25 +633,17 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     }
 }
 
-/* === CREATE POST BOX - PREMIUM DESIGN === */
+/* === CREATE POST BOX - OPTIMIZED DESIGN === */
 .create-post-box {
-    background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.95) 0%, 
-        rgba(255, 255, 255, 0.98) 100%
-    );
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: #ffffff;
     border: 2px solid rgba(255, 79, 163, 0.15);
     border-radius: 24px;
     padding: 2rem;
     margin-bottom: 2rem;
-    box-shadow: 
-        var(--feed-shadow-lg),
-        0 0 0 1px rgba(255, 79, 163, 0.05),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
     position: relative;
-    overflow: hidden;
+    z-index: 1;
 }
 
 .create-post-box::before {
@@ -662,15 +653,10 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     left: -2px;
     right: -2px;
     height: 2px;
-    background: linear-gradient(90deg, 
-        #667eea 0%, 
-        #764ba2 25%, 
-        #ff4fa3 50%, 
-        #764ba2 75%, 
-        #667eea 100%
-    );
+    background: linear-gradient(90deg, #FF4DFF, #A53CFF, #3FD6FF);
     background-size: 200% 100%;
-    animation: shimmer 3s linear infinite;
+    animation: shimmer 4s linear infinite;
+    border-radius: 24px 24px 0 0;
 }
 
 @keyframes shimmer {
@@ -679,11 +665,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .create-post-box:hover {
-    transform: translateY(-4px);
-    box-shadow: 
-        var(--feed-shadow-xl),
-        0 0 0 1px rgba(255, 79, 163, 0.1),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 20px rgba(255, 79, 163, 0.2);
     border-color: rgba(255, 79, 163, 0.3);
 }
 
@@ -702,19 +684,14 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     border: 3px solid transparent;
     background: 
         linear-gradient(white, white) padding-box,
-        linear-gradient(135deg, #ff4fa3, #764ba2) border-box;
-    box-shadow: 
-        0 4px 12px rgba(255, 79, 163, 0.2),
-        0 0 0 4px rgba(255, 79, 163, 0.05);
+        linear-gradient(135deg, #FF4DFF, #A53CFF) border-box;
+    box-shadow: 0 4px 12px rgba(255, 79, 163, 0.15);
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: box-shadow 0.3s ease;
 }
 
 .create-post-header .avatar:hover {
-    transform: scale(1.1) rotate(5deg);
-    box-shadow: 
-        0 8px 24px rgba(255, 79, 163, 0.3),
-        0 0 0 6px rgba(255, 79, 163, 0.1);
+    box-shadow: 0 6px 16px rgba(255, 79, 163, 0.25);
 }
 
 .prompt {
@@ -749,7 +726,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .prompt:hover {
-    border-color: #ff4fa3;
+    border-color: #FF4DFF;
     background: linear-gradient(135deg, rgba(255, 79, 163, 0.05), rgba(118, 75, 162, 0.03));
     color: #6b7280;
     transform: translateY(-2px);
@@ -783,23 +760,16 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     gap: 1.75rem;
 }
 
-/* === POST CARD - PREMIUM REDESIGN === */
+/* === POST CARD - OPTIMIZED DESIGN === */
 .post-card {
-    background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.95) 0%, 
-        rgba(255, 255, 255, 0.98) 100%
-    );
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: #ffffff;
     border: 2px solid rgba(229, 231, 235, 0.5);
     border-radius: 20px;
     padding: 1.75rem;
-    box-shadow: 
-        var(--feed-shadow-md),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
     position: relative;
-    animation: slideInUp 0.5s ease-out backwards;
+    z-index: 1;
 }
 
 @keyframes slideInUp {
@@ -813,51 +783,19 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     }
 }
 
-.post-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, 
-        transparent, 
-        rgba(255, 79, 163, 0.05), 
-        transparent
-    );
-    transition: left 0.6s ease;
-    pointer-events: none;
-    z-index: -1; /* ensure gradient sits behind media */
-}
-
-.post-card:hover::before {
-    left: 100%;
-}
-
 .post-card:hover {
-    /* Ultra subtle hover: no movement, gentle shadow + border tint */
-    transform: none;
-    border-color: rgba(255, 79, 163, 0.15);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    border-color: rgba(255, 79, 163, 0.2);
+    box-shadow: 0 6px 16px rgba(255, 79, 163, 0.15);
 }
 
 /* Premium posts get special treatment */
 .post-card.premium {
-    border: 2px solid transparent;
-    background: 
-        linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 1)) padding-box,
-        linear-gradient(135deg, rgba(255, 79, 163, 0.8), rgba(118, 75, 162, 0.8)) border-box;
-    box-shadow: 
-        var(--feed-shadow-pink),
-        0 0 40px rgba(255, 79, 163, 0.15),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(255, 79, 163, 0.3);
+    box-shadow: 0 6px 20px rgba(255, 79, 163, 0.2);
 }
 
 .post-card.premium:hover {
-    box-shadow: 
-        var(--feed-shadow-xl),
-        0 0 60px rgba(255, 79, 163, 0.25),
-        inset 0 1px 0 0 rgba(255, 255, 255, 1);
+    box-shadow: 0 8px 24px rgba(255, 79, 163, 0.25);
 }
 
 /* === POST HEADER === */
@@ -876,19 +814,14 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     border: 3px solid transparent;
     background: 
         linear-gradient(white, white) padding-box,
-        linear-gradient(135deg, #667eea, #764ba2) border-box;
-    box-shadow: 
-        0 4px 12px rgba(102, 126, 234, 0.2),
-        0 0 0 4px rgba(102, 126, 234, 0.05);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        linear-gradient(135deg, #FF4DFF, #A53CFF) border-box;
+    box-shadow: 0 4px 12px rgba(255, 79, 163, 0.15);
+    transition: box-shadow 0.3s ease;
     cursor: pointer;
 }
 
 .post-header .avatar:hover {
-    transform: scale(1.1);
-    box-shadow: 
-        0 8px 24px rgba(102, 126, 234, 0.3),
-        0 0 0 6px rgba(102, 126, 234, 0.1);
+    box-shadow: 0 6px 16px rgba(255, 79, 163, 0.25);
 }
 
 .post-user-meta {
@@ -969,8 +902,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 .post-body video:hover,
 .post-image:hover,
 .post-video:hover {
-    transform: scale(1.02);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
 /* === REACTIONS === */
@@ -1025,7 +957,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .rx-btn:hover {
-    border-color: #ff4fa3;
+    border-color: #FF4DFF;
     box-shadow: 0 2px 6px rgba(255, 79, 163, 0.15);
     transform: none;
 }
@@ -1070,9 +1002,9 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .comment-toggle:hover {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, #6AE6FF, #A53CFF);
     color: white;
-    border-color: #667eea;
+    border-color: #6AE6FF;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
@@ -1101,12 +1033,12 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 
 .comment-input:focus {
     outline: none;
-    border-color: #ff4fa3;
+    border-color: #FF4DFF;
     box-shadow: 0 0 0 4px rgba(255, 79, 163, 0.1);
 }
 
 .comment-send {
-    background: linear-gradient(135deg, #ff4fa3, #e63e8f);
+    background: linear-gradient(135deg, #FF4DFF, #D845FF);
     color: white;
     border: none;
     border-radius: 50px;
@@ -1119,7 +1051,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .comment-send:hover {
-    background: linear-gradient(135deg, #e63e8f, #cc3575);
+    background: linear-gradient(135deg, #D845FF, #cc3575);
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(255, 79, 163, 0.4);
 }
@@ -1146,7 +1078,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    background: linear-gradient(135deg, #FF4DFF, #A53CFF);
     transition: left 0.4s ease;
 }
 
@@ -1156,7 +1088,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 
 .passion-pill:hover {
     color: white;
-    border-color: #ff4fa3;
+    border-color: #FF4DFF;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(255, 79, 163, 0.3);
 }
@@ -1191,7 +1123,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 
 .manage-passions-link:hover {
     color: white;
-    background: linear-gradient(135deg, #7C3AED, #ff4fa3);
+    background: linear-gradient(135deg, #7C3AED, #FF4DFF);
     border-color: rgba(255, 79, 163, 0.4);
     transform: translateY(-1px);
     box-shadow: 0 10px 24px rgba(255, 79, 163, 0.26);
@@ -1232,7 +1164,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .trending-post-card:hover {
-    border-color: #667eea;
+    border-color: #6AE6FF;
     transform: translateX(4px);
     box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
 }
@@ -1279,7 +1211,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .creator-card:hover {
-    border-color: #ff4fa3;
+    border-color: #FF4DFF;
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(255, 79, 163, 0.15);
 }
@@ -1291,7 +1223,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid #e5e7eb;
-    background: linear-gradient(135deg, #ff4fa3, #667eea);
+    background: linear-gradient(135deg, #FF4DFF, #6AE6FF);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1326,7 +1258,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .follow-btn {
-    background: linear-gradient(135deg, #ff4fa3, #e63e8f);
+    background: linear-gradient(135deg, #FF4DFF, #D845FF);
     color: white;
     border: none;
     border-radius: 50px;
@@ -1341,7 +1273,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 .follow-btn:hover {
-    background: linear-gradient(135deg, #e63e8f, #cc3575);
+    background: linear-gradient(135deg, #D845FF, #cc3575);
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(255, 79, 163, 0.4);
 }
@@ -1368,25 +1300,11 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     height: 72px;
     border-radius: 50%;
     padding: 3px;
-    background: linear-gradient(135deg, #ff4fa3, #764ba2, #667eea);
+    background: linear-gradient(135deg, #FF4DFF, #A53CFF, #6AE6FF);
     box-shadow: 
         0 4px 12px rgba(255, 79, 163, 0.25),
         0 0 0 4px rgba(255, 79, 163, 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% {
-        box-shadow: 
-            0 4px 12px rgba(255, 79, 163, 0.25),
-            0 0 0 4px rgba(255, 79, 163, 0.1);
-    }
-    50% {
-        box-shadow: 
-            0 6px 16px rgba(255, 79, 163, 0.35),
-            0 0 0 6px rgba(255, 79, 163, 0.2);
-    }
+    transition: box-shadow 0.3s ease;
 }
 
 .reel-bubble:hover .reel-bubble-avatar {
@@ -1451,42 +1369,105 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     }
 }
 
+/* ============================================
+   MOBILE LAYOUT FIX (≤768px)
+   Ensures proper vertical stacking with no overlap
+   ============================================ */
 @media (max-width: 768px) {
+    /* Switch from grid to flex column layout */
     .feed-layout {
-        display: flex;
-        flex-direction: column;
+        display: flex !important;
+        flex-direction: column !important;
+        grid-template-columns: none !important;
+        grid-template-rows: none !important;
         padding: 0.75rem;
         gap: 2rem;
         max-width: 100%;
         overflow-x: hidden;
         margin-bottom: 2rem;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
     }
     
-    .feed-sidebar.left-sidebar {
-        order: 2;
-        position: static;
-        max-height: none;
-        overflow-y: visible;
+    /* LEFT SIDEBAR - Order 1 (appears first) */
+    .feed-sidebar.left-sidebar,
+    .left-sidebar {
+        order: 1 !important;
+        position: static !important;
+        max-height: none !important;
+        overflow: visible !important;
         padding-right: 0;
-        width: 100%;
-        max-width: 100%;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
         margin-bottom: 1.5rem;
+        z-index: 1 !important;
+        grid-column: auto !important;
+        grid-row: auto !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        display: block !important;
+        visibility: visible !important;
     }
     
+    /* MAIN FEED - Order 2 (appears second) */
     .feed-main {
-        order: 1;
-        width: 100%;
-        max-width: 100%;
+        order: 2 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
         overflow-x: hidden;
         margin-bottom: 1.5rem;
+        position: static !important;
+        z-index: 2 !important;
+        grid-column: auto !important;
+        grid-row: auto !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        display: block !important;
     }
     
-    .feed-sidebar.right-sidebar {
-        order: 3;
-        width: 100%;
-        max-width: 100%;
-        overflow-x: hidden;
+    /* RIGHT SIDEBAR - Order 3 (appears third) */
+    .feed-sidebar.right-sidebar,
+    .right-sidebar {
+        order: 3 !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: visible !important;
         padding-bottom: 2rem;
+        z-index: 1 !important;
+        margin-top: 0 !important;
+        grid-column: auto !important;
+        grid-row: auto !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* Ensure sidebars are always visible (override any hide rules) */
+    .feed-sidebar.left-sidebar,
+    .feed-sidebar.right-sidebar {
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* Prevent any nested or child elements from breaking layout */
+    .feed-layout > * {
+        position: static !important;
+        float: none !important;
+        clear: both !important;
     }
     
     .feed-sidebar > div,
@@ -2027,14 +2008,18 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 }
 
 /* === LANDSCAPE MOBILE (max-height for landscape orientation) === */
+/* Override landscape mode rule - keep sidebars visible */
 @media (max-width: 768px) and (max-height: 500px) {
     .feed-sidebar.left-sidebar,
     .feed-sidebar.right-sidebar {
-        display: none; /* Hide sidebars in landscape mode for better content focus */
+        display: block !important; /* Keep sidebars visible */
+        visibility: visible !important;
     }
     
     .feed-layout {
-        grid-template-columns: 1fr;
+        display: flex !important;
+        flex-direction: column !important;
+        grid-template-columns: none !important;
     }
     
     .feed-main {
@@ -2236,9 +2221,11 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     z-index: 10 !important;
 }
 
-/* Prevent horizontal overflow on feed page */
-.feed-layout {
-    overflow-x: hidden;
+/* Prevent horizontal overflow on feed page (desktop only) */
+@media (min-width: 769px) {
+    .feed-layout {
+        overflow-x: hidden;
+    }
 }
 
 /* === LOADING ANIMATIONS === */
@@ -2297,6 +2284,51 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     .feed-main > *:nth-child(4) { animation-delay: 0.2s; }
     .feed-main > *:nth-child(5) { animation-delay: 0.25s; }
     .feed-main > *:nth-child(n+6) { animation-delay: 0.3s; }
+}
+
+/* ============================================
+   FINAL MOBILE LAYOUT PROTECTION (≤768px)
+   This block MUST be last to override any conflicting rules
+   Acts as final safeguard for feed layout on mobile
+   ============================================ */
+@media (max-width: 768px) {
+    /* Final override to ensure layout structure cannot be overridden */
+    .feed-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        grid-template-columns: none !important;
+        grid-template-rows: none !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+    }
+    
+    .feed-sidebar.left-sidebar,
+    .left-sidebar {
+        order: 1 !important;
+        position: static !important;
+        display: block !important;
+        visibility: visible !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .feed-main {
+        order: 2 !important;
+        position: static !important;
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .feed-sidebar.right-sidebar,
+    .right-sidebar {
+        order: 3 !important;
+        position: static !important;
+        display: block !important;
+        visibility: visible !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
 }
 
 /* === MICROINTERACTIONS === */

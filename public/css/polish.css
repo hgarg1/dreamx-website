@@ -151,7 +151,7 @@ img[onclick]:hover,
 }
 
 .gradient-text-animated {
-    background: linear-gradient(-45deg, #667eea, #764ba2, var(--primary-color), #f093fb);
+    background: linear-gradient(-45deg, #6AE6FF, #A53CFF, var(--primary-color), #f093fb);
     background-size: 400% 400%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -596,7 +596,7 @@ img[onclick]:hover,
     content: '';
     position: absolute;
     inset: -2px;
-    background: linear-gradient(45deg, #ff4fa3, #764ba2, #667eea, #ff4fa3);
+    background: linear-gradient(45deg, #FF4DFF, #A53CFF, #6AE6FF, #FF4DFF);
     background-size: 400% 400%;
     border-radius: inherit;
     z-index: -1;

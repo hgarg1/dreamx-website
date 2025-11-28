@@ -271,30 +271,7 @@ function parseTagInput(input) {
 }
 
 
-function getAllEjsRoutes(dir, baseUrl = '') {
-  let routes = [];
-
-  const files = fs.readdirSync(dir);
-
-  files.forEach(file => {
-    const fullPath = path.join(dir, file);
-    const stat = fs.statSync(fullPath);
-
-    const excludedFolders = ['partials', 'includes'];
-
-    if (stat.isDirectory() && !excludedFolders.includes(file)) {
-      routes = routes.concat(getAllEjsRoutes(fullPath, baseUrl + '/' + file));
-    } else if (file.endsWith('.ejs')) {
-      const route = file === 'index.ejs'
-        ? baseUrl || '/'
-        : `${baseUrl}/${file.replace('.ejs', '')}`;
-
-      routes.push(route.replace(/\\/g, '/'));
-    }
-  });
-
-  return routes;
-}
+// getAllEjsRoutes moved to routes/static.js
 
 // Initialize Express app
 const app = express();
@@ -357,6 +334,7 @@ const chatStorage = multer.diskStorage({
         cb(null, 'chat-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
+
 const chatUpload = multer({
     storage: chatStorage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for chat
@@ -503,6 +481,10 @@ const simpleWebAuthnBundlePath = path.join(
 
 app.use('/webauthn', express.static(simpleWebAuthnBundlePath));
 
+// Import route modules
+const staticRoutes = require('./routes/static');
+const webauthnRoutes = require('./routes/webauthn');
+
 // Serve static files from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(robots({
@@ -511,47 +493,11 @@ app.use(robots({
   Sitemap: 'https://dream-x.app/sitemap.xml'
 }));
 
-// Ensure PWA assets use the correct headers so browsers can install the app reliably
-app.get('/manifest.json', (req, res) => {
-    res.setHeader('Content-Type', 'application/manifest+json');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
-});
-
-app.get('/service-worker.js', (req, res) => {
-    res.setHeader('Service-Worker-Allowed', '/');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.sendFile(path.join(__dirname, 'public', 'service-worker.js'));
-});
-
-
-app.get('/sitemap.xml', async (req, res) => {
-  res.header('Content-Type', 'application/xml');
-
-  const sitemap = new SitemapStream({ hostname: 'https://dream-x.app' });
-
-  const viewsDir = path.join(__dirname, 'views');
-  const routes = getAllEjsRoutes(viewsDir);
-
-  routes.forEach(url => {
-    sitemap.write({
-      url,
-      changefreq: 'weekly',
-      priority: url === '/' ? 1.0 : 0.7
-    });
-  });
-
-  sitemap.end();
-
-  const xml = await streamToPromise(sitemap);
-  res.send(xml.toString());
-});
-
-// Parse URL-encoded bodies (for form submissions)
+// Parse URL-encoded bodies (for form submissions) - MUST be before session middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Session configuration (SQLiteStore for production safety)
+// Session configuration (SQLiteStore for production safety) - MUST be before routes
 app.use(session({
     store: new SQLiteStore({ db: 'sessions.sqlite3' }),
     secret: process.env.SESSION_SECRET || 'your secret',
@@ -567,6 +513,42 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Use route modules - MUST be after session middleware
+app.use('/', staticRoutes);
+app.use('/webauthn', webauthnRoutes);
+const authRoutes = require('./routes/auth');
+app.use('/', authRoutes);
+const initFeedRoutes = require('./routes/feed');
+const feedRoutes = initFeedRoutes({ postUpload, io });
+app.use('/', feedRoutes);
+const initProfileRoutes = require('./routes/profile');
+const profileRoutes = initProfileRoutes({ upload, io });
+app.use('/', profileRoutes);
+const initMessagesRoutes = require('./routes/messages');
+const messagesRoutes = initMessagesRoutes({ chatUpload, io });
+app.use('/', messagesRoutes);
+const initServicesRoutes = require('./routes/services');
+const servicesRoutes = initServicesRoutes({ io });
+app.use('/', servicesRoutes);
+const initAdminRoutes = require('./routes/admin');
+const adminRoutes = initAdminRoutes({ io, webpush });
+app.use('/', adminRoutes);
+const initHrRoutes = require('./routes/hr');
+const hrRoutes = initHrRoutes({ emailService, careerAssetUpload });
+app.use('/', hrRoutes);
+const initSettingsRoutes = require('./routes/settings');
+const settingsRoutes = initSettingsRoutes();
+app.use('/', settingsRoutes);
+const initOnboardingRoutes = require('./routes/onboarding');
+const onboardingRoutes = initOnboardingRoutes({ upload });
+app.use('/', onboardingRoutes);
+const initMiscRoutes = require('./routes/misc');
+const miscRoutes = initMiscRoutes();
+app.use('/', miscRoutes);
+const initApiRoutes = require('./routes/api');
+const apiRoutes = initApiRoutes({ io, careerUpload });
+app.use('/', apiRoutes);
 
 // Minimal serialize/deserialize (not strictly used since we set req.session.userId)
 passport.serializeUser((user, done) => done(null, user.id));
@@ -645,6 +627,27 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
     const user = getUserById(userId);
     if (!user) {
         return { ok: false, message: 'User not found' };
+    }
+
+    // Check if user has linked SSO accounts
+    const linkedAccounts = getLinkedAccountsForUser(userId) || [];
+    const hasLinkedAccounts = linkedAccounts.length > 0;
+    
+    if (!user.password_hash) {
+        return { ok: false, message: 'No password set for this account. Please set a password first.' };
+    }
+    
+    // Verify current password
+    const passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
+    
+    // If password verification fails and user has linked accounts, they're likely SSO-only
+    // (SSO users have dummy passwords they don't know)
+    if (!passwordValid && hasLinkedAccounts) {
+        return { ok: false, message: 'Password changes are not available for SSO-only accounts. Your account is managed through SSO. Please use your SSO provider to sign in.' };
+    }
+    
+    if (!passwordValid) {
+        return { ok: false, message: 'Current password incorrect' };
     }
 
     const validPassword = await bcrypt.compare(currentPassword, user.password_hash || '');
@@ -902,39 +905,48 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
 
 // Attach auth context to templates
 app.use((req, res, next) => {
-    let user = null;
-    let unreadCount = 0;
+    try {
+        let user = null;
+        let unreadCount = 0;
 
-    // Debug logging for session status
-    const isServicesOrFeed = req.path === '/services' || req.path === '/feed';
-    if (isServicesOrFeed) {
-        console.log(`📍 ${req.path} - Session ID:`, req.sessionID);
-        console.log(`📍 ${req.path} - req.session.userId:`, req.session.userId);
-        console.log(`📍 ${req.path} - req.user:`, req.user ? req.user.id : 'none');
-        console.log(`📍 ${req.path} - Session cookie:`, req.headers.cookie);
-    }
-
-    if (req.session.userId) {
-        const row = getUserById(req.session.userId);
-        if (row) {
-            // Check account status - invalidate session if banned/suspended
-            const accountStatus = checkAccountStatus(row.id);
-            if (accountStatus.status === 'banned' || accountStatus.status === 'suspended') {
-                req.session.destroy(() => {
-                    return res.redirect(`/account-status?userId=${row.id}`);
-                });
-                return;
-            }
-            user = {
-                ...row,
-                displayName: row.full_name
-            };
-            unreadCount = getUnreadMessageCount(req.session.userId);
+        // Debug logging for session status
+        const isServicesOrFeed = req.path === '/services' || req.path === '/feed';
+        if (isServicesOrFeed) {
+            console.log(`📍 ${req.path} - Session ID:`, req.sessionID);
+            console.log(`📍 ${req.path} - req.session.userId:`, req.session.userId);
+            console.log(`📍 ${req.path} - req.user:`, req.user ? req.user.id : 'none');
+            console.log(`📍 ${req.path} - Session cookie:`, req.headers.cookie);
         }
+
+        if (req.session && req.session.userId) {
+            const row = getUserById(req.session.userId);
+            if (row) {
+                // Check account status - invalidate session if banned/suspended
+                const accountStatus = checkAccountStatus(row.id);
+                if (accountStatus.status === 'banned' || accountStatus.status === 'suspended') {
+                    req.session.destroy(() => {
+                        return res.redirect(`/account-status?userId=${row.id}`);
+                    });
+                    return;
+                }
+                user = {
+                    ...row,
+                    displayName: row.full_name
+                };
+                unreadCount = getUnreadMessageCount(req.session.userId);
+            }
+        }
+        // Always set these values, even if null/undefined, to prevent EJS ReferenceError
+        res.locals.authUser = user || null;
+        res.locals.unreadMessageCount = unreadCount || 0;
+        next();
+    } catch (err) {
+        console.error('Error in auth middleware:', err);
+        // Set defaults on error to prevent template errors
+        res.locals.authUser = null;
+        res.locals.unreadMessageCount = 0;
+        next();
     }
-    res.locals.authUser = user;
-    res.locals.unreadMessageCount = unreadCount;
-    next();
 });
 
 // Force email verification for authenticated users
@@ -1023,6 +1035,10 @@ const resolvePostAuthRedirect = (user) => {
 
 // Onboarding reminder page (sets session flag so we don't loop in same session)
 app.get('/onboarding-empty', (req, res) => {
+    // Prevent caching to ensure fresh session data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     if (!req.session.userId) return res.redirect('/login');
     const user = getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
@@ -1031,7 +1047,8 @@ app.get('/onboarding-empty', (req, res) => {
     req.session.seenOnboardingPrompt = true;
     res.render('onboarding-empty', {
         title: 'Onboarding - Let\'s Get Started | Dream X',
-        currentPage: 'onboarding-empty'
+        currentPage: 'onboarding-empty',
+        authUser: res.locals.authUser
     });
 });
 
@@ -1125,388 +1142,34 @@ const requireAdminOrHR = (req, res, next) => {
 };
 
 // ===== ROUTES =====
+// Routes are now organized in the routes/ directory:
+// - routes/static.js: Static files (manifest, service-worker, sitemap)
+// - routes/webauthn.js: WebAuthn/Passkey routes
+// Additional route files should be created for:
+// - routes/auth.js: Authentication routes (login, register, OAuth, password reset)
+// - routes/settings.js: Settings routes
+// - routes/feed.js: Feed and post routes
+// - routes/profile.js: Profile routes
+// - routes/messages.js: Messages routes
+// - routes/services.js: Services routes
+// - routes/admin.js: Admin routes
+// - routes/hr.js: HR routes
+// - routes/api.js: API routes
 
-// ---------- WebAuthn (Passkeys) ----------
-const getEnvRpHost = () => {
-    if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
-    if (process.env.BASE_URL) {
-        try {
-            return new URL(process.env.BASE_URL).hostname;
-        } catch (_) { /* ignore */ }
-    }
-    return null;
-};
+// WebAuthn routes are now in routes/webauthn.js
 
-function rpIDFromReq(req) {
-    try {
-        // Prefer explicit configuration to ensure the RP ID stays stable across environments
-        const envHost = getEnvRpHost();
-        if (envHost) return envHost;
-
-        // Prefer forwarded host when behind proxies
-        const xfHost = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
-        const rawHost = xfHost || req.headers.host || '';
-        const hostname = rawHost.split(':')[0].trim();
-        if (hostname) return hostname;
-
-        return 'localhost';
-    } catch { return 'localhost'; }
-}
-
-const webauthnExpectedOrigins = (req, rpID) => {
-    const origins = new Set();
-
-    const envOrigin = process.env.WEBAUTHN_ORIGIN || process.env.BASE_URL;
-    if (envOrigin) {
-        try {
-            origins.add(new URL(envOrigin).origin);
-        } catch (_) { /* ignore */ }
-    }
-
-    const forwardedProto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
-    const forwardedHost = (req.headers['x-forwarded-host'] || '').split(',')[0].trim();
-    if (forwardedHost) {
-        const proto = forwardedProto || 'https';
-        origins.add(`${proto}://${forwardedHost}`);
-    }
-
-    if (req.headers.host) {
-        origins.add(`${req.protocol}://${req.headers.host}`);
-    }
-
-    const normalizedRpID = rpID?.trim();
-    if (normalizedRpID) {
-        origins.add(`https://${normalizedRpID}`);
-        origins.add(`http://${normalizedRpID}`);
-    }
-
-    // Development fallbacks
-    origins.add('http://localhost');
-    origins.add('https://localhost');
-    origins.add('http://127.0.0.1');
-    origins.add('https://127.0.0.1');
-    origins.add('https://dreamx-website.onrender.com');
-
-    return Array.from(origins);
-};
-
-// Begin Registration (user must be logged in or provide email via body)
-app.get('/webauthn/registration/options', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Login required to create a passkey' });
-    const user = getUserById(req.session.userId);
-    const rpID = rpIDFromReq(req);
-    const existingCreds = getCredentialsForUser(user.id, rpID);
-    try {
-        const options = await generateRegistrationOptions({
-            rpName: 'Dream X',
-            rpID,
-            userID: Buffer.from(String(user.id)),
-            userName: user.email,
-            userDisplayName: user.full_name,
-            attestationType: 'none',
-            // Require discoverable credentials so sign-in can work without a username prompt
-            authenticatorSelection: {
-                residentKey: 'required',
-                userVerification: 'preferred',
-                requireResidentKey: true,
-            },
-            excludeCredentials: existingCreds.map(c => ({
-                id: c.credential_id.toString('base64url'),
-                type: 'public-key',
-            })),
-        });
-        req.session.webauthnChallenge = options.challenge;
-        req.session.webauthnUserId = user.id;
-        res.json(options);
-    } catch (err) {
-        console.error('WebAuthn registration options error:', err);
-        res.status(400).json({ error: 'Passkey setup is currently unavailable. Please try again later.' });
-    }
-});
-
-app.post('/webauthn/registration/verify', async (req, res) => {
-    if (!req.session.userId || !req.session.webauthnChallenge) return res.status(400).json({ error: 'No registration in progress' });
-    const expectedChallenge = req.session.webauthnChallenge;
-    const rpID = rpIDFromReq(req);
-    try {
-        const verification = await verifyRegistrationResponse({
-            response: req.body,
-            expectedChallenge,
-            expectedOrigin: webauthnExpectedOrigins(req, rpID),
-            expectedRPID: rpID,
-        });
-        const { verified, registrationInfo } = verification;
-        if (verified && registrationInfo) {
-            const { credentialPublicKey, credentialID, counter, credentialDeviceType, credentialBackedUp } = registrationInfo;
-            console.log(Buffer.from(credentialID).toString('base64url'), 'registered for user ID', req.session.webauthnUserId);
-            addWebAuthnCredential({
-                userId: req.session.webauthnUserId,
-                credentialId: credentialID.toString('base64url'),
-                publicKey: credentialPublicKey.toString('base64url'),
-                counter: counter || 0,
-                transports: (req.body.response && req.body.response.transports) ? JSON.stringify(req.body.response.transports) : null,
-                rpId: rpID,
-            });
-            req.session.webauthnChallenge = null;
-            req.session.webauthnUserId = null;
-            return res.json({ verified: true });
-        }
-        req.session.webauthnUserId = null;
-        return res.status(400).json({ verified: false });
-    } catch (e) {
-        console.error('WebAuthn registration verify error', e);
-        req.session.webauthnUserId = null;
-        return res.status(400).json({ error: 'Verification failed' });
-    }
-});
-
-// Begin Authentication (username-less)
-app.get('/webauthn/authentication/options', async (req, res) => {
-    const rpID = rpIDFromReq(req);
-    const email = (req.query.email || '').trim().toLowerCase();
-    let allowCredentials = [];
-    let hintedUserId = null;
-    try {
-        if (email) {
-            const user = getUserByEmail(email);
-            if (!user) {
-                return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
-            }
-
-            const creds = getCredentialsForUser(user.id, rpID);
-            if (!creds || creds.length === 0) {
-                return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
-            }
-
-            allowCredentials = creds.map((c) => ({
-                id: c.credential_id.toString('base64url'),
-                type: 'public-key',
-                transports: c.transports ? JSON.parse(c.transports) : undefined,
-            }));
-            hintedUserId = user.id;
-        }
-
-        const options = await generateAuthenticationOptions({
-            rpID,
-            userVerification: 'preferred',
-            allowCredentials,
-        });
-
-        req.session.webauthnChallenge = options.challenge;
-        req.session.webauthnUserId = hintedUserId;
-        res.json(options);
-    } catch (err) {
-        console.error('WebAuthn authentication options error:', err);
-        res.status(400).json({ error: 'Passkey sign-in is currently unavailable. Please try again later.' });
-    }
-});
-
-app.post('/webauthn/authentication/verify', async (req, res) => {
-    const expectedChallenge = req.session.webauthnChallenge;
-    const hintedUserId = req.session.webauthnUserId;
-    const rpID = rpIDFromReq(req);
-    if (!expectedChallenge) return res.status(400).json({ error: 'No auth in progress' });
-    try {
-        const body = req.body;
-        const credentialIdB64 = body.id;
-        const credentialIdBuffer = Buffer.from(credentialIdB64, 'base64url');
-        console.log('Verifying WebAuthn authentication for credential ID:', credentialIdBuffer);
-        console.log('RP ID:', rpID);
-        const stored = getCredentialById(credentialIdB64, rpID);
-        if (!stored) {
-            // Return a soft failure so the client can show a helpful message instead of a 404 page
-            req.session.webauthnChallenge = null;
-            req.session.webauthnUserId = null;
-            return res.status(200).json({ verified: false, error: 'Passkey not found. Please sign in normally and re-register your passkey.' });
-        }
-
-        if (stored.rp_id && stored.rp_id !== rpID) {
-            req.session.webauthnChallenge = null;
-            req.session.webauthnUserId = null;
-            return res.status(400).json({ verified: false, error: `Passkey is registered for ${stored.rp_id}. Please sign in on that domain to use it.` });
-        }
-
-        if (hintedUserId && Number(stored.user_id) !== Number(hintedUserId)) {
-            req.session.webauthnChallenge = null;
-            req.session.webauthnUserId = null;
-            return res.status(400).json({ verified: false, error: 'Passkey does not belong to that account.' });
-        }
-
-        const authenticator = stored ? {
-            credentialID: Buffer.from(stored.credential_id, 'base64url'),
-            credentialPublicKey: Buffer.from(stored.public_key, 'base64url'),
-            counter: stored.counter || 0,
-        } : null;
-        const verification = await verifyAuthenticationResponse({
-            response: body,
-            expectedChallenge,
-            expectedOrigin: webauthnExpectedOrigins(req, rpID),
-            expectedRPID: rpID,
-            authenticator,
-        });
-        const { verified, authenticationInfo } = verification;
-        if (verified && stored) {
-            updateCredentialCounter({ credentialId: stored.credential_id, counter: authenticationInfo.newCounter ?? stored.counter });
-            // Log user in using Passport
-            const user = getUserById(stored.user_id);
-            if (user) {
-                req.login(user, (err) => {
-                    if (err) {
-                        console.error('WebAuthn login error:', err);
-                        return res.status(500).json({ error: 'Login failed' });
-                    }
-                    req.session.userId = stored.user_id;
-                    req.session.webauthnChallenge = null;
-                    req.session.webauthnUserId = null;
-                    return res.json({ verified: true });
-                });
-            } else {
-                return res.status(400).json({ verified: false, error: 'User not found' });
-            }
-        } else {
-            req.session.webauthnChallenge = null;
-            req.session.webauthnUserId = null;
-            return res.status(400).json({ verified: false });
-        }
-    } catch (e) {
-        console.error('WebAuthn authentication verify error', e);
-        req.session.webauthnChallenge = null;
-        req.session.webauthnUserId = null;
-        return res.status(400).json({ error: 'Verification failed' });
-    }
-});
-
-// OAuth routes (Google)
-app.get('/auth/google', (req, res, next) => {
-    if (!passport._strategy('google')) return res.status(503).send('Google OAuth not configured');
-    const mode = req.query.mode === 'link' ? 'link' : 'login';
-    const options = { scope: ['profile', 'email'], state: mode };
-    passport.authenticate('google', options)(req, res, next);
-});
-app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), async (req, res) => {
-
-    const mode = req.query.state;
-    if (mode === 'link' && req.session.userId && req.authInfo) {
-        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-        if (req.authInfo.photoUrl) {
-            const user = getUserById(req.session.userId);
-            await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
-        }
-        return res.redirect('/settings?success=Google connected');
-    }
-    // Use req.login() to properly serialize user into session
-    if (req.user && req.user.id) {
-        req.login(req.user, (err) => {
-            if (err) {
-                console.error('❌ Google login error:', err);
-                return res.redirect('/login');
-            }
-            req.session.userId = req.user.id;
-            req.session.save((saveErr) => {
-                try {
-                    // Auto-verify email for SSO logins
-                    const u = getUserById(req.user.id);
-                    if (u && u.email_verified !== 1) {
-                        markEmailAsVerified({ userId: u.id });
-                    }
-                    const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
-                    return res.redirect(redirectTarget);
-                } catch (_) {
-                    return res.redirect('/feed');
-                }
-            });
-        });
-    } else {
-        res.redirect('/feed');
-    }
-});
-
-// OAuth routes (Microsoft)
-app.get('/auth/microsoft', (req, res, next) => {
-    if (!passport._strategy('microsoft')) return res.status(503).send('Microsoft OAuth not configured');
-    const mode = req.query.mode === 'link' ? 'link' : 'login';
-    passport.authenticate('microsoft', { state: mode })(req, res, next);
-});
-app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), async (req, res) => {
-    const mode = req.query.state;
-    if (mode === 'link' && req.session.userId && req.authInfo) {
-        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-        return res.redirect('/settings?success=Microsoft connected');
-    }
-    // Use req.login() to properly serialize user into session
-    if (req.user && req.user.id) {
-        req.login(req.user, (err) => {
-            if (err) {
-                console.error('Microsoft login error:', err);
-                return res.redirect('/login');
-            }
-            req.session.userId = req.user.id;
-            req.session.save((saveErr) => {
-                if (saveErr) console.error('Microsoft session save error:', saveErr);
-                try {
-                    const u = getUserById(req.user.id);
-                    if (u && u.email_verified !== 1) {
-                        markEmailAsVerified({ userId: u.id });
-                    }
-                    const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
-                    return res.redirect(redirectTarget);
-                } catch (_) {
-                    return res.redirect('/feed');
-                }
-            });
-        });
-    } else {
-        res.redirect('/feed');
-    }
-});
-
-// OAuth routes (Apple)
-app.get('/auth/apple', (req, res, next) => {
-    if (!passport._strategy('apple')) return res.status(503).send('Apple Sign-In not configured');
-    if (!process.env.APPLE_CALLBACK_URL || !process.env.APPLE_CALLBACK_URL.startsWith('https://')) {
-        return res.status(503).send('Apple Sign-In requires HTTPS callback. Configure APPLE_CALLBACK_URL to an HTTPS URL (try ngrok for local).');
-    }
-    const mode = req.query.mode === 'link' ? 'link' : 'login';
-    passport.authenticate('apple', { state: mode })(req, res, next);
-});
-app.post('/auth/apple/callback', passport.authenticate('apple', { failureRedirect: '/login' }), async (req, res) => {
-    const mode = req.query.state;
-    if (mode === 'link' && req.session.userId && req.authInfo) {
-        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-        return res.redirect('/settings?success=Apple connected');
-    }
-    // Use req.login() to properly serialize user into session
-    if (req.user && req.user.id) {
-        req.login(req.user, (err) => {
-            if (err) {
-                console.error('Apple login error:', err);
-                return res.redirect('/login');
-            }
-            req.session.userId = req.user.id;
-            req.session.save((saveErr) => {
-                if (saveErr) console.error('Apple session save error:', saveErr);
-                try {
-                    const u = getUserById(req.user.id);
-                    if (u && u.email_verified !== 1) {
-                        markEmailAsVerified({ userId: u.id });
-                    }
-                    const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
-                    return res.redirect(redirectTarget);
-                } catch (_) {
-                    return res.redirect('/feed');
-                }
-            });
-        });
-    } else {
-        res.redirect('/feed');
-    }
-});
+// OAuth routes are now in routes/auth.js
 
 // Home page
 app.get('/', (req, res) => {
+    // Prevent caching to ensure fresh session data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.render('index', {
         title: 'Home - Dream X',
-        currentPage: 'home'
+        currentPage: 'home',
+        authUser: res.locals.authUser
     });
 });
 
@@ -2585,604 +2248,7 @@ app.post('/admin/users/:id/notes', requireAdmin, (req, res) => {
     }
 });
 
-// Registration page
-app.get('/register', (req, res) => {
-    if (req.session.userId) {
-        const user = getUserById(req.session.userId);
-        if (user) return res.redirect(resolvePostAuthRedirect(user));
-    }
-    res.render('register', {
-        title: 'Register - Dream X',
-        currentPage: 'register',
-        error: null,
-        suggestedHandles: null,
-        formData: null
-    });
-});
-
-// Handle registration
-app.post('/register', async (req, res) => {
-    const { fullName, email, password, confirmPassword, handle } = req.body;
-    if (!fullName || !email || !password || !confirmPassword) {
-        return res.status(400).render('register', {
-            title: 'Register - Dream X',
-            currentPage: 'register',
-            error: 'All fields are required.',
-            suggestedHandles: null,
-            formData: req.body
-        });
-    }
-    if (password !== confirmPassword) {
-        return res.status(400).render('register', {
-            title: 'Register - Dream X',
-            currentPage: 'register',
-            error: 'Passwords do not match.',
-            suggestedHandles: null,
-            formData: req.body
-        });
-    }
-    const complexityCheck = validatePasswordComplexity(password);
-    if (!complexityCheck.valid) {
-        return res.status(400).render('register', {
-            title: 'Register - Dream X',
-            currentPage: 'register',
-            error: `Password must contain ${complexityCheck.errors.join(', ')}.`,
-            suggestedHandles: null,
-            formData: req.body
-        });
-    }
-    const existing = getUserByEmail(email.trim().toLowerCase());
-    if (existing) {
-        return res.status(400).render('register', {
-            title: 'Register - Dream X',
-            currentPage: 'register',
-            error: 'Email already in use.',
-            suggestedHandles: null,
-            formData: req.body
-        });
-    }
-
-    // Alt account detection - check for banned/suspended users with similar patterns
-    const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
-    const emailDomain = email.split('@')[1];
-    const emailUsername = email.split('@')[0];
-
-    // Check for suspicious patterns
-    try {
-        const suspiciousUsers = db.prepare(`
-            SELECT u.id, u.email, u.full_name, u.account_status, u.created_at,
-                   am.ban_reason, am.suspended_until
-            FROM users u
-            LEFT JOIN account_moderation am ON am.user_id = u.id
-            WHERE (am.status IN ('banned', 'suspended') OR u.account_status IN ('banned', 'suspended'))
-                AND (
-                    u.email LIKE ? OR
-                    u.full_name LIKE ? OR
-                    u.email LIKE ?
-                )
-            ORDER BY u.created_at DESC
-            LIMIT 1
-        `).get(
-            `%${emailUsername}%@${emailDomain}`,
-            `%${fullName}%`,
-            `${emailUsername}%@%`
-        );
-
-        if (suspiciousUsers) {
-            // Flag for admin review
-            console.warn(`[ALT ACCOUNT DETECTION] Potential alt account signup detected:`);
-            console.warn(`  New signup: ${email} (${fullName})`);
-            console.warn(`  Similar to banned/suspended user: ${suspiciousUsers.email} (ID: ${suspiciousUsers.id})`);
-            console.warn(`  IP: ${clientIp}`);
-
-            // Log to audit (if available)
-            try {
-                addAuditLog({
-                    userId: null,
-                    action: 'suspicious_signup_detected',
-                    details: JSON.stringify({
-                        newEmail: email,
-                        newName: fullName,
-                        matchedUserId: suspiciousUsers.id,
-                        matchedEmail: suspiciousUsers.email,
-                        matchedStatus: suspiciousUsers.account_status,
-                        ip: clientIp
-                    })
-                });
-            } catch (e) { }
-
-            // For now, allow registration but flag it
-            // In production, you might want to block or require additional verification
-        }
-    } catch (e) {
-        console.warn('Alt account detection failed:', e.message);
-    }
-
-    // Handle validation
-    let userHandle = handle ? handle.trim().toLowerCase() : '';
-    if (!userHandle) {
-        // Auto-generate if not provided
-        const baseHandle = generateBaseHandle(fullName, email);
-        userHandle = generateUniqueHandle(baseHandle);
-    } else {
-        // Validate format
-        if (!/^[a-z0-9_]{3,20}$/.test(userHandle)) {
-            return res.status(400).render('register', {
-                title: 'Register - Dream X',
-                currentPage: 'register',
-                error: 'Handle must be 3-20 characters and contain only lowercase letters, numbers, and underscores.',
-                suggestedHandles: null,
-                formData: req.body
-            });
-        }
-        // Check for collision
-        const handleExists = getUserByHandle(userHandle);
-        if (handleExists) {
-            const baseHandle = generateBaseHandle(fullName, email);
-            const suggestions = getSuggestedHandles(baseHandle);
-            return res.status(400).render('register', {
-                title: 'Register - Dream X',
-                currentPage: 'register',
-                error: `Handle "@${userHandle}" is already taken. Here are some suggestions:`,
-                suggestedHandles: suggestions,
-                formData: req.body
-            });
-        }
-    }
-
-    try {
-        const hash = await bcrypt.hash(password, 10);
-        const userId = createUser({
-            fullName,
-            email: email.trim().toLowerCase(),
-            passwordHash: hash,
-            handle: userHandle
-        });
-        // Ensure a default free subscription is created for every new account
-        try {
-            createOrUpdateSubscription({ userId, tier: 'free', status: 'active' });
-        } catch (subErr) {
-            console.warn('Failed to initialize free subscription for user', userId, subErr.message);
-        }
-
-        // Generate 6-digit verification code
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
-
-        // Save verification code to database
-        createVerificationCode({
-            userId,
-            email: email.trim().toLowerCase(),
-            code: verificationCode,
-            expiresAt
-        });
-
-        // Send verification email
-        const user = getUserById(userId);
-        try {
-            await emailService.sendVerificationCode(user, verificationCode, req);
-            console.log(`✅ Verification email sent to ${user.email}`);
-        } catch (emailErr) {
-            console.error('Failed to send verification email:', emailErr);
-            // Don't block registration if email fails
-        }
-
-        // Log user in using Passport but don't redirect to onboarding yet
-        req.login(user, (err) => {
-            if (err) {
-                console.error('Registration login error:', err);
-                req.session.userId = userId; // Fallback to manual session
-                return res.redirect('/verify-email');
-            }
-            req.session.userId = userId;
-            req.session.save((saveErr) => {
-                if (saveErr) {
-                    console.error('Session save error:', saveErr);
-                }
-                return res.redirect('/verify-email');
-            });
-        });
-    } catch (e) {
-        console.error('Registration error', e);
-        return res.status(500).render('register', { title: 'Register - Dream X', currentPage: 'register', error: 'Server error. Try again.' });
-    }
-});
-
-// Email Verification Routes
-app.get('/verify-email', (req, res) => {
-    if (!req.session.userId) return res.redirect('/login');
-    const user = getUserById(req.session.userId);
-    if (!user) return res.redirect('/login');
-    if (user.email_verified === 1) return res.redirect(resolvePostAuthRedirect(user));
-
-    res.render('verify-email', {
-        title: 'Verify Your Email - Dream X',
-        currentPage: 'verify-email',
-        user,
-        error: null,
-        success: null
-    });
-});
-
-app.post('/verify-email', async (req, res) => {
-    if (!req.session.userId) {
-        return res.status(401).json({ success: false, error: 'Not authenticated' });
-    }
-
-    const user = getUserById(req.session.userId);
-    if (!user) {
-        return res.status(404).json({ success: false, error: 'User not found' });
-    }
-
-    if (user.email_verified === 1) {
-        return res.json({ success: true, redirect: resolvePostAuthRedirect(user) });
-    }
-
-    const { code } = req.body;
-    if (!code || code.length !== 6) {
-        return res.status(400).json({ success: false, error: 'Please enter a valid 6-digit code' });
-    }
-
-    // Clean up expired codes
-    try {
-        deleteExpiredVerificationCodes();
-    } catch (e) { }
-
-    // Check verification code
-    const verificationRecord = getVerificationCode({ userId: user.id, code });
-
-    if (!verificationRecord) {
-        return res.status(400).json({ success: false, error: 'Invalid or expired code. Please try again.' });
-    }
-
-    // Check if expired
-    const now = new Date();
-    const expiresAt = new Date(verificationRecord.expires_at);
-    if (now > expiresAt) {
-        return res.status(400).json({ success: false, error: 'Code expired. Request a new one.' });
-    }
-
-    // Mark as verified
-    try {
-        markCodeAsVerified({ id: verificationRecord.id });
-        markEmailAsVerified({ userId: user.id });
-
-        console.log(`✅ Email verified for user ${user.id} (${user.email})`);
-
-        const updatedUser = { ...user, email_verified: 1 };
-        return res.json({ success: true, redirect: resolvePostAuthRedirect(updatedUser) });
-    } catch (err) {
-        console.error('Verification error:', err);
-        return res.status(500).json({ success: false, error: 'Server error. Please try again.' });
-    }
-});
-
-app.post('/resend-verification', async (req, res) => {
-    if (!req.session.userId) {
-        return res.status(401).json({ success: false, error: 'Not authenticated' });
-    }
-
-    const user = getUserById(req.session.userId);
-    if (!user) {
-        return res.status(404).json({ success: false, error: 'User not found' });
-    }
-
-    if (user.email_verified === 1) {
-        return res.json({ success: true, message: 'Email already verified' });
-    }
-
-    try {
-        // Generate new code
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-
-        createVerificationCode({
-            userId: user.id,
-            email: user.email,
-            code: verificationCode,
-            expiresAt
-        });
-
-        // Send email
-        await emailService.sendVerificationCode(user, verificationCode, req);
-
-        return res.json({ success: true, message: 'New verification code sent!' });
-    } catch (err) {
-        console.error('Resend verification error:', err);
-        return res.status(500).json({ success: false, error: 'Failed to send email. Please try again.' });
-    }
-});
-
-// Forgot password
-app.get('/forgot-password', (req, res) => {
-    if (req.session.userId) return res.redirect('/feed');
-
-    res.render('forgot-password', {
-        title: 'Forgot Password - Dream X',
-        currentPage: 'forgot-password',
-        error: null,
-        success: null
-    });
-});
-
-app.post('/forgot-password', async (req, res) => {
-    const email = (req.body.email || '').trim().toLowerCase();
-    const baseUrl = getRequestBaseUrl(req);
-    const successMessage = 'If an account exists for that email, we\'ve sent reset instructions to your inbox.';
-
-    if (!email) {
-        return res.status(400).render('forgot-password', {
-            title: 'Forgot Password - Dream X',
-            currentPage: 'forgot-password',
-            error: 'Please enter your email address.',
-            success: null
-        });
-    }
-
-    try {
-        deleteExpiredPasswordResetTokens();
-    } catch (err) {
-        console.error('Failed to cleanup reset tokens:', err.message);
-    }
-
-    const user = getUserByEmail(email);
-    if (!user) {
-        return res.render('forgot-password', {
-            title: 'Forgot Password - Dream X',
-            currentPage: 'forgot-password',
-            error: null,
-            success: successMessage
-        });
-    }
-
-    try {
-        invalidateUserResetTokens({ userId: user.id });
-
-        const token = crypto.randomBytes(32).toString('hex');
-        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-
-        createPasswordResetToken({
-            userId: user.id,
-            email: user.email,
-            tokenHash,
-            expiresAt
-        });
-
-        const resetLink = `${baseUrl}/reset-password?token=${token}`;
-        const emailResult = await emailService.sendPasswordReset(user, resetLink, req);
-
-        if (!emailResult?.success) {
-            console.error('Password reset email reported failure', {
-                userId: user.id,
-                email: user.email,
-                resetLink,
-                redirectUri: emailService.getGmailRedirectUri ? emailService.getGmailRedirectUri(req) : 'unknown',
-                error: emailResult?.error || 'Unknown error'
-            });
-        }
-
-        return res.render('forgot-password', {
-            title: 'Forgot Password - Dream X',
-            currentPage: 'forgot-password',
-            error: null,
-            success: successMessage
-        });
-    } catch (err) {
-        console.error('Failed to start password reset:', {
-            message: err?.message || err,
-            stack: err?.stack,
-            userId: user?.id,
-            email: user?.email,
-            resetLink,
-            redirectUri: emailService.getGmailRedirectUri ? emailService.getGmailRedirectUri(req) : 'unknown'
-        });
-        return res.status(500).render('forgot-password', {
-            title: 'Forgot Password - Dream X',
-            currentPage: 'forgot-password',
-            error: 'Something went wrong while sending your reset email. Please try again shortly.',
-            success: null
-        });
-    }
-});
-
-app.get('/reset-password', (req, res) => {
-    const token = (req.query.token || '').trim();
-    if (!token) {
-        return res.status(400).render('reset-password', {
-            title: 'Reset Password - Dream X',
-            currentPage: 'reset-password',
-            error: 'This password reset link is invalid or has already been used.',
-            success: null,
-            token: null
-        });
-    }
-
-    deleteExpiredPasswordResetTokens();
-
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const record = getPasswordResetToken({ tokenHash });
-    if (!record || record.used || new Date(record.expires_at) < new Date()) {
-        return res.status(400).render('reset-password', {
-            title: 'Reset Password - Dream X',
-            currentPage: 'reset-password',
-            error: 'This password reset link is invalid or has expired.',
-            success: null,
-            token: null
-        });
-    }
-
-    return res.render('reset-password', {
-        title: 'Reset Password - Dream X',
-        currentPage: 'reset-password',
-        error: null,
-        success: null,
-        token
-    });
-});
-
-app.post('/reset-password', async (req, res) => {
-    const { token, password, confirmPassword } = req.body;
-
-    if (!token) {
-        return res.status(400).render('reset-password', {
-            title: 'Reset Password - Dream X',
-            currentPage: 'reset-password',
-            error: 'Reset token missing or invalid.',
-            success: null,
-            token: null
-        });
-    }
-
-    if (!password || password.length < 8) {
-        return res.status(400).render('reset-password', {
-            title: 'Reset Password - Dream X',
-            currentPage: 'reset-password',
-            error: 'Please choose a password that is at least 8 characters long.',
-            success: null,
-            token
-        });
-    }
-
-    if (password !== confirmPassword) {
-        return res.status(400).render('reset-password', {
-            title: 'Reset Password - Dream X',
-            currentPage: 'reset-password',
-            error: 'Passwords do not match. Please try again.',
-            success: null,
-            token
-        });
-    }
-
-    deleteExpiredPasswordResetTokens();
-
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const record = getPasswordResetToken({ tokenHash });
-    if (!record || record.used || new Date(record.expires_at) < new Date()) {
-        return res.status(400).render('reset-password', {
-            title: 'Reset Password - Dream X',
-            currentPage: 'reset-password',
-            error: 'This password reset link is invalid or has expired.',
-            success: null,
-            token: null
-        });
-    }
-
-    const user = getUserById(record.user_id);
-    if (!user) {
-        markPasswordResetUsed({ id: record.id });
-        return res.status(404).render('reset-password', {
-            title: 'Reset Password - Dream X',
-            currentPage: 'reset-password',
-            error: 'We could not find an account for this reset link.',
-            success: null,
-            token: null
-        });
-    }
-
-    try {
-        const passwordHash = await bcrypt.hash(password, 10);
-        updatePassword({ userId: user.id, passwordHash });
-        markPasswordResetUsed({ id: record.id });
-        invalidateUserResetTokens({ userId: user.id });
-
-        req.session.userId = user.id;
-        req.session.save(() => {
-            return res.redirect('/feed');
-        });
-    } catch (err) {
-        console.error('Failed to reset password:', err);
-        return res.status(500).render('reset-password', {
-            title: 'Reset Password - Dream X',
-            currentPage: 'reset-password',
-            error: 'An unexpected error occurred while updating your password. Please try again.',
-            success: null,
-            token
-        });
-    }
-});
-
-// Login page
-app.get('/login', (req, res) => {
-    if (req.session.userId) {
-        const user = getUserById(req.session.userId);
-        if (user) return res.redirect(resolvePostAuthRedirect(user));
-    }
-    const googleEnabled = !!passport._strategy('google');
-    const microsoftEnabled = !!passport._strategy('microsoft');
-    const appleEnabled = !!passport._strategy('apple') && !!process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://');
-    res.render('login', {
-        title: 'Login - Dream X',
-        currentPage: 'login',
-        error: null,
-        providers: { googleEnabled, microsoftEnabled, appleEnabled }
-    });
-});
-
-// Handle login
-app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-    const user = getUserByEmail((email || '').trim().toLowerCase());
-    // Ensure OAuth provider flags are always available to the template
-    const googleEnabled = !!passport._strategy('google');
-    const microsoftEnabled = !!passport._strategy('microsoft');
-    const appleEnabled = !!passport._strategy('apple') && !!process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://');
-    const providers = { googleEnabled, microsoftEnabled, appleEnabled };
-    if (!user) {
-        return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.', providers });
-    }
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-        return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.', providers });
-    }
-
-    // Check account status before allowing login
-    const accountStatus = checkAccountStatus(user.id);
-    if (accountStatus.status === 'banned') {
-        return res.redirect(`/account-status?userId=${user.id}`);
-    }
-    if (accountStatus.status === 'suspended') {
-        return res.redirect(`/account-status?userId=${user.id}`);
-    }
-
-    // Use req.login() to properly serialize user into session
-    req.login(user, (err) => {
-        if (err) {
-            console.error('Login error:', err);
-            return res.status(500).render('login', {
-                title: 'Login - Dream X',
-                currentPage: 'login',
-                error: 'Login failed. Please try again.',
-                providers
-            });
-        }
-        req.session.userId = user.id;
-        req.session.save((saveErr) => {
-            if (saveErr) {
-                console.error('Session save error:', saveErr);
-            }
-            const freshUser = getUserById(user.id);
-            const redirectPath = resolvePostAuthRedirect(freshUser);
-            return res.redirect(redirectPath);
-        });
-    });
-});
-
-// Logout
-app.get('/logout', (req, res) => {
-    req.logout((err) => {
-        if (err) {
-            console.error('Logout error:', err);
-        }
-        req.session.destroy(() => {
-            // Clear cookies to ensure complete logout
-            res.clearCookie('connect.sid');
-            // Add cache control headers to prevent caching of authenticated pages
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-            res.redirect('/');
-        });
-    });
-});
+// Auth routes (register, login, logout, OAuth, password reset, email verification) are now in routes/auth.js
 
 // Feed page (main social feed)
 app.get('/feed', (req, res) => {
@@ -3385,7 +2451,7 @@ app.get('/feed', (req, res) => {
         recentActivity = [];
     }
 
-    const authUser = getUserById(req.session.userId);
+    const authUser = res.locals.authUser;
 
     // Get top passions from actual user data
     let topPassions = [];
@@ -3441,7 +2507,7 @@ app.get('/feed', (req, res) => {
 // Unified search page
 app.get('/search', (req, res) => {
     const q = (req.query.q || '').trim();
-    const authUser = req.session.userId ? getUserById(req.session.userId) : null;
+    const authUser = res.locals.authUser;
     let users = [];
     try {
         if (q) {
@@ -3452,6 +2518,10 @@ app.get('/search', (req, res) => {
     }
 
     if (!q || users.length === 0) {
+        // Prevent caching to ensure fresh session data
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         return res.status(200).render('search-zero-results', {
             title: 'Search - Dream X',
             currentPage: 'search',
@@ -3460,6 +2530,10 @@ app.get('/search', (req, res) => {
         });
     }
 
+    // Prevent caching to ensure fresh session data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.render('search', {
         title: `Search: ${q} - Dream X`,
         currentPage: 'search',
@@ -3989,6 +3063,21 @@ app.get('/profile', (req, res) => {
             } catch (e) { }
             return p;
         });
+        
+        // Get user reposts
+        const { getUserReposts, getRepostInfo } = require('./db');
+        let userReposts = getUserReposts(req.session.userId);
+        userReposts = userReposts.map(p => {
+            try {
+                p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                p.reactions = p.reactions || {};
+                const repostInfo = getRepostInfo(p.id);
+                if (repostInfo) {
+                    p.repost_info = repostInfo;
+                }
+            } catch (e) { }
+            return p;
+        });
 
         const followerCount = getFollowerCount(req.session.userId);
         const followingCount = getFollowingCount(req.session.userId);
@@ -4030,6 +3119,7 @@ app.get('/profile', (req, res) => {
             projects,
             services,
             userPosts,
+            userReposts,
             profileUserId: row.id,
             profilePicture: row.profile_picture || null,
             isOwnProfile: true,
@@ -4063,6 +3153,20 @@ app.get('/profile/:id(\\d+)', (req, res) => {
             try {
                 p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
                 p.reactions = p.reactions || {};
+            } catch (e) { }
+            return p;
+        });
+        
+        // Get user reposts
+        let userReposts = getUserReposts(uid);
+        userReposts = userReposts.map(p => {
+            try {
+                p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                p.reactions = p.reactions || {};
+                const repostInfo = getRepostInfo(p.id);
+                if (repostInfo) {
+                    p.repost_info = repostInfo;
+                }
             } catch (e) { }
             return p;
         });
@@ -4112,6 +3216,7 @@ app.get('/profile/:id(\\d+)', (req, res) => {
             projects,
             services,
             userPosts,
+            userReposts,
             profileUserId: uid,
             profilePicture: row.profile_picture || null,
             isOwnProfile: viewingOwnProfile,
@@ -4316,6 +3421,7 @@ app.get('/services', (req, res) => {
     res.render('services', {
         title: 'Services Marketplace - Dream X',
         currentPage: 'services',
+        authUser: res.locals.authUser,
         categories,
         services
     });
@@ -4363,8 +3469,7 @@ app.get('/services/:id', (req, res) => {
     // Load latest reviews
     let reviews = [];
     try {
-        const authUserId = req.session.userId || null;
-        const authUser = authUserId ? getUserById(authUserId) : null;
+        const authUser = res.locals.authUser;
         const isAdmin = authUser && ['admin', 'super_admin', 'global_admin'].includes(authUser.role);
         reviews = db.getServiceReviews({ serviceId: id, limit: 20, offset: 0, isAdmin }).map(r => ({
             id: r.id,
@@ -4388,6 +3493,7 @@ app.get('/services/:id', (req, res) => {
     res.render('service-details', {
         title: `${service.name} - Service - Dream X`,
         currentPage: 'services',
+        authUser: res.locals.authUser,
         service,
         reviews,
         canReview,
@@ -5178,6 +4284,14 @@ app.get('/settings', (req, res) => {
         accounts.forEach(a => { if (a.provider && linked.hasOwnProperty(a.provider)) linked[a.provider] = true; });
     } catch (e) { }
 
+    // Check if user has linked SSO accounts
+    const linkedAccounts = getLinkedAccountsForUser(req.session.userId) || [];
+    const hasLinkedAccounts = linkedAccounts.length > 0;
+    const hasPassword = !!(row.password_hash);
+    // User is SSO-only if they have linked accounts but no password hash
+    // (SSO users get dummy password hashes, but if password_hash is null/empty, they're truly SSO-only)
+    const isSSOOnly = hasLinkedAccounts && !hasPassword;
+
     // Get subscription and billing data
     const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
     const paymentMethods = getPaymentMethods(req.session.userId) || [];
@@ -5193,6 +4307,8 @@ app.get('/settings', (req, res) => {
         currentPage: 'settings',
         authUser,
         linked,
+        hasPassword,
+        isSSOOnly,
         getUserById,
         subscription,
         paymentMethods,
@@ -6132,6 +5248,10 @@ app.post('/admin/users/:id/freeze-chat', requireAdmin, (req, res) => {
 
 // Pricing page (tiers)
 app.get('/pricing', (req, res) => {
+    // Prevent caching to ensure fresh session data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const tiers = [
         {
             id: 'free',
@@ -6235,6 +5355,10 @@ app.get('/pricing', (req, res) => {
 
 // Help Center (FAQ / Support)
 app.get('/help-center', (req, res) => {
+    // Prevent caching to ensure fresh session data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const faqs = [
         { q: 'What is Dream X?', a: 'Dream X is a social platform focused on productive passions—helping you share progress, discover new niches, and grow consistently.' },
         { q: 'How does the Reverse Algorithm work?', a: 'You begin with ultra-specific passion inputs. Over time the feed broadens intelligently, exposing adjacent skills and creators once you establish depth in your core interests.' },
@@ -6259,52 +5383,7 @@ app.get('/help-center', (req, res) => {
     });
 });
 
-
-
-// About page
-app.get('/about', (req, res) => {
-    res.render('about', {
-        title: 'About - Dream X',
-        currentPage: 'about'
-    });
-});
-
-// Team page
-app.get('/team', (req, res) => {
-    res.render('team', {
-        title: 'Our Team - Dream X',
-        currentPage: 'team'
-    });
-});
-
-// Features page
-app.get('/features', (req, res) => {
-
-    res.render('features', {
-        title: 'Features - Dream X',
-        currentPage: 'features'
-    });
-});
-
-// Contact page
-app.get('/contact', (req, res) => {
-    res.render('contact', {
-        title: 'Contact - Dream X',
-        currentPage: 'contact'
-    });
-});
-
-// Careers page
-app.get('/careers', (req, res) => {
-    const jobs = getPublicCareerJobs();
-    const heroJob = jobs.find(j => j.status === 'live') || jobs[0] || null;
-    res.render('careers', {
-        title: 'Careers - Dream X',
-        currentPage: 'careers',
-        jobs,
-        heroJob
-    });
-});
+// About, Team, Features, Contact, and Careers pages are now in routes/misc.js
 
 // Privacy Policy page
 app.get('/privacy', (req, res) => {
@@ -7543,6 +6622,10 @@ app.use((req, res, next) => {
 
 // Error handler for 500 errors
 app.use((err, req, res, next) => {
+    console.error('❌ Server Error:', err);
+    console.error('Error Stack:', err.stack);
+    console.error('Request Path:', req.path);
+    console.error('Request Method:', req.method);
     res.status(500).render('500', { title: 'Server Error - Dream X' });
 });
 

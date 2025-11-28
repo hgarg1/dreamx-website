@@ -5,6 +5,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     :root {
       --hr-primary: #667eea;
       --hr-secondary: #764ba2;
@@ -15,20 +19,22 @@
     }
 
     .hr-dashboard {
-      max-width: 1600 px;
+      max-width: 1600px;
+      width: 100%;
       margin: 0 auto;
-      padding: 20 px;
+      padding: 20px;
       background: #f9fafb;
-      min-height: 100 vh;
+      min-height: 100vh;
+      box-sizing: border-box;
     }
 
     .hr-header {
       background: linear-gradient(135deg, var(--hr-primary) 0%, var(--hr-secondary) 100%);
       color: white;
-      padding: 48 px;
-      border-radius: 20 px;
-      margin-bottom: 32 px;
-      box-shadow: 0 20 px 60 px rgba(102, 126, 234, 0.3);
+      padding: 48px;
+      border-radius: 20px;
+      margin-bottom: 32px;
+      box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
       position: relative;
       overflow: hidden;
     }
@@ -1408,7 +1414,22 @@
       border-top: 2px solid #f3f4f6;
     }
 
+    /* Prevent horizontal overflow */
+    html, body {
+      overflow-x: hidden;
+      max-width: 100vw;
+    }
+
     @media (max-width: 768px) {
+      html, body {
+        overflow-x: hidden;
+        max-width: 100vw;
+      }
+
+      .hr-dashboard {
+        padding: 14px;
+      }
+
       .analytics-grid {
         grid-template-columns: 1fr;
       }
@@ -2109,7 +2130,7 @@
                     </div>
                     <div>
                       <label>Apply URL (optional)</label>
-                      <input type="url" name="applyUrl" placeholder="https://jobs.dreamx.com/role"
+                      <input type="url" name="applyUrl" placeholder="https://jobs.dream-x.app/role"
                         oninput="updateJobPreview()">
                     </div>
                     <div>

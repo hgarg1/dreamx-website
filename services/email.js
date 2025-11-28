@@ -113,13 +113,22 @@ async function sendEmail(to, subject, htmlContent, textContent = null, req) {
             console.warn('[Email] Warning: htmlContent was empty for subject', subject);
         }
         
+        // Ensure we have proper text fallback if HTML is provided
+        const finalText = text || (html ? html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+        
         const mailOptions = {
             from: `Dream X <${process.env.GMAIL_USER || 'noreply@dreamx.app'}>`,
             to: to,
             subject: subject,
-            html: html || text || '',
-            text: text || undefined,
-            encoding: 'utf-8'
+            html: html || '', // Always use HTML when provided, don't fallback to text
+            text: finalText || undefined, // Only include text if we have it
+            encoding: 'utf-8',
+            headers: html ? {
+                'X-Mailer': 'Dream X Email Service',
+                'MIME-Version': '1.0'
+            } : {
+                'X-Mailer': 'Dream X Email Service'
+            }
         };
 
         const result = await transporter.sendMail(mailOptions);

@@ -10,7 +10,7 @@
 }
 
 .toast {
-  background: rgba(17, 24, 39, 0.9);
+  background: rgba(11, 10, 20, 0.95);
   color: #f8fafc;
   padding: 1rem 1.5rem;
   border-radius: 14px;
@@ -136,7 +136,7 @@
 }
 
 .modal-dialog {
-  background: white;
+  background: var(--bg-cosmic-shadow);
   border-radius: 12px;
   max-width: 500px;
   width: 100%;
@@ -151,7 +151,7 @@
 
 .modal-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgba(255, 77, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -160,7 +160,7 @@
 .modal-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #111827;
+  color: #ffffff;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -203,19 +203,19 @@
 }
 
 .modal-close:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .modal-body {
   padding: 1.5rem;
-  color: #4b5563;
+  color: rgba(255, 255, 255, 0.8);
   line-height: 1.6;
 }
 
 .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid rgba(255, 77, 255, 0.2);
   display: flex;
   gap: 10px;
   justify-content: flex-end;
@@ -232,12 +232,12 @@
 }
 
 .modal-btn-primary {
-  background: #6366f1;
+  background: linear-gradient(135deg, #FF4DFF, #A53CFF);
   color: white;
 }
 
 .modal-btn-primary:hover {
-  background: #4f46e5;
+  background: linear-gradient(135deg, #A53CFF, #FF4DFF);
 }
 
 .modal-btn-danger {

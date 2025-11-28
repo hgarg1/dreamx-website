@@ -432,7 +432,7 @@ For Web Push (future):
 ```env
 VAPID_PUBLIC_KEY=your_public_key
 VAPID_PRIVATE_KEY=your_private_key
-VAPID_SUBJECT=mailto:admin@dreamx.com
+VAPID_SUBJECT=mailto:admin@dream-x.app
 ```
 
 ### Database Migrations

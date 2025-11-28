@@ -3,14 +3,15 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_VERSION = 'dreamx-v1.6.8';
+const CACHE_VERSION = 'dreamx-v1.6.18';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_IMAGES = `${CACHE_VERSION}-images`;
 
 // Files to cache immediately on install
+// NOTE: Do NOT cache pages that require authentication (like '/')
+// These pages need to always fetch from network to get fresh session data
 const STATIC_ASSETS = [
-  '/',
   '/css/style.css',
   '/css/polish.css',
   '/css/feed.css',
@@ -82,51 +83,65 @@ self.addEventListener('fetch', (event) => {
 
   // Skip authenticated pages that require session data
   // DO NOT CACHE these pages as they contain user-specific content
-  if (url.pathname === '/' ||
-      url.pathname === '/feed' ||
-      url.pathname === '/map' ||
-      url.pathname === '/profile' ||
-      url.pathname.startsWith('/profile/') ||
-      url.pathname === '/messages' ||
-      url.pathname === '/settings' ||
-      url.pathname === '/onboarding' ||
-      url.pathname === '/onboarding-empty-state' ||
-      url.pathname === '/verify-email' ||
-      url.pathname === '/welcome' ||
-      url.pathname === '/services' ||
-      url.pathname.startsWith('/services/') ||
-      url.pathname === '/create-service' ||
-      url.pathname.startsWith('/edit-service/') ||
-      url.pathname === '/billing' ||
-      url.pathname === '/pricing' ||
-      url.pathname === '/help' ||
-      url.pathname === '/help-center' ||
-      url.pathname === '/hr' ||
-      url.pathname.startsWith('/post/') ||
-      url.pathname.startsWith('/admin') ||
-      url.pathname === '/search' ||
-      url.pathname === '/careers' ||
-      url.pathname === '/notifications' ||
-      url.pathname === '/refund-request' ||
-      url.pathname === '/account-status' ||
-      url.pathname === '/account-appeal' ||
-      url.pathname === '/content-appeal') {
-    return; // Skip service worker, always fetch from network
+  // Also check for cache-control headers that indicate no-cache
+  const authenticatedRoutes = [
+    '/',
+    '/feed',
+    '/map',
+    '/profile',
+    '/messages',
+    '/settings',
+    '/onboarding',
+    '/onboarding-empty',
+    '/onboarding-empty-state',
+    '/verify-email',
+    '/welcome',
+    '/services',
+    '/create-service',
+    '/billing',
+    '/pricing',
+    '/help',
+    '/help-center',
+    '/hr',
+    '/search',
+    '/careers',
+    '/notifications',
+    '/refund-request',
+    '/account-status',
+    '/account-appeal',
+    '/content-appeal'
+  ];
+  
+  // Check if this is an authenticated route or a page that needs auth state for navbar
+  // Even public pages like /about, /features, /pricing need fresh auth state
+  const isAuthenticatedRoute = authenticatedRoutes.includes(url.pathname) ||
+    url.pathname.startsWith('/profile/') ||
+    url.pathname.startsWith('/services/') ||
+    url.pathname.startsWith('/edit-service/') ||
+    url.pathname.startsWith('/post/') ||
+    url.pathname.startsWith('/admin') ||
+    url.pathname === '/about' ||
+    url.pathname === '/features' ||
+    url.pathname === '/pricing' ||
+    url.pathname === '/help-center' ||
+    url.pathname === '/contact' ||
+    url.pathname === '/team' ||
+    url.pathname === '/careers';
+  
+  if (isAuthenticatedRoute) {
+    return; // Skip service worker, always fetch from network to get fresh session
   }
   
-  // Allow caching of static marketing/info pages (these are public and don't change often)
+  // Allow caching of ONLY truly static pages that don't need auth state
+  // Even public pages like /about need fresh auth state for navbar
   const allowCachePaths = [
       '/terms',
       '/privacy',
-      '/community-guidelines',
-      '/about',
-      '/contact',
-      '/careers',
-      '/team',
-      '/features'
+      '/community-guidelines'
   ];
   
   // If it's not in the allow list, skip caching for safety
+  // This ensures all pages that use the header template get fresh session data
   if (!allowCachePaths.includes(url.pathname)) {
     // For CSS, JS, and images, we can cache
     if (!url.pathname.startsWith('/css/') && 
@@ -137,7 +152,7 @@ self.addEventListener('fetch', (event) => {
         request.destination !== 'image' &&
         request.destination !== 'style' &&
         request.destination !== 'script') {
-      return; // Skip caching for unknown authenticated routes
+      return; // Skip caching for pages that need auth state
     }
   }
 
@@ -201,16 +216,32 @@ async function handleDynamicRequest(request) {
     return fetch(request);
   }
   
-  const cache = await caches.open(CACHE_DYNAMIC);
-  
+  // Always fetch from network first for HTML pages to ensure fresh session data
   try {
-    const networkResponse = await fetch(request);
-    // Only cache successful same-origin responses
+    const networkResponse = await fetch(request, {
+      credentials: 'include', // Include cookies/session
+      cache: 'no-store' // Don't use browser cache
+    });
+    
+    // Check cache-control headers - if no-cache, no-store, or must-revalidate, don't cache
+    const cacheControl = networkResponse.headers.get('cache-control');
+    if (cacheControl && (
+      cacheControl.includes('no-cache') ||
+      cacheControl.includes('no-store') ||
+      cacheControl.includes('must-revalidate')
+    )) {
+      return networkResponse; // Don't cache, return directly
+    }
+    
+    // Only cache successful same-origin responses that allow caching
     if (networkResponse.ok && url.origin === self.location.origin) {
+      const cache = await caches.open(CACHE_DYNAMIC);
       cache.put(request, networkResponse.clone());
     }
     return networkResponse;
   } catch (error) {
+    // Only use cache for non-authenticated content
+    const cache = await caches.open(CACHE_DYNAMIC);
     const cachedResponse = await cache.match(request);
     if (cachedResponse) {
       return cachedResponse;

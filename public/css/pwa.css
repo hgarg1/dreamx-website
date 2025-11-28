@@ -5,11 +5,11 @@
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #FF4DFF 0%, #A53CFF 100%);
   color: white;
   padding: 1rem 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 8px 24px rgba(255, 77, 255, 0.4);
   z-index: 9998;
   max-width: 90%;
   animation: slideUp 0.3s ease-out;
@@ -65,7 +65,7 @@
 
 #pwa-install-banner .install-btn {
   background: white;
-  color: #6366f1;
+  color: #FF4DFF;
 }
 
 #pwa-install-banner .install-btn:hover {

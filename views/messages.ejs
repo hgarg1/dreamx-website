@@ -1,9 +1,14 @@
 <%- include('partials/header') %>
 
-<% const isAdminUserFlag = authUser && ['admin','super_admin','global_admin'].includes(authUser.role); %>
-<% const isSuperAdminUserFlag = authUser && ['super_admin','global_admin'].includes(authUser.role); %>
-<% const viewerHasBlockedUser = blockState && blockState.viewerBlocked; %>
-<% const userIsBlockedByOther = blockState && blockState.blockedByOther; %>
+<% 
+// Safety checks for all variables - ensure they exist with defaults
+const safeAuthUser = (typeof authUser !== 'undefined' && authUser) ? authUser : null;
+const safeBlockState = (typeof blockState !== 'undefined' && blockState) ? blockState : { viewerBlocked: false, blockedByOther: false };
+const isAdminUserFlag = safeAuthUser && safeAuthUser.role && ['admin','super_admin','global_admin'].includes(safeAuthUser.role);
+const isSuperAdminUserFlag = safeAuthUser && safeAuthUser.role && ['super_admin','global_admin'].includes(safeAuthUser.role);
+const viewerHasBlockedUser = safeBlockState && safeBlockState.viewerBlocked === true;
+const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther === true;
+%>
 <div class="messages-page">
   <% const participantCount = (typeof participants !== 'undefined' && participants ? participants.length : 0); %>
   <% const conversationCount = (typeof conversations !== 'undefined' && conversations ? conversations.length : 0); %>
@@ -147,7 +152,7 @@
               <% } %>
             </div>
           </div>
-          <% if (authUser && ['admin','super_admin','global_admin'].includes(authUser.role)) { %>
+          <% if (safeAuthUser && safeAuthUser.role && ['admin','super_admin','global_admin'].includes(safeAuthUser.role)) { %>
             <div class="chat-admin">
               <span class="admin-mode-pill" title="Admin controls active">Admin</span>
               <button type="button" class="icon-button" aria-label="Admin actions" onclick="toggleAdminMenu(event)"><span class="icon-dots"></span></button>
@@ -215,7 +220,7 @@
       <div class="chat-history" id="chatHistory" aria-live="polite">
         <% if(messages && messages.length > 0) { %>
           <% messages.forEach(function(msg){ %>
-            <div class="chat-message-wrapper <%= msg.sender_id === authUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>" data-created-at="<%= msg.created_at %>" data-sender-name="<%= msg.sender_name %>" data-reply-preview="<%= (msg.content || (msg.attachment_url ? 'Attachment' : '')) %>" data-reply-has-attachment="<%= msg.attachment_url ? 'true' : 'false' %>" data-reaction-counts='<%- JSON.stringify(msg.reaction_counts || {}) %>'>
+            <div class="chat-message-wrapper <%= safeAuthUser && msg.sender_id === safeAuthUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>" data-created-at="<%= msg.created_at %>" data-sender-name="<%= msg.sender_name %>" data-reply-preview="<%= (msg.content || (msg.attachment_url ? 'Attachment' : '')) %>" data-reply-has-attachment="<%= msg.attachment_url ? 'true' : 'false' %>" data-reaction-counts='<%- JSON.stringify(msg.reaction_counts || {}) %>'>
               <div class="chat-bubble-container" style="position:relative;display:inline-block;">
                 <div class="chat-bubble">
                   <% if (msg.reply_to_message_id) { %>
@@ -249,11 +254,11 @@
                       <a class="chat-attachment-file" href="<%= msg.attachment_url %>" target="_blank" rel="noopener">Download attachment</a>
                     <% } %>
                   <% } %>
-                  <span class="chat-time" data-read="<%= msg.read %>"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %><% if (!currentConversation.is_group && msg.sender_id === authUser.id && msg.read) { %> <span class="chat-status">✓✓</span><% } %></span>
+                  <span class="chat-time" data-read="<%= msg.read %>"><%= new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %><% if (safeAuthUser && !currentConversation.is_group && msg.sender_id === safeAuthUser.id && msg.read) { %> <span class="chat-status">✓✓</span><% } %></span>
                 </div>
 
                 <!-- Message action menu button (only for incoming messages from other user) -->
-                <% if (msg.sender_id !== authUser.id) { %>
+                <% if (safeAuthUser && msg.sender_id !== safeAuthUser.id) { %>
                 <button type="button" class="msg-action-btn" data-message-id="<%= msg.id %>" data-sender-id="<%= msg.sender_id %>" onclick="toggleMessageActions('<%= msg.id %>')">⋮</button>
                 <div class="msg-action-menu" id="msgActions<%= msg.id %>">
                   <button class="msg-action-item" onclick="reportChatMessage('<%= msg.id %>', '<%= msg.sender_id %>')">⚠️ Report Message</button>
@@ -338,15 +343,15 @@
     console.warn('Socket.io unavailable; realtime messaging disabled');
   }
   const currentConversationId = <%= currentConversation ? currentConversation.id : 'null' %>;
-  const authUserId = <%= authUser ? authUser.id : 'null' %>;
-  const authUserName = '<%= authUser ? (authUser.full_name || '').replace(/'/g, "\\'") : '' %>';
+  const authUserId = <%= safeAuthUser ? safeAuthUser.id : 'null' %>;
+  const authUserName = '<%= safeAuthUser ? (safeAuthUser.displayName || safeAuthUser.full_name || '').replace(/'/g, "\\'") : '' %>';
   const isGroupConversation = <%= currentConversation && currentConversation.is_group ? 'true' : 'false' %>;
   const currentConversationMeta = <%- currentConversation ? JSON.stringify({ id: currentConversation.id, is_group: currentConversation.is_group, group_name: currentConversation.group_name, other_user_name: currentConversation.other_user_name }) : 'null' %>;
-  const viewerHasBlocked = <%= currentConversation && !currentConversation.is_group && blockState ? (blockState.viewerBlocked ? 'true' : 'false') : 'false' %>;
-  const blockedByOtherUser = <%= currentConversation && !currentConversation.is_group && blockState ? (blockState.blockedByOther ? 'true' : 'false') : 'false' %>;
+  const viewerHasBlocked = <%= currentConversation && !currentConversation.is_group && safeBlockState ? (safeBlockState.viewerBlocked ? 'true' : 'false') : 'false' %>;
+  const blockedByOtherUser = <%= currentConversation && !currentConversation.is_group && safeBlockState ? (safeBlockState.blockedByOther ? 'true' : 'false') : 'false' %>;
   const conversationParticipants = <%- currentConversation && currentConversation.is_group ? JSON.stringify(participants || []) : '[]' %>;
-  const isAdminUser = <%= authUser && ['admin','super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
-  const isSuperAdminUser = <%= authUser && ['super_admin','global_admin'].includes(authUser.role) ? 'true' : 'false' %>;
+  const isAdminUser = <%= safeAuthUser && safeAuthUser.role && ['admin','super_admin','global_admin'].includes(safeAuthUser.role) ? 'true' : 'false' %>;
+  const isSuperAdminUser = <%= safeAuthUser && safeAuthUser.role && ['super_admin','global_admin'].includes(safeAuthUser.role) ? 'true' : 'false' %>;
   const moderationTarget = <%- JSON.stringify(moderationTarget || null) %>;
   let chatFreezeState = moderationTarget ? !!moderationTarget.chat_privileges_frozen : false;
 
@@ -1761,7 +1766,7 @@
                     <div style="font-size:.7rem;color:var(--text-light);">@<%= p.handle %></div>
                   <% } %>
                 </div>
-                <% if (p.id !== authUser.id) { %>
+                <% if (safeAuthUser && p.id !== safeAuthUser.id) { %>
                   <button type="button" onclick="removeGroupMember(<%= p.id %>, '<%= p.full_name.replace(/'/g, "\\'") %>')" style="background:#ef4444;color:#fff;border:none;padding:.4rem .8rem;border-radius:6px;font-size:.7rem;font-weight:600;cursor:pointer;" title="Remove from group">Remove</button>
                 <% } %>
               </div>

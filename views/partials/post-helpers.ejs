@@ -6,14 +6,133 @@
     return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s]));
   }
   function updateReactions(article, counts, activeType, status){
-    const allCounts = article.querySelectorAll('.rx-count');
-    allCounts.forEach(span => { const t = span.getAttribute('data-type'); span.textContent = counts[t] || 0; });
-    article.querySelectorAll('.rx-btn').forEach(btn => {
-      const t = btn.getAttribute('data-type');
-      const isActive = (t === activeType && status !== 'cleared');
-      btn.classList.toggle('active', isActive);
+    // Update star/like button
+    const starBtn = article.querySelector('.star-like-btn');
+    const likeCount = article.querySelector('.like-count');
+    const starIcon = article.querySelector('.star-icon');
+    if (starBtn && likeCount) {
+      const likeCountValue = counts.like || 0;
+      likeCount.textContent = likeCountValue;
+      if (status === 'cleared') {
+        starBtn.classList.remove('active');
+        starBtn.style.borderColor = '#e5e7eb';
+        starBtn.style.color = '#6b7280';
+        if (starIcon) starIcon.style.filter = 'none';
+      } else {
+        starBtn.classList.add('active');
+        starBtn.style.borderColor = 'rgba(255,79,163,0.4)';
+        starBtn.style.color = '#111827';
+        if (starIcon) starIcon.style.filter = 'drop-shadow(0 0 8px rgba(255,79,163,0.6))';
+      }
+    }
+  }
+  
+  // Repost modal
+  function showRepostModal(postId) {
+    const existingModal = document.getElementById('repostModal');
+    if (existingModal) existingModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'repostModal';
+    modal.innerHTML = `
+      <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:10000;animation:fadeIn 0.2s ease;">
+        <div style="background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:500px;width:90%;animation:slideUp 0.3s ease;">
+          <div style="padding:24px;border-bottom:1px solid #e5e7eb;">
+            <h3 style="margin:0;font-size:1.25rem;font-weight:700;color:#1f2937;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.5rem;">🔄</span> Repost
+            </h3>
+          </div>
+          <div style="padding:24px;">
+            <p style="margin:0 0 20px 0;color:#4b5563;line-height:1.6;">How would you like to repost this?</p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <button id="simpleRepostBtn" style="padding:16px;background:linear-gradient(135deg,#fff,#f9fafb);border:2px solid #e5e7eb;border-radius:12px;font-weight:600;color:#374151;cursor:pointer;transition:all 0.2s;text-align:left;">
+                <div style="font-size:1.1rem;margin-bottom:4px;">🔄 Simple Repost</div>
+                <div style="font-size:0.85rem;color:#6b7280;">Share this post as-is</div>
+              </button>
+              <button id="quoteRepostBtn" style="padding:16px;background:linear-gradient(135deg,#fff,#f9fafb);border:2px solid #e5e7eb;border-radius:12px;font-weight:600;color:#374151;cursor:pointer;transition:all 0.2s;text-align:left;">
+                <div style="font-size:1.1rem;margin-bottom:4px;">💬 Quote Repost</div>
+                <div style="font-size:0.85rem;color:#6b7280;">Add your thoughts to the repost</div>
+              </button>
+            </div>
+            <div id="quoteInputContainer" style="display:none;margin-top:16px;">
+              <textarea id="quoteText" placeholder="Add your thoughts..." style="width:100%;min-height:100px;padding:12px;border:2px solid #e5e7eb;border-radius:12px;font-size:0.95rem;resize:vertical;font-family:inherit;"></textarea>
+            </div>
+          </div>
+          <div style="padding:16px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:12px;justify-content:flex-end;border-radius:0 0 20px 20px;">
+            <button onclick="closeRepostModal()" style="padding:10px 24px;background:#fff;color:#374151;border:2px solid #e5e7eb;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;">Cancel</button>
+            <button id="confirmRepostBtn" style="padding:10px 24px;background:linear-gradient(135deg,#ff4fa3,#e63e8f);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(255,79,163,0.3);display:none;">Repost</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    let isQuoteMode = false;
+    const simpleBtn = document.getElementById('simpleRepostBtn');
+    const quoteBtn = document.getElementById('quoteRepostBtn');
+    const quoteContainer = document.getElementById('quoteInputContainer');
+    const confirmBtn = document.getElementById('confirmRepostBtn');
+    const quoteText = document.getElementById('quoteText');
+    
+    simpleBtn.addEventListener('click', () => {
+      isQuoteMode = false;
+      simpleBtn.style.borderColor = '#ff4fa3';
+      simpleBtn.style.background = 'linear-gradient(135deg, rgba(255,79,163,0.1), rgba(255,79,163,0.05))';
+      quoteBtn.style.borderColor = '#e5e7eb';
+      quoteBtn.style.background = 'linear-gradient(135deg,#fff,#f9fafb)';
+      quoteContainer.style.display = 'none';
+      confirmBtn.style.display = 'block';
+    });
+    
+    quoteBtn.addEventListener('click', () => {
+      isQuoteMode = true;
+      quoteBtn.style.borderColor = '#ff4fa3';
+      quoteBtn.style.background = 'linear-gradient(135deg, rgba(255,79,163,0.1), rgba(255,79,163,0.05))';
+      simpleBtn.style.borderColor = '#e5e7eb';
+      simpleBtn.style.background = 'linear-gradient(135deg,#fff,#f9fafb)';
+      quoteContainer.style.display = 'block';
+      confirmBtn.style.display = 'block';
+      quoteText.focus();
+    });
+    
+    confirmBtn.addEventListener('click', async () => {
+      const quote = isQuoteMode ? quoteText.value.trim() : null;
+      if (isQuoteMode && !quote) {
+        alert('Please add your thoughts for a quote repost');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`/api/posts/${postId}/repost`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quoteText: quote })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeRepostModal();
+          if (typeof showInfo === 'function') {
+            showInfo('Post reposted successfully!');
+          }
+          // Reload page to show the repost
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          alert(data.error || 'Failed to repost');
+        }
+      } catch (err) {
+        console.error('Repost error:', err);
+        alert('Failed to repost. Please try again.');
+      }
     });
   }
+  
+  function closeRepostModal() {
+    const modal = document.getElementById('repostModal');
+    if (modal) modal.remove();
+  }
+  
+  window.showRepostModal = showRepostModal;
+  window.closeRepostModal = closeRepostModal;
   function renderCommentItem(c){
     const avatar = c.profile_picture ? `<img src="/uploads/${c.profile_picture}" alt="${c.full_name}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">` : `<div style="width:28px;height:28px;border-radius:50%;background:#7C3AED;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;">${(c.full_name||'U').charAt(0)}</div>`;
     const time = new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});

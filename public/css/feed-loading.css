@@ -10,11 +10,11 @@
 
 .skeleton-post {
     background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.95), 
-        rgba(255, 255, 255, 0.98)
+        rgba(11, 10, 20, 0.95), 
+        rgba(30, 22, 48, 0.98)
     );
     backdrop-filter: blur(20px);
-    border: 2px solid rgba(229, 231, 235, 0.5);
+    border: 2px solid rgba(255, 77, 255, 0.2);
     border-radius: 20px;
     padding: 1.75rem;
     margin-bottom: 1.75rem;
@@ -32,7 +32,7 @@
     background: linear-gradient(
         90deg,
         transparent 0%,
-        rgba(255, 79, 163, 0.08) 50%,
+        rgba(255, 77, 255, 0.08) 50%,
         transparent 100%
     );
     animation: shimmerSkeleton 2s infinite;
@@ -54,7 +54,7 @@
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+    background: linear-gradient(135deg, rgba(30, 22, 48, 0.8), rgba(20, 16, 34, 0.8));
     position: relative;
     overflow: hidden;
 }
@@ -89,7 +89,7 @@
 
 .skeleton-line {
     height: 12px;
-    background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+    background: linear-gradient(135deg, rgba(30, 22, 48, 0.8), rgba(20, 16, 34, 0.8));
     border-radius: 6px;
     position: relative;
     overflow: hidden;
@@ -132,7 +132,7 @@
 
 .skeleton-text {
     height: 16px;
-    background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+    background: linear-gradient(135deg, rgba(30, 22, 48, 0.8), rgba(20, 16, 34, 0.8));
     border-radius: 8px;
     position: relative;
     overflow: hidden;
@@ -158,7 +158,7 @@
     width: 100%;
     height: 300px;
     margin-top: 1rem;
-    background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+    background: linear-gradient(135deg, rgba(30, 22, 48, 0.8), rgba(20, 16, 34, 0.8));
     border-radius: 16px;
     position: relative;
     overflow: hidden;
@@ -189,7 +189,7 @@
 .skeleton-button {
     width: 80px;
     height: 36px;
-    background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+    background: linear-gradient(135deg, rgba(30, 22, 48, 0.8), rgba(20, 16, 34, 0.8));
     border-radius: 50px;
     position: relative;
     overflow: hidden;
@@ -232,8 +232,8 @@
     width: 100%;
     height: 100%;
     border: 4px solid transparent;
-    border-top-color: #ff4fa3;
-    border-right-color: #764ba2;
+    border-top-color: #FF4DFF;
+    border-right-color: #A53CFF;
     border-radius: 50%;
     animation: spinnerRotate 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
@@ -243,8 +243,8 @@
     height: 80%;
     top: 10%;
     left: 10%;
-    border-top-color: #764ba2;
-    border-right-color: #667eea;
+    border-top-color: #A53CFF;
+    border-right-color: #3FD6FF;
     animation-duration: 1.5s;
     animation-direction: reverse;
 }
@@ -254,8 +254,8 @@
     height: 60%;
     top: 20%;
     left: 20%;
-    border-top-color: #667eea;
-    border-right-color: #ff4fa3;
+    border-top-color: #3FD6FF;
+    border-right-color: #FF4DFF;
     animation-duration: 1.8s;
 }
 
@@ -267,7 +267,7 @@
 .spinner-text {
     font-size: 1.1rem;
     font-weight: 600;
-    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    background: linear-gradient(135deg, #FF4DFF, #A53CFF);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -292,7 +292,7 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    background: linear-gradient(135deg, #FF4DFF, #A53CFF);
     animation: dotBounce 1.4s infinite ease-in-out both;
 }
 
@@ -327,7 +327,7 @@
 .wave-bar {
     width: 6px;
     height: 40px;
-    background: linear-gradient(180deg, #ff4fa3, #764ba2);
+    background: linear-gradient(180deg, #FF4DFF, #A53CFF);
     border-radius: 3px;
     animation: waveStretch 1.2s infinite ease-in-out;
 }
@@ -360,7 +360,7 @@
 
 .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #ff4fa3, #764ba2, #667eea, #ff4fa3);
+    background: linear-gradient(90deg, #FF4DFF, #A53CFF, #3FD6FF, #FF4DFF);
     background-size: 200% 100%;
     border-radius: 3px;
     animation: progressFlow 2s linear infinite;
@@ -381,11 +381,11 @@
     padding: 4rem 2rem;
     text-align: center;
     background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.95), 
-        rgba(255, 255, 255, 0.98)
+        rgba(11, 10, 20, 0.95), 
+        rgba(30, 22, 48, 0.98)
     );
     backdrop-filter: blur(20px);
-    border: 2px solid rgba(229, 231, 235, 0.5);
+    border: 2px solid rgba(255, 77, 255, 0.2);
     border-radius: 24px;
     margin: 2rem 0;
 }
@@ -400,7 +400,7 @@
     font-size: 1.75rem;
     font-weight: 700;
     margin-bottom: 0.75rem;
-    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    background: linear-gradient(135deg, #FF4DFF, #A53CFF);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -408,13 +408,13 @@
 
 .empty-description {
     font-size: 1.1rem;
-    color: #6b7280;
+    color: rgba(255, 255, 255, 0.7);
     margin-bottom: 2rem;
     max-width: 500px;
 }
 
 .empty-action {
-    background: linear-gradient(135deg, #ff4fa3, #e63e8f);
+    background: linear-gradient(135deg, #FF4DFF, #D845FF);
     color: white;
     padding: 0.875rem 2rem;
     border-radius: 50px;
@@ -423,12 +423,12 @@
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 12px rgba(255, 79, 163, 0.3);
+    box-shadow: 0 4px 12px rgba(255, 77, 255, 0.3);
 }
 
 .empty-action:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(255, 79, 163, 0.4);
+    box-shadow: 0 6px 16px rgba(255, 77, 255, 0.4);
 }
 
 /* === FADE TRANSITIONS === */

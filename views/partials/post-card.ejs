@@ -1,17 +1,52 @@
-<article class="post-card <%= post.is_premium ? 'premium' : '' %>" data-post-id="<%= post.id %>">
+<article class="post-card <%= post.is_premium ? 'premium' : '' %> <%= post.content_type === 'repost' ? 'repost-card' : '' %>" data-post-id="<%= post.id %>">
+  <% if (post.content_type === 'repost' && post.repost_info) { %>
+    <div class="repost-header" style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:linear-gradient(135deg, rgba(255,79,163,0.05), rgba(118,75,162,0.05));border-radius:12px;margin-bottom:16px;border:1px solid rgba(255,79,163,0.15);">
+      <span style="font-size:1.2rem;">🔄</span>
+      <div style="flex:1;display:flex;align-items:center;gap:8px;font-size:0.9rem;color:#6b7280;">
+        <strong style="color:#111827;"><%= post.full_name %></strong>
+        <span><%= post.repost_info.is_quote_repost ? 'quoted' : 'reposted' %></span>
+        <% if (post.repost_info.original_author_name) { %>
+          <a href="/profile/<%= post.repost_info.original_user_id %>" style="color:#7C3AED;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+            <%= post.repost_info.original_author_name %>'s
+            <span style="font-size:0.85rem;">post</span>
+          </a>
+        <% } %>
+      </div>
+    </div>
+    <% if (post.repost_info.quote_text) { %>
+      <div class="quote-text" style="padding:12px 16px;background:linear-gradient(135deg, rgba(124,58,237,0.05), rgba(124,58,237,0.02));border-left:3px solid #7C3AED;border-radius:8px;margin-bottom:16px;font-size:0.95rem;color:#374151;line-height:1.6;">
+        <%= post.repost_info.quote_text %>
+      </div>
+    <% } %>
+  <% } %>
   <header class="post-header">
-    <% if (post.profile_picture) { %>
-      <img src="/uploads/<%= post.profile_picture %>" alt="<%= post.full_name %>" class="avatar" style="width:52px;height:52px;object-fit:cover;cursor:pointer;" ondblclick="window.location.href='/profile/<%= post.user_id %>'">
+    <% 
+      const displayUser = post.content_type === 'repost' && post.repost_info ? {
+        id: post.repost_info.original_user_id,
+        name: post.repost_info.original_author_name,
+        picture: post.repost_info.original_author_picture
+      } : {
+        id: post.user_id,
+        name: post.full_name,
+        picture: post.profile_picture
+      };
+    %>
+    <% if (displayUser.picture) { %>
+      <img src="/uploads/<%= displayUser.picture %>" alt="<%= displayUser.name %>" class="avatar" style="width:52px;height:52px;object-fit:cover;cursor:pointer;" ondblclick="window.location.href='/profile/<%= displayUser.id %>'">
     <% } else { %>
-      <div class="avatar" style="width:52px;height:52px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;cursor:pointer;" ondblclick="window.location.href='/profile/<%= post.user_id %>'"><%= post.full_name.charAt(0) %></div>
+      <div class="avatar" style="width:52px;height:52px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.25rem;cursor:pointer;" ondblclick="window.location.href='/profile/<%= displayUser.id %>'"><%= displayUser.name.charAt(0) %></div>
     <% } %>
     <div class="post-user-meta">
-      <h3 class="post-user-name"><%= post.full_name %></h3>
+      <h3 class="post-user-name"><%= displayUser.name %></h3>
       <div class="post-meta-line">
-        <% if (post.activity_label) { %>
-          <span class="post-passion-tag"><%= post.activity_label %></span>
+        <% if (post.content_type === 'repost' && post.repost_info) { %>
+          <span class="post-time"><%= new Date(post.repost_info.original_created_at).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }) %></span>
+        <% } else { %>
+          <% if (post.activity_label) { %>
+            <span class="post-passion-tag"><%= post.activity_label %></span>
+          <% } %>
+          <span class="post-time">• <%= new Date(post.created_at).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }) %></span>
         <% } %>
-        <span class="post-time">• <%= new Date(post.created_at).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }) %></span>
       </div>
     </div>
     <% if (typeof authUser !== 'undefined' && authUser && (authUser.role === 'super_admin' || authUser.role === 'global_admin' || authUser.role === 'admin')) { %>
@@ -87,14 +122,33 @@
     <% } %>
   </header>
   <div class="post-body">
-    <% if (post.title) { %>
-      <h4 class="post-title"><%= post.title %></h4>
+    <% 
+      const displayPost = post.content_type === 'repost' && post.repost_info ? {
+        title: post.repost_info.original_title,
+        text_content: post.repost_info.original_text_content,
+        content_type: post.repost_info.original_content_type,
+        image_url: post.repost_info.original_image_url,
+        video_url: post.repost_info.original_video_url,
+        external_video_url: post.repost_info.original_external_video_url,
+        is_reel: post.repost_info.original_is_reel
+      } : {
+        title: post.title,
+        text_content: post.text_content,
+        content_type: post.content_type,
+        image_url: post.image_url,
+        video_url: post.video_url,
+        external_video_url: post.external_video_url,
+        is_reel: post.is_reel
+      };
+    %>
+    <% if (displayPost.title) { %>
+      <h4 class="post-title"><%= displayPost.title %></h4>
     <% } %>
-    <% if (post.text_content) { %>
-      <p class="post-text"><%= post.text_content %></p>
+    <% if (displayPost.text_content) { %>
+      <p class="post-text"><%= displayPost.text_content %></p>
     <% } %>
-    <% const mediaUrl = post.image_url || post.video_url || post.media_url; %>
-    <% if (mediaUrl || post.external_video_url) { %>
+    <% const mediaUrl = displayPost.image_url || displayPost.video_url || post.media_url; %>
+    <% if (mediaUrl || displayPost.external_video_url) { %>
       <div class="post-media-stack">
         <% if (mediaUrl) {
              let normalized = String(mediaUrl);
@@ -103,7 +157,7 @@
              const isImage = /\.(jpg|jpeg|png|gif|webp|avif|heic|heif)$/i.test(normalized) || post.content_type === 'image';
              const isVideo = /\.(mp4|webm|ogg|mov|m4v|mkv|avi|wmv)$/i.test(normalized) || post.content_type === 'video';
         %>
-          <% if (post.is_reel && isVideo) { %>
+          <% if (displayPost.is_reel && isVideo) { %>
             <div class="post-media-shell reel">
               <video src="<%= normalized %>" controls playsinline style="width:100%;max-height:640px;display:block;"></video>
               <div class="post-media-badge">🎬 Reel</div>
@@ -116,9 +170,9 @@
             <div class="post-media-unsupported">Unsupported media format</div>
           <% } %>
         <% } %>
-        <% if (!mediaUrl && post.external_video_url) { %>
+        <% if (!mediaUrl && displayPost.external_video_url) { %>
           <div class="external-video-embed">
-            <iframe src="<%= post.external_video_url %>" title="Embedded video" frameborder="0" allowfullscreen loading="lazy"></iframe>
+            <iframe src="<%= displayPost.external_video_url %>" title="Embedded video" frameborder="0" allowfullscreen loading="lazy"></iframe>
           </div>
         <% } %>
       </div>
@@ -177,25 +231,18 @@
   </div>
   <footer class="post-footer" style="padding-top:1.25rem;margin-top:1.25rem;border-top:2px solid rgba(229,231,235,0.5);">
     <div class="reactions-row">
-      <div class="reactions-container">
-        <% const rx = post.reactions || {}; const ur = post.user_reaction; %>
-        <button type="button" class="rx-btn<%= ur==='like' ? ' active' : '' %>" data-type="like">
-          <span>👍</span><span class="rx-count" data-type="like"><%= rx.like || 0 %></span>
+      <div class="reactions-container" style="display:flex;align-items:center;gap:1rem;">
+        <% const rx = post.reactions || {}; const ur = post.user_reaction; const likeCount = rx.like || 0; %>
+        <button type="button" class="star-like-btn<%= ur==='like' ? ' active' : '' %>" data-type="like" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.25rem;background:linear-gradient(135deg,#fff,#f9fafb);border:2px solid <%= ur==='like' ? 'rgba(255,79,163,0.4)' : '#e5e7eb' %>;border-radius:50px;font-weight:700;font-size:0.95rem;color:<%= ur==='like' ? '#111827' : '#6b7280' %>;cursor:pointer;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:visible;">
+          <span class="star-icon" style="font-size:1.4rem;line-height:1;display:inline-block;transition:all 0.4s cubic-bezier(0.68,-0.55,0.265,1.55);filter:<%= ur==='like' ? 'drop-shadow(0 0 8px rgba(255,79,163,0.6))' : 'none' %>;">⭐</span>
+          <span class="like-count" style="font-weight:700;min-width:20px;text-align:center;"><%= likeCount %></span>
         </button>
-        <button type="button" class="rx-btn<%= ur==='love' ? ' active' : '' %>" data-type="love">
-          <span>❤️</span><span class="rx-count" data-type="love"><%= rx.love || 0 %></span>
-        </button>
-        <button type="button" class="rx-btn<%= ur==='clap' ? ' active' : '' %>" data-type="clap">
-          <span>👏</span><span class="rx-count" data-type="clap"><%= rx.clap || 0 %></span>
-        </button>
-        <button type="button" class="rx-btn<%= ur==='fire' ? ' active' : '' %>" data-type="fire">
-          <span>🔥</span><span class="rx-count" data-type="fire"><%= rx.fire || 0 %></span>
-        </button>
-        <button type="button" class="rx-btn<%= ur==='rocket' ? ' active' : '' %>" data-type="rocket">
-          <span>🚀</span><span class="rx-count" data-type="rocket"><%= rx.rocket || 0 %></span>
-        </button>
-        <button type="button" class="rx-btn<%= ur==='celebrate' ? ' active' : '' %>" data-type="celebrate">
-          <span>🎉</span><span class="rx-count" data-type="celebrate"><%= rx.celebrate || 0 %></span>
+        <% 
+          const originalPostId = post.content_type === 'repost' && post.repost_info ? post.repost_info.original_post_id : post.id;
+        %>
+        <button type="button" class="repost-btn" data-post-id="<%= originalPostId %>" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.25rem;background:linear-gradient(135deg,#fff,#f9fafb);border:2px solid #e5e7eb;border-radius:50px;font-weight:700;font-size:0.95rem;color:#6b7280;cursor:pointer;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);position:relative;" title="Repost">
+          <span style="font-size:1.2rem;">🔄</span>
+          <span class="repost-count"><%= post.repost_count || 0 %></span>
         </button>
       </div>
       <button type="button" class="comment-toggle">
@@ -228,42 +275,53 @@
         if (!btn) return;
         btn.innerHTML = (open ? 'Hide comments (' : 'Show comments (') + '<span class="comment-count">' + num + '</span>)';
       }
-      article.querySelectorAll('.rx-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const type = btn.getAttribute('data-type');
-          const res = await fetch(`/api/posts/${postId}/react`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type }) });
+      // Star/like button with animation
+      const starBtn = article.querySelector('.star-like-btn');
+      if (starBtn) {
+        starBtn.addEventListener('click', async () => {
+          const icon = starBtn.querySelector('.star-icon');
+          const countSpan = starBtn.querySelector('.like-count');
+          
+          // Animate star
+          icon.style.transform = 'scale(1.5) rotate(15deg)';
+          icon.style.filter = 'drop-shadow(0 0 12px rgba(255,79,163,0.8))';
+          setTimeout(() => {
+            icon.style.transform = 'scale(1) rotate(0deg)';
+          }, 300);
+          
+          const res = await fetch(`/api/posts/${postId}/react`, { 
+            method:'POST', 
+            headers:{'Content-Type':'application/json'}, 
+            body: JSON.stringify({ type: 'like' }) 
+          });
           const data = await res.json();
-          if (!data.success) return; H.updateReactions(article, data.counts, type, data.status);
-        });
-      });
-      
-      // Mobile long-press for reaction menu
-      if (window.innerWidth <= 768) {
-        const container = article.querySelector('.reactions-container');
-        const firstBtn = container.querySelector('.rx-btn:first-child');
-        let pressTimer;
-        
-        firstBtn.addEventListener('touchstart', (e) => {
-          pressTimer = setTimeout(() => {
-            // Show all reactions on long press
-            container.classList.add('expanded');
-            e.preventDefault();
-          }, 500);
-        });
-        
-        firstBtn.addEventListener('touchend', () => {
-          clearTimeout(pressTimer);
-        });
-        
-        firstBtn.addEventListener('touchmove', () => {
-          clearTimeout(pressTimer);
-        });
-        
-        // Close expanded reactions when clicking outside
-        document.addEventListener('click', (e) => {
-          if (!container.contains(e.target) && container.classList.contains('expanded')) {
-            container.classList.remove('expanded');
+          if (!data.success) {
+            icon.style.filter = '';
+            return;
           }
+          
+          // Update UI
+          const likeCount = data.counts.like || 0;
+          countSpan.textContent = likeCount;
+          if (data.status === 'cleared') {
+            starBtn.classList.remove('active');
+            starBtn.style.borderColor = '#e5e7eb';
+            starBtn.style.color = '#6b7280';
+            icon.style.filter = 'none';
+          } else {
+            starBtn.classList.add('active');
+            starBtn.style.borderColor = 'rgba(255,79,163,0.4)';
+            starBtn.style.color = '#111827';
+            icon.style.filter = 'drop-shadow(0 0 8px rgba(255,79,163,0.6))';
+          }
+        });
+      }
+      
+      // Repost button
+      const repostBtn = article.querySelector('.repost-btn');
+      if (repostBtn) {
+        repostBtn.addEventListener('click', () => {
+          showRepostModal(postId);
         });
       }
       const toggleBtn = article.querySelector('.comment-toggle');

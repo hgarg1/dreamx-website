@@ -18,6 +18,8 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/img/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/img/icon-512.png">
 
   <!-- iOS PWA Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -37,7 +39,7 @@
 
 
 
-  <% if(authUser){ %>
+  <% if(typeof authUser !== 'undefined' && authUser){ %>
     <!-- Socket.IO for real-time notifications -->
     <script src="/socket.io/socket.io.js"></script>
     <% } %>
@@ -178,7 +180,8 @@
       <!-- Logo -->
       <div class="logo">
         <a href="/">
-          <img src="/img/logo.svg" alt="Dream X" height="40">
+          <img src="/img/logo.png" alt="Dream X" class="logo-image">
+          <span class="logo-text">Dream <span class="logo-x">X</span></span>
         </a>
       </div>
 
@@ -191,24 +194,24 @@
 
       <!-- Navigation Links -->
       <ul class="nav-links">
-        <% if(!authUser){ %>
+        <% if(typeof authUser === 'undefined' || !authUser){ %>
           <li><a href="/" class="<%= currentPage === 'home' ? 'active' : '' %>">Home</a></li>
           <% } %>
-            <% if(authUser){ %>
+            <% if(typeof authUser !== 'undefined' && authUser){ %>
               <li><a href="/feed" class="<%= currentPage === 'feed' ? 'active' : '' %>">Feed</a></li>
               <li><a href="/services" class="<%= currentPage === 'services' ? 'active' : '' %>">Services</a></li>
               <li><a href="/map" class="<%= currentPage === 'map' ? 'active' : '' %>">Map</a></li>
               <li><a href="/billing" class="<%= currentPage === 'billing' ? 'active' : '' %>">Billing</a></li>
               <li style="position:relative;"><a href="/messages"
                   class="<%= currentPage === 'messages' ? 'active' : '' %>">Messages</a>
-                <% if(unreadMessageCount> 0){ %><span
-                    style="position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);">
+                <% if(typeof unreadMessageCount !== 'undefined' && unreadMessageCount > 0){ %><span
+                    style="position:absolute;top:-6px;right:-8px;background:#FF4DFF;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,77,255,0.4);">
                     <%= unreadMessageCount %>
                   </span>
                   <% } %>
               </li>
               <li style="position:relative;"><a href="#" id="notificationBell">🔔</a><span id="notificationBadge"
-                  style="display:none;position:absolute;top:-6px;right:-8px;background:#ff4fa3;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,79,163,0.4);"></span>
+                  style="display:none;position:absolute;top:-6px;right:-8px;background:#FF4DFF;color:white;padding:3px 7px;border-radius:12px;font-size:10px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 8px rgba(255,77,255,0.4);"></span>
               </li>
               <!-- User Dropdown -->
               <li class="nav-user dropdown">

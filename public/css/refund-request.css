@@ -10,9 +10,9 @@
   text-align: center;
   margin-bottom: 48px;
   padding: 40px 20px;
-  background: linear-gradient(135deg, #fff5f7 0%, #fff 100%);
+  background: linear-gradient(135deg, rgba(255, 77, 255, 0.1) 0%, rgba(11, 10, 20, 0.95) 100%);
   border-radius: 24px;
-  border: 2px solid #ffe4e6;
+  border: 2px solid rgba(255, 77, 255, 0.3);
 }
 
 .refund-header-content {
@@ -23,7 +23,7 @@
 .refund-icon {
   margin: 0 auto 16px;
   display: block;
-  stroke: #ec4899;
+  stroke: #FF4DFF;
   opacity: 0.8;
 }
 
@@ -31,7 +31,7 @@
   font-size: 2.5rem;
   font-weight: 800;
   margin: 0 0 12px;
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  background: linear-gradient(135deg, #FF4DFF, #A53CFF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -39,18 +39,18 @@
 
 .refund-subtitle {
   font-size: 1.1rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
   margin: 0;
   font-weight: 500;
 }
 
 /* Wizard Container */
 .wizard-container {
-  background: white;
+  background: var(--bg-cosmic-shadow);
   border-radius: 20px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
   padding: 48px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(255, 77, 255, 0.2);
 }
 
 /* Wizard Steps */
@@ -96,15 +96,15 @@
 }
 
 .step.active .step-circle {
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  background: linear-gradient(135deg, #FF4DFF, #A53CFF);
   color: white;
-  border-color: #ec4899;
+  border-color: #FF4DFF;
   box-shadow: 0 8px 20px rgba(236, 72, 153, 0.3);
   transform: scale(1.1);
 }
 
 .step.active .step-label {
-  color: #ec4899;
+  color: #FF4DFF;
 }
 
 .step.completed .step-circle {
@@ -160,12 +160,12 @@
   font-size: 1.875rem;
   font-weight: 700;
   margin: 0 0 12px;
-  color: #111827;
+  color: #ffffff;
 }
 
 .step-description {
   font-size: 1rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
   margin: 0;
   line-height: 1.6;
   max-width: 600px;
@@ -180,7 +180,7 @@
 .form-label {
   display: block;
   font-weight: 600;
-  color: #374151;
+  color: #ffffff;
   margin-bottom: 8px;
   font-size: 0.95rem;
 }
@@ -199,15 +199,15 @@
   font-size: 1rem;
   font-family: inherit;
   transition: all 0.2s;
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #ec4899;
-  background: white;
-  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+  border-color: #FF4DFF;
+  background: var(--bg-cosmic-shadow);
+  box-shadow: 0 0 0 4px rgba(255, 77, 255, 0.1);
 }
 
 .form-textarea {
@@ -219,7 +219,7 @@
   display: block;
   margin-top: 6px;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
   font-style: italic;
 }
 
@@ -233,7 +233,7 @@
   position: absolute;
   left: 16px;
   font-weight: 600;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
   font-size: 1.1rem;
   pointer-events: none;
 }
@@ -267,14 +267,14 @@
   padding: 20px;
   border: 2px solid #e5e7eb;
   border-radius: 16px;
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.05);
   transition: all 0.3s;
 }
 
 .radio-card input:checked + .radio-content {
-  border-color: #ec4899;
-  background: linear-gradient(135deg, #fff5f7, #fef3f9);
-  box-shadow: 0 8px 20px rgba(236, 72, 153, 0.15);
+  border-color: #FF4DFF;
+  background: linear-gradient(135deg, rgba(255, 77, 255, 0.1), rgba(165, 60, 255, 0.1));
+  box-shadow: 0 8px 20px rgba(255, 77, 255, 0.15);
 }
 
 .radio-icon {
@@ -282,7 +282,7 @@
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: white;
+  background: var(--bg-cosmic-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -291,8 +291,8 @@
 }
 
 .radio-card input:checked + .radio-content .radio-icon {
-  border-color: #ec4899;
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  border-color: #FF4DFF;
+  background: linear-gradient(135deg, #FF4DFF, #A53CFF);
 }
 
 .radio-card input:checked + .radio-content .radio-icon svg {
@@ -301,14 +301,14 @@
 
 .radio-title {
   font-weight: 700;
-  color: #111827;
+  color: #ffffff;
   font-size: 1.05rem;
   margin-bottom: 4px;
 }
 
 .radio-description {
   font-size: 0.9rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
   line-height: 1.5;
 }
 
@@ -318,13 +318,13 @@
   border-radius: 16px;
   padding: 40px 20px;
   text-align: center;
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.05);
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .file-upload-area:hover {
-  border-color: #ec4899;
+  border-color: #FF4DFF;
   background: #fff5f7;
 }
 
@@ -334,12 +334,12 @@
 }
 
 .file-upload-area:hover svg {
-  stroke: #ec4899;
+  stroke: #FF4DFF;
 }
 
 .file-upload-area p {
   font-weight: 600;
-  color: #374151;
+  color: #ffffff;
   margin: 0 0 6px;
 }
 
@@ -376,13 +376,13 @@
 
 .file-preview-name {
   font-weight: 600;
-  color: #374151;
+  color: #ffffff;
   margin-bottom: 4px;
 }
 
 .file-preview-size {
   font-size: 0.85rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* Wizard Actions */
@@ -408,7 +408,7 @@
 
 .btn-prev {
   background: #f3f4f6;
-  color: #374151;
+  color: #ffffff;
 }
 
 .btn-prev:hover {
@@ -418,14 +418,14 @@
 
 .btn-next,
 .btn-submit {
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  background: linear-gradient(135deg, #FF4DFF, #A53CFF);
   color: white;
-  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 77, 255, 0.3);
 }
 
 .btn-next:hover,
 .btn-submit:hover {
-  box-shadow: 0 8px 20px rgba(236, 72, 153, 0.4);
+  box-shadow: 0 8px 20px rgba(255, 77, 255, 0.4);
   transform: translateY(-2px);
 }
 
@@ -450,7 +450,7 @@
 .review-section-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #111827;
+  color: #ffffff;
   margin: 0 0 20px;
   padding-bottom: 12px;
   border-bottom: 2px solid #e5e7eb;
@@ -475,14 +475,14 @@
 .review-label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.7);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .review-value {
   font-size: 1rem;
-  color: #111827;
+  color: #ffffff;
   font-weight: 500;
 }
 

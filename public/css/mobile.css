@@ -366,21 +366,26 @@
     height: 32px;
   }
 
+  /* Feed layout is handled in feed.css - minimal protection here */
   .feed-layout {
-    grid-template-columns: 1fr;
-    gap: 0;
+    display: flex !important;
+    flex-direction: column !important;
   }
-
-  .feed-main {
-    width: 100%;
-  }
-
-  .feed-sidebar {
-    display: none;
-  }
-
+  
+  .feed-sidebar.left-sidebar,
   .left-sidebar {
-    display: none;
+    order: 1 !important;
+    display: block !important;
+  }
+  
+  .feed-main {
+    order: 2 !important;
+  }
+  
+  .feed-sidebar.right-sidebar,
+  .right-sidebar {
+    order: 3 !important;
+    display: block !important;
   }
 
   /* Post Cards */
@@ -1422,4 +1427,32 @@
     --border-color: #374151;
   }
   */
+}
+
+/* ============================================
+   MINIMAL FEED LAYOUT PROTECTION (≤768px)
+   Minimal safeguard to prevent mobile.css from breaking feed layout
+   Main rules are in feed.css - this is just a safety net
+   ============================================ */
+@media (max-width: 768px) {
+  .feed-layout {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  .feed-sidebar.left-sidebar,
+  .left-sidebar {
+    order: 1 !important;
+    display: block !important;
+  }
+  
+  .feed-main {
+    order: 2 !important;
+  }
+  
+  .feed-sidebar.right-sidebar,
+  .right-sidebar {
+    order: 3 !important;
+    display: block !important;
+  }
 }

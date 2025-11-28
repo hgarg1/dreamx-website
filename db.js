@@ -797,6 +797,26 @@ CREATE INDEX IF NOT EXISTS idx_post_comments_post ON post_comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_post_comments_parent ON post_comments(parent_id);
 `);
 
+// Reposts table
+db.exec(`CREATE TABLE IF NOT EXISTS post_reposts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  original_post_id INTEGER NOT NULL,
+  repost_depth INTEGER DEFAULT 1,
+  is_quote_repost INTEGER DEFAULT 0,
+  quote_text TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(post_id, user_id),
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (original_post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_post_reposts_post ON post_reposts(post_id);
+CREATE INDEX IF NOT EXISTS idx_post_reposts_original ON post_reposts(original_post_id);
+CREATE INDEX IF NOT EXISTS idx_post_reposts_user ON post_reposts(user_id);
+`);
+
 db.exec(`CREATE TABLE IF NOT EXISTS comment_likes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   comment_id INTEGER NOT NULL,
@@ -1567,7 +1587,7 @@ module.exports = {
     );
     return info.lastInsertRowid;
   },
-  getFeedPosts: ({ limit, offset }) => {
+  getFeedPosts: ({ limit, offset, userId = null }) => {
     return db.prepare(`
       SELECT p.*, u.full_name, u.email, u.profile_picture,
         (SELECT COUNT(*) FROM posts) as total_count,
@@ -1585,6 +1605,37 @@ module.exports = {
         GROUP BY reaction_type
       `).all(row.id);
       row.reactions = counts.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
+      
+      // Get user reaction if userId provided
+      if (userId) {
+        const userReaction = db.prepare(`SELECT reaction_type FROM post_reactions WHERE post_id = ? AND user_id = ?`).get(row.id, userId);
+        row.user_reaction = userReaction ? userReaction.reaction_type : null;
+      }
+      
+      // Get repost info if this is a repost
+      if (row.content_type === 'repost') {
+        const repostInfo = db.prepare(`
+          SELECT pr.original_post_id, pr.repost_depth, pr.is_quote_repost, pr.quote_text,
+                 op.user_id as original_user_id, op.title as original_title, op.text_content as original_text_content,
+                 op.content_type as original_content_type, op.image_url as original_image_url,
+                 op.video_url as original_video_url, op.external_video_url as original_external_video_url,
+                 op.is_reel as original_is_reel, op.created_at as original_created_at,
+                 ou.full_name as original_author_name, ou.profile_picture as original_author_picture,
+                 ou.handle as original_author_handle
+          FROM post_reposts pr
+          JOIN posts op ON op.id = pr.original_post_id
+          JOIN users ou ON ou.id = op.user_id
+          WHERE pr.post_id = ?
+        `).get(row.id);
+        if (repostInfo) {
+          row.repost_info = repostInfo;
+        }
+      }
+      
+      // Get repost count
+      const repostCount = db.prepare(`SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?`).get(row.id);
+      row.repost_count = repostCount ? repostCount.c : 0;
+      
       row.hashtags = getPostHashtags(row.id);
       row.tags = getPostTags(row.id);
       return row;
@@ -1737,7 +1788,16 @@ module.exports = {
       }
       return '';
     };
-    const normalizeRpId = (value) => (value ? value.trim().toLowerCase() : null);
+    // Normalize RP ID: remove www prefix and convert to lowercase for consistency
+    const normalizeRpId = (value) => {
+      if (!value) return null;
+      let normalized = value.trim().toLowerCase();
+      // Remove www. prefix to ensure consistent RP ID across www and non-www
+      if (normalized.startsWith('www.')) {
+        normalized = normalized.substring(4);
+      }
+      return normalized;
+    };
 
     const normalizedCredentialId = normalizeBase64Url(credentialId);
     const normalizedPublicKey = normalizeBase64Url(publicKey);
@@ -1748,10 +1808,21 @@ module.exports = {
       .run(userId, normalizedCredentialId, normalizedPublicKey, normalizedCounter, transports || null, normalizedRpId);
   },
   getCredentialsForUser: (userId, rpId = null) => {
-    const normalizedRpId = rpId ? rpId.trim().toLowerCase() : null;
+    // Normalize RP ID: remove www prefix and convert to lowercase
+    const normalizeRpId = (value) => {
+      if (!value) return null;
+      let normalized = value.trim().toLowerCase();
+      if (normalized.startsWith('www.')) {
+        normalized = normalized.substring(4);
+      }
+      return normalized;
+    };
+    const normalizedRpId = normalizeRpId(rpId);
     if (normalizedRpId) {
-      return db.prepare(`SELECT * FROM webauthn_credentials WHERE user_id = ? AND (rp_id IS NULL OR rp_id = ?)`)
-        .all(userId, normalizedRpId);
+      // Match credentials with NULL rp_id, exact match, or www variant
+      // This handles existing credentials that might have been stored with www prefix
+      return db.prepare(`SELECT * FROM webauthn_credentials WHERE user_id = ? AND (rp_id IS NULL OR rp_id = ? OR rp_id = ?)`)
+        .all(userId, normalizedRpId, `www.${normalizedRpId}`);
     }
     return db.prepare(`SELECT * FROM webauthn_credentials WHERE user_id = ?`).all(userId);
   },
@@ -1768,11 +1839,22 @@ module.exports = {
       }
       return '';
     };
+    // Normalize RP ID: remove www prefix and convert to lowercase
+    const normalizeRpId = (value) => {
+      if (!value) return null;
+      let normalized = value.trim().toLowerCase();
+      if (normalized.startsWith('www.')) {
+        normalized = normalized.substring(4);
+      }
+      return normalized;
+    };
     const normalizedCredentialId = normalizeBase64Url(credentialId);
-    const normalizedRpId = rpId ? rpId.trim().toLowerCase() : null;
+    const normalizedRpId = normalizeRpId(rpId);
     if (normalizedRpId) {
-      return db.prepare(`SELECT * FROM webauthn_credentials WHERE credential_id = ? AND (rp_id IS NULL OR rp_id = ?)`)
-        .get(normalizedCredentialId, normalizedRpId);
+      // Match credentials with NULL rp_id, exact match, or www variant
+      // This handles existing credentials that might have been stored with www prefix
+      return db.prepare(`SELECT * FROM webauthn_credentials WHERE credential_id = ? AND (rp_id IS NULL OR rp_id = ? OR rp_id = ?)`)
+        .get(normalizedCredentialId, normalizedRpId, `www.${normalizedRpId}`);
     }
     return db.prepare(`SELECT * FROM webauthn_credentials WHERE credential_id = ?`).get(normalizedCredentialId);
   },
@@ -3105,5 +3187,100 @@ module.exports = {
 
   updateCareerApplicationStatus: ({ id, status, reviewerId }) => {
     db.prepare("UPDATE career_applications SET status=?, reviewer_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").run(status, reviewerId, id);
+  },
+
+  // Reposts
+  createRepost: ({ userId, originalPostId, quoteText = null }) => {
+    // Get the original post to determine repost depth
+    const originalPost = db.prepare('SELECT id, user_id FROM posts WHERE id = ?').get(originalPostId);
+    if (!originalPost) throw new Error('Original post not found');
+
+    // Check if this is a repost of a repost - get the original_post_id from post_reposts
+    const repostInfo = db.prepare('SELECT original_post_id, repost_depth FROM post_reposts WHERE post_id = ?').get(originalPostId);
+    const actualOriginalPostId = repostInfo ? repostInfo.original_post_id : originalPostId;
+    const currentDepth = repostInfo ? repostInfo.repost_depth : 1;
+
+    // Check depth limit (max 3 levels)
+    if (currentDepth >= 3) {
+      throw new Error('Maximum repost depth (3 levels) reached');
+    }
+
+    // Check if user already reposted this original post
+    const existingRepost = db.prepare(`
+      SELECT pr.post_id FROM post_reposts pr
+      WHERE pr.user_id = ? AND pr.original_post_id = ?
+    `).get(userId, actualOriginalPostId);
+    
+    if (existingRepost) {
+      throw new Error('You have already reposted this post');
+    }
+
+    // Create a new post that references the original
+    const newPostId = db.prepare(`
+      INSERT INTO posts (user_id, content_type, text_content, is_reel)
+      VALUES (?, 'repost', ?, 0)
+    `).run(userId, quoteText || null).lastInsertRowid;
+
+    // Create the repost record
+    const isQuote = quoteText ? 1 : 0;
+    db.prepare(`
+      INSERT INTO post_reposts (post_id, user_id, original_post_id, repost_depth, is_quote_repost, quote_text)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(newPostId, userId, actualOriginalPostId, currentDepth + 1, isQuote, quoteText || null);
+
+    return newPostId;
+  },
+
+  getRepostInfo: (postId) => {
+    return db.prepare(`
+      SELECT pr.*, 
+             op.user_id as original_user_id,
+             op.title as original_title,
+             op.text_content as original_text_content,
+             op.content_type as original_content_type,
+             op.image_url as original_image_url,
+             op.video_url as original_video_url,
+             op.external_video_url as original_external_video_url,
+             op.is_reel as original_is_reel,
+             op.created_at as original_created_at,
+             ou.full_name as original_author_name,
+             ou.profile_picture as original_author_picture,
+             ou.handle as original_author_handle
+      FROM post_reposts pr
+      JOIN posts op ON op.id = pr.original_post_id
+      JOIN users ou ON ou.id = op.user_id
+      WHERE pr.post_id = ?
+    `).get(postId);
+  },
+
+  getUserReposts: (userId) => {
+    return db.prepare(`
+      SELECT p.*, 
+             u.full_name, u.email, u.profile_picture,
+             pr.original_post_id, pr.repost_depth, pr.is_quote_repost, pr.quote_text,
+             (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS comments_count
+      FROM posts p
+      JOIN users u ON u.id = p.user_id
+      JOIN post_reposts pr ON pr.post_id = p.id
+      WHERE p.user_id = ? AND p.content_type = 'repost'
+      ORDER BY p.created_at DESC
+    `).all(userId);
+  },
+
+  getRepostCount: (postId) => {
+    const result = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM post_reposts 
+      WHERE original_post_id = ?
+    `).get(postId);
+    return result.count || 0;
+  },
+
+  hasUserReposted: ({ userId, originalPostId }) => {
+    const row = db.prepare(`
+      SELECT 1 FROM post_reposts 
+      WHERE user_id = ? AND original_post_id = ?
+    `).get(userId, originalPostId);
+    return !!row;
   }
 };

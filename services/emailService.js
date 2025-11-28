@@ -113,13 +113,22 @@ async function sendEmail(to, subject, htmlContent, textContent = null, req) {
 
         const transporter = await createTransporter(req);
 
+        // Ensure we have proper text fallback if HTML is provided
+        const finalText = text || (html ? html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+        
         const mailOptions = {
             from: `Dream X <${process.env.GMAIL_USER}>`,
             to: to,
             subject: subject,
-            html: html || text || '',
-            text: text || undefined,
-            encoding: 'utf-8'
+            html: html || '', // Always use HTML when provided, don't fallback to text
+            text: finalText || undefined, // Only include text if we have it
+            encoding: 'utf-8',
+            headers: html ? {
+                'X-Mailer': 'Dream X Email Service',
+                'MIME-Version': '1.0'
+            } : {
+                'X-Mailer': 'Dream X Email Service'
+            }
         };
 
         const result = await transporter.sendMail(mailOptions);
@@ -379,7 +388,7 @@ const emailService = {
                 <p>Dear ${userName},</p>
                 <p>This email confirms that your Dream X account has been permanently deleted as requested.</p>
                 <p>All your data, including posts, messages, and services, has been removed from our platform.</p>
-                <p>If you did not request this deletion, please contact us immediately at support@dreamx.com</p>
+                <p>If you did not request this deletion, please contact us immediately at support@dream-x.app</p>
                 <p>We're sorry to see you go. If you change your mind in the future, you're always welcome to create a new account.</p>
                 <p>Best regards,<br>Dream X Team</p>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
@@ -469,7 +478,7 @@ const emailService = {
                 <p>Your seller privileges on Dream X have been temporarily frozen.</p>
                 <p><strong>Reason:</strong> ${reason}</p>
                 <p>While your privileges are frozen, your services will not be visible to other users and you cannot create new services.</p>
-                <p>If you believe this is a mistake, please contact support at support@dreamx.com</p>
+                <p>If you believe this is a mistake, please contact support at support@dream-x.app</p>
                 <p>Best regards,<br>Dream X Team</p>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">
                 <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 0;">
