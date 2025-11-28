@@ -67,13 +67,52 @@ function initMessagesRoutes({ chatUpload, io }) {
         let moderationTarget = null;
         let blockState = { viewerBlocked: false, blockedByOther: false };
 
-        if (conversations.length > 0) {
-            const requestedId = parseInt(req.query.conversation || '', 10);
-            if (!isNaN(requestedId)) {
-                currentConversation = conversations.find(c => c.id === requestedId) || conversations[0];
-            } else {
-                currentConversation = conversations[0];
+        // Check if a specific conversation is requested (even if it has no messages yet)
+        const requestedId = parseInt(req.query.conversation || '', 10);
+        if (!isNaN(requestedId)) {
+            // Try to find in existing conversations first
+            currentConversation = conversations.find(c => c.id === requestedId);
+            
+            // If not found, check if it exists in database (might be new conversation with no messages)
+            if (!currentConversation) {
+                const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(requestedId);
+                if (conv && (conv.user1_id === req.session.userId || conv.user2_id === req.session.userId || 
+                    (conv.is_group && db.prepare('SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').get(requestedId, req.session.userId)))) {
+                    // Get user info for direct conversations
+                    if (!conv.is_group) {
+                        const otherId = conv.user1_id === req.session.userId ? conv.user2_id : conv.user1_id;
+                        const otherUser = getUserById(otherId);
+                        if (otherUser) {
+                            currentConversation = {
+                                ...conv,
+                                other_user_id: otherId,
+                                other_user_name: otherUser.full_name,
+                                other_user_picture: otherUser.profile_picture,
+                                last_message: null,
+                                last_message_time: null,
+                                unread_count: 0
+                            };
+                        }
+                    } else {
+                        currentConversation = {
+                            ...conv,
+                            other_user_name: conv.group_name,
+                            other_user_picture: null,
+                            last_message: null,
+                            last_message_time: null,
+                            unread_count: 0
+                        };
+                    }
+                }
             }
+        }
+        
+        // If no specific conversation requested, use first from list
+        if (!currentConversation && conversations.length > 0) {
+            currentConversation = conversations[0];
+        }
+        
+        if (currentConversation) {
             messages = getConversationMessages(currentConversation.id);
             if (currentConversation.is_group) {
                 participants = getConversationParticipants(currentConversation.id);

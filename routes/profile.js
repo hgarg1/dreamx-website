@@ -3,6 +3,7 @@ const {
     getUserById,
     getUserPosts,
     getUserReposts,
+    getRepostInfo,
     getUserReactionForPost,
     getFollowerCount,
     getFollowingCount,
@@ -96,20 +97,25 @@ function initProfileRoutes({ upload, io }) {
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
             
             // Get user reposts
-            let userReposts = getUserReposts(req.session.userId);
-            userReposts = userReposts.map(p => {
-                try {
-                    p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-                    p.reactions = p.reactions || {};
-                    // Get repost info
-                    const { getRepostInfo } = require('../db');
-                    const repostInfo = getRepostInfo(p.id);
-                    if (repostInfo) {
-                        p.repost_info = repostInfo;
-                    }
-                } catch (e) { }
-                return p;
-            });
+            let userReposts = [];
+            try {
+                userReposts = getUserReposts(req.session.userId) || [];
+                userReposts = userReposts.map(p => {
+                    try {
+                        p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                        p.reactions = p.reactions || {};
+                        // Get repost info
+                        const repostInfo = getRepostInfo(p.id);
+                        if (repostInfo) {
+                            p.repost_info = repostInfo;
+                        }
+                    } catch (e) { }
+                    return p;
+                });
+            } catch (error) {
+                console.error('Error fetching user reposts:', error);
+                userReposts = [];
+            }
 
             res.render('profile', {
                 title: `${user.displayName} - Profile - Dream X`,
@@ -124,7 +130,8 @@ function initProfileRoutes({ upload, io }) {
                 profilePicture: row.profile_picture || null,
                 isOwnProfile: true,
                 isFollowing: false,
-                isSuperAdmin
+                isSuperAdmin,
+                isBlockedByViewer: false
             });
         } catch (error) {
             console.error('Error rendering own profile:', error);
@@ -160,6 +167,27 @@ function initProfileRoutes({ upload, io }) {
 
             const viewingOwnProfile = (uid === req.session.userId);
             const isBlockedByViewer = viewingOwnProfile ? false : isUserBlocked({ userId: req.session.userId, targetId: uid });
+
+            // Get user reposts
+            let userReposts = [];
+            try {
+                userReposts = getUserReposts(uid) || [];
+                userReposts = userReposts.map(p => {
+                    try {
+                        p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                        p.reactions = p.reactions || {};
+                        // Get repost info
+                        const repostInfo = getRepostInfo(p.id);
+                        if (repostInfo) {
+                            p.repost_info = repostInfo;
+                        }
+                    } catch (e) { }
+                    return p;
+                });
+            } catch (error) {
+                console.error('Error fetching user reposts:', error);
+                userReposts = [];
+            }
 
             const followerCount = getFollowerCount(uid);
             const followingCount = getFollowingCount(uid);

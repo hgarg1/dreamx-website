@@ -1019,6 +1019,50 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     margin-top: 1rem;
     width: 100%;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+    max-height: 280px;
+    padding-right: 0.5rem;
+}
+
+.comments-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.comments-list::-webkit-scrollbar-track {
+    background: rgba(229, 231, 235, 0.3);
+    border-radius: 10px;
+}
+
+.comments-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 77, 255, 0.4);
+    border-radius: 10px;
+}
+
+.comments-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 77, 255, 0.6);
+}
+
+.comment-input-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(229, 231, 235, 0.5);
 }
 
 .comment-input {
@@ -1029,6 +1073,26 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     padding: 0.75rem 1.25rem;
     font-size: 0.95rem;
     transition: all 0.3s ease;
+    min-width: 0;
+}
+
+.comment-item {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.comment-item > div {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.comment-item div[style*="font-size"] {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
 }
 
 .comment-input:focus {

@@ -1455,6 +1455,7 @@ module.exports = {
     return conv.user1_id === userId || conv.user2_id === userId;
   },
   getUserConversations: (userId) => {
+    // Only return conversations that have at least one message
     const direct = db.prepare(`
       SELECT c.*, 
         CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END as other_user_id,
@@ -1475,6 +1476,7 @@ module.exports = {
       FROM conversations c
       JOIN users u ON (CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END) = u.id
       WHERE (c.user1_id = ? OR c.user2_id = ?) AND c.is_group = 0
+        AND EXISTS (SELECT 1 FROM messages WHERE conversation_id = c.id LIMIT 1)
     `).all(userId, userId, userId, userId, userId);
     const groups = db.prepare(`
       SELECT c.*,
@@ -1495,6 +1497,7 @@ module.exports = {
       FROM conversations c
       JOIN conversation_participants cp ON cp.conversation_id = c.id
       WHERE cp.user_id = ? AND c.is_group = 1
+        AND EXISTS (SELECT 1 FROM messages WHERE conversation_id = c.id LIMIT 1)
     `).all(userId, userId);
     return [...direct, ...groups].sort((a, b) => {
       const ta = new Date(a.last_message_time || 0).getTime();

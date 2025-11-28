@@ -104,11 +104,23 @@
 }
 
 /* === COMMENTS PANEL === */
-.comments-panel { background:linear-gradient(135deg, rgba(249,250,251,0.9), rgba(243,244,246,0.8)); backdrop-filter: blur(10px); border:2px dashed rgba(229,231,235,0.6); border-radius:16px; padding:1rem; margin-top:1rem; width:100%; transition:all .4s cubic-bezier(0.4,0,0.2,1); }
+.comments-panel { background:linear-gradient(135deg, rgba(249,250,251,0.9), rgba(243,244,246,0.8)); backdrop-filter: blur(10px); border:2px dashed rgba(229,231,235,0.6); border-radius:16px; padding:1rem; margin-top:1rem; width:100%; transition:all .4s cubic-bezier(0.4,0,0.2,1); display:flex; flex-direction:column; overflow:hidden; }
 .comment-input { flex:1; background:white; border:2px solid #e5e7eb; border-radius:50px; padding:.75rem 1.25rem; font-size:.95rem; transition: all .3s ease; }
 .comment-input:focus { outline:none; border-color:#FF4DFF; box-shadow:0 0 0 4px rgba(255,77,255,0.1); }
 .comment-send { background:linear-gradient(135deg,#FF4DFF,#D845FF); color:white; border:none; border-radius:50px; padding:.75rem 1.5rem; font-weight:700; font-size:.9rem; cursor:pointer; transition:all .3s cubic-bezier(0.4,0,0.2,1); box-shadow:0 4px 12px rgba(255,77,255,0.3); }
 .comment-send:hover { background:linear-gradient(135deg,#D845FF,#cc3575); transform: translateY(-2px); box-shadow:0 6px 16px rgba(255,77,255,0.4); }
+
+.comments-list { display:flex; flex-direction:column; gap:1rem; margin-bottom:1rem; overflow-y:auto; overflow-x:hidden; flex:1; min-height:0; max-height:280px; padding-right:.5rem; }
+.comments-list::-webkit-scrollbar { width:6px; }
+.comments-list::-webkit-scrollbar-track { background:rgba(229,231,235,0.3); border-radius:10px; }
+.comments-list::-webkit-scrollbar-thumb { background:rgba(255,77,255,0.4); border-radius:10px; }
+.comments-list::-webkit-scrollbar-thumb:hover { background:rgba(255,77,255,0.6); }
+
+.comment-input-row { display:flex; gap:.75rem; align-items:center; flex-shrink:0; margin-top:auto; padding-top:.5rem; border-top:1px solid rgba(229,231,235,0.5); }
+
+.comment-item { word-wrap:break-word; overflow-wrap:break-word; word-break:break-word; }
+.comment-item > div { word-wrap:break-word; overflow-wrap:break-word; word-break:break-word; max-width:100%; }
+.comment-item div[style*="font-size"] { word-wrap:break-word; overflow-wrap:break-word; word-break:break-word; max-width:100%; }
 
 /* === HARD OVERRIDES TO ENSURE POST IMAGES RENDER === */
 .post-card .post-body img,

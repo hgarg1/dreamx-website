@@ -59,6 +59,7 @@ const {
     createPasswordResetToken, getPasswordResetToken, markPasswordResetUsed, deleteExpiredPasswordResetTokens, invalidateUserResetTokens,
     // Posts
     createPost, getFeedPosts, getUserPosts, getPostHashtags, getPostTags, attachHashtagsToPost, attachTagsToPost, getPopularHashtags, getPopularTags,
+    getUserReposts, getRepostInfo,
     // Post reactions & comments
     setPostReaction, getPostReactionsSummary, getUserReactionForPost,
     addPostComment, getPostComments, getCommentsCount, toggleCommentLike,
@@ -1048,7 +1049,7 @@ app.get('/onboarding-empty', (req, res) => {
     res.render('onboarding-empty', {
         title: 'Onboarding - Let\'s Get Started | Dream X',
         currentPage: 'onboarding-empty',
-        authUser: res.locals.authUser
+        authUser: res.locals.authUser || user
     });
 });
 
@@ -3065,19 +3066,24 @@ app.get('/profile', (req, res) => {
         });
         
         // Get user reposts
-        const { getUserReposts, getRepostInfo } = require('./db');
-        let userReposts = getUserReposts(req.session.userId);
-        userReposts = userReposts.map(p => {
-            try {
-                p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-                p.reactions = p.reactions || {};
-                const repostInfo = getRepostInfo(p.id);
-                if (repostInfo) {
-                    p.repost_info = repostInfo;
-                }
-            } catch (e) { }
-            return p;
-        });
+        let userReposts = [];
+        try {
+            userReposts = getUserReposts(req.session.userId) || [];
+            userReposts = userReposts.map(p => {
+                try {
+                    p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                    p.reactions = p.reactions || {};
+                    const repostInfo = getRepostInfo(p.id);
+                    if (repostInfo) {
+                        p.repost_info = repostInfo;
+                    }
+                } catch (e) { }
+                return p;
+            });
+        } catch (error) {
+            console.error('Error fetching user reposts:', error);
+            userReposts = [];
+        }
 
         const followerCount = getFollowerCount(req.session.userId);
         const followingCount = getFollowingCount(req.session.userId);
@@ -3124,7 +3130,8 @@ app.get('/profile', (req, res) => {
             profilePicture: row.profile_picture || null,
             isOwnProfile: true,
             isFollowing: false,
-            isSuperAdmin
+            isSuperAdmin,
+            isBlockedByViewer: false
         });
     } catch (error) {
         console.error('Error rendering own profile:', error);
@@ -3158,18 +3165,24 @@ app.get('/profile/:id(\\d+)', (req, res) => {
         });
         
         // Get user reposts
-        let userReposts = getUserReposts(uid);
-        userReposts = userReposts.map(p => {
-            try {
-                p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-                p.reactions = p.reactions || {};
-                const repostInfo = getRepostInfo(p.id);
-                if (repostInfo) {
-                    p.repost_info = repostInfo;
-                }
-            } catch (e) { }
-            return p;
-        });
+        let userReposts = [];
+        try {
+            userReposts = getUserReposts(uid) || [];
+            userReposts = userReposts.map(p => {
+                try {
+                    p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                    p.reactions = p.reactions || {};
+                    const repostInfo = getRepostInfo(p.id);
+                    if (repostInfo) {
+                        p.repost_info = repostInfo;
+                    }
+                } catch (e) { }
+                return p;
+            });
+        } catch (error) {
+            console.error('Error fetching user reposts:', error);
+            userReposts = [];
+        }
 
         // Check if viewing own profile
         const viewingOwnProfile = (uid === req.session.userId);

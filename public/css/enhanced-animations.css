@@ -427,17 +427,17 @@
 }
 
 /* === PROFILE ENHANCEMENTS === */
-.profile-avatar {
+.profile-page .profile-avatar-wrapper .profile-avatar {
     position: relative;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.profile-avatar:hover {
-    transform: scale(1.1) rotate(5deg);
+.profile-page .profile-avatar-wrapper .profile-avatar:hover {
+    transform: scale(1.05) !important;
     box-shadow: 0 15px 40px rgba(255, 77, 255, 0.4);
 }
 
-.profile-avatar::after {
+.profile-page .profile-avatar-wrapper .profile-avatar::after {
     content: '';
     position: absolute;
     top: -4px;
@@ -452,7 +452,7 @@
     animation: rotateGradient 3s linear infinite;
 }
 
-.profile-avatar:hover::after {
+.profile-page .profile-avatar-wrapper .profile-avatar:hover::after {
     opacity: 1;
 }
 
@@ -771,7 +771,6 @@ body {
 
 /* === AVATAR FIX - Prevent cutting === */
 .nav-avatar,
-.profile-avatar,
 .user-avatar {
     width: 40px;
     height: 40px;
@@ -780,6 +779,11 @@ body {
     object-position: center;
     border: 2px solid rgba(255, 77, 255, 0.2);
     transition: all 0.3s ease;
+}
+
+/* Profile page avatar is handled separately in style.css */
+.profile-page .profile-avatar-wrapper .profile-avatar {
+    /* Styles are in style.css to avoid conflicts */
 }
 
 .nav-avatar:hover {

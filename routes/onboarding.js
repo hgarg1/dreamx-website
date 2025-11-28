@@ -101,7 +101,8 @@ function initOnboardingRoutes({ upload }) {
         req.session.seenOnboardingPrompt = true;
         res.render('onboarding-empty', {
             title: 'Onboarding - Let\'s Get Started | Dream X',
-            currentPage: 'onboarding-empty'
+            currentPage: 'onboarding-empty',
+            authUser: res.locals.authUser || user
         });
     });
 

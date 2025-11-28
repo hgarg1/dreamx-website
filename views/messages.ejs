@@ -14,20 +14,14 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
   <% const conversationCount = (typeof conversations !== 'undefined' && conversations ? conversations.length : 0); %>
   <div class="messages-header">
     <div class="messages-header-left">
-      <p class="messages-kicker">Inbox</p>
       <div class="messages-title-row">
         <h1 class="messages-title">Messages</h1>
-        <span class="header-chip live">Live</span>
-      </div>
-      <div class="messages-meta-row">
-        <span><strong><%= participantCount || 0 %></strong> active members</span>
-        <span><strong><%= conversationCount || 0 %></strong> conversations</span>
       </div>
     </div>
     <div class="messages-header-actions">
       <button type="button" class="header-btn" id="shareConversationBtn" onclick="shareConversation()" <%= currentConversation ? '' : 'disabled' %>>Share</button>
       <button type="button" class="header-btn secondary" id="headerTipsBtn" onclick="showPinnedTips()" <%= currentConversation && currentConversation.is_group ? '' : 'disabled' %>>Tips</button>
-      <button type="button" class="header-btn primary" id="headerAddBtn" onclick="toggleInlineAddMember()" <%= currentConversation && currentConversation.is_group ? '' : 'disabled' %>>Add people</button>
+      <button type="button" class="header-btn primary" id="headerAddBtn" onclick="openNewMessageModal()">Add people</button>
     </div>
   </div>
 
@@ -49,7 +43,6 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
   <aside class="conversations-column">
     <div class="conversations-header">
       <div>
-        <p class="conversations-kicker">Inbox • Live</p>
         <h2 class="conversations-title">Conversations</h2>
       </div>
       <div class="conversation-actions">
@@ -179,10 +172,6 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
         </div>
       </header>
 
-      <div class="chat-top-badges">
-        <span class="pill-soft">Threaded replies are on</span>
-        <span class="pill-soft">Reactions ready</span>
-      </div>
 
       <% if (currentConversation.is_group) { %>
         <div class="group-meta-bar">
@@ -221,7 +210,7 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
         <% if(messages && messages.length > 0) { %>
           <% messages.forEach(function(msg){ %>
             <div class="chat-message-wrapper <%= safeAuthUser && msg.sender_id === safeAuthUser.id ? 'outgoing' : 'incoming' %>" data-message-id="<%= msg.id %>" data-created-at="<%= msg.created_at %>" data-sender-name="<%= msg.sender_name %>" data-reply-preview="<%= (msg.content || (msg.attachment_url ? 'Attachment' : '')) %>" data-reply-has-attachment="<%= msg.attachment_url ? 'true' : 'false' %>" data-reaction-counts='<%- JSON.stringify(msg.reaction_counts || {}) %>'>
-              <div class="chat-bubble-container" style="position:relative;display:inline-block;">
+              <div class="chat-bubble-container">
                 <div class="chat-bubble">
                   <% if (msg.reply_to_message_id) { %>
                     <div class="reply-context">
@@ -299,11 +288,7 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
         <% } %>
       </div>
 
-      <div id="fileStatusIndicator" style="display:none;padding:.75rem;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;font-weight:600;align-items:center;gap:.5rem;">
-        <span id="fileStatusIcon">📎</span>
-        <span id="fileStatusText">Ready to send</span>
-      </div>
-      <div id="typingIndicator" style="display:none;margin-bottom:.25rem;color:var(--text-light);font-size:.85rem;font-weight:600;">Typing...</div>
+      <div id="typingIndicator" style="display:none;margin-bottom:.5rem;color:var(--text-light);font-size:.85rem;font-weight:600;padding:0 1rem;">Typing...</div>
       <div id="replyPreviewBar" class="reply-preview-bar" style="display:none;">
         <div class="reply-preview-icon">↩️</div>
         <div class="reply-preview-text">
@@ -313,12 +298,15 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
         <button type="button" class="reply-cancel" onclick="clearReplyTarget()" aria-label="Cancel reply">✕</button>
       </div>
       <form id="messageForm" class="chat-input-row" enctype="multipart/form-data">
-        <label class="chat-attach-btn" for="fileInput" title="Attach file" aria-label="Attach file">📎</label>
+        <label class="chat-attach-btn" for="fileInput" title="Attach file" aria-label="Attach file">
+          <span>📎</span>
+          <span id="fileCountBadge" class="file-count-badge" style="display:none;"></span>
+        </label>
         <input type="file" id="fileInput" name="files" accept="image/*,video/*,audio/*,.pdf,.txt" multiple style="display:none" />
-        <div id="filePreview" style="display:none;padding:.5rem;border:2px dashed var(--border-color);border-radius:8px;margin-bottom:.5rem;font-size:.7rem;"></div>
         <textarea id="messageInput" class="chat-input" rows="1" placeholder="Type a message..." aria-label="Message input"></textarea>
         <button type="submit" class="chat-send-btn" id="sendBtn">Send</button>
       </form>
+      <div id="filePreview" class="file-preview-container" style="display:none;"></div>
       <div id="uploadProgress" style="display:none;padding:.5rem;background:var(--bg-light);border-radius:8px;margin-top:.5rem;">
         <div style="font-size:.7rem;margin-bottom:.25rem;font-weight:600;">Uploading...</div>
         <div style="background:#e5e7eb;border-radius:8px;height:6px;overflow:hidden;">
@@ -673,32 +661,34 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
   });
 
   function updateFilePreview() {
-    const statusIndicator = document.getElementById('fileStatusIndicator');
-    const statusIcon = document.getElementById('fileStatusIcon');
-    const statusText = document.getElementById('fileStatusText');
+    const fileCountBadge = document.getElementById('fileCountBadge');
     
     if (!selectedFiles || selectedFiles.length === 0) {
       filePreview.style.display = 'none';
       filePreview.innerHTML = '';
-      statusIndicator.style.display = 'none';
+      if (fileCountBadge) {
+        fileCountBadge.style.display = 'none';
+      }
       return;
     }
     
-    // Show status indicator
-    statusIndicator.style.display = 'flex';
-    statusIcon.textContent = '📎';
-    statusText.textContent = selectedFiles.length === 1 ? `Ready to send: ${selectedFiles[0].name}` : `Ready to send ${selectedFiles.length} files`;
+    // Show file count badge on attach button
+    if (fileCountBadge) {
+      fileCountBadge.textContent = selectedFiles.length;
+      fileCountBadge.style.display = 'flex';
+    }
     
+    // Show file preview below input
     filePreview.style.display = 'block';
     filePreview.innerHTML = selectedFiles.map((f, idx) => `
-      <div style="display:flex;align-items:center;gap:.5rem;margin:.15rem 0;">
-        <span style="font-weight:700;">${f.name}</span>
-        <span style="color:var(--text-light);">(${(f.size / 1024).toFixed(1)} KB)</span>
-        <button type="button" onclick="removeSelectedFile(${idx})" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--primary-color);font-weight:700;">✕</button>
+      <div class="file-preview-item">
+        <span class="file-preview-name">${f.name}</span>
+        <span class="file-preview-size">(${(f.size / 1024).toFixed(1)} KB)</span>
+        <button type="button" onclick="removeSelectedFile(${idx})" class="file-preview-remove" aria-label="Remove file">✕</button>
       </div>
     `).join('') + `
-      <div style="text-align:right;margin-top:.25rem;">
-        <button type="button" onclick="clearFile()" style="background:none;border:none;cursor:pointer;color:#ef4444;font-weight:700;">Clear all</button>
+      <div class="file-preview-actions">
+        <button type="button" onclick="clearFile()" class="file-preview-clear">Clear all</button>
       </div>`;
   }
 
@@ -786,11 +776,7 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
       uploadProgress.style.display = hasFiles ? 'block' : 'none';
       sendBtn.disabled = true;
 
-      if (hasFiles && statusIndicator && statusIcon && statusText) {
-        statusIndicator.style.display = 'flex';
-        statusIcon.textContent = '⏳';
-        statusText.textContent = selectedFiles.length === 1 ? 'Uploading...' : `Uploading ${selectedFiles.length} files...`;
-      }
+      // File count badge will show upload state via CSS class if needed
 
       const form = new FormData();
       form.append('conversationId', currentConversationId);
@@ -834,23 +820,13 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
           if (shouldAppendLocally && responseData && Array.isArray(responseData.messages)) {
             responseData.messages.forEach((msg) => appendMessage(msg));
           }
-          if (statusIndicator && statusIcon && statusText && hasFiles) {
-            progressBar.style.width = '100%';
-            statusIndicator.style.display = 'flex';
-            statusIcon.textContent = '✅';
-            statusText.textContent = 'Upload complete';
-            setTimeout(() => { statusIndicator.style.display = 'none'; }, 1200);
-          }
+          // File preview will be cleared after successful send
           sendBtn.disabled = false;
         } else {
           const data = responseData || {};
           alert(data.error || 'Failed to send message');
           uploadProgress.style.display = 'none';
-          if (statusIndicator && statusIcon && statusText && hasFiles) {
-            statusIndicator.style.display = 'flex';
-            statusIcon.textContent = '⚠️';
-            statusText.textContent = 'Upload failed. Try again.';
-          }
+          // Error handling - file preview remains visible
           sendBtn.disabled = false;
         }
       });
@@ -860,11 +836,7 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
         const statusText = document.getElementById('fileStatusText');
         alert('Error sending message');
         uploadProgress.style.display = 'none';
-        if (statusIndicator && statusIcon && statusText && hasFiles) {
-          statusIndicator.style.display = 'flex';
-          statusIcon.textContent = '⚠️';
-          statusText.textContent = 'Upload failed. Try again.';
-        }
+        // Error handling - file preview remains visible
         sendBtn.disabled = false;
       });
       xhr.open('POST', '/api/messages/send');
@@ -1027,6 +999,39 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
   // Switch conversation function
   function switchConversation(conversationId) {
     window.location.href = `/messages?conversation=${conversationId}`;
+  }
+
+  // Conversation search functionality
+  const conversationSearchInput = document.querySelector('.conversation-search-input');
+  const conversationList = document.querySelector('.conversation-list');
+  const allConversationItems = conversationList ? Array.from(conversationList.querySelectorAll('.conversation-item')) : [];
+
+  if (conversationSearchInput && conversationList) {
+    conversationSearchInput.addEventListener('input', (e) => {
+      const searchTerm = (e.target.value || '').trim().toLowerCase();
+      
+      if (!searchTerm) {
+        // Show all conversations
+        allConversationItems.forEach(item => {
+          item.style.display = '';
+        });
+        return;
+      }
+
+      // Filter conversations
+      allConversationItems.forEach(item => {
+        const nameElement = item.querySelector('.conversation-name');
+        const lastMessageElement = item.querySelector('.conversation-last');
+        const name = nameElement ? nameElement.textContent.toLowerCase() : '';
+        const lastMessage = lastMessageElement ? lastMessageElement.textContent.toLowerCase() : '';
+        
+        if (name.includes(searchTerm) || lastMessage.includes(searchTerm)) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
   }
 
   // Auto-resize textarea
@@ -1951,5 +1956,324 @@ const userIsBlockedByOther = safeBlockState && safeBlockState.blockedByOther ===
   <button onclick="_carouselNext()" aria-label="Next" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:999px;width:40px;height:40px;cursor:pointer;">›</button>
   <div id="carouselCounter" style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-weight:700;">1/1</div>
 </div>
+
+<!-- New Message Modal -->
+<div id="newMessageModal" class="new-message-modal" style="display:none;">
+  <div class="new-message-overlay" onclick="closeNewMessageModal()"></div>
+  <div class="new-message-content">
+    <div class="new-message-header">
+      <h2>Find People</h2>
+      <button type="button" class="modal-close-btn" onclick="closeNewMessageModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="new-message-body">
+      <div class="new-message-search">
+        <input type="text" id="newMessageSearch" class="new-message-search-input" placeholder="Search users by name or handle..." autocomplete="off">
+        <div id="newMessageResults" class="new-message-results"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.new-message-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.new-message-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.new-message-content {
+  position: relative;
+  background: white;
+  border-radius: 20px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.new-message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.8);
+}
+
+.new-message-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #FF4DFF;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.new-message-header h2::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, #FF4DFF, #A53CFF);
+  margin-top: 0.5rem;
+  border-radius: 2px;
+}
+
+@media (max-width: 768px) {
+  .new-message-header h2 {
+    font-size: 1.25rem;
+  }
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: var(--text-light);
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.new-message-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.new-message-search {
+  position: relative;
+}
+
+.new-message-search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid rgba(229, 231, 235, 0.8);
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s;
+  box-sizing: border-box;
+}
+
+.new-message-search-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(255, 77, 255, 0.1);
+}
+
+.new-message-results {
+  margin-top: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.new-message-result-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.5rem;
+}
+
+.new-message-result-item:hover {
+  background: rgba(255, 77, 255, 0.1);
+}
+
+.new-message-result-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.new-message-result-avatar-fallback {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color), #A53CFF);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.new-message-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.new-message-result-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.new-message-result-handle {
+  font-size: 0.85rem;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.15rem;
+}
+
+.new-message-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .new-message-content {
+    width: 95%;
+    max-height: 85vh;
+  }
+
+  .new-message-header {
+    padding: 1rem;
+  }
+
+  .new-message-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .new-message-body {
+    padding: 1rem;
+  }
+}
+</style>
+
+<script>
+let newMessageSearchTimeout = null;
+
+function openNewMessageModal() {
+  const modal = document.getElementById('newMessageModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.getElementById('newMessageSearch')?.focus();
+  }
+}
+
+function closeNewMessageModal() {
+  const modal = document.getElementById('newMessageModal');
+  if (modal) {
+    modal.style.display = 'none';
+    const searchInput = document.getElementById('newMessageSearch');
+    if (searchInput) {
+      searchInput.value = '';
+    }
+    document.getElementById('newMessageResults').innerHTML = '';
+  }
+}
+
+function startConversation(userId) {
+  // Navigate to start conversation endpoint - this will create a temporary conversation
+  // that only gets persisted when the first message is sent
+  window.location.href = `/messages/start/${userId}`;
+}
+
+// User search for new message modal
+const newMessageSearchInput = document.getElementById('newMessageSearch');
+if (newMessageSearchInput) {
+  newMessageSearchInput.addEventListener('input', () => {
+    clearTimeout(newMessageSearchTimeout);
+    const q = (newMessageSearchInput.value || '').trim();
+    const resultsDiv = document.getElementById('newMessageResults');
+    
+    if (!q) {
+      resultsDiv.innerHTML = '<div class="new-message-empty">Start typing to search for users...</div>';
+      return;
+    }
+    
+    newMessageSearchTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        const users = data.results || [];
+        
+        if (users.length === 0) {
+          resultsDiv.innerHTML = '<div class="new-message-empty">No users found</div>';
+          return;
+        }
+        
+        resultsDiv.innerHTML = users.map(u => `
+          <div class="new-message-result-item" onclick="startConversation(${u.id})">
+            ${u.profile_picture ? 
+              `<img src="/uploads/${u.profile_picture}" alt="${u.full_name}" class="new-message-result-avatar">` : 
+              `<div class="new-message-result-avatar-fallback">${(u.full_name || 'U').charAt(0)}</div>`
+            }
+            <div class="new-message-result-info">
+              <div class="new-message-result-name">${escapeHtml(u.full_name || 'User')}</div>
+              ${u.handle ? `<div class="new-message-result-handle">@${escapeHtml(u.handle)}</div>` : ''}
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('User search error:', err);
+        resultsDiv.innerHTML = '<div class="new-message-empty">Search failed. Please try again.</div>';
+      }
+    }, 250);
+  });
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeNewMessageModal();
+  }
+});
+
+// Close modal when clicking overlay
+document.getElementById('newMessageModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'newMessageModal' || e.target.classList.contains('new-message-overlay')) {
+    closeNewMessageModal();
+  }
+});
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s]));
+}
+</script>
 
 <%- include('partials/footer') %>
