@@ -59,6 +59,21 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_password_reset_token_hash ON password_reset_tokens(token_hash);
 
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  token_hash TEXT NOT NULL,
+  token_type TEXT NOT NULL DEFAULT 'refresh',
+  expires_at DATETIME NOT NULL,
+  revoked INTEGER DEFAULT 0,
+  device_info TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_token_hash ON auth_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_expires_at ON auth_tokens(expires_at);
+
 CREATE TABLE IF NOT EXISTS webauthn_credentials (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -1227,6 +1242,25 @@ module.exports = {
   },
   invalidateUserResetTokens: ({ userId }) => {
     db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?`).run(userId);
+  },
+
+  // Auth Token Management (for mobile API)
+  storeRefreshToken: ({ userId, tokenHash, expiresAt, deviceInfo }) => {
+    const stmt = db.prepare(`INSERT INTO auth_tokens (user_id, token_hash, token_type, expires_at, device_info) VALUES (?,?,?,?,?)`);
+    const info = stmt.run(userId, tokenHash, 'refresh', expiresAt, deviceInfo || null);
+    return info.lastInsertRowid;
+  },
+  getRefreshToken: ({ tokenHash }) => {
+    return db.prepare(`SELECT * FROM auth_tokens WHERE token_hash = ? AND token_type = 'refresh' AND revoked = 0 ORDER BY created_at DESC LIMIT 1`).get(tokenHash);
+  },
+  revokeRefreshToken: ({ tokenHash }) => {
+    db.prepare(`UPDATE auth_tokens SET revoked = 1 WHERE token_hash = ?`).run(tokenHash);
+  },
+  revokeAllUserTokens: ({ userId }) => {
+    db.prepare(`UPDATE auth_tokens SET revoked = 1 WHERE user_id = ? AND revoked = 0`).run(userId);
+  },
+  cleanupExpiredTokens: () => {
+    db.prepare(`DELETE FROM auth_tokens WHERE expires_at < datetime('now') OR revoked = 1`).run();
   },
 
   getAllUsers: () => db.prepare(`SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC`).all(),

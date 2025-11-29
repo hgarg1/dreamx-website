@@ -552,6 +552,10 @@ const initApiRoutes = require('./routes/api');
 const apiRoutes = initApiRoutes({ io, careerUpload });
 app.use('/', apiRoutes);
 
+// Mobile API authentication routes (token-based)
+const apiAuthRoutes = require('./routes/api-auth');
+app.use('/', apiAuthRoutes);
+
 // Minimal serialize/deserialize (not strictly used since we set req.session.userId)
 passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser((id, done) => {

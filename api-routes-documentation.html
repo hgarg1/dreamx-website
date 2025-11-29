@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream X API Routes Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; margin-bottom: 10px; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 40px; margin-bottom: 20px; padding: 10px; background: #ecf0f1; border-left: 4px solid #3498db; }
+        .route { margin: 20px 0; padding: 15px; background: #f9f9f9; border-left: 3px solid #3498db; border-radius: 4px; }
+        .method { display: inline-block; padding: 4px 12px; border-radius: 4px; font-weight: bold; font-size: 0.85em; margin-right: 10px; }
+        .get { background: #3498db; color: white; }
+        .post { background: #27ae60; color: white; }
+        .patch { background: #f39c12; color: white; }
+        .delete { background: #e74c3c; color: white; }
+        .path { font-family: 'Courier New', monospace; font-size: 1.1em; color: #2c3e50; font-weight: bold; }
+        .section { margin: 15px 0; }
+        .label { font-weight: bold; color: #555; }
+        .code { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 10px 0; }
+        .auth { color: #e67e22; font-weight: bold; }
+        .no-auth { color: #95a5a6; }
+        ul { margin-left: 20px; margin-top: 5px; }
+        li { margin: 5px 0; }
+        .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dream X API Routes Documentation</h1>
+        <p style="color: #7f8c8d; margin-bottom: 30px;">This document describes all API endpoints that return JSON responses (excluding page rendering routes).</p>
+
+        <h2>Authentication & Email Verification</h2>
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/verify-email</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "code": "string (6 digits)" }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": boolean, "redirect": "string", "error": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/resend-verification</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> None<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": boolean, "message": "string", "error": "string" }</div>
+            </div>
+        </div>
+
+        <h2>Push Notifications</h2>
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/push/public-key</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="no-auth">None</span><br>
+                <span class="label">Input:</span> None<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "key": "string|null" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/push/subscribe</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "endpoint": "string", "keys": { "p256dh": "string", "auth": "string" } }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/push/unsubscribe</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "endpoint": "string" }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <h2>Career Applications</h2>
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/careers/apply</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="no-auth">None</span><br>
+                <span class="label">Input:</span> FormData with fields:
+                <ul>
+                    <li>position (string, required)</li>
+                    <li>name (string, required)</li>
+                    <li>email (string, required)</li>
+                    <li>phone (string, optional)</li>
+                    <li>coverLetter (string, required)</li>
+                    <li>resumeFile (file, optional)</li>
+                    <li>portfolioFile (file, optional)</li>
+                </ul>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string", "applicationId": "string" }</div>
+            </div>
+        </div>
+
+        <h2>User Profile</h2>
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/users/:userId/profile-counts</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="no-auth">None</span><br>
+                <span class="label">Input:</span> URL parameter: userId (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "posts": number, "services": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/users/:id/follow</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "following": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/users/:id/unfollow</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "following": false }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/users/:id/block</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "reason": "string" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/users/:id/unblock</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/users/:id/report</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "reason": "string", "description": "string" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/users/blocked</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> None<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "blocked": [array of user objects] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/users/:id/is-blocked</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "blocked": boolean }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/users/search</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> Query parameter: q (string)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "results": [array of user objects] }</div>
+            </div>
+        </div>
+
+        <h2>Onboarding</h2>
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/onboarding</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> FormData with fields:
+                <ul>
+                    <li>categories (array)</li>
+                    <li>goals (array)</li>
+                    <li>experience, daily_time_commitment, best_time, reminder_frequency</li>
+                    <li>accountability_style (array)</li>
+                    <li>progress_visibility</li>
+                    <li>content_preferences (array)</li>
+                    <li>content_format_preference</li>
+                    <li>open_to_mentoring</li>
+                    <li>first_goal, first_goal_date, first_goal_metric, first_goal_public</li>
+                    <li>notify_* (boolean flags)</li>
+                    <li>notify_method</li>
+                    <li>bio</li>
+                    <li>profilePicture (file, optional)</li>
+                </ul>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "redirect": "string" }</div>
+            </div>
+        </div>
+
+        <h2>Location</h2>
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/location</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "city": "string", "latitude": number, "longitude": number }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string" }</div>
+            </div>
+        </div>
+
+        <h2>Messages</h2>
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/messages/group/create</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "participantIds": [array of numbers], "groupName": "string" }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "conversationId": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/messages/group/:conversationId/name</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: conversationId (number), Body: { "groupName": "string" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/messages/group/:conversationId/add</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: conversationId (number), Body: { "userId": number }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/messages/group/:conversationId/remove</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: conversationId (number), Body: { "userId": number }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/messages/group/:conversationId/leave</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: conversationId (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/messages/:conversationId</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: conversationId (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "messages": [array], "userId": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/messages/send</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> FormData with:
+                <ul>
+                    <li>conversationId (number)</li>
+                    <li>content (string, optional if files present)</li>
+                    <li>replyToMessageId (number, optional)</li>
+                    <li>file/files/files[] (file(s), optional)</li>
+                </ul>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "messageIds": [array], "messages": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/messages/:conversationId/read</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: conversationId (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/messages/:messageId/react</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: messageId (number), Body: { "reactionType": "string" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "status": "string", "counts": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/messages/:messageId/reactions</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: messageId (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "reactions": object, "userReaction": object|null }</div>
+            </div>
+        </div>
+
+        <h2>Feed & Posts</h2>
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/hashtags/popular</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> Query parameters: q (string, optional), limit (number, default: 8)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "hashtags": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/tags/popular</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> Query parameters: q (string, optional), limit (number, default: 8)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "tags": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/users/following/reels</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> Query parameters: page (number, default: 1), pageSize (number, default: 12)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "users": [array], "page": number, "pageSize": number, "total": number, "totalPages": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/users/:id/reels</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Query: tzOffset (number, optional)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "reels": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/users/:id/reels/count</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Query: tzOffset (number, optional)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "count": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/posts/:postId/reactions</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: postId (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "counts": object, "userReaction": object|null }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/posts/:postId/react</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: postId (number), Body: { "type": "like" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "status": "string", "counts": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/posts/:postId/repost</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: postId (number), Body: { "quoteText": "string" (optional) }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "postId": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/posts/:postId/comments</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: postId (number), Query: limit (number, default: 20), offset (number, default: 0)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "comments": [array], "total": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/posts/:postId/comments</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: postId (number), Body: { "content": "string", "parentId": number (optional) }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "comment": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/comments/:commentId/star</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: commentId (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "starred": boolean, "starCount": number }</div>
+            </div>
+        </div>
+
+        <h2>Settings</h2>
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/settings/password</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "currentPassword": "string", "newPassword": "string", "confirmPassword": "string" }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": boolean, "message": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/checkout/subscribe</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "tier": "string", "cardType": "string", "cardNumber": "string", "expiryMonth": "string", "expiryYear": "string", "cvv": "string", "saveCard": boolean }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string", "tier": "string", "amount": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/subscription/cancel</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "reason": "string" (optional) }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/payment-methods/add</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "cardType": "string", "lastFour": "string", "expiryMonth": number, "expiryYear": number, "isDefault": boolean }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string" }</div>
+            </div>
+        </div>
+
+        <h2>Services</h2>
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/services/check-eligibility</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> None<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": boolean, "canCreate": boolean, "tier": "string", "currentCount": number, "maxServices": number, "nearLimit": boolean }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/services/create</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "title": "string", "description": "string", "category": "string", "pricePerHour": number, "durationMinutes": number, "experienceLevel": "string", "format": "string", "availability": "string", "location": "string", "tags": "string" }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "serviceId": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/services/:id/book</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "sessionLength": number (optional) }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "orderId": number, "amount": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/services/:id/reviews</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="no-auth">None</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Query: limit (number, default: 20), offset (number, default: 0)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "reviews": [array], "summary": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/services/:id/reviews</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "rating": number (1-5), "comment": "string" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "reviewId": number, "summary": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/reviews/:id/moderate</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "action": "hide"|"delete"|"restore" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <h2>HR Routes</h2>
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/hr/send-email</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "applicantId": number, "applicantEmail": "string", "applicantName": "string", "subject": "string", "message": "string" }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/hr/team</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span> None<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "team": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/hr/accounts</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Super HR)</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "fullName": "string", "email": "string", "password": "string", "role": "string", "scopes": [array], "hrPermissions": [array] }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "user": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/hr/accounts/:id/scopes</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "scopes": [array], "lock": boolean }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "scopes": [array], "locked": boolean }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/hr/accounts/:id/permissions</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "hrPermissions": [array] }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "hrPermissions": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/api/hr/career-jobs</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span> None<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "jobs": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/api/hr/career-jobs</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span> FormData with job fields and optional assetFiles<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "job": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method patch">PATCH</span>
+            <span class="path">/api/hr/career-jobs/:id</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), FormData with job fields<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "job": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method patch">PATCH</span>
+            <span class="path">/api/hr/career-jobs/:id/status</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "status": "string", "freezeUntil": "string" (optional) }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "job": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method delete">DELETE</span>
+            <span class="path">/api/hr/career-jobs/:jobId/assets/:assetId</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (HR)</span><br>
+                <span class="label">Input:</span> URL parameters: jobId (number), assetId (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <h2>Admin Routes</h2>
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/users/wizard</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ "fullName": "string", "email": "string", "password": "string", "role": "string", "permissions": [array], "scopes": [array] }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "userId": number }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/users/:id/permissions</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "permissions": [array], "scopes": [array] }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/careers/:id/status</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin/HR)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "status": "new"|"under_review"|"accepted"|"rejected" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/appeals/content/:id/status</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "status": "open"|"under_review"|"approved"|"denied" }<br>
+                <span class="label">Output:</span> Redirect (HTML response)
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/appeals/account/:id/status</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "status": "open"|"under_review"|"approved"|"denied" }<br>
+                <span class="label">Output:</span> Redirect (HTML response)
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/admin/refund-requests/:id</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "data": object, "audit": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/refund-requests/:id/update</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "status": "string", "adminNotes": "string", "refundAmount": number }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/admin/users/:id/notes</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "notes": [array] }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/users/:id/notes</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "note": "string" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "note": object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/users/:id/freeze-seller</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "action": "freeze"|"unfreeze", "reason": "string" }<br>
+                <span class="label">Output:</span> Redirect (HTML response)
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/users/:id/freeze-chat</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "action": "freeze"|"unfreeze", "reason": "string" }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "frozen": boolean, "message": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/moderation/reports/:id/status</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Super Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "status": "string", "adminNotes": "string" }<br>
+                <span class="label">Output:</span> Redirect (HTML response)
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/moderation/users/:id/lock-blocking</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Super Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "reason": "string" }<br>
+                <span class="label">Output:</span> Redirect (HTML response)
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/moderation/users/:id/unlock-blocking</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Super Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span> Redirect (HTML response)
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/users/:id/ban</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Super Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "reason": "string", "notifyUser": boolean }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/users/:id/suspend</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Super Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number), Body: { "duration": "string"|"days": number, "reason": "string", "notifyUser": boolean }<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "until": "ISO string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/users/:id/unban</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Super Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/posts/:id/delete</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/posts/:id/hide</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/comments/:id/hide</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/comments/:id/delete</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/admin/comments/:id/restore</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required (Admin)</span><br>
+                <span class="label">Input:</span> URL parameter: id (number)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ "success": true, "message": "string" }</div>
+            </div>
+        </div>
+
+        <h2>WebAuthn (Passkeys)</h2>
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/webauthn/registration/options</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span> None<br>
+                <span class="label">Output:</span>
+                <div class="code">{ WebAuthn registration options object }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/webauthn/registration/verify</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="auth">Required</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ WebAuthn registration response object }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "verified": boolean, "error": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method get">GET</span>
+            <span class="path">/webauthn/authentication/options</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="no-auth">None</span><br>
+                <span class="label">Input:</span> Query parameter: email (string, optional)<br>
+                <span class="label">Output:</span>
+                <div class="code">{ WebAuthn authentication options object, "error": "string" }</div>
+            </div>
+        </div>
+
+        <div class="route">
+            <span class="method post">POST</span>
+            <span class="path">/webauthn/authentication/verify</span>
+            <div class="section">
+                <span class="label">Authentication:</span> <span class="no-auth">None</span><br>
+                <span class="label">Input:</span>
+                <div class="code">{ WebAuthn authentication response object }</div>
+                <span class="label">Output:</span>
+                <div class="code">{ "verified": boolean, "error": "string" }</div>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>Note:</strong> This documentation includes only API routes that return JSON responses. Routes that render EJS templates or redirect to pages have been excluded. Authentication requirements are indicated for each route. OAuth routes (/auth/google, /auth/microsoft, /auth/apple) redirect and are not included as they don't return JSON.
+        </div>
+    </div>
+</body>
+</html>

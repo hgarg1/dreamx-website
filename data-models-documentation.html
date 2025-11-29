@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream X Data Models Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; margin-bottom: 10px; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 40px; margin-bottom: 20px; padding: 10px; background: #ecf0f1; border-left: 4px solid #3498db; }
+        .table { margin: 20px 0; padding: 15px; background: #f9f9f9; border-left: 3px solid #3498db; border-radius: 4px; }
+        .table-name { font-family: 'Courier New', monospace; font-size: 1.2em; color: #2c3e50; font-weight: bold; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th { background: #34495e; color: white; padding: 10px; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #ddd; }
+        tr:hover { background: #f5f5f5; }
+        .pk { color: #e74c3c; font-weight: bold; }
+        .fk { color: #3498db; font-style: italic; }
+        .code { background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.85em; margin: 10px 0; }
+        .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dream X Data Models Documentation</h1>
+        <p style="color: #7f8c8d; margin-bottom: 30px;">This document describes all database tables and their schemas used by the API routes.</p>
+
+        <h2>Core User & Authentication Tables</h2>
+        
+        <div class="table">
+            <div class="table-name">users</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>User ID</td></tr>
+                <tr><td>full_name</td><td>TEXT</td><td>NOT NULL</td><td>User's full name</td></tr>
+                <tr><td>email</td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Email address</td></tr>
+                <tr><td>password_hash</td><td>TEXT</td><td>NOT NULL</td><td>Bcrypt password hash</td></tr>
+                <tr><td>handle</td><td>TEXT</td><td>UNIQUE</td><td>Username handle (@username)</td></tr>
+                <tr><td>role</td><td>TEXT</td><td>DEFAULT 'user'</td><td>User role (user, admin, global_admin, global_hr, etc.)</td></tr>
+                <tr><td>account_status</td><td>TEXT</td><td>DEFAULT 'active'</td><td>Status: active, banned, suspended</td></tr>
+                <tr><td>suspension_until</td><td>DATETIME</td><td></td><td>End date for suspension</td></tr>
+                <tr><td>suspension_reason</td><td>TEXT</td><td></td><td>Reason for suspension</td></tr>
+                <tr><td>email_verified</td><td>INTEGER</td><td>DEFAULT 0</td><td>Email verification status</td></tr>
+                <tr><td>categories</td><td>TEXT</td><td></td><td>JSON array of interest categories</td></tr>
+                <tr><td>goals</td><td>TEXT</td><td></td><td>JSON array of user goals</td></tr>
+                <tr><td>experience</td><td>TEXT</td><td></td><td>Experience level</td></tr>
+                <tr><td>bio</td><td>TEXT</td><td></td><td>User biography</td></tr>
+                <tr><td>location</td><td>TEXT</td><td></td><td>User location</td></tr>
+                <tr><td>skills</td><td>TEXT</td><td></td><td>User skills</td></tr>
+                <tr><td>profile_picture</td><td>TEXT</td><td></td><td>Profile picture path</td></tr>
+                <tr><td>banner_image</td><td>TEXT</td><td></td><td>Banner image path</td></tr>
+                <tr><td>admin_permissions</td><td>TEXT</td><td>DEFAULT '[]'</td><td>JSON array of admin permissions</td></tr>
+                <tr><td>admin_scopes</td><td>TEXT</td><td>DEFAULT '[]'</td><td>JSON array of admin scopes</td></tr>
+                <tr><td>seller_privileges_frozen</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether seller privileges are frozen</td></tr>
+                <tr><td>chat_privileges_frozen</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether chat privileges are frozen</td></tr>
+                <tr><td>email_notifications</td><td>INTEGER</td><td>DEFAULT 1</td><td>Email notification preference</td></tr>
+                <tr><td>push_notifications</td><td>INTEGER</td><td>DEFAULT 1</td><td>Push notification preference</td></tr>
+                <tr><td>message_notifications</td><td>INTEGER</td><td>DEFAULT 1</td><td>Message notification preference</td></tr>
+                <tr><td>profile_visibility</td><td>TEXT</td><td>DEFAULT 'public'</td><td>Profile visibility setting</td></tr>
+                <tr><td>allow_messages_from</td><td>TEXT</td><td>DEFAULT 'everyone'</td><td>Who can message user</td></tr>
+                <tr><td>discoverable_by_email</td><td>INTEGER</td><td>DEFAULT 1</td><td>Discoverable by email</td></tr>
+                <tr><td>show_online_status</td><td>INTEGER</td><td>DEFAULT 1</td><td>Show online status</td></tr>
+                <tr><td>read_receipts</td><td>INTEGER</td><td>DEFAULT 1</td><td>Read receipts enabled</td></tr>
+                <tr><td>daily_time_commitment</td><td>TEXT</td><td></td><td>Daily time commitment</td></tr>
+                <tr><td>best_time</td><td>TEXT</td><td></td><td>Best time for activities</td></tr>
+                <tr><td>reminder_frequency</td><td>TEXT</td><td></td><td>Reminder frequency</td></tr>
+                <tr><td>accountability_style</td><td>TEXT</td><td></td><td>JSON array of accountability styles</td></tr>
+                <tr><td>progress_visibility</td><td>TEXT</td><td></td><td>Progress visibility setting</td></tr>
+                <tr><td>content_preferences</td><td>TEXT</td><td></td><td>JSON array of content preferences</td></tr>
+                <tr><td>content_format_preference</td><td>TEXT</td><td></td><td>Preferred content format</td></tr>
+                <tr><td>open_to_mentoring</td><td>INTEGER</td><td></td><td>Open to mentoring</td></tr>
+                <tr><td>first_goal</td><td>TEXT</td><td></td><td>First goal</td></tr>
+                <tr><td>first_goal_date</td><td>TEXT</td><td></td><td>First goal target date</td></tr>
+                <tr><td>first_goal_metric</td><td>TEXT</td><td></td><td>First goal metric</td></tr>
+                <tr><td>first_goal_public</td><td>INTEGER</td><td></td><td>First goal public visibility</td></tr>
+                <tr><td>notify_goal_reminders</td><td>INTEGER</td><td></td><td>Goal reminder notifications</td></tr>
+                <tr><td>notify_weekly_progress</td><td>INTEGER</td><td></td><td>Weekly progress notifications</td></tr>
+                <tr><td>notify_achievements</td><td>INTEGER</td><td></td><td>Achievement notifications</td></tr>
+                <tr><td>notify_community_updates</td><td>INTEGER</td><td></td><td>Community update notifications</td></tr>
+                <tr><td>notify_method</td><td>TEXT</td><td></td><td>Notification method preference</td></tr>
+                <tr><td>bank_account_country</td><td>TEXT</td><td></td><td>Bank account country</td></tr>
+                <tr><td>bank_account_number</td><td>TEXT</td><td></td><td>Bank account number</td></tr>
+                <tr><td>bank_routing_number</td><td>TEXT</td><td></td><td>Bank routing number</td></tr>
+                <tr><td>provider</td><td>TEXT</td><td></td><td>OAuth provider (legacy)</td></tr>
+                <tr><td>provider_id</td><td>TEXT</td><td></td><td>OAuth provider ID (legacy)</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Account creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_users_handle (handle), idx_users_email (email)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">email_verification_codes</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Code ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>email</td><td>TEXT</td><td>NOT NULL</td><td>Email to verify</td></tr>
+                <tr><td>code</td><td>TEXT</td><td>NOT NULL</td><td>6-digit verification code</td></tr>
+                <tr><td>expires_at</td><td>DATETIME</td><td>NOT NULL</td><td>Expiration timestamp</td></tr>
+                <tr><td>verified</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether code was used</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">password_reset_tokens</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Token ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>email</td><td>TEXT</td><td>NOT NULL</td><td>User email</td></tr>
+                <tr><td>token_hash</td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>SHA-256 hash of reset token</td></tr>
+                <tr><td>expires_at</td><td>DATETIME</td><td>NOT NULL</td><td>Expiration timestamp</td></tr>
+                <tr><td>used</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether token was used</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_password_reset_token_hash (token_hash)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">webauthn_credentials</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Credential ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>credential_id</td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Base64URL credential ID</td></tr>
+                <tr><td>public_key</td><td>BLOB</td><td>NOT NULL</td><td>Public key blob</td></tr>
+                <tr><td>counter</td><td>INTEGER</td><td>DEFAULT 0</td><td>Signature counter</td></tr>
+                <tr><td>transports</td><td>TEXT</td><td></td><td>JSON array of transports</td></tr>
+                <tr><td>rp_id</td><td>TEXT</td><td></td><td>Relying party ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_webauthn_credentials_user_rp (user_id, rp_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">oauth_accounts</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Account ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>provider</td><td>TEXT</td><td>NOT NULL</td><td>OAuth provider (google, microsoft, apple)</td></tr>
+                <tr><td>provider_id</td><td>TEXT</td><td>NOT NULL</td><td>Provider user ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (provider, provider_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">user_locations</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Location ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL UNIQUE, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>city</td><td>TEXT</td><td></td><td>City name</td></tr>
+                <tr><td>latitude</td><td>REAL</td><td></td><td>Latitude coordinate</td></tr>
+                <tr><td>longitude</td><td>REAL</td><td></td><td>Longitude coordinate</td></tr>
+                <tr><td>last_updated</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Last update timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_user_locations_user (user_id)</div>
+        </div>
+
+        <h2>Messaging Tables</h2>
+
+        <div class="table">
+            <div class="table-name">conversations</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Conversation ID</td></tr>
+                <tr><td class="fk">user1_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>First user ID</td></tr>
+                <tr><td class="fk">user2_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Second user ID</td></tr>
+                <tr><td>is_group</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether it's a group chat</td></tr>
+                <tr><td>group_name</td><td>TEXT</td><td></td><td>Group chat name</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">conversation_participants</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Participant ID</td></tr>
+                <tr><td class="fk">conversation_id</td><td>INTEGER</td><td>NOT NULL, FK → conversations(id)</td><td>Conversation ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>joined_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Join timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (conversation_id, user_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">messages</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Message ID</td></tr>
+                <tr><td class="fk">conversation_id</td><td>INTEGER</td><td>NOT NULL, FK → conversations(id)</td><td>Conversation ID</td></tr>
+                <tr><td class="fk">sender_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Sender user ID</td></tr>
+                <tr><td>content</td><td>TEXT</td><td>NOT NULL</td><td>Message content</td></tr>
+                <tr><td>attachment_url</td><td>TEXT</td><td></td><td>Attachment file path</td></tr>
+                <tr><td>attachment_mime</td><td>TEXT</td><td></td><td>Attachment MIME type</td></tr>
+                <tr><td class="fk">reply_to_message_id</td><td>INTEGER</td><td>FK → messages(id)</td><td>Reply target message ID</td></tr>
+                <tr><td>read</td><td>INTEGER</td><td>DEFAULT 0</td><td>Read status</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">message_reactions</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Reaction ID</td></tr>
+                <tr><td class="fk">message_id</td><td>INTEGER</td><td>NOT NULL, FK → messages(id)</td><td>Message ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>reaction_type</td><td>TEXT</td><td>NOT NULL DEFAULT 'like'</td><td>Reaction type (like, love, etc.)</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (message_id, user_id)<br>Indexes: idx_message_reactions_message (message_id), idx_message_reactions_type (reaction_type)</div>
+        </div>
+
+        <h2>Posts & Feed Tables</h2>
+
+        <div class="table">
+            <div class="table-name">posts</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Post ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Author user ID</td></tr>
+                <tr><td>title</td><td>TEXT</td><td></td><td>Post title</td></tr>
+                <tr><td>content_type</td><td>TEXT</td><td>DEFAULT 'text'</td><td>Content type (text, image, video, audio)</td></tr>
+                <tr><td>text_content</td><td>TEXT</td><td></td><td>Text content</td></tr>
+                <tr><td>media_url</td><td>TEXT</td><td></td><td>Media file path (legacy)</td></tr>
+                <tr><td>image_url</td><td>TEXT</td><td></td><td>Image file path</td></tr>
+                <tr><td>video_url</td><td>TEXT</td><td></td><td>Video file path</td></tr>
+                <tr><td>audio_url</td><td>TEXT</td><td></td><td>Audio file path</td></tr>
+                <tr><td>external_video_url</td><td>TEXT</td><td></td><td>External video URL</td></tr>
+                <tr><td>is_reel</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether post is a reel</td></tr>
+                <tr><td>activity_label</td><td>TEXT</td><td></td><td>Activity label for reels</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">hashtags</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Hashtag ID</td></tr>
+                <tr><td>name</td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Hashtag name (without #)</td></tr>
+                <tr><td>usage_count</td><td>INTEGER</td><td>DEFAULT 0</td><td>Number of times used</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_hashtags_name (name)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">post_hashtags</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="fk">post_id</td><td>INTEGER</td><td>NOT NULL, FK → posts(id)</td><td>Post ID</td></tr>
+                <tr><td class="fk">hashtag_id</td><td>INTEGER</td><td>NOT NULL, FK → hashtags(id)</td><td>Hashtag ID</td></tr>
+            </table>
+            <div class="code">Primary Key: (post_id, hashtag_id)<br>Indexes: idx_post_hashtags_post (post_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">tags</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Tag ID</td></tr>
+                <tr><td>name</td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Tag name</td></tr>
+                <tr><td>usage_count</td><td>INTEGER</td><td>DEFAULT 0</td><td>Number of times used</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_tags_name (name)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">post_tags</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="fk">post_id</td><td>INTEGER</td><td>NOT NULL, FK → posts(id)</td><td>Post ID</td></tr>
+                <tr><td class="fk">tag_id</td><td>INTEGER</td><td>NOT NULL, FK → tags(id)</td><td>Tag ID</td></tr>
+            </table>
+            <div class="code">Primary Key: (post_id, tag_id)<br>Indexes: idx_post_tags_post (post_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">post_reactions</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Reaction ID</td></tr>
+                <tr><td class="fk">post_id</td><td>INTEGER</td><td>NOT NULL, FK → posts(id)</td><td>Post ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>reaction_type</td><td>TEXT</td><td>NOT NULL</td><td>Reaction type (like, love, etc.)</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (post_id, user_id)<br>Indexes: idx_post_reactions_post (post_id), idx_post_reactions_type (reaction_type)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">post_comments</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Comment ID</td></tr>
+                <tr><td class="fk">post_id</td><td>INTEGER</td><td>NOT NULL, FK → posts(id)</td><td>Post ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Author user ID</td></tr>
+                <tr><td class="fk">parent_id</td><td>INTEGER</td><td>FK → post_comments(id)</td><td>Parent comment ID (for replies)</td></tr>
+                <tr><td>content</td><td>TEXT</td><td>NOT NULL</td><td>Comment content</td></tr>
+                <tr><td>is_hidden</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether comment is hidden</td></tr>
+                <tr><td>is_deleted</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether comment is deleted</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_post_comments_post (post_id), idx_post_comments_parent (parent_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">comment_likes</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Like ID</td></tr>
+                <tr><td class="fk">comment_id</td><td>INTEGER</td><td>NOT NULL, FK → post_comments(id)</td><td>Comment ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (comment_id, user_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">post_reposts</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Repost ID</td></tr>
+                <tr><td class="fk">post_id</td><td>INTEGER</td><td>NOT NULL, FK → posts(id)</td><td>Repost post ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td class="fk">original_post_id</td><td>INTEGER</td><td>NOT NULL, FK → posts(id)</td><td>Original post ID</td></tr>
+                <tr><td>repost_depth</td><td>INTEGER</td><td>DEFAULT 1</td><td>Repost depth</td></tr>
+                <tr><td>is_quote_repost</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether it's a quote repost</td></tr>
+                <tr><td>quote_text</td><td>TEXT</td><td></td><td>Quote text for quote reposts</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (post_id, user_id)<br>Indexes: idx_post_reposts_post (post_id), idx_post_reposts_original (original_post_id), idx_post_reposts_user (user_id)</div>
+        </div>
+
+        <h2>Social & Relationships Tables</h2>
+
+        <div class="table">
+            <div class="table-name">follows</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Follow ID</td></tr>
+                <tr><td class="fk">follower_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Follower user ID</td></tr>
+                <tr><td class="fk">following_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Following user ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (follower_id, following_id)<br>Indexes: idx_follows_follower (follower_id), idx_follows_following (following_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">user_blocks</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Block ID</td></tr>
+                <tr><td class="fk">blocker_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Blocker user ID</td></tr>
+                <tr><td class="fk">blocked_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Blocked user ID</td></tr>
+                <tr><td>reason</td><td>TEXT</td><td></td><td>Block reason</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (blocker_id, blocked_id)<br>Indexes: idx_blocks_blocker (blocker_id), idx_blocks_blocked (blocked_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">user_reports</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Report ID</td></tr>
+                <tr><td class="fk">reporter_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Reporter user ID</td></tr>
+                <tr><td class="fk">reported_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Reported user ID</td></tr>
+                <tr><td>reason</td><td>TEXT</td><td>NOT NULL</td><td>Report reason</td></tr>
+                <tr><td>description</td><td>TEXT</td><td></td><td>Report description</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'pending'</td><td>Status: pending, reviewed, resolved</td></tr>
+                <tr><td>admin_notes</td><td>TEXT</td><td></td><td>Admin notes</td></tr>
+                <tr><td class="fk">reviewed_by</td><td>INTEGER</td><td>FK → users(id)</td><td>Reviewer user ID</td></tr>
+                <tr><td>reviewed_at</td><td>DATETIME</td><td></td><td>Review timestamp</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_reports_reporter (reporter_id), idx_reports_reported (reported_id), idx_reports_status (status)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">user_moderation</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Moderation ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL UNIQUE, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>block_functionality_locked</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether blocking is locked</td></tr>
+                <tr><td>lock_reason</td><td>TEXT</td><td></td><td>Lock reason</td></tr>
+                <tr><td class="fk">locked_by</td><td>INTEGER</td><td>FK → users(id)</td><td>Admin who locked</td></tr>
+                <tr><td>locked_at</td><td>DATETIME</td><td></td><td>Lock timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_moderation_locked (block_functionality_locked)</div>
+        </div>
+
+        <h2>Services & Marketplace Tables</h2>
+
+        <div class="table">
+            <div class="table-name">services</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Service ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Service provider user ID</td></tr>
+                <tr><td>title</td><td>TEXT</td><td>NOT NULL</td><td>Service title</td></tr>
+                <tr><td>description</td><td>TEXT</td><td>NOT NULL</td><td>Service description</td></tr>
+                <tr><td>category</td><td>TEXT</td><td>NOT NULL</td><td>Service category</td></tr>
+                <tr><td>price_per_hour</td><td>REAL</td><td>NOT NULL</td><td>Price per hour</td></tr>
+                <tr><td>duration_minutes</td><td>INTEGER</td><td>DEFAULT 60</td><td>Duration in minutes</td></tr>
+                <tr><td>experience_level</td><td>TEXT</td><td></td><td>Experience level</td></tr>
+                <tr><td>format</td><td>TEXT</td><td></td><td>Service format</td></tr>
+                <tr><td>availability</td><td>TEXT</td><td></td><td>Availability</td></tr>
+                <tr><td>location</td><td>TEXT</td><td></td><td>Location</td></tr>
+                <tr><td>tags</td><td>TEXT</td><td></td><td>Service tags</td></tr>
+                <tr><td>image_url</td><td>TEXT</td><td></td><td>Service image</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'active'</td><td>Status: active, inactive</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+                <tr><td>updated_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Update timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_services_user_id (user_id), idx_services_category (category), idx_services_status (status)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">service_orders</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Order ID</td></tr>
+                <tr><td class="fk">service_id</td><td>INTEGER</td><td>NOT NULL, FK → services(id)</td><td>Service ID</td></tr>
+                <tr><td class="fk">buyer_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Buyer user ID</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'completed'</td><td>Order status</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_service_orders_service (service_id), idx_service_orders_buyer (buyer_id), idx_service_orders_status (status)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">service_reviews</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Review ID</td></tr>
+                <tr><td class="fk">service_id</td><td>INTEGER</td><td>NOT NULL, FK → services(id)</td><td>Service ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Reviewer user ID</td></tr>
+                <tr><td>rating</td><td>INTEGER</td><td>NOT NULL CHECK(1-5)</td><td>Rating (1-5)</td></tr>
+                <tr><td>comment</td><td>TEXT</td><td></td><td>Review comment</td></tr>
+                <tr><td>is_hidden</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether review is hidden</td></tr>
+                <tr><td>is_deleted</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether review is deleted</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (service_id, user_id)<br>Indexes: idx_service_reviews_service (service_id), idx_service_reviews_user (user_id)</div>
+        </div>
+
+        <h2>Billing & Subscriptions Tables</h2>
+
+        <div class="table">
+            <div class="table-name">user_subscriptions</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Subscription ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL UNIQUE, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>tier</td><td>TEXT</td><td>NOT NULL DEFAULT 'free'</td><td>Subscription tier (free, premium, etc.)</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>NOT NULL DEFAULT 'active'</td><td>Status: active, cancelled, expired</td></tr>
+                <tr><td>payment_provider</td><td>TEXT</td><td></td><td>Payment provider</td></tr>
+                <tr><td>provider_subscription_id</td><td>TEXT</td><td></td><td>Provider subscription ID</td></tr>
+                <tr><td>provider_customer_id</td><td>TEXT</td><td></td><td>Provider customer ID</td></tr>
+                <tr><td>started_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Start timestamp</td></tr>
+                <tr><td>ends_at</td><td>DATETIME</td><td></td><td>End timestamp</td></tr>
+                <tr><td>auto_renew</td><td>INTEGER</td><td>DEFAULT 1</td><td>Auto-renewal enabled</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">payment_methods</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Payment method ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>payment_provider</td><td>TEXT</td><td>DEFAULT 'mock'</td><td>Payment provider</td></tr>
+                <tr><td>provider_payment_method_id</td><td>TEXT</td><td></td><td>Provider payment method ID</td></tr>
+                <tr><td>card_type</td><td>TEXT</td><td>NOT NULL</td><td>Card type</td></tr>
+                <tr><td>last_four</td><td>TEXT</td><td>NOT NULL</td><td>Last 4 digits</td></tr>
+                <tr><td>expiry_month</td><td>INTEGER</td><td>NOT NULL</td><td>Expiry month</td></tr>
+                <tr><td>expiry_year</td><td>INTEGER</td><td>NOT NULL</td><td>Expiry year</td></tr>
+                <tr><td>is_default</td><td>INTEGER</td><td>DEFAULT 0</td><td>Default payment method</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">invoices</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Invoice ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>payment_provider</td><td>TEXT</td><td></td><td>Payment provider</td></tr>
+                <tr><td>provider_payment_id</td><td>TEXT</td><td></td><td>Provider payment ID</td></tr>
+                <tr><td>amount</td><td>REAL</td><td>NOT NULL</td><td>Invoice amount</td></tr>
+                <tr><td>tier</td><td>TEXT</td><td>NOT NULL</td><td>Subscription tier</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'paid'</td><td>Status: paid, pending, failed</td></tr>
+                <tr><td>invoice_date</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Invoice date</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">payment_customers</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Customer ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>payment_provider</td><td>TEXT</td><td>NOT NULL</td><td>Payment provider</td></tr>
+                <tr><td>provider_customer_id</td><td>TEXT</td><td>NOT NULL</td><td>Provider customer ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+                <tr><td>updated_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Update timestamp</td></tr>
+            </table>
+            <div class="code">Unique: (user_id, payment_provider)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">billing_charges</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Charge ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>amount</td><td>REAL</td><td>NOT NULL</td><td>Charge amount</td></tr>
+                <tr><td>description</td><td>TEXT</td><td>NOT NULL</td><td>Charge description</td></tr>
+                <tr><td>charge_date</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Charge date</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'completed'</td><td>Status: completed, pending, failed</td></tr>
+                <tr><td>tier</td><td>TEXT</td><td></td><td>Subscription tier</td></tr>
+                <tr><td class="fk">invoice_id</td><td>INTEGER</td><td>FK → invoices(id)</td><td>Invoice ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_billing_charges_user (user_id), idx_billing_charges_status (status)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">refund_requests</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Request ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td class="fk">charge_id</td><td>INTEGER</td><td>FK → billing_charges(id)</td><td>Charge ID</td></tr>
+                <tr><td>amount</td><td>REAL</td><td>NOT NULL</td><td>Refund amount</td></tr>
+                <tr><td>reason</td><td>TEXT</td><td>NOT NULL</td><td>Refund reason</td></tr>
+                <tr><td>description</td><td>TEXT</td><td></td><td>Refund description</td></tr>
+                <tr><td>order_date</td><td>TEXT</td><td></td><td>Order date</td></tr>
+                <tr><td>transaction_id</td><td>TEXT</td><td></td><td>Transaction ID</td></tr>
+                <tr><td>preferred_method</td><td>TEXT</td><td>NOT NULL</td><td>Preferred refund method</td></tr>
+                <tr><td>account_email</td><td>TEXT</td><td></td><td>Account email</td></tr>
+                <tr><td>account_last_four</td><td>TEXT</td><td></td><td>Account last 4 digits</td></tr>
+                <tr><td>screenshot</td><td>TEXT</td><td></td><td>Screenshot file path</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'pending'</td><td>Status: pending, approved, denied, refunded</td></tr>
+                <tr><td class="fk">reviewed_by</td><td>INTEGER</td><td>FK → users(id)</td><td>Reviewer user ID</td></tr>
+                <tr><td>admin_notes</td><td>TEXT</td><td></td><td>Admin notes</td></tr>
+                <tr><td>refund_amount</td><td>REAL</td><td></td><td>Approved refund amount</td></tr>
+                <tr><td>reviewed_at</td><td>DATETIME</td><td></td><td>Review timestamp</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_refund_requests_user (user_id), idx_refund_requests_status (status)</div>
+        </div>
+
+        <h2>Notifications & Push Tables</h2>
+
+        <div class="table">
+            <div class="table-name">notifications</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Notification ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>type</td><td>TEXT</td><td>NOT NULL</td><td>Notification type</td></tr>
+                <tr><td>title</td><td>TEXT</td><td>NOT NULL</td><td>Notification title</td></tr>
+                <tr><td>message</td><td>TEXT</td><td>NOT NULL</td><td>Notification message</td></tr>
+                <tr><td>link</td><td>TEXT</td><td></td><td>Notification link</td></tr>
+                <tr><td>read</td><td>INTEGER</td><td>DEFAULT 0</td><td>Read status</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">push_subscriptions</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Subscription ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>endpoint</td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Push endpoint URL</td></tr>
+                <tr><td>p256dh</td><td>TEXT</td><td>NOT NULL</td><td>P256DH key</td></tr>
+                <tr><td>auth</td><td>TEXT</td><td>NOT NULL</td><td>Auth key</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <h2>HR & Career Tables</h2>
+
+        <div class="table">
+            <div class="table-name">career_jobs</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Job ID</td></tr>
+                <tr><td>title</td><td>TEXT</td><td>NOT NULL</td><td>Job title</td></tr>
+                <tr><td>location</td><td>TEXT</td><td></td><td>Job location</td></tr>
+                <tr><td>team</td><td>TEXT</td><td></td><td>Team name</td></tr>
+                <tr><td>employment_type</td><td>TEXT</td><td></td><td>Employment type</td></tr>
+                <tr><td>seniority</td><td>TEXT</td><td></td><td>Seniority level</td></tr>
+                <tr><td>headline</td><td>TEXT</td><td></td><td>Job headline</td></tr>
+                <tr><td>description</td><td>TEXT</td><td></td><td>Job description</td></tr>
+                <tr><td>responsibilities</td><td>TEXT</td><td></td><td>Responsibilities</td></tr>
+                <tr><td>requirements</td><td>TEXT</td><td></td><td>Requirements</td></tr>
+                <tr><td>perks</td><td>TEXT</td><td></td><td>Perks</td></tr>
+                <tr><td>tags</td><td>TEXT</td><td></td><td>Job tags</td></tr>
+                <tr><td>salary_min</td><td>REAL</td><td></td><td>Minimum salary</td></tr>
+                <tr><td>salary_max</td><td>REAL</td><td></td><td>Maximum salary</td></tr>
+                <tr><td>salary_currency</td><td>TEXT</td><td></td><td>Salary currency</td></tr>
+                <tr><td>apply_url</td><td>TEXT</td><td></td><td>Application URL</td></tr>
+                <tr><td>workplace_type</td><td>TEXT</td><td></td><td>Workplace type</td></tr>
+                <tr><td>visibility</td><td>TEXT</td><td>DEFAULT 'public'</td><td>Visibility: public, internal</td></tr>
+                <tr><td>priority</td><td>TEXT</td><td></td><td>Priority level</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'draft'</td><td>Status: draft, scheduled, live, frozen, closed</td></tr>
+                <tr><td>go_live_at</td><td>DATETIME</td><td></td><td>Go live timestamp</td></tr>
+                <tr><td>freeze_until</td><td>DATETIME</td><td></td><td>Freeze until timestamp</td></tr>
+                <tr><td>is_frozen</td><td>INTEGER</td><td>DEFAULT 0</td><td>Whether job is frozen</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+                <tr><td>updated_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Update timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_career_jobs_status (status), idx_career_jobs_live (go_live_at)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">career_job_assets</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Asset ID</td></tr>
+                <tr><td class="fk">job_id</td><td>INTEGER</td><td>NOT NULL, FK → career_jobs(id)</td><td>Job ID</td></tr>
+                <tr><td>label</td><td>TEXT</td><td></td><td>Asset label</td></tr>
+                <tr><td>file_name</td><td>TEXT</td><td></td><td>File name</td></tr>
+                <tr><td>file_path</td><td>TEXT</td><td>NOT NULL</td><td>File path</td></tr>
+                <tr><td>file_size</td><td>INTEGER</td><td></td><td>File size in bytes</td></tr>
+                <tr><td>mime_type</td><td>TEXT</td><td></td><td>MIME type</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_career_job_assets_job (job_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">career_applications</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Application ID</td></tr>
+                <tr><td class="fk">job_id</td><td>INTEGER</td><td>FK → career_jobs(id)</td><td>Job ID (optional)</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>FK → users(id)</td><td>User ID (optional)</td></tr>
+                <tr><td>position</td><td>TEXT</td><td>NOT NULL</td><td>Position applied for</td></tr>
+                <tr><td>name</td><td>TEXT</td><td>NOT NULL</td><td>Applicant name</td></tr>
+                <tr><td>email</td><td>TEXT</td><td>NOT NULL</td><td>Applicant email</td></tr>
+                <tr><td>phone</td><td>TEXT</td><td></td><td>Phone number</td></tr>
+                <tr><td>cover_letter</td><td>TEXT</td><td>NOT NULL</td><td>Cover letter</td></tr>
+                <tr><td>resume_url</td><td>TEXT</td><td></td><td>Resume file path</td></tr>
+                <tr><td>resume_file</td><td>TEXT</td><td></td><td>Resume file (alternative)</td></tr>
+                <tr><td>portfolio_file</td><td>TEXT</td><td></td><td>Portfolio file</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'new'</td><td>Status: new, under_review, accepted, rejected</td></tr>
+                <tr><td class="fk">reviewer_id</td><td>INTEGER</td><td>FK → users(id)</td><td>Reviewer user ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+                <tr><td>updated_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Update timestamp</td></tr>
+            </table>
+        </div>
+
+        <h2>Admin & Moderation Tables</h2>
+
+        <div class="table">
+            <div class="table-name">audit_logs</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Log ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>FK → users(id)</td><td>User ID (null for system actions)</td></tr>
+                <tr><td>action</td><td>TEXT</td><td>NOT NULL</td><td>Action type</td></tr>
+                <tr><td>details</td><td>TEXT</td><td></td><td>JSON details</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">content_appeals</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Appeal ID</td></tr>
+                <tr><td>email</td><td>TEXT</td><td>NOT NULL</td><td>Appellant email</td></tr>
+                <tr><td>content_type</td><td>TEXT</td><td>NOT NULL</td><td>Content type</td></tr>
+                <tr><td>content_url</td><td>TEXT</td><td></td><td>Content URL</td></tr>
+                <tr><td>removal_reason</td><td>TEXT</td><td></td><td>Removal reason</td></tr>
+                <tr><td>description</td><td>TEXT</td><td></td><td>Description</td></tr>
+                <tr><td>appeal_reason</td><td>TEXT</td><td>NOT NULL</td><td>Appeal reason</td></tr>
+                <tr><td>additional_info</td><td>TEXT</td><td></td><td>Additional information</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'open'</td><td>Status: open, under_review, approved, denied</td></tr>
+                <tr><td class="fk">reviewer_id</td><td>INTEGER</td><td>FK → users(id)</td><td>Reviewer user ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">account_appeals</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Appeal ID</td></tr>
+                <tr><td>email</td><td>TEXT</td><td>NOT NULL</td><td>Appellant email</td></tr>
+                <tr><td>username</td><td>TEXT</td><td>NOT NULL</td><td>Username</td></tr>
+                <tr><td>account_action</td><td>TEXT</td><td>NOT NULL</td><td>Account action taken</td></tr>
+                <tr><td>action_date</td><td>TEXT</td><td></td><td>Action date</td></tr>
+                <tr><td>violation_reason</td><td>TEXT</td><td></td><td>Violation reason</td></tr>
+                <tr><td>appeal_reason</td><td>TEXT</td><td>NOT NULL</td><td>Appeal reason</td></tr>
+                <tr><td>prevention_plan</td><td>TEXT</td><td></td><td>Prevention plan</td></tr>
+                <tr><td>additional_info</td><td>TEXT</td><td></td><td>Additional information</td></tr>
+                <tr><td>contact_email</td><td>TEXT</td><td></td><td>Contact email</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'open'</td><td>Status: open, under_review, approved, denied</td></tr>
+                <tr><td class="fk">reviewer_id</td><td>INTEGER</td><td>FK → users(id)</td><td>Reviewer user ID</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+        </div>
+
+        <div class="table">
+            <div class="table-name">user_admin_notes</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Note ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td class="fk">admin_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Admin user ID</td></tr>
+                <tr><td>note</td><td>TEXT</td><td>NOT NULL</td><td>Admin note</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_user_admin_notes_user (user_id), idx_user_admin_notes_admin (admin_id)</div>
+        </div>
+
+        <h2>Livestream Tables</h2>
+
+        <div class="table">
+            <div class="table-name">livestreams</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Stream ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>Streamer user ID</td></tr>
+                <tr><td>title</td><td>TEXT</td><td>NOT NULL</td><td>Stream title</td></tr>
+                <tr><td>description</td><td>TEXT</td><td></td><td>Stream description</td></tr>
+                <tr><td>stream_key</td><td>TEXT</td><td>NOT NULL UNIQUE</td><td>Stream key</td></tr>
+                <tr><td>status</td><td>TEXT</td><td>DEFAULT 'scheduled'</td><td>Status: scheduled, live, ended</td></tr>
+                <tr><td>started_at</td><td>DATETIME</td><td></td><td>Start timestamp</td></tr>
+                <tr><td>ended_at</td><td>DATETIME</td><td></td><td>End timestamp</td></tr>
+                <tr><td>viewer_count_peak</td><td>INTEGER</td><td>DEFAULT 0</td><td>Peak viewer count</td></tr>
+                <tr><td>recording_enabled</td><td>INTEGER</td><td>DEFAULT 1</td><td>Recording enabled</td></tr>
+                <tr><td>recording_url</td><td>TEXT</td><td></td><td>Recording URL</td></tr>
+                <tr><td>thumbnail_url</td><td>TEXT</td><td></td><td>Thumbnail URL</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_livestreams_user (user_id), idx_livestreams_status (status), idx_livestreams_stream_key (stream_key)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">livestream_viewers</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Viewer ID</td></tr>
+                <tr><td class="fk">stream_id</td><td>INTEGER</td><td>NOT NULL, FK → livestreams(id)</td><td>Stream ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>FK → users(id)</td><td>Viewer user ID</td></tr>
+                <tr><td>joined_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Join timestamp</td></tr>
+                <tr><td>left_at</td><td>DATETIME</td><td></td><td>Leave timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_livestream_viewers_stream (stream_id), idx_livestream_viewers_user (user_id)</div>
+        </div>
+
+        <div class="table">
+            <div class="table-name">livestream_chat</div>
+            <table>
+                <tr><th>Column</th><th>Type</th><th>Constraints</th><th>Description</th></tr>
+                <tr><td class="pk">id</td><td>INTEGER</td><td>PRIMARY KEY AUTOINCREMENT</td><td>Chat message ID</td></tr>
+                <tr><td class="fk">stream_id</td><td>INTEGER</td><td>NOT NULL, FK → livestreams(id)</td><td>Stream ID</td></tr>
+                <tr><td class="fk">user_id</td><td>INTEGER</td><td>NOT NULL, FK → users(id)</td><td>User ID</td></tr>
+                <tr><td>message</td><td>TEXT</td><td>NOT NULL</td><td>Chat message</td></tr>
+                <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Creation timestamp</td></tr>
+            </table>
+            <div class="code">Indexes: idx_livestream_chat_stream (stream_id)</div>
+        </div>
+
+        <div class="note">
+            <strong>Note:</strong> This documentation includes all database tables used by the API routes. Foreign key relationships are indicated with FK. Primary keys are marked with PK. Some tables may have additional indexes not listed here for performance optimization.
+        </div>
+    </div>
+</body>
+</html>
