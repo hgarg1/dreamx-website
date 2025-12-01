@@ -44,7 +44,7 @@ function initOnboardingRoutes({ upload }) {
 
         let profilePicturePath = null;
         if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
-            profilePicturePath = 'profiles/' + req.files.profilePicture[0].filename;
+            profilePicturePath = req.files.profilePicture[0].path || `profiles/${req.files.profilePicture[0].filename}`;
         }
 
         try {

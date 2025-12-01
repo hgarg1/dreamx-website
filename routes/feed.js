@@ -342,8 +342,9 @@ function initFeedRoutes({ postUpload, io }) {
             const postTagsInput = req.body.postTags;
             const mediaFile = req.files && req.files['media'] ? req.files['media'][0] : null;
             const audioFile = req.files && req.files['audio'] ? req.files['audio'][0] : null;
-            const mediaUrl = mediaFile ? `/uploads/posts/${mediaFile.filename}` : null;
-            const audioUrl = audioFile ? `/uploads/posts/${audioFile.filename}` : null;
+            // Use path from storage adapter (includes folder), fallback to filename for backward compatibility
+            const mediaUrl = mediaFile ? (mediaFile.url || `/uploads/${mediaFile.path || `posts/${mediaFile.filename}`}`) : null;
+            const audioUrl = audioFile ? (audioFile.url || `/uploads/${audioFile.path || `posts/${audioFile.filename}`}`) : null;
             const externalVideo = (externalVideoUrl || '').trim();
             let parsedDuration = Number(req.body.mediaDuration || 0);
             const mediaSizeMb = mediaFile ? mediaFile.size / (1024 * 1024) : 0;
@@ -369,7 +370,21 @@ function initFeedRoutes({ postUpload, io }) {
                 }
                 if (mime.startsWith('video/')) {
                     try {
-                        const probedDuration = await getVideoDurationSeconds(mediaFile.path || (mediaFile.destination && mediaFile.filename ? path.join(mediaFile.destination, mediaFile.filename) : null));
+                        // For video duration, use buffer if available, or try to get from storage
+                        let videoPath = null;
+                        if (mediaFile.buffer) {
+                            // Write to temp file for ffprobe
+                            const tempPath = path.join(__dirname, '..', 'temp', `temp-${Date.now()}-${mediaFile.filename}`);
+                            const tempDir = path.dirname(tempPath);
+                            const fs = require('fs');
+                            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+                            fs.writeFileSync(tempPath, mediaFile.buffer);
+                            videoPath = tempPath;
+                        } else if (mediaFile.path) {
+                            // Try to get from storage if needed
+                            videoPath = path.join(__dirname, '..', 'public', 'uploads', mediaFile.path);
+                        }
+                        const probedDuration = await getVideoDurationSeconds(videoPath);
                         if (Number.isFinite(probedDuration) && probedDuration > 0) parsedDuration = probedDuration;
                     } catch (err) {
                         console.warn('Failed to probe video duration, using client duration if provided.', err.message);

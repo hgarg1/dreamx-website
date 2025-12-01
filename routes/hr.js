@@ -337,7 +337,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
                         jobId,
                         label: file.originalname,
                         fileName: file.originalname,
-                        filePath: `/uploads/career-assets/${file.filename}`,
+                        filePath: file.url || `/uploads/${file.path || `career-assets/${file.filename}`}`,
                         fileSize: file.size,
                         mimeType: file.mimetype
                     });
@@ -392,7 +392,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
                         jobId: id,
                         label: file.originalname,
                         fileName: file.originalname,
-                        filePath: `/uploads/career-assets/${file.filename}`,
+                        filePath: file.url || `/uploads/${file.path || `career-assets/${file.filename}`}`,
                         fileSize: file.size,
                         mimeType: file.mimetype
                     });

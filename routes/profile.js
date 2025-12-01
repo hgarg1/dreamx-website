@@ -357,16 +357,18 @@ function initProfileRoutes({ upload, io }) {
         });
 
         if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
+            const profileFile = req.files.profilePicture[0];
             updateProfilePicture({
                 userId: req.session.userId,
-                filename: `profiles/${req.files.profilePicture[0].filename}`
+                filename: profileFile.path || `profiles/${profileFile.filename}`
             });
         }
 
         if (req.files && req.files.bannerImage && req.files.bannerImage[0]) {
+            const bannerFile = req.files.bannerImage[0];
             updateBannerImage({
                 userId: req.session.userId,
-                filename: `profiles/${req.files.bannerImage[0].filename}`
+                filename: bannerFile.path || `profiles/${bannerFile.filename}`
             });
         }
 

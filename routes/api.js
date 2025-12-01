@@ -53,8 +53,10 @@ function initApiRoutes({ io, careerUpload }) {
             if (!position || !name || !email || !coverLetter) {
                 return res.status(400).json({ error: 'Missing required fields' });
             }
-            const resumeFile = (req.files && req.files.resumeFile && req.files.resumeFile[0]) ? `/uploads/careers/${req.files.resumeFile[0].filename}` : null;
-            const portfolioFile = (req.files && req.files.portfolioFile && req.files.portfolioFile[0]) ? `/uploads/careers/${req.files.portfolioFile[0].filename}` : null;
+            const resumeFileObj = req.files && req.files.resumeFile && req.files.resumeFile[0];
+            const portfolioFileObj = req.files && req.files.portfolioFile && req.files.portfolioFile[0];
+            const resumeFile = resumeFileObj ? (resumeFileObj.url || `/uploads/${resumeFileObj.path || `careers/${resumeFileObj.filename}`}`) : null;
+            const portfolioFile = portfolioFileObj ? (portfolioFileObj.url || `/uploads/${portfolioFileObj.path || `careers/${portfolioFileObj.filename}`}`) : null;
             const id = createCareerApplication({ position, name, email, phone, coverLetter, resumeFile, portfolioFile });
             try { addAuditLog({ userId: req.session.userId || null, action: 'career_application_submitted', details: JSON.stringify({ id, email, position }) }); } catch (e) { }
 

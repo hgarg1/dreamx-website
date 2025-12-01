@@ -304,18 +304,11 @@ const io = socketIo(httpServer, {
     allowEIO3: true
 });
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'public', 'uploads', 'profiles'));
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// Configure multer for file uploads using unified storage
+const createStorageAdapter = require('./services/storage/multer-storage');
+
 const upload = multer({
-    storage,
+    storage: createStorageAdapter('profiles', 'profile-'),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for profile/banner images
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
@@ -327,18 +320,8 @@ const upload = multer({
 });
 
 // Separate multer for chat attachments (modest size, broader types)
-const chatStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'public', 'uploads', 'chat'));
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'chat-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
 const chatUpload = multer({
-    storage: chatStorage,
+    storage: createStorageAdapter('chat', 'chat-'),
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for chat
     fileFilter: (req, file, cb) => {
         if (isCommonUploadMime(file.mimetype)) {
@@ -349,19 +332,8 @@ const chatUpload = multer({
 });
 
 // Refund request uploads (screenshots/receipts - images only)
-const refundStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, 'public', 'uploads', 'refunds');
-        try { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); } catch (e) { }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'refund-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
 const refundUpload = multer({
-    storage: refundStorage,
+    storage: createStorageAdapter('refunds', 'refund-'),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB for screenshots
     fileFilter: (req, file, cb) => {
         if ((file.mimetype || '').toLowerCase().startsWith('image/')) return cb(null, true);
@@ -370,17 +342,8 @@ const refundUpload = multer({
 });
 
 // Posts/media uploads (supports images for image posts, videos/GIFs for reels)
-const postStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'public', 'uploads', 'posts'));
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'post-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
 const postUpload = multer({
-    storage: postStorage,
+    storage: createStorageAdapter('posts', 'post-'),
     limits: { fileSize: MEDIA_LIMITS.MAX_VIDEO_SIZE_MB * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         if (isCommonUploadMime(file.mimetype)) return cb(null, true);
@@ -389,17 +352,8 @@ const postUpload = multer({
 });
 
 // Career application uploads (resume/portfolio)
-const careerStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'public', 'uploads', 'careers'));
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'career-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
 const careerUpload = multer({
-    storage: careerStorage,
+    storage: createStorageAdapter('careers', 'career-'),
     limits: { fileSize: 15 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
@@ -415,19 +369,8 @@ const careerUpload = multer({
 });
 
 // Career job asset uploads (role descriptions, compensation PDFs, etc.)
-const careerAssetStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, 'public', 'uploads', 'career-assets');
-        try { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); } catch (e) { }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'career-asset-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
 const careerAssetUpload = multer({
-    storage: careerAssetStorage,
+    storage: createStorageAdapter('career-assets', 'career-asset-'),
     limits: { fileSize: 20 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
@@ -442,17 +385,8 @@ const careerAssetUpload = multer({
 });
 
 // Service uploads (images, videos, documents for service listings)
-const serviceStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, 'public', 'uploads', 'services'));
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'service-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
 const serviceUpload = multer({
-    storage: serviceStorage,
+    storage: createStorageAdapter('services', 'service-'),
     limits: { fileSize: 20 * 1024 * 1024 }, // 20MB for service media
     fileFilter: (req, file, cb) => {
         const m = (file.mimetype || '').toLowerCase();
@@ -1922,7 +1856,7 @@ app.post('/api/hr/career-jobs', requireHR, careerAssetUpload.array('assetFiles',
                     jobId,
                     label: file.originalname,
                     fileName: file.originalname,
-                    filePath: `/uploads/career-assets/${file.filename}`,
+                    filePath: file.url || `/uploads/${file.path || `career-assets/${file.filename}`}`,
                     fileSize: file.size,
                     mimeType: file.mimetype
                 });
@@ -1977,7 +1911,7 @@ app.patch('/api/hr/career-jobs/:id', requireHR, careerAssetUpload.array('assetFi
                     jobId: id,
                     label: file.originalname,
                     fileName: file.originalname,
-                    filePath: `/uploads/career-assets/${file.filename}`,
+                    filePath: file.url || `/uploads/${file.path || `career-assets/${file.filename}`}`,
                     fileSize: file.size,
                     mimeType: file.mimetype
                 });
@@ -2558,8 +2492,9 @@ app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name
         const postTagsInput = req.body.postTags;
         const mediaFile = req.files && req.files['media'] ? req.files['media'][0] : null;
         const audioFile = req.files && req.files['audio'] ? req.files['audio'][0] : null;
-        const mediaUrl = mediaFile ? `/uploads/posts/${mediaFile.filename}` : null;
-        const audioUrl = audioFile ? `/uploads/posts/${audioFile.filename}` : null;
+        // Use path from storage adapter (includes folder), fallback to filename for backward compatibility
+        const mediaUrl = mediaFile ? (mediaFile.url || `/uploads/${mediaFile.path || `posts/${mediaFile.filename}`}`) : null;
+        const audioUrl = audioFile ? (audioFile.url || `/uploads/${audioFile.path || `posts/${audioFile.filename}`}`) : null;
         const externalVideo = (externalVideoUrl || '').trim();
         let parsedDuration = Number(req.body.mediaDuration || 0);
         const mediaSizeMb = mediaFile ? mediaFile.size / (1024 * 1024) : 0;
@@ -2585,7 +2520,20 @@ app.post('/feed/post', postUpload.fields([{ name: 'media', maxCount: 1 }, { name
             }
             if (mime.startsWith('video/')) {
                 try {
-                    const probedDuration = await getVideoDurationSeconds(mediaFile.path || (mediaFile.destination && mediaFile.filename ? path.join(mediaFile.destination, mediaFile.filename) : null));
+                    // For video duration, use buffer if available, or try to get from storage
+                    let videoPath = null;
+                    if (mediaFile.buffer) {
+                        // Write to temp file for ffprobe
+                        const tempPath = path.join(__dirname, 'temp', `temp-${Date.now()}-${mediaFile.filename}`);
+                        const tempDir = path.dirname(tempPath);
+                        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+                        fs.writeFileSync(tempPath, mediaFile.buffer);
+                        videoPath = tempPath;
+                    } else if (mediaFile.path) {
+                        // Try to get from storage if needed
+                        videoPath = path.join(__dirname, 'public', 'uploads', mediaFile.path);
+                    }
+                    const probedDuration = await getVideoDurationSeconds(videoPath);
                     if (Number.isFinite(probedDuration) && probedDuration > 0) parsedDuration = probedDuration;
                 } catch (err) {
                     console.warn('Failed to probe video duration, using client duration if provided.', err.message);
@@ -3368,17 +3316,19 @@ app.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }
 
     // Update profile picture if uploaded
     if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
+        const profileFile = req.files.profilePicture[0];
         updateProfilePicture({
             userId: req.session.userId,
-            filename: `profiles/${req.files.profilePicture[0].filename}`
+            filename: profileFile.path || `profiles/${profileFile.filename}`
         });
     }
 
     // Update banner image if uploaded
     if (req.files && req.files.bannerImage && req.files.bannerImage[0]) {
+        const bannerFile = req.files.bannerImage[0];
         updateBannerImage({
             userId: req.session.userId,
-            filename: `profiles/${req.files.bannerImage[0].filename}`
+            filename: bannerFile.path || `profiles/${bannerFile.filename}`
         });
     }
 
@@ -4032,7 +3982,8 @@ app.post('/api/messages/send', chatUpload.any(), (req, res) => {
 
     // Create one message per attachment
     for (const f of files) {
-        const attachmentUrl = `/uploads/chat/${f.filename}`;
+        // Use path from storage adapter (includes folder), fallback to filename for backward compatibility
+        const attachmentUrl = f.url || `/uploads/${f.path || `chat/${f.filename}`}`;
         const attachmentMime = f.mimetype;
         const messageId = createMessage({
             conversationId,
@@ -4091,18 +4042,74 @@ app.post('/api/messages/send', chatUpload.any(), (req, res) => {
     res.json({ success: true, messageIds: createdMessageIds, messages: createdPayloads });
 });
 
-// Protected file download
-app.get('/uploads/:filename', (req, res) => {
+// Protected file download - uses unified storage service
+const storageService = require('./services/storage');
+
+app.get('/uploads/:folder?/:filename', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Unauthorized');
+    
+    const folder = req.params.folder || '';
     const filename = req.params.filename;
+    
+    // Construct file path
+    let filePath = filename;
+    if (folder) {
+        filePath = `${folder}/${filename}`;
+    }
+    
     // Check if file is a chat attachment
-    if (filename.startsWith('chat-')) {
-        const msg = db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url = ?`).get(`/uploads/${filename}`);
+    if (filename && filename.startsWith('chat-')) {
+        const msg = db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url LIKE ?`).get(`%/uploads/${filePath}%`);
         if (!msg || !isUserInConversation({ conversationId: msg.conversation_id, userId: req.session.userId })) {
             return res.status(403).send('Forbidden');
         }
     }
-    res.sendFile(path.join(__dirname, 'public', 'uploads', filename));
+    
+    try {
+        // Get file from storage (Azure Blob or filesystem)
+        const fileResult = await storageService.getFile(filePath);
+        
+        if (!fileResult.success) {
+            return res.status(404).send('File not found');
+        }
+        
+        // Set content type and send file
+        res.setHeader('Content-Type', fileResult.contentType || 'application/octet-stream');
+        res.send(fileResult.data);
+    } catch (error) {
+        console.error('File serving error:', error);
+        res.status(500).send('Error serving file');
+    }
+});
+
+// Legacy route for files without folder prefix (backward compatibility)
+app.get('/uploads/:filename', async (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Unauthorized');
+    
+    const filename = req.params.filename;
+    
+    // Try to find file in common folders
+    const folders = ['profiles', 'posts', 'chat', 'careers', 'career-assets', 'services', 'refunds'];
+    
+    for (const folder of folders) {
+        const filePath = `${folder}/${filename}`;
+        const fileResult = await storageService.getFile(filePath);
+        
+        if (fileResult.success) {
+            // Check if file is a chat attachment
+            if (filename.startsWith('chat-')) {
+                const msg = db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url LIKE ?`).get(`%/uploads/${filePath}%`);
+                if (!msg || !isUserInConversation({ conversationId: msg.conversation_id, userId: req.session.userId })) {
+                    return res.status(403).send('Forbidden');
+                }
+            }
+            
+            res.setHeader('Content-Type', fileResult.contentType || 'application/octet-stream');
+            return res.send(fileResult.data);
+        }
+    }
+    
+    res.status(404).send('File not found');
 });
 
 // Mark messages as read
@@ -5554,7 +5561,7 @@ app.post('/refund-request', refundUpload.single('screenshot'), (req, res) => {
         let screenshotPath = null;
         if (req.file) {
             // Store under /uploads/refunds for static serving
-            screenshotPath = 'uploads/refunds/' + req.file.filename;
+            screenshotPath = req.file.path || `refunds/${req.file.filename}`;
         }
 
         // Create refund request
@@ -5640,7 +5647,7 @@ const persistOnboarding = (req, res, { respondWithJson } = { respondWithJson: fa
     // Profile picture handling
     let profilePicturePath = null;
     if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
-        profilePicturePath = 'profiles/' + req.files.profilePicture[0].filename;
+        profilePicturePath = req.files.profilePicture[0].path || `profiles/${req.files.profilePicture[0].filename}`;
     }
 
     try {
@@ -5802,8 +5809,10 @@ app.post('/api/careers/apply', careerUpload.fields([{ name: 'resumeFile', maxCou
         if (!position || !name || !email || !coverLetter) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        const resumeFile = (req.files && req.files.resumeFile && req.files.resumeFile[0]) ? `/uploads/careers/${req.files.resumeFile[0].filename}` : null;
-        const portfolioFile = (req.files && req.files.portfolioFile && req.files.portfolioFile[0]) ? `/uploads/careers/${req.files.portfolioFile[0].filename}` : null;
+        const resumeFileObj = req.files && req.files.resumeFile && req.files.resumeFile[0];
+        const portfolioFileObj = req.files && req.files.portfolioFile && req.files.portfolioFile[0];
+        const resumeFile = resumeFileObj ? (resumeFileObj.url || `/uploads/${resumeFileObj.path || `careers/${resumeFileObj.filename}`}`) : null;
+        const portfolioFile = portfolioFileObj ? (portfolioFileObj.url || `/uploads/${portfolioFileObj.path || `careers/${portfolioFileObj.filename}`}`) : null;
         const id = require('./db').createCareerApplication({ position, name, email, phone, coverLetter, resumeFile, portfolioFile });
         try { addAuditLog({ userId: req.session.userId || null, action: 'career_application_submitted', details: JSON.stringify({ id, email, position }) }); } catch (e) { }
 

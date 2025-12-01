@@ -394,7 +394,8 @@ function initMessagesRoutes({ chatUpload, io }) {
         }
 
         for (const f of files) {
-            const attachmentUrl = `/uploads/chat/${f.filename}`;
+            // Use path from storage adapter (includes folder), fallback to filename for backward compatibility
+            const attachmentUrl = f.url || `/uploads/${f.path || `chat/${f.filename}`}`;
             const attachmentMime = f.mimetype;
             const messageId = createMessage({
                 conversationId,
