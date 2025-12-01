@@ -44,7 +44,7 @@ const emailService = require('./services/emailService');
 const paymentService = require('./services/payments');
 
 const {
-    db, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
+    db, initializeDatabase, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
     updateProfilePicture, updateBannerImage, updatePassword, updateUserHandle, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
     getOrCreateConversation, getUserConversations, getConversationMessages, getMessageWithContext,
     createMessage, markMessagesAsRead, getUnreadMessageCount,
@@ -6708,7 +6708,23 @@ io.on('connection', (socket) => {
     console.log(`HTTPS server running at https://localhost:443`);
 });*/
 
-httpServer.listen(80, () => {
-    console.log(`HTTP server running at http://localhost`);
-});
+// Initialize database and start server
+async function startServer() {
+    try {
+        // Initialize database connection (required for SQL Server in production)
+        if (process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'sqlserver') {
+            await initializeDatabase();
+            console.log('✅ Database initialized for production');
+        }
+        
+        httpServer.listen(80, () => {
+            console.log(`HTTP server running at http://localhost`);
+        });
+    } catch (error) {
+        console.error('❌ Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+startServer();
 

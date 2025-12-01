@@ -1,17 +1,58 @@
 const path = require('path');
-const Database = require('better-sqlite3');
+const { initSync, isProduction, getDatabaseSync, initDatabase } = require('./db-adapter');
 
-// Create / open persistent database file
-const db = new Database(path.join(__dirname, 'dreamx.db'));
+// Initialize database based on environment
+let db = null;
+let dbWrapper = null;
 
-// Initialize schema if not exists
+if (!isProduction) {
+  // SQLite - synchronous initialization (local development)
+  dbWrapper = initSync();
+  db = dbWrapper.getRaw();
+} else {
+  // SQL Server - async initialization required
+  // Create a proxy that will work after initialization
+  db = new Proxy({}, {
+    get(target, prop) {
+      if (prop === 'prepare' || prop === 'exec') {
+        return (...args) => {
+          if (!dbWrapper) {
+            throw new Error('Database not initialized. Call db.initializeDatabase() first in production mode.');
+          }
+          if (prop === 'prepare') {
+            return dbWrapper.prepare(args[0]);
+          } else {
+            return dbWrapper.exec(args[0]);
+          }
+        };
+      }
+      return target[prop];
+    }
+  });
+}
+
+// Async initialization function for SQL Server (call this at app startup in production)
+async function initializeDatabase() {
+  if (isProduction && !dbWrapper) {
+    await initDatabase();
+    dbWrapper = await getDatabaseSync();
+    db = dbWrapper.getRaw();
+    console.log('✅ Database initialized for production');
+  }
+  return db;
+}
+
+// Initialize schema if not exists (SQLite only - SQL Server uses schema.sql)
 // Users table stores core account and onboarding data as JSON strings
 // For simplicity passions/categories/goals stored as JSON text columns
 // Passwords stored as bcrypt hash
 // experience is a single string
 // Additional columns can be added later via migrations
 
-db.exec(`CREATE TABLE IF NOT EXISTS users (
+// NOTE: In production (SQL Server), tables should be created using schema.sql
+// This initialization only runs for SQLite (local development)
+if (!isProduction) {
+  db.exec(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
@@ -241,6 +282,7 @@ CREATE TABLE IF NOT EXISTS services (
   CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
   CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
   `);
+} // End of SQLite schema initialization
 
 // Ensure new WebAuthn column exists without breaking older databases
 try {
@@ -1174,8 +1216,33 @@ try {
   `);
 } catch (e) { }
 
+// Helper function to get the database instance (works with both SQLite and SQL Server)
+function getDb() {
+  if (isProduction && !dbWrapper) {
+    throw new Error('Database not initialized. Call initializeDatabase() first in production mode.');
+  }
+  if (!isProduction && !dbWrapper) {
+    dbWrapper = getDatabaseSync();
+    db = dbWrapper.getRaw();
+  }
+  return db;
+}
+
+// Helper to create prepared statements that work with both databases
+function prepare(sql) {
+  if (isProduction) {
+    if (!dbWrapper) {
+      throw new Error('Database not initialized. Call initializeDatabase() first.');
+    }
+    return dbWrapper.prepare(sql);
+  } else {
+    return getDb().prepare(sql);
+  }
+}
+
 module.exports = {
   db,
+  initializeDatabase, // MUST be called at app startup in production (SQL Server only)
   getUserById: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
   getUserByEmail: (email) => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
   getUserByHandle: (handle) => db.prepare('SELECT * FROM users WHERE handle = ?').get(handle),
