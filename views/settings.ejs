@@ -3,6 +3,37 @@
 <section class="settings-wrapper">
   <h1 class="settings-title">Settings</h1>
 
+  <!-- Settings Response Modal -->
+  <div id="settingsResponseModal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsResponseTitle" aria-describedby="settingsResponseMessage" style="display:none;">
+    <div class="settings-modal-backdrop"></div>
+    <div class="settings-modal-content">
+      <div class="settings-modal-header">
+        <div id="settingsResponseBadge" class="settings-modal-badge">✓</div>
+        <div>
+          <p id="settingsResponseTitle" class="settings-modal-title">Updated</p>
+          <p id="settingsResponseMessage" class="settings-modal-message"></p>
+        </div>
+      </div>
+      <div class="settings-modal-actions">
+        <button type="button" id="settingsModalClose" class="settings-btn primary" style="width:100%;">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .settings-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:1100; }
+    .settings-modal[style*="display:flex"], .settings-modal[style*="display: flex"] { display:flex !important; }
+    .settings-modal-backdrop { position:absolute; inset:0; background:rgba(17,24,39,0.55); }
+    .settings-modal-content { position:relative; z-index:1; background:white; border-radius:16px; padding:24px; width:90%; max-width:480px; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
+    .settings-modal-header { display:flex; gap:12px; align-items:flex-start; }
+    .settings-modal-badge { width:44px; height:44px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem; color:white; background:linear-gradient(135deg,#10b981,#059669); box-shadow:0 10px 30px rgba(16,185,129,0.25); }
+    .settings-modal-title { margin:0 0 4px; font-size:1.2rem; font-weight:800; color:#111827; }
+    .settings-modal-message { margin:0; color:#374151; line-height:1.6; }
+    .settings-modal-actions { margin-top:18px; }
+    .settings-modal.is-error .settings-modal-badge { background:linear-gradient(135deg,#ef4444,#dc2626); box-shadow:0 10px 30px rgba(239,68,68,0.2); }
+    .settings-modal.is-error .settings-modal-title { color:#b91c1c; }
+  </style>
+
   <!-- Toast Notification (replaces bulky inline success/error banners) -->
   <!-- Toasts now provided globally via footer include -->
   
@@ -413,18 +444,20 @@
         const btn = document.getElementById('btn-create-passkey');
         if (!btn || !window.SimpleWebAuthnBrowser) return;
         btn.addEventListener('click', async () => {
+          const modalApi = window.settingsResponseModal;
           try {
             const optsRes = await fetch('/webauthn/registration/options', { credentials: 'same-origin' });
             if (!optsRes.ok) {
               const err = await optsRes.json().catch(() => ({}));
               const msg = err && err.error ? err.error : `Failed to get registration options (${optsRes.status})`;
-              alert(msg);
+              modalApi?.show('error', msg) || alert(msg);
               return;
             }
             const opts = await optsRes.json();
             if (!opts || !opts.challenge) {
               console.error('Invalid registration options:', opts);
-              alert('Passkey setup unavailable: invalid options received.');
+              const msg = 'Passkey setup unavailable: invalid options received.';
+              modalApi?.show('error', msg) || alert(msg);
               return;
             }
             const attResp = await SimpleWebAuthnBrowser.startRegistration(opts);
@@ -433,13 +466,16 @@
             });
             const out = await verifyRes.json();
             if (out.verified) {
-              alert('Passkey saved to this device!');
+              const msg = 'Passkey saved to this device!';
+              modalApi?.show('success', msg) || alert(msg);
             } else {
-              alert('Could not save passkey on this device.');
+              const msg = 'Could not save passkey on this device.';
+              modalApi?.show('error', msg) || alert(msg);
             }
           } catch (e) {
             console.error(e);
-            alert('Passkey setup is not available on this browser or origin.');
+            const msg = 'Passkey setup is not available on this browser or origin.';
+            modalApi?.show('error', msg) || alert(msg);
           }
         });
       });
@@ -871,32 +907,22 @@
 
             if (data.success || res.ok) {
               if (tile) tile.remove();
-              if (typeof showSuccess === 'function') {
-                showSuccess('User unblocked successfully.', 'Unblocked');
-              } else {
-                alert('User unblocked successfully.');
-              }
+              const msg = 'User unblocked successfully.';
+              (window.settingsResponseModal?.show('success', msg)) || alert(msg);
 
               if (blockedGrid && blockedGrid.querySelectorAll('.blocked-tile').length === 0 && emptyState) {
                 emptyState.style.display = 'block';
               }
             } else {
               const errMsg = data.error || 'Failed to unblock user';
-              if (typeof showError === 'function') {
-                showError(errMsg, 'Unblock Failed');
-              } else {
-                alert(errMsg);
-              }
+              (window.settingsResponseModal?.show('error', errMsg)) || alert(errMsg);
               btn.disabled = false;
               btn.textContent = originalText;
             }
           } catch (error) {
             console.error('Unblock settings error:', error);
-            if (typeof showError === 'function') {
-              showError('An error occurred while unblocking. Please try again.', 'Unblock Failed');
-            } else {
-              alert('An error occurred while unblocking. Please try again.');
-            }
+            const msg = 'An error occurred while unblocking. Please try again.';
+            (window.settingsResponseModal?.show('error', msg)) || alert(msg);
             btn.disabled = false;
             btn.textContent = originalText;
           }
@@ -941,6 +967,80 @@
     #deleteAccountModal { display: none; }
     #deleteAccountModal[style*="display:flex"], #deleteAccountModal[style*="display: flex"] { display: flex !important; }
   </style>
+
+  <script>
+    (function() {
+      // Prefer modal responses on the settings page to highlight server feedback
+      window.__skipFlashToast = true;
+
+      const modal = document.getElementById('settingsResponseModal');
+      if (!modal) return;
+
+      const badge = document.getElementById('settingsResponseBadge');
+      const titleEl = document.getElementById('settingsResponseTitle');
+      const messageEl = document.getElementById('settingsResponseMessage');
+      const closeBtn = document.getElementById('settingsModalClose');
+
+      const setType = (type, titleOverride) => {
+        modal.classList.remove('is-error', 'is-success');
+        if (type === 'error') {
+          modal.classList.add('is-error');
+          badge.textContent = '!';
+          titleEl.textContent = titleOverride || 'Something went wrong';
+        } else {
+          modal.classList.add('is-success');
+          badge.textContent = '✓';
+          titleEl.textContent = titleOverride || 'Changes saved';
+        }
+      };
+
+      const hideModal = () => { modal.style.display = 'none'; };
+      const showModal = (type, message, title) => {
+        setType(type, title);
+        messageEl.textContent = message || '';
+        modal.style.display = 'flex';
+      };
+
+      closeBtn?.addEventListener('click', hideModal);
+      modal.addEventListener('click', (ev) => {
+        if (ev.target === modal || ev.target.classList.contains('settings-modal-backdrop')) {
+          hideModal();
+        }
+      });
+
+      const consumeResponse = () => {
+        const pf = (window.pageFlash || {});
+        let type, message;
+
+        if (pf.success) { type = 'success'; message = pf.success; }
+        else if (pf.error) { type = 'error'; message = pf.error; }
+        else {
+          const sp = new URLSearchParams(window.location.search || '');
+          if (sp.has('success')) { type = 'success'; message = sp.get('success'); }
+          else if (sp.has('error')) { type = 'error'; message = sp.get('error'); }
+        }
+
+        if (type && message) {
+          showModal(type, message);
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('success');
+            url.searchParams.delete('error');
+            window.history.replaceState({}, '', url.toString());
+          } catch (e) { /* noop */ }
+          window.pageFlash = { success: null, error: null };
+        }
+      };
+
+      window.settingsResponseModal = {
+        show: showModal,
+        hide: hideModal,
+        setType
+      };
+
+      document.addEventListener('DOMContentLoaded', consumeResponse);
+    })();
+  </script>
 
   <!-- Your Passions Section -->
   <div class="settings-card">
