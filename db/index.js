@@ -38,8 +38,43 @@ async function initializeDatabase() {
     dbWrapper = await getDatabaseSync();
     db = dbWrapper.getRaw();
     console.log('✅ Database initialized for production');
+    
+    // Run migrations after database is initialized
+    await runMigrations();
   }
   return db;
+}
+
+// Run database migrations (works for both SQLite and SQL Server)
+async function runMigrations() {
+  try {
+    // Ensure new WebAuthn column exists without breaking older databases
+    const webauthnColumns = db.prepare('PRAGMA table_info(webauthn_credentials);').all();
+    const hasRpId = webauthnColumns.some((c) => c.name === 'rp_id');
+    if (!hasRpId) {
+      db.exec(`ALTER TABLE webauthn_credentials ADD COLUMN rp_id TEXT;`);
+    }
+    db.exec('CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_rp ON webauthn_credentials(user_id, rp_id);');
+  } catch (err) {
+    console.error('Failed to ensure WebAuthn rp_id column exists', err);
+  }
+
+  // Lightweight migrations for existing databases (ensure new columns exist)
+  try {
+    const cols = db.prepare("PRAGMA table_info('users')").all();
+    const names = new Set(cols.map(c => c.name));
+    if (!names.has('email_verified')) {
+      db.prepare("ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0").run();
+    }
+    if (!names.has('verification_code')) {
+      db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run();
+    }
+    if (!names.has('verification_code_expires')) {
+      db.prepare("ALTER TABLE users ADD COLUMN verification_code_expires DATETIME").run();
+    }
+  } catch (e) {
+    console.warn('Migration check failed (likely already applied):', e.message);
+  }
 }
 
 // Initialize schema if not exists (SQLite only - SQL Server uses schema.sql)
@@ -282,36 +317,10 @@ CREATE TABLE IF NOT EXISTS services (
   CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
   CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
   `);
+  
+  // Run migrations for SQLite in development
+  runMigrations();
 } // End of SQLite schema initialization
-
-// Ensure new WebAuthn column exists without breaking older databases
-try {
-  const webauthnColumns = db.prepare('PRAGMA table_info(webauthn_credentials);').all();
-  const hasRpId = webauthnColumns.some((c) => c.name === 'rp_id');
-  if (!hasRpId) {
-    db.exec(`ALTER TABLE webauthn_credentials ADD COLUMN rp_id TEXT;`);
-  }
-  db.exec('CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_rp ON webauthn_credentials(user_id, rp_id);');
-} catch (err) {
-  console.error('Failed to ensure WebAuthn rp_id column exists', err);
-}
-
-// Lightweight migrations for existing databases (ensure new columns exist)
-try {
-  const cols = db.prepare("PRAGMA table_info('users')").all();
-  const names = new Set(cols.map(c => c.name));
-  if (!names.has('email_verified')) {
-    db.prepare("ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0").run();
-  }
-  if (!names.has('verification_code')) {
-    db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run();
-  }
-  if (!names.has('verification_code_expires')) {
-    db.prepare("ALTER TABLE users ADD COLUMN verification_code_expires DATETIME").run();
-  }
-} catch (e) {
-  console.warn('Schema migration warning:', e.message);
-}
 
 // --- Services: Orders and Reviews (for verified purchaser ratings) ---
 try {
