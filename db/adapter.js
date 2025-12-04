@@ -1,11 +1,32 @@
 // Database Adapter - Abstracts SQLite and SQL Server
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const isProduction = process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'sqlserver';
 let db = null;
 let dbType = 'sqlite';
 let sqlPool = null;
+
+// Ensure data directory exists
+function ensureDataDirectory() {
+  const dataDir = path.join(__dirname, '..', 'data');
+  try {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      console.log(`✅ Created data directory: ${dataDir}`);
+    } else {
+      console.log(`✅ Data directory exists: ${dataDir}`);
+    }
+    
+    // Verify write permissions
+    fs.accessSync(dataDir, fs.constants.W_OK);
+    console.log(`✅ Data directory is writable`);
+  } catch (error) {
+    console.error(`❌ Data directory issue:`, error.message);
+    throw new Error(`Cannot access/create data directory: ${error.message}`);
+  }
+}
 
 // Initialize database connection
 async function initDatabase() {
@@ -44,6 +65,7 @@ async function initDatabase() {
     }
   } else {
     // SQLite (local)
+    ensureDataDirectory();
     const Database = require('better-sqlite3');
     const dbPath = path.join(__dirname, '..', 'data', 'dreamx.db');
     db = new Database(dbPath);
@@ -59,12 +81,41 @@ function initDatabaseSync() {
     return initDatabase();
   } else {
     // SQLite can be initialized synchronously
-    const Database = require('better-sqlite3');
-    const dbPath = path.join(__dirname, '..', 'data', 'dreamx.db');
-    db = new Database(dbPath);
-    dbType = 'sqlite';
-    console.log('✅ Connected to SQLite database');
-    return db;
+    try {
+      ensureDataDirectory();
+      const Database = require('better-sqlite3');
+      const dbPath = path.join(__dirname, '..', 'data', 'dreamx.db');
+      const dataDir = path.dirname(dbPath);
+      
+      console.log(`📁 Database path: ${dbPath}`);
+      console.log(`📁 Data directory: ${dataDir}`);
+      console.log(`📁 Directory exists: ${fs.existsSync(dataDir)}`);
+      console.log(`📁 Directory is writable:`, (() => {
+        try {
+          fs.accessSync(dataDir, fs.constants.W_OK);
+          return true;
+        } catch {
+          return false;
+        }
+      })());
+      
+      // Create database with proper options
+      db = new Database(dbPath, { 
+        fileMustExist: false,
+        timeout: 5000,
+        verbose: null
+      });
+      
+      dbType = 'sqlite';
+      console.log('✅ Connected to SQLite database at:', dbPath);
+      return db;
+    } catch (error) {
+      console.error('❌ Failed to initialize SQLite database:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error errno:', error.errno);
+      console.error('Full error:', error);
+      throw error;
+    }
   }
 }
 
@@ -211,8 +262,9 @@ function getDatabaseSync() {
     return dbWrapper;
   }
   if (!dbWrapper) {
+    ensureDataDirectory();
     const Database = require('better-sqlite3');
-    const dbPath = path.join(__dirname, '..', 'dreamx.db');
+    const dbPath = path.join(__dirname, '..', 'data', 'dreamx.db');
     const dbInstance = new Database(dbPath);
     dbType = 'sqlite';
     dbWrapper = new DatabaseWrapper(dbInstance, 'sqlite');
@@ -223,11 +275,18 @@ function getDatabaseSync() {
 // Initialize SQLite synchronously (for module-level initialization)
 function initSync() {
   if (!isProduction) {
-    const dbInstance = initDatabaseSync();
-    if (!dbWrapper) {
-      dbWrapper = new DatabaseWrapper(dbInstance, 'sqlite');
+    try {
+      const dbInstance = initDatabaseSync();
+      if (!dbWrapper) {
+        dbWrapper = new DatabaseWrapper(dbInstance, 'sqlite');
+        console.log('✅ Database wrapper initialized');
+      }
+      return dbWrapper;
+    } catch (error) {
+      console.error('❌ Critical error during database initialization:', error);
+      console.error('Stack:', error.stack);
+      throw error;
     }
-    return dbWrapper;
   }
   return null;
 }

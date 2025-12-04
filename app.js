@@ -24,6 +24,29 @@ if(process.env.NODE_ENV !== 'Production'){
     require('dotenv').config();
 }
 
+// Ensure required directories exist before any file operations
+function ensureDirectories() {
+    const directories = [
+        path.join(__dirname, 'data'),
+        path.join(__dirname, 'logs'),
+        path.join(__dirname, 'public', 'uploads')
+    ];
+    
+    for (const dir of directories) {
+        try {
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+                console.log(`✅ Created directory: ${dir}`);
+            }
+        } catch (error) {
+            console.error(`❌ Failed to create directory ${dir}:`, error.message);
+        }
+    }
+}
+
+// Call this immediately
+ensureDirectories();
+
 
 // Configure Multer for Career Assets
 
