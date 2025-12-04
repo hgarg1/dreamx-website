@@ -476,7 +476,7 @@ app.use(express.json());
 
 // Session configuration (SQLiteStore for production safety) - MUST be before routes
 app.use(session({
-    store: new SQLiteStore({ db: 'data/sessions.sqlite3', dir: './data' }),
+    store: new SQLiteStore({ db: 'sessions.sqlite3', dir: './data' }),
     secret: process.env.SESSION_SECRET || 'your secret',
     resave: false,
     saveUninitialized: false,

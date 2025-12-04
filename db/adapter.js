@@ -57,10 +57,8 @@ async function initDatabase() {
     try {
       sqlPool = await sql.connect(config);
       db = sql;
-      console.log('✅ Connected to Azure SQL Server');
       return db;
     } catch (err) {
-      console.error('❌ SQL Server connection error:', err);
       throw err;
     }
   } else {
@@ -69,7 +67,6 @@ async function initDatabase() {
     const Database = require('better-sqlite3');
     const dbPath = path.join(__dirname, '..', 'data', 'dreamx.db');
     db = new Database(dbPath);
-    console.log('✅ Connected to SQLite database');
     return db;
   }
 }
@@ -87,18 +84,6 @@ function initDatabaseSync() {
       const dbPath = path.join(__dirname, '..', 'data', 'dreamx.db');
       const dataDir = path.dirname(dbPath);
       
-      console.log(`📁 Database path: ${dbPath}`);
-      console.log(`📁 Data directory: ${dataDir}`);
-      console.log(`📁 Directory exists: ${fs.existsSync(dataDir)}`);
-      console.log(`📁 Directory is writable:`, (() => {
-        try {
-          fs.accessSync(dataDir, fs.constants.W_OK);
-          return true;
-        } catch {
-          return false;
-        }
-      })());
-      
       // Create database with proper options
       db = new Database(dbPath, { 
         fileMustExist: false,
@@ -107,7 +92,6 @@ function initDatabaseSync() {
       });
       
       dbType = 'sqlite';
-      console.log('✅ Connected to SQLite database at:', dbPath);
       return db;
     } catch (error) {
       console.error('❌ Failed to initialize SQLite database:', error.message);

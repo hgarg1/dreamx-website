@@ -2,7 +2,7 @@
 
 <!-- Feed Premium Styles -->
 <link rel="stylesheet" href="/css/feed.css?v=20251118">
-<link rel="stylesheet" href="https://unpkg.com/cropperjs/dist/cropper.min.css">
+<link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
 
 <div class="feed-layout">
   <!-- Left Sidebar - Reels Bubbles -->
@@ -508,7 +508,83 @@
       }
     </style>
 
-    <script src="https://unpkg.com/cropperjs/dist/cropper.min.js"></script>
+    <script>
+      // Track when Cropper.js is loaded
+      let cropperReady = false;
+      let cropperLoadCallbacks = [];
+      
+      function isCropperValid() {
+        return typeof Cropper !== 'undefined' && typeof Cropper === 'function';
+      }
+      
+      function onCropperReady(callback) {
+        if (cropperReady && isCropperValid()) {
+          callback();
+        } else {
+          cropperLoadCallbacks.push(callback);
+        }
+      }
+      
+      let cropperRetryCount = 0;
+      const MAX_CROPPER_RETRIES = 50; // Max 500ms wait
+      
+      function markCropperReady() {
+        if (isCropperValid()) {
+          cropperReady = true;
+          cropperRetryCount = 0;
+          cropperLoadCallbacks.forEach(cb => {
+            try {
+              cb();
+            } catch (error) {
+              console.error('Error in cropper ready callback:', error);
+            }
+          });
+          cropperLoadCallbacks = [];
+        } else if (cropperRetryCount < MAX_CROPPER_RETRIES) {
+          // Retry after a short delay if Cropper isn't defined yet
+          cropperRetryCount++;
+          setTimeout(markCropperReady, 10);
+        } else {
+          // Give up after max retries
+          console.error('Cropper.js failed to initialize after multiple attempts');
+          cropperLoadCallbacks.forEach(cb => {
+            try {
+              cb();
+            } catch (error) {
+              console.error('Error in cropper ready callback:', error);
+            }
+          });
+          cropperLoadCallbacks = [];
+        }
+      }
+      
+      // Load Cropper.js with proper error handling
+      const cropperScript = document.createElement('script');
+      cropperScript.src = 'https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js';
+      cropperScript.onload = () => {
+        // Wait a bit for the global to be set
+        setTimeout(markCropperReady, 50);
+      };
+      cropperScript.onerror = () => {
+        console.error('Failed to load Cropper.js from CDN');
+        // Fallback: retry with a small delay
+        setTimeout(() => {
+          if (typeof Cropper === 'undefined' || typeof Cropper !== 'function') {
+            console.warn('Cropper.js is not available. Image cropping will not work.');
+            // Notify any pending callbacks that Cropper failed to load
+            cropperLoadCallbacks.forEach(cb => {
+              try {
+                cb();
+              } catch (e) {
+                console.error('Error in cropper callback:', e);
+              }
+            });
+            cropperLoadCallbacks = [];
+          }
+        }, 500);
+      };
+      document.head.appendChild(cropperScript);
+    </script>
 
     <script>
       // Global functions need to be outside DOMContentLoaded
@@ -961,31 +1037,57 @@
       }
 
       function openImageEditor(file, dataUrl) {
-        const modal = document.getElementById('imageEditorModal');
-        const preview = document.getElementById('imageEditorPreview');
-        if (!modal || !preview) return;
-        pendingImageFile = file;
-        resetImageEditorUi();
-        setImageEditorControlsEnabled(false);
-        suspendPostComposerForChildModal();
-        showModal(modal);
-        const enableImageControls = () => {
-          destroyCropper();
-          cropperInstance = new Cropper(preview, { viewMode: 1, autoCropArea: 0.95, responsive: true, background: false });
-          setImageEditorControlsEnabled(true);
-        };
-        preview.onload = () => {
-          enableImageControls();
-        };
-        preview.onerror = () => {
-          alert('We could not load that image. Please choose a different file.');
-          closeImageEditor();
-        };
-        preview.src = '';
-        preview.src = dataUrl;
-        if (preview.complete && preview.naturalWidth) {
-          enableImageControls();
-        }
+        // Ensure Cropper.js is loaded before proceeding
+        onCropperReady(() => {
+          const modal = document.getElementById('imageEditorModal');
+          const preview = document.getElementById('imageEditorPreview');
+          if (!modal || !preview) return;
+          
+          // Double-check that Cropper is valid before proceeding
+          if (!isCropperValid()) {
+            console.error('Cropper.js is not available. Image editing is temporarily unavailable.');
+            alert('Image editing is temporarily unavailable. Please refresh the page and try again.');
+            return;
+          }
+          
+          pendingImageFile = file;
+          resetImageEditorUi();
+          setImageEditorControlsEnabled(false);
+          suspendPostComposerForChildModal();
+          showModal(modal);
+          
+          const enableImageControls = () => {
+            // Cropper is already ready at this point (we're inside onCropperReady callback)
+            destroyCropper();
+            if (!isCropperValid()) {
+              console.error('Cropper.js failed to load. Image cropping will not be available.');
+              alert('Image editing is temporarily unavailable. Please refresh the page and try again.');
+              closeImageEditor();
+              return;
+            }
+            try {
+              cropperInstance = new Cropper(preview, { viewMode: 1, autoCropArea: 0.95, responsive: true, background: false });
+              setImageEditorControlsEnabled(true);
+            } catch (error) {
+              console.error('Failed to initialize Cropper:', error);
+              alert('Failed to initialize image editor. Please refresh the page and try again.');
+              closeImageEditor();
+            }
+          };
+          
+          preview.onload = () => {
+            enableImageControls();
+          };
+          preview.onerror = () => {
+            alert('We could not load that image. Please choose a different file.');
+            closeImageEditor();
+          };
+          preview.src = '';
+          preview.src = dataUrl;
+          if (preview.complete && preview.naturalWidth) {
+            enableImageControls();
+          }
+        });
       }
 
       function closeImageEditor(resetSelection = true) {
@@ -1710,7 +1812,24 @@
         if (rotateLeftBtn) rotateLeftBtn.addEventListener('click', () => cropperInstance?.rotate(-90));
         if (rotateRightBtn) rotateRightBtn.addEventListener('click', () => cropperInstance?.rotate(90));
         if (flipBtn) flipBtn.addEventListener('click', () => { cropperFlipX = cropperFlipX * -1; applyImageTransforms(); });
-        if (resetImageBtn) resetImageBtn.addEventListener('click', () => { resetImageEditorUi(); destroyCropper(); const preview = document.getElementById('imageEditorPreview'); if (preview && preview.src) { cropperInstance = new Cropper(preview, { viewMode: 1, autoCropArea: 0.95, responsive: true, background: false }); } });
+        if (resetImageBtn) resetImageBtn.addEventListener('click', () => { 
+          resetImageEditorUi(); 
+          destroyCropper(); 
+          const preview = document.getElementById('imageEditorPreview'); 
+          if (preview && preview.src) {
+            onCropperReady(() => {
+              if (typeof Cropper === 'undefined' || typeof Cropper !== 'function') {
+                console.error('Cropper is not available');
+                return;
+              }
+              try {
+                cropperInstance = new Cropper(preview, { viewMode: 1, autoCropArea: 0.95, responsive: true, background: false });
+              } catch (error) {
+                console.error('Failed to initialize Cropper:', error);
+              }
+            });
+          }
+        });
         if (brightnessInput) brightnessInput.addEventListener('input', (e) => { imageBrightness = parseFloat(e.target.value || '1'); applyImageTransforms(); });
         if (contrastInput) contrastInput.addEventListener('input', (e) => { imageContrast = parseFloat(e.target.value || '1'); applyImageTransforms(); });
         if (saturationInput) saturationInput.addEventListener('input', (e) => { imageSaturation = parseFloat(e.target.value || '1'); applyImageTransforms(); });

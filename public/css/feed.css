@@ -118,6 +118,7 @@ body.modal-open {
     background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 60%);
     filter: blur(30px);
     z-index: -1;
+    pointer-events: none;
 }
 
 .feed-modal::before { top: -120px; left: -120px; }
@@ -158,6 +159,7 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     background: linear-gradient(135deg, rgba(255, 79, 163, 0.12), rgba(102, 126, 234, 0.08));
     opacity: 0.75;
     z-index: -1;
+    pointer-events: none;
 }
 
 .nova-modal__halo {
@@ -465,7 +467,11 @@ body.modal-open .feed-layout > :not(.feed-modal) {
 .wave-grid { display: grid; grid-template-columns: repeat(24, 1fr); gap: 6px; align-items: end; min-height: 70px; }
 .wave-grid span { display: block; border-radius: 8px; background: linear-gradient(180deg, #FF4DFF, #7c3aed); opacity: 0.45; }
 
-.nova-range { accent-color: #FF4DFF; width: 100%; }
+.nova-range { 
+    accent-color: #FF4DFF; 
+    width: 100%; 
+    cursor: pointer;
+}
 
 .nova-pill {
     display: inline-flex;
@@ -479,8 +485,230 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     font-size: 0.85rem;
 }
 
+/* Better cursor hints for interactive elements */
+.feed-modal input[type="range"] {
+    cursor: grab;
+}
+
+.feed-modal input[type="range"]:active {
+    cursor: grabbing;
+}
+
+.feed-modal textarea,
+.feed-modal input[type="text"],
+.feed-modal input[type="url"],
+.feed-modal input[type="file"] {
+    cursor: text;
+}
+
+.feed-modal button {
+    cursor: pointer;
+}
+
 @keyframes modalFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalRise { to { transform: translateY(0); } }
+
+/* Image and Video Editor Grids */
+.image-editor-grid,
+.video-editor-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.image-editor-grid img {
+    max-width: 100%;
+    display: block;
+    pointer-events: auto;
+}
+
+.image-editor-canvas,
+.video-editor-player {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    padding: 8px;
+}
+
+.image-editor-controls,
+.video-editor-controls {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.aspect-pill,
+.filter-chip {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: #e5e7eb;
+    padding: 8px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.aspect-pill.active,
+.filter-chip.active {
+    background: linear-gradient(135deg, #7c3aed, #ec4899);
+    color: white;
+    border-color: transparent;
+}
+
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.preset-grid button {
+    width: 100%;
+    text-align: center;
+}
+
+.video-time-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.video-time-row small {
+    color: #e5e7eb;
+    opacity: 0.9;
+}
+
+.ghost-pill {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e5e7eb;
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.control-row label {
+    flex: 1;
+    font-weight: 700;
+}
+
+.control-meta {
+    min-width: 56px;
+    text-align: right;
+    color: #d1d5db;
+    font-size: 0.9rem;
+}
+
+.image-editor-controls [disabled],
+.video-editor-controls [disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+    .image-editor-grid,
+    .video-editor-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .feed-modal {
+        padding: 10px;
+        align-items: flex-start;
+    }
+    
+    .feed-modal .nova-modal__card {
+        height: calc(100vh - 20px);
+        max-height: unset;
+    }
+    
+    .feed-modal .nova-modal__content {
+        height: 100%;
+        padding: 14px;
+        gap: 12px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .feed-modal .nova-modal__header {
+        position: sticky;
+        top: 0;
+        background: linear-gradient(180deg, rgba(17, 24, 39, 0.95), rgba(17, 24, 39, 0.8));
+        padding-bottom: 10px;
+        z-index: 3;
+    }
+    
+    .image-editor-grid,
+    .video-editor-grid {
+        gap: 12px;
+    }
+    
+    .image-editor-canvas,
+    .video-editor-player {
+        padding: 10px;
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    }
+    
+    .image-editor-controls,
+    .video-editor-controls {
+        padding: 12px;
+        gap: 12px;
+        border-color: rgba(255, 255, 255, 0.12);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+    }
+    
+    .control-row {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+    
+    .control-row label {
+        min-width: 120px;
+    }
+    
+    .ghost-pill,
+    .btn-ghost,
+    .btn-primary {
+        touch-action: manipulation;
+    }
+    
+    .image-editor-controls .composer-actions-row,
+    .video-editor-controls .composer-actions-row {
+        position: sticky;
+        bottom: 0;
+        background: linear-gradient(180deg, rgba(17, 24, 39, 0.6), rgba(17, 24, 39, 0.92));
+        padding: 12px 8px 4px;
+        margin: 0 -4px -6px;
+        border-radius: 14px;
+        backdrop-filter: blur(10px);
+        z-index: 2;
+        gap: 10px;
+    }
+    
+    .image-editor-controls .composer-actions-row button,
+    .video-editor-controls .composer-actions-row button {
+        min-height: 44px;
+        font-weight: 800;
+    }
+    
+    .preset-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+}
 
 @media (max-width: 1024px) {
     .feed-modal { padding: clamp(36px, 12vh, 72px) 16px; }
