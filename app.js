@@ -763,11 +763,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
 // Microsoft OAuth
 if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
+    // Note: Microsoft OAuth callback URL is set at initialization
+    // Must whitelist all callback URLs in Azure AD app configuration
+    const callbackURL = process.env.MICROSOFT_CALLBACK_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/auth/microsoft/callback` : 'http://localhost/auth/microsoft/callback');
     passport.use(new MicrosoftStrategy({
         passReqToCallback: true,
         clientID: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-        callbackURL: process.env.MICROSOFT_CALLBACK_URL || getCallbackURL('/auth/microsoft/callback'),
+        callbackURL: callbackURL,
         scope: ['openid', 'profile', 'email', 'User.Read'],
         tenant: 'consumers' // Use 'consumers' for personal Microsoft accounts, 'common' for all account types
     }, async (req, accessToken, refreshToken, profile, done) => {

@@ -749,8 +749,8 @@ router.get('/auth/google/callback', passport.authenticate('google', { failureRed
 router.get('/auth/microsoft', (req, res, next) => {
     if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) return res.status(503).send('Microsoft OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    const callbackURL = getCallbackURLFromRequest(req, '/auth/microsoft/callback');
-    passport.authenticate('microsoft', { state: mode, callbackURL: callbackURL })(req, res, next);
+    // Note: Microsoft uses static callback URL from strategy initialization
+    passport.authenticate('microsoft', { state: mode })(req, res, next);
 });
 
 router.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), async (req, res) => {
