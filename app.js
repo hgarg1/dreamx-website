@@ -453,7 +453,7 @@ app.use(express.json());
 
 // Session configuration (SQLiteStore for production safety) - MUST be before routes
 app.use(session({
-    store: new SQLiteStore({ db: 'sessions.sqlite3' }),
+    store: new SQLiteStore({ db: 'data/sessions.sqlite3', dir: './data' }),
     secret: process.env.SESSION_SECRET || 'your secret',
     resave: false,
     saveUninitialized: false,
@@ -817,8 +817,8 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
     console.warn('Apple Sign-In not configured');
 }
 
-// Seed a default super admin if missing
-(async () => {
+// Functions to seed data - will be called after database is initialized
+async function seedAdminUser() {
     try {
         const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@dreamx.local';
         const adminPass = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin!123';
@@ -829,13 +829,13 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
             updateUserRole({ userId: id, role: 'super_admin' });
             // Ensure seeded super admin is verified
             try { markEmailAsVerified({ userId: id }); } catch (_) { }
-            console.log(`Seeded super admin: ${adminEmail} / ${adminPass}`);
+            console.log(`✅ Seeded super admin: ${adminEmail} / ${adminPass}`);
         } else if (String(process.env.DEFAULT_ADMIN_FORCE_RESET || '').toLowerCase() === 'true') {
             // Optional: force reset password for existing default admin
             const newPass = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin!123';
             const hash = await bcrypt.hash(newPass, 10);
             db.prepare(`UPDATE users SET password_hash = ? WHERE email = ?`).run(hash, adminEmail);
-            console.log(`Reset super admin password for ${adminEmail}`);
+            console.log(`✅ Reset super admin password for ${adminEmail}`);
             // Ensure existing super admin is verified
             try { markEmailAsVerified({ userId: existing.id }); } catch (_) { }
         }
@@ -853,10 +853,10 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
     } catch (e) {
         console.warn('Admin seed failed:', e.message);
     }
-})();
+}
 
 // Initialize payment processors
-(async () => {
+function initializePaymentProcessors() {
     try {
         console.log('🔧 Initializing payment processors...');
         paymentService.initializeAll();
@@ -869,7 +869,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
     } catch (e) {
         console.warn('Payment service initialization warning:', e.message);
     }
-})();
+}
 
 // Attach auth context to templates
 app.use((req, res, next) => {
@@ -879,12 +879,6 @@ app.use((req, res, next) => {
 
         // Debug logging for session status
         const isServicesOrFeed = req.path === '/services' || req.path === '/feed';
-        if (isServicesOrFeed) {
-            console.log(`📍 ${req.path} - Session ID:`, req.sessionID);
-            console.log(`📍 ${req.path} - req.session.userId:`, req.session.userId);
-            console.log(`📍 ${req.path} - req.user:`, req.user ? req.user.id : 'none');
-            console.log(`📍 ${req.path} - Session cookie:`, req.headers.cookie);
-        }
 
         if (req.session && req.session.userId) {
             const row = getUserById(req.session.userId);
@@ -6100,7 +6094,7 @@ app.post('/admin/users/:id/ban', requireSuperAdmin, async (req, res) => {
 
         // Invalidate all sessions for this user
         const Database = require('better-sqlite3');
-        const dbPath = path.join(__dirname, 'sessions.sqlite3');
+        const dbPath = path.join(__dirname, 'data', 'sessions.sqlite3');
         const sessDb = new Database(dbPath);
         try {
             sessDb.prepare('DELETE FROM sessions WHERE sess LIKE ?').run(`%"userId":${userId}%`);
@@ -6215,7 +6209,7 @@ app.post('/admin/users/:id/suspend', requireSuperAdmin, async (req, res) => {
 
         // Invalidate all sessions for this user
         const Database = require('better-sqlite3');
-        const dbPath = path.join(__dirname, 'sessions.sqlite3');
+        const dbPath = path.join(__dirname, 'data', 'sessions.sqlite3');
         const sessDb = new Database(dbPath);
         try {
             sessDb.prepare('DELETE FROM sessions WHERE sess LIKE ?').run(`%"userId":${userId}%`);
@@ -6753,6 +6747,10 @@ async function startServer() {
             await initializeDatabase();
             console.log('✅ Database initialized for production');
         }
+        
+        // Seed data and initialize processors after database is ready
+        await seedAdminUser();
+        initializePaymentProcessors();
         
         httpServer.listen(80, () => {
             console.log(`HTTP server running at http://localhost`);

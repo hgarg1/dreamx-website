@@ -1,7 +1,90 @@
+# Node dependencies
 node_modules/
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.development.local
+
+# Database files (local development)
+data/
+*.sqlite3
 *.db
+*.sqlite
+dreamx.db
+sessions.sqlite3
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
 .DS_Store
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.iml
+
+# Testing
+coverage/
+.nyc_output/
+dist/
+build/
+
+# Uploads (local testing)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Temp files
+tmp/
+temp/
+*.tmp
+.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE extensions
+*.code-workspace
+
+# Runtime
+.next/
+out/
+dist/
+
+# Cache
+.cache/
+.eslintcache
+.jest-cache/
+
+# Build output
+build/
+dist/
+
+# Optional files that might contain sensitive data
+.env.local.example
+
+# Audio/Video files (keep local testing minimal)
+public/uploads/reels/*
+!public/uploads/reels/.gitkeep
+
+# Process manager
+.pm2/
+
+# Backup files
 *.backup
 *.bak
-.env
-sessions.sqlite3

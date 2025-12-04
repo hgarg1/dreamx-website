@@ -1,7 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 
 // Path to your SQLite database
-const dbPath = './dreamx.db'; // Replace with the actual path to your database
+const dbPath = './data/dreamx.db'; // Path to database in data directory
 
 // Open the database
 const db = new sqlite3.Database(dbPath, (err) => {

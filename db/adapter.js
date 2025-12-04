@@ -45,7 +45,7 @@ async function initDatabase() {
   } else {
     // SQLite (local)
     const Database = require('better-sqlite3');
-    const dbPath = path.join(__dirname, '..', 'dreamx.db');
+    const dbPath = path.join(__dirname, '..', 'data', 'dreamx.db');
     db = new Database(dbPath);
     console.log('✅ Connected to SQLite database');
     return db;
@@ -60,7 +60,7 @@ function initDatabaseSync() {
   } else {
     // SQLite can be initialized synchronously
     const Database = require('better-sqlite3');
-    const dbPath = path.join(__dirname, '..', 'dreamx.db');
+    const dbPath = path.join(__dirname, '..', 'data', 'dreamx.db');
     db = new Database(dbPath);
     dbType = 'sqlite';
     console.log('✅ Connected to SQLite database');

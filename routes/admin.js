@@ -1008,7 +1008,7 @@ function initAdminRoutes({ io, webpush }) {
                 });
             }
             const Database = require('better-sqlite3');
-            const dbPath = path.join(__dirname, '..', 'sessions.sqlite3');
+            const dbPath = path.join(__dirname, '..', 'data', 'sessions.sqlite3');
             const sessDb = new Database(dbPath);
             try {
                 sessDb.prepare('DELETE FROM sessions WHERE sess LIKE ?').run(`%"userId":${userId}%`);
@@ -1101,7 +1101,7 @@ function initAdminRoutes({ io, webpush }) {
                 });
             }
             const Database = require('better-sqlite3');
-            const dbPath = path.join(__dirname, '..', 'sessions.sqlite3');
+            const dbPath = path.join(__dirname, '..', 'data', 'sessions.sqlite3');
             const sessDb = new Database(dbPath);
             try {
                 sessDb.prepare('DELETE FROM sessions WHERE sess LIKE ?').run(`%"userId":${userId}%`);
