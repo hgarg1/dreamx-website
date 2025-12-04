@@ -56,7 +56,7 @@ async function initDatabase() {
 
     try {
       sqlPool = await sql.connect(config);
-      db = sql;
+      db = sqlPool;
       return db;
     } catch (err) {
       throw err;
