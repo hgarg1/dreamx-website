@@ -1,5 +1,5 @@
 const path = require('path');
-const { initSync, isProduction, getDatabaseSync, initDatabase } = require('./adapter');
+const { initSync, isProduction, getDatabaseSync, getDatabase, initDatabase } = require('./adapter');
 
 // Initialize database based on environment
 let db = null;
@@ -13,9 +13,9 @@ if (!isProduction) {
   // SQL Server - async initialization required
   // dbWrapper will be assigned by initializeDatabase() at startup
   // Create a proxy that delegates to dbWrapper once it's ready
-  initializeDatabase()
   db = new Proxy({}, {
     get(target, prop) {
+
       if (prop === 'prepare' || prop === 'exec') {
         return (...args) => {
           if (!dbWrapper) {
@@ -37,7 +37,7 @@ if (!isProduction) {
 async function initializeDatabase() {
   if (isProduction && !dbWrapper) {
     await initDatabase();
-    dbWrapper = await getDatabaseSync();
+    dbWrapper = await getDatabase();
     // Do NOT reassign db in production - keep using the Proxy that delegates to dbWrapper
     console.log('✅ Database initialized for production');
     
@@ -107,6 +107,15 @@ async function seedDatabase() {
 
 // Run database migrations (works for both SQLite and SQL Server)
 async function runMigrations() {
+  // Only run migrations in SQLite (development) mode
+  // SQL Server should use schema.sql for schema setup
+  if (isProduction) {
+    // In production (SQL Server), migrations should be handled via schema.sql
+    // or through proper migration scripts. Skip PRAGMA-based migrations.
+    console.log('⚠️  Skipping PRAGMA-based migrations in production (SQL Server)');
+    return;
+  }
+
   try {
     // Ensure new WebAuthn column exists without breaking older databases
     const webauthnColumns = db.prepare('PRAGMA table_info(webauthn_credentials);').all();
@@ -382,6 +391,9 @@ CREATE TABLE IF NOT EXISTS services (
   runMigrations();
 } // End of SQLite schema initialization
 
+// All schema setup below only runs in development (SQLite)
+// In production (SQL Server), schema should be set up via schema.sql
+if (!isProduction) {
 // --- Services: Orders and Reviews (for verified purchaser ratings) ---
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS service_orders (
@@ -1392,6 +1404,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS project_comment_reactions (
 );
 CREATE INDEX IF NOT EXISTS idx_comment_reactions_comment ON project_comment_reactions(comment_id);
 `);
+
+} // End of non-production schema initialization
 
 // Helper function to get the database instance (works with both SQLite and SQL Server)
 function getDb() {
