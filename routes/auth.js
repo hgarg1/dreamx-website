@@ -708,41 +708,60 @@ router.get('/auth/google', (req, res, next) => {
 });
 
 router.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), async (req, res) => {
-    const mode = req.query.state;
-    if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
-        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-        if (req.authInfo.photoUrl) {
-            const user = getUserById(req.session.userId);
-            await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
-        }
-        return res.redirect('/settings?success=Google connected');
-    }
-    if (req.user && req.user.id) {
-        req.login(req.user, (err) => {
-            if (err) {
-                console.error('❌ Google login error:', err);
-                return res.redirect('/login');
+    try {
+        const mode = req.query.state;
+        
+        // Handle account linking mode
+        if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
+            updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
+            if (req.authInfo.photoUrl) {
+                const user = getUserById(req.session.userId);
+                await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
             }
-            if (req.session) {
-                req.session.userId = req.user.id;
+            return res.redirect('/settings?success=Google connected');
+        }
+        
+        // Handle login mode
+        if (req.user && req.user.id) {
+            // Set session userId directly and ensure session is saved
+            req.session.userId = req.user.id;
+            
+            // Auto-verify email for OAuth users
+            try {
+                const u = getUserById(req.user.id);
+                if (u && u.email_verified !== 1) {
+                    markEmailAsVerified({ userId: u.id });
+                }
+            } catch (e) {
+                console.warn('Email verification during OAuth login failed:', e.message);
+            }
+            
+            // Save session and redirect
+            return new Promise((resolve) => {
                 req.session.save((saveErr) => {
+                    if (saveErr) {
+                        console.error('❌ Google session save error:', saveErr);
+                        return resolve(res.redirect('/login'));
+                    }
+                    
                     try {
                         const u = getUserById(req.user.id);
-                        if (u && u.email_verified !== 1) {
-                            markEmailAsVerified({ userId: u.id });
-                        }
-                        const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
-                        return res.redirect(redirectTarget);
-                    } catch (_) {
-                        return res.redirect('/feed');
+                        const redirectTarget = resolvePostAuthRedirect(u);
+                        console.log(`✅ Google login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
+                        return resolve(res.redirect(redirectTarget));
+                    } catch (e) {
+                        console.error('❌ Google redirect resolution error:', e.message);
+                        return resolve(res.redirect('/feed'));
                     }
                 });
-            } else {
-                return res.redirect('/feed');
-            }
-        });
-    } else {
-        res.redirect('/feed');
+            });
+        } else {
+            console.warn('⚠️ Google callback: req.user not populated, redirecting to login');
+            return res.redirect('/login');
+        }
+    } catch (e) {
+        console.error('❌ Google callback error:', e.message);
+        return res.redirect('/login');
     }
 });
 
@@ -754,38 +773,56 @@ router.get('/auth/microsoft', (req, res, next) => {
 });
 
 router.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), async (req, res) => {
-    const mode = req.query.state;
-    if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
-        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-        return res.redirect('/settings?success=Microsoft connected');
-    }
-    if (req.user && req.user.id) {
-        req.login(req.user, (err) => {
-            if (err) {
-                console.error('Microsoft login error:', err);
-                return res.redirect('/login');
+    try {
+        const mode = req.query.state;
+        
+        // Handle account linking mode
+        if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
+            updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
+            return res.redirect('/settings?success=Microsoft connected');
+        }
+        
+        // Handle login mode
+        if (req.user && req.user.id) {
+            // Set session userId directly and ensure session is saved
+            req.session.userId = req.user.id;
+            
+            // Auto-verify email for OAuth users
+            try {
+                const u = getUserById(req.user.id);
+                if (u && u.email_verified !== 1) {
+                    markEmailAsVerified({ userId: u.id });
+                }
+            } catch (e) {
+                console.warn('Email verification during OAuth login failed:', e.message);
             }
-            if (req.session) {
-                req.session.userId = req.user.id;
+            
+            // Save session and redirect
+            return new Promise((resolve) => {
                 req.session.save((saveErr) => {
-                    if (saveErr) console.error('Microsoft session save error:', saveErr);
+                    if (saveErr) {
+                        console.error('❌ Microsoft session save error:', saveErr);
+                        return resolve(res.redirect('/login'));
+                    }
+                    
                     try {
                         const u = getUserById(req.user.id);
-                        if (u && u.email_verified !== 1) {
-                            markEmailAsVerified({ userId: u.id });
-                        }
-                        const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
-                        return res.redirect(redirectTarget);
-                    } catch (_) {
-                        return res.redirect('/feed');
+                        const redirectTarget = resolvePostAuthRedirect(u);
+                        console.log(`✅ Microsoft login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
+                        return resolve(res.redirect(redirectTarget));
+                    } catch (e) {
+                        console.error('❌ Microsoft redirect resolution error:', e.message);
+                        return resolve(res.redirect('/feed'));
                     }
                 });
-            } else {
-                return res.redirect('/feed');
-            }
-        });
-    } else {
-        res.redirect('/feed');
+            });
+        } else {
+            console.warn('⚠️ Microsoft callback: req.user not populated, redirecting to login');
+            return res.redirect('/login');
+        }
+    } catch (e) {
+        console.error('❌ Microsoft callback error:', e.message);
+        return res.redirect('/login');
     }
 });
 
