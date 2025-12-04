@@ -162,6 +162,46 @@ npm install passport passport-google-oauth20 passport-microsoft passport-apple d
 
 Optional: import provider avatar on first login (Google supported).
 
+## Documentation
+
+For detailed documentation about features, implementation guides, and summaries, see the `/docs` folder:
+
+- **[Account Deletion PWA Update](docs/ACCOUNT_DELETION_PWA_UPDATE.md)** - PWA and account deletion features
+- **[API Routes Documentation](docs/api-routes-documentation.html)** - API endpoint reference
+- **[Bug Fixes Summary](docs/BUG_FIXES_SUMMARY.md)** - List of resolved issues
+- **[Completion Summary](docs/COMPLETION_SUMMARY.md)** - Project completion status
+- **[Consolidation Summary](docs/CONSOLIDATION_SUMMARY.md)** - Codebase consolidation notes
+- **[CSS Upgrade Summary](docs/CSS_UPGRADE_SUMMARY.md)** - CSS improvements and updates
+- **[Data Models Documentation](docs/data-models-documentation.html)** - Database schema reference
+- **[Database Setup](docs/DATABASE_SETUP.md)** - Database initialization guide
+- **[DB Implementation Study](docs/DB_IMPLEMENTATION_STUDY.md)** - Database implementation details
+- **[Email Setup](docs/EMAIL_SETUP.md)** - Email configuration and SMTP settings
+- **[Features](docs/FEATURES.md)** - Complete feature list
+- **[Features Project Comments](docs/FEATURES_PROJECT_COMMENTS.md)** - Project comments and reactions system
+- **[Feed CSS Cleanup](docs/FEED_CSS_CLEANUP.md)** - Feed styling updates
+- **[Feed Redesign Summary](docs/FEED_REDESIGN_SUMMARY.md)** - Feed UI/UX improvements
+- **[Implementation Checklist](docs/IMPLEMENTATION_CHECKLIST.md)** - Development checklist
+- **[Livestream Summary](docs/LIVESTREAM_SUMMARY.md)** - Video streaming implementation
+- **[Logo Update Instructions](docs/LOGO_UPDATE_INSTRUCTIONS.md)** - Branding updates
+- **[Mapbox Architecture](docs/MAPBOX_ARCHITECTURE.md)** - Map integration design
+- **[Mapbox Guide](docs/MAPBOX_GUIDE.md)** - Mapbox implementation guide
+- **[Mapbox Summary](docs/MAPBOX_SUMMARY.md)** - Mapbox feature summary
+- **[Mapbox Utilities Comparison](docs/MAPBOX_UTILITIES_COMPARISON.md)** - Utility analysis
+- **[Mobile API Auth Implementation](docs/MOBILE_API_AUTH_IMPLEMENTATION.md)** - Mobile authentication
+- **[Mobile Email Update](docs/MOBILE_EMAIL_UPDATE.md)** - Mobile email features
+- **[Notifications](docs/NOTIFICATIONS.md)** - Notification system documentation
+- **[OAuth Redirect URI Fix](docs/OAUTH_REDIRECT_URI_FIX.md)** - OAuth configuration fix
+- **[Payment Integration](docs/PAYMENT_INTEGRATION.md)** - Stripe payment system
+- **[Post Widget Architecture](docs/POST_WIDGET_ARCHITECTURE.md)** - Post creation components
+- **[Project System Implementation](docs/PROJECT_SYSTEM_IMPLEMENTATION.md)** - Projects feature
+- **[Project System Quickstart](docs/PROJECT_SYSTEM_QUICKSTART.md)** - Projects quick reference
+- **[Refund System Summary](docs/REFUND_SYSTEM_SUMMARY.md)** - Refund handling
+- **[Security Summary](docs/SECURITY_SUMMARY.md)** - Security measures and best practices
+- **[SQL Migration Guide](docs/SQL_MIGRATION_GUIDE.md)** - MS SQL Server migration steps
+- **[System Accounts Summary](docs/SYSTEM_ACCOUNTS_SUMMARY.md)** - System account management
+- **[Update Summary](docs/UPDATE_SUMMARY.md)** - Recent updates and changes
+- **[User Moderation Summary](docs/USER_MODERATION_SUMMARY.md)** - User management and moderation
+
 ## License
 
 ISC

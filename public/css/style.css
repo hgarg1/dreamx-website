@@ -4979,6 +4979,73 @@ main {
     color: var(--text-light);
 }
 
+/* Stats Dropdown (Mobile) */
+.stats-dropdown-btn {
+    display: none;
+    background: #f3f4f6;
+    border: 2px solid #e5e7eb;
+    color: #6b7280;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: auto;
+    margin: 0 auto 1.75rem;
+    text-align: center;
+}
+
+.stats-dropdown-btn:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+}
+
+.stats-dropdown-btn.active {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.stats-dropdown-menu {
+    display: none;
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.stats-dropdown-menu.active {
+    display: block;
+}
+
+.stats-dropdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.stats-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.stats-dropdown-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stats-dropdown-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
 .profile-action-row {
     display: flex;
     justify-content: center;
@@ -5164,11 +5231,97 @@ main {
     padding: 0 var(--spacing-md);
 }
 
+/* Tabs Dropdown (Mobile) */
+.tabs-dropdown-container {
+    display: none;
+    margin-bottom: 1.25rem;
+}
+
+.tabs-dropdown-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: #f3f4f6;
+    border: 2px solid #e5e7eb;
+    color: #374151;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tabs-dropdown-btn:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+}
+
+.tabs-dropdown-btn.active {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.tabs-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 100;
+    margin-top: -2px;
+}
+
+.tabs-dropdown-menu.active {
+    display: block;
+}
+
+.tabs-dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    color: #374151;
+    font-weight: 500;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f3f4f6;
+    text-align: left;
+}
+
+.tabs-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.tabs-dropdown-item:hover {
+    background: #f9fafb;
+    color: var(--primary-color);
+}
+
+.tabs-dropdown-item.active {
+    background: #f3f4f6;
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
 .profile-tabs {
     display: flex;
     gap: .75rem;
     flex-wrap: wrap;
     margin-bottom: 1.25rem;
+    justify-content: center;
 }
 
 .tab-btn {
@@ -5231,12 +5384,13 @@ main {
     font-size: 1.1rem;
     font-weight: 700;
     margin: 0 0 .75rem;
+    color: #1f2937;
 }
 
 .panel-text {
     font-size: .9rem;
     line-height: 1.6;
-    color: var(--text-dark);
+    color: #374151;
     margin: 0 0 .5rem;
 }
 
@@ -5258,6 +5412,7 @@ main {
     font-weight: 600;
     border-radius: 30px;
     letter-spacing: .5px;
+    color: #1f2937;
 }
 
 /* Projects */
@@ -5484,8 +5639,20 @@ main {
     }
 
     .profile-stats {
-        flex-direction: row;
-        flex-wrap: wrap;
+        display: none;
+    }
+
+    .stats-dropdown-btn {
+        display: block;
+    }
+
+    .profile-tabs {
+        display: none;
+    }
+
+    .tabs-dropdown-container {
+        display: block;
+        position: relative;
     }
 
     .stat-number {

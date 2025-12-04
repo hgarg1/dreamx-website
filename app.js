@@ -368,6 +368,24 @@ const careerUpload = multer({
     }
 });
 
+// Project uploads - handles project files and comment attachments
+const projectUpload = multer({
+    storage: createStorageAdapter('projects', 'project-'),
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB for project files
+    fileFilter: (req, file, cb) => {
+        const m = (file.mimetype || '').toLowerCase();
+        // Allow images, PDFs, documents, and videos
+        const allowed = new Set([
+            ...COMMON_DOCUMENT_MIME_TYPES,
+            ...COMMON_IMAGE_MIME_TYPES,
+            'video/mp4', 'video/webm', 'video/quicktime',
+            'application/zip', 'application/x-zip-compressed'
+        ]);
+        if (allowed.has(m)) return cb(null, true);
+        cb(new Error('Unsupported file type for projects'));
+    }
+});
+
 // Career job asset uploads (role descriptions, compensation PDFs, etc.)
 const careerAssetUpload = multer({
     storage: createStorageAdapter('career-assets', 'career-asset-'),
@@ -482,6 +500,8 @@ app.use('/', onboardingRoutes);
 const initMiscRoutes = require('./routes/misc');
 const miscRoutes = initMiscRoutes();
 app.use('/', miscRoutes);
+const projectRoutes = require('./routes/projects');
+app.use('/', projectRoutes);
 const initApiRoutes = require('./routes/api');
 const apiRoutes = initApiRoutes({ io, careerUpload });
 app.use('/', apiRoutes);
@@ -719,11 +739,15 @@ async function importBinaryPhotoIfNeeded(user, buffer, extHint) {
 
 // Google OAuth
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    passport.use(new GoogleStrategy({
+    // Note: Google OAuth doesn't support per-request callback URL override like Microsoft
+    // Must whitelist all callback URLs in Google Cloud Console
+    const callbackURL = process.env.GOOGLE_CALLBACK_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/auth/google/callback` : 'http://localhost/auth/google/callback');
+    passport.use('google', new GoogleStrategy({
         passReqToCallback: true,
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || getCallbackURL('/auth/google/callback')
+        callbackURL: callbackURL,
+        skipUserProfile: false
     }, async (req, accessToken, refreshToken, profile, done) => {
         try {
             const email = Array.isArray(profile.emails) && profile.emails[0] ? profile.emails[0].value : null;
@@ -744,7 +768,8 @@ if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
         clientID: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
         callbackURL: process.env.MICROSOFT_CALLBACK_URL || getCallbackURL('/auth/microsoft/callback'),
-        scope: ['openid', 'profile', 'email', 'User.Read']
+        scope: ['openid', 'profile', 'email', 'User.Read'],
+        tenant: 'consumers' // Use 'consumers' for personal Microsoft accounts, 'common' for all account types
     }, async (req, accessToken, refreshToken, profile, done) => {
         try {
             const email = Array.isArray(profile.emails) && profile.emails[0] ? profile.emails[0].value : (profile._json && (profile._json.mail || profile._json.userPrincipalName)) || null;

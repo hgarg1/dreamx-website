@@ -142,13 +142,28 @@
 
             // Handle PWA install prompt
             let deferredPrompt;
+            const PWA_DISMISSED_KEY = 'dreamx_pwa_dismissed';
+            
+            // Check if PWA banner was dismissed in this session
+            function checkPWADismissal() {
+              const isDismissed = sessionStorage.getItem(PWA_DISMISSED_KEY);
+              const installBanner = document.getElementById('pwa-install-banner');
+              if (installBanner && isDismissed) {
+                installBanner.style.display = 'none';
+              }
+            }
+            
+            // Check on page load
+            window.addEventListener('DOMContentLoaded', checkPWADismissal);
+            
             window.addEventListener('beforeinstallprompt', (e) => {
               e.preventDefault();
               deferredPrompt = e;
 
-              // Show install button or banner
+              // Show install button or banner only if not dismissed
+              const isDismissed = sessionStorage.getItem(PWA_DISMISSED_KEY);
               const installBanner = document.getElementById('pwa-install-banner');
-              if (installBanner) {
+              if (installBanner && !isDismissed) {
                 installBanner.style.display = 'block';
               }
             });
@@ -205,6 +220,7 @@
           <% } %>
             <% if(typeof authUser !== 'undefined' && authUser){ %>
               <li><a href="/feed" class="<%= currentPage === 'feed' ? 'active' : '' %>">Feed</a></li>
+              <li><a href="/projects" class="<%= currentPage === 'projects' ? 'active' : '' %>">Projects</a></li>
               <li><a href="/services" class="<%= currentPage === 'services' ? 'active' : '' %>">Services</a></li>
               <li><a href="/map" class="<%= currentPage === 'map' ? 'active' : '' %>">Map</a></li>
               <li><a href="/billing" class="<%= currentPage === 'billing' ? 'active' : '' %>">Billing</a></li>

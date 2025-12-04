@@ -1,11 +1,55 @@
 const express = require('express');
-const { getUserById, createNotification, savePushSubscription, deletePushSubscription, createCareerApplication, addAuditLog, db } = require('../db');
+const { 
+    getUserById, createNotification, savePushSubscription, deletePushSubscription, 
+    createCareerApplication, addAuditLog, db,
+    getUserNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead
+} = require('../db');
 const emailService = require('../services/emailService');
 
 const router = express.Router();
 
 // Initialize router with dependencies
 function initApiRoutes({ io, careerUpload }) {
+    // Get user notifications
+    router.get('/api/notifications', (req, res) => {
+        if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+        try {
+            const limit = parseInt(req.query.limit || 50, 10);
+            const offset = parseInt(req.query.offset || 0, 10);
+            const notifications = getUserNotifications(req.session.userId, limit, offset);
+            const unreadCount = getUnreadNotificationCount(req.session.userId);
+            res.json({ success: true, notifications, unreadCount });
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+            res.status(500).json({ error: 'Failed to fetch notifications' });
+        }
+    });
+
+    // Mark notification as read
+    router.post('/api/notifications/:id/read', (req, res) => {
+        if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+        try {
+            const notifId = parseInt(req.params.id, 10);
+            markNotificationAsRead(notifId, req.session.userId);
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+            res.status(500).json({ error: 'Failed to mark as read' });
+        }
+    });
+
+    // Mark all notifications as read
+    router.post('/api/notifications/read-all', (req, res) => {
+        if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+        try {
+            markAllNotificationsAsRead(req.session.userId);
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Error marking all as read:', error);
+            res.status(500).json({ error: 'Failed to mark all as read' });
+        }
+    });
+
     // Push notification public key
     router.get('/api/push/public-key', (req, res) => {
         res.json({ key: process.env.VAPID_PUBLIC_KEY || null });

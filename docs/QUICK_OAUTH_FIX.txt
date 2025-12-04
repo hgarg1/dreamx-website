@@ -1,0 +1,67 @@
+# Quick Fix: OAuth Redirect URI Mismatch
+
+## The Problem
+```
+Error: redirect_uri_mismatch
+Location: /auth/google/callback
+```
+
+## The Solution (3 Steps)
+
+### 1️⃣ Set GOOGLE_CALLBACK_URL in `.env`
+
+**For Local Development:**
+```env
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
+```
+
+**For Production:**
+```env
+GOOGLE_CALLBACK_URL=https://dream-x.app/auth/google/callback
+```
+
+**For ngrok (Tunneling):**
+```env
+GOOGLE_CALLBACK_URL=https://abc123.ngrok.io/auth/google/callback
+```
+
+### 2️⃣ Add to Google Cloud Console
+
+1. Visit: https://console.cloud.google.com/
+2. Find your OAuth Client ID: `899638086071-2nvhig0k9k36hku1h1r53ev93o3bme80`
+3. Add to **Authorized redirect URIs**:
+   ```
+   http://localhost:3000/auth/google/callback
+   ```
+   (Or whatever your callback URL is above)
+
+### 3️⃣ Restart Your App
+```bash
+npm start
+```
+
+---
+
+## Verification
+
+✅ Check these:
+- [ ] `.env` has `GOOGLE_CALLBACK_URL` set
+- [ ] Value matches one in Google Cloud Console
+- [ ] App restarted after `.env` change
+- [ ] You're testing on the correct domain/port
+- [ ] Browser cookies cleared (incognito mode)
+
+---
+
+## Current Configuration
+
+Your OAuth credentials:
+- **Client ID:** `899638086071-2nvhig0k9k36hku1h1r53ev93o3bme80`
+- **Secret:** `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`
+
+---
+
+## Still Having Issues?
+
+Check `OAUTH_REDIRECT_URI_FIX.md` for detailed troubleshooting
+

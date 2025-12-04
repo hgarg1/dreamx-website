@@ -767,3 +767,130 @@ CREATE TABLE user_admin_notes (
 CREATE INDEX idx_user_admin_notes_user ON user_admin_notes(user_id);
 CREATE INDEX idx_user_admin_notes_admin ON user_admin_notes(admin_id);
 
+-- Projects table
+CREATE TABLE projects (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  owner_id INT NOT NULL,
+  title NVARCHAR(255) NOT NULL,
+  description NVARCHAR(MAX),
+  cover_image NVARCHAR(500),
+  category NVARCHAR(100),
+  status NVARCHAR(50) DEFAULT 'planning',       -- 'planning', 'in-progress', 'completed', 'paused', 'archived'
+  visibility NVARCHAR(50) DEFAULT 'public',     -- 'public', 'private', 'unlisted'
+  progress_percent INT DEFAULT 0,                -- 0-100
+  start_date DATETIME2,
+  target_end_date DATETIME2,
+  actual_end_date DATETIME2,
+  tags NVARCHAR(MAX),                           -- JSON array
+  gallery_images NVARCHAR(MAX),                 -- JSON array of image URLs
+  goals NVARCHAR(MAX),                          -- JSON array of goal objects
+  team_members NVARCHAR(MAX),                   -- JSON array of {user_id, role}
+  view_count INT DEFAULT 0,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  updated_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_projects_owner ON projects(owner_id);
+CREATE INDEX idx_projects_status ON projects(status);
+CREATE INDEX idx_projects_created_at ON projects(created_at);
+CREATE INDEX idx_projects_visibility ON projects(visibility);
+
+-- Project milestones
+CREATE TABLE project_milestones (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  project_id INT NOT NULL,
+  title NVARCHAR(255) NOT NULL,
+  description NVARCHAR(MAX),
+  target_date DATETIME2,
+  status NVARCHAR(50) DEFAULT 'pending',        -- 'pending', 'in-progress', 'completed'
+  progress_percent INT DEFAULT 0,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_milestones_project ON project_milestones(project_id);
+CREATE INDEX idx_milestones_status ON project_milestones(status);
+
+-- Project tasks
+CREATE TABLE project_tasks (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  project_id INT NOT NULL,
+  milestone_id INT,
+  assigned_to INT,
+  title NVARCHAR(255) NOT NULL,
+  description NVARCHAR(MAX),
+  status NVARCHAR(50) DEFAULT 'todo',           -- 'todo', 'in-progress', 'review', 'done'
+  priority NVARCHAR(50) DEFAULT 'medium',       -- 'low', 'medium', 'high', 'critical'
+  due_date DATETIME2,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  updated_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (milestone_id) REFERENCES project_milestones(id) ON DELETE SET NULL,
+  FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_tasks_project ON project_tasks(project_id);
+CREATE INDEX idx_tasks_milestone ON project_tasks(milestone_id);
+CREATE INDEX idx_tasks_assigned ON project_tasks(assigned_to);
+CREATE INDEX idx_tasks_status ON project_tasks(status);
+
+-- Project updates (posts about the project)
+CREATE TABLE project_updates (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  project_id INT NOT NULL,
+  user_id INT NOT NULL,
+  title NVARCHAR(255),
+  content_type NVARCHAR(50) DEFAULT 'text',     -- 'text', 'image', 'video', 'milestone'
+  text_content NVARCHAR(MAX),
+  media_url NVARCHAR(500),
+  audio_url NVARCHAR(500),
+  image_url NVARCHAR(500),
+  video_url NVARCHAR(500),
+  external_video_url NVARCHAR(500),
+  milestone_id INT,
+  status_update NVARCHAR(50),                   -- 'progress', 'blocker', 'completed', 'decision'
+  metrics NVARCHAR(MAX),                        -- JSON: {progress: 0-100, before: x, after: y}
+  attachment_urls NVARCHAR(MAX),                -- JSON array
+  created_at DATETIME2 DEFAULT GETDATE(),
+  updated_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE NO ACTION,
+  FOREIGN KEY (milestone_id) REFERENCES project_milestones(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_updates_project ON project_updates(project_id);
+CREATE INDEX idx_updates_user ON project_updates(user_id);
+CREATE INDEX idx_updates_created_at ON project_updates(created_at);
+
+-- Project reactions (likes on updates)
+CREATE TABLE project_reactions (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  update_id INT NOT NULL,
+  user_id INT NOT NULL,
+  reaction_type NVARCHAR(50) DEFAULT 'like',   -- 'like', 'love', 'celebration'
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (update_id) REFERENCES project_updates(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE NO ACTION,
+  UNIQUE(update_id, user_id)
+);
+
+CREATE INDEX idx_reactions_update ON project_reactions(update_id);
+CREATE INDEX idx_reactions_type ON project_reactions(reaction_type);
+
+-- Project comments
+CREATE TABLE project_comments (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  update_id INT NOT NULL,
+  user_id INT NOT NULL,
+  parent_id INT,
+  content NVARCHAR(MAX) NOT NULL,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (update_id) REFERENCES project_updates(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE NO ACTION,
+  FOREIGN KEY (parent_id) REFERENCES project_comments(id) ON DELETE NO ACTION
+);
+
+CREATE INDEX idx_comments_update ON project_comments(update_id);
+CREATE INDEX idx_comments_parent ON project_comments(parent_id);
+

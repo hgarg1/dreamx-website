@@ -5,6 +5,7 @@ const {
     getUserReposts,
     getRepostInfo,
     getUserReactionForPost,
+    getPostReactionsSummary,
     getFollowerCount,
     getFollowingCount,
     getUserServices,
@@ -21,6 +22,7 @@ const {
     getBlockedUsers,
     reportUser,
     createNotification,
+    getProjectsByOwner,
     db
 } = require('../db');
 
@@ -59,13 +61,15 @@ function initProfileRoutes({ upload, io }) {
             userPosts = userPosts.map(p => {
                 try {
                     p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-                    p.reactions = p.reactions || {};
+                    p.reactions = getPostReactionsSummary(p.id);
                 } catch (e) { }
                 return p;
             });
 
             const followerCount = getFollowerCount(req.session.userId);
             const followingCount = getFollowingCount(req.session.userId);
+            const userServices = getUserServices(req.session.userId);
+            const isSeller = userServices && userServices.length > 0;
 
             const user = {
                 displayName: row.full_name,
@@ -73,8 +77,8 @@ function initProfileRoutes({ upload, io }) {
                 bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
                 passions,
                 skills: skillsList,
-                stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
-                isSeller: false,
+                stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: userServices ? userServices.length : 0 },
+                isSeller,
                 bannerImage: row.banner_image,
                 onboarding: {
                     first_goal: row.first_goal || null,
@@ -91,7 +95,7 @@ function initProfileRoutes({ upload, io }) {
                     open_to_mentoring: row.open_to_mentoring || null
                 }
             };
-            const projects = [];
+            const projects = getProjectsByOwner(req.session.userId, 100, 0);
             const services = getUserServices(req.session.userId);
             const me = getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
@@ -160,7 +164,7 @@ function initProfileRoutes({ upload, io }) {
             userPosts = userPosts.map(p => {
                 try {
                     p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-                    p.reactions = p.reactions || {};
+                    p.reactions = getPostReactionsSummary(p.id);
                 } catch (e) { }
                 return p;
             });
@@ -192,6 +196,8 @@ function initProfileRoutes({ upload, io }) {
             const followerCount = getFollowerCount(uid);
             const followingCount = getFollowingCount(uid);
             const isFollowingUser = isFollowing({ followerId: req.session.userId, followingId: uid });
+            const services = getUserServices(uid);
+            const isSeller = services && services.length > 0;
 
             const user = {
                 displayName: row.full_name,
@@ -199,8 +205,8 @@ function initProfileRoutes({ upload, io }) {
                 bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
                 passions,
                 skills: skillsList,
-                stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: 0 },
-                isSeller: false,
+                stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: services ? services.length : 0 },
+                isSeller,
                 bannerImage: row.banner_image,
                 onboarding: {
                     first_goal: row.first_goal || null,
@@ -217,8 +223,7 @@ function initProfileRoutes({ upload, io }) {
                     open_to_mentoring: row.open_to_mentoring || null
                 }
             };
-            const projects = [];
-            const services = getUserServices(uid);
+            const projects = getProjectsByOwner(uid, 100, 0);
             const me = getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
 

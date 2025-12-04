@@ -1,0 +1,750 @@
+<%- include('partials/header') %>
+
+<style>
+  .project-wizard-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .wizard-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .wizard-header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #111827;
+    margin: 0 0 12px 0;
+  }
+
+  .wizard-header p {
+    color: #6b7280;
+    font-size: 1.125rem;
+    margin: 0;
+  }
+
+  .wizard-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    border: 2px solid rgba(255, 79, 163, 0.1);
+  }
+
+  .form-section {
+    margin-bottom: 32px;
+  }
+
+  .form-section h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 16px 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid rgba(255, 79, 163, 0.2);
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-label {
+    display: block;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+  }
+
+  .form-label .optional {
+    color: #9ca3af;
+    font-weight: 400;
+    font-size: 0.85rem;
+  }
+
+  .form-input,
+  .form-textarea,
+  .form-select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+  }
+
+  .form-input:focus,
+  .form-textarea:focus,
+  .form-select:focus {
+    outline: none;
+    border-color: #ff4fa3;
+    box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.1);
+  }
+
+  .form-textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  .form-description {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .tag-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    min-height: 44px;
+    align-content: flex-start;
+    transition: all 0.3s ease;
+  }
+
+  .tag-input-container:focus-within {
+    border-color: #ff4fa3;
+    box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.1);
+  }
+
+  .tag {
+    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .tag-remove {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .tag-input {
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    font-family: inherit;
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .goal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .goal-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .goal-item input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+  }
+
+  .goal-item input:focus {
+    outline: none;
+    border-color: #ff4fa3;
+    box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.1);
+  }
+
+  .goal-remove-btn {
+    background: #fee2e2;
+    border: none;
+    color: #991b1b;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+
+  .goal-remove-btn:hover {
+    background: #fecaca;
+  }
+
+  .add-goal-btn {
+    background: rgba(255, 79, 163, 0.1);
+    border: 2px solid #ff4fa3;
+    color: #ff4fa3;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.3s;
+  }
+
+  .add-goal-btn:hover {
+    background: #ff4fa3;
+    color: white;
+  }
+
+  .radio-group {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .radio-option input[type="radio"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+  }
+
+  .radio-option label {
+    cursor: pointer;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 2px solid #e5e7eb;
+  }
+
+  .btn {
+    padding: 12px 32px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #ff4fa3, #764ba2);
+    color: white;
+    box-shadow: 0 8px 20px rgba(255, 79, 163, 0.3);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(255, 79, 163, 0.4);
+  }
+
+  .btn-secondary {
+    background: white;
+    color: #ff4fa3;
+    border: 2px solid #ff4fa3;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 79, 163, 0.05);
+  }
+
+  .progress-indicator {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    justify-content: center;
+  }
+
+  .progress-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    transition: all 0.3s;
+  }
+
+  .progress-dot.active {
+    background: #ff4fa3;
+    width: 32px;
+    border-radius: 4px;
+  }
+
+  .file-upload-section {
+    border: 2px dashed #ff4fa3;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(255, 79, 163, 0.02);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .file-upload-section:hover {
+    border-color: #764ba2;
+    background: rgba(118, 75, 162, 0.02);
+  }
+
+  .file-upload-section.dragover {
+    border-color: #764ba2;
+    background: rgba(118, 75, 162, 0.1);
+  }
+
+  .file-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .file-item {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+
+  .file-remove-btn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-weight: 700;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+  }
+
+  @media (max-width: 768px) {
+    .wizard-card {
+      padding: 24px;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .wizard-header h1 {
+      font-size: 1.75rem;
+    }
+
+    .form-actions {
+      flex-direction: column;
+    }
+
+    .btn {
+      width: 100%;
+    }
+  }
+</style>
+
+<div class="project-wizard-container">
+  <div class="wizard-header">
+    <h1>✨ Create New Project</h1>
+    <p>Start building your amazing project today</p>
+  </div>
+
+  <div class="wizard-card">
+    <form id="projectForm" method="POST" action="/api/projects">
+      <!-- Basic Info Section -->
+      <div class="form-section">
+        <h2>📋 Basic Information</h2>
+
+        <div class="form-group">
+          <label class="form-label" for="title">Project Title <span class="optional">(required)</span></label>
+          <input 
+            type="text" 
+            id="title" 
+            name="title" 
+            class="form-input" 
+            placeholder="e.g., AI-Powered Email Assistant"
+            required
+            maxlength="200"
+          >
+          <div class="form-description">Give your project a clear, descriptive name</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="description">Description <span class="optional">(required)</span></label>
+          <textarea 
+            id="description" 
+            name="description" 
+            class="form-textarea" 
+            placeholder="Describe what your project is about, what problem it solves, and its key features..."
+            required
+          ></textarea>
+          <div class="form-description">500 characters max</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="category">Category</label>
+            <select id="category" name="category" class="form-select">
+              <option value="tech">🔧 Technology</option>
+              <option value="design">🎨 Design</option>
+              <option value="business">💼 Business</option>
+              <option value="creative">🎬 Creative</option>
+              <option value="education">📚 Education</option>
+              <option value="health">💊 Health</option>
+              <option value="social">👥 Social Impact</option>
+              <option value="other">✨ Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="visibility">Visibility</label>
+            <select id="visibility" name="visibility" class="form-select">
+              <option value="public">🌍 Public</option>
+              <option value="unlisted">🔗 Unlisted</option>
+              <option value="private">🔒 Private</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status & Timeline Section -->
+      <div class="form-section">
+        <h2>🎯 Status & Timeline</h2>
+
+        <div class="form-group">
+          <label class="form-label">Current Status</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" id="status-planning" name="status" value="planning" checked>
+              <label for="status-planning">Planning</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" id="status-progress" name="status" value="in-progress">
+              <label for="status-progress">In Progress</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" id="status-completed" name="status" value="completed">
+              <label for="status-completed">Completed</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" id="status-paused" name="status" value="paused">
+              <label for="status-paused">Paused</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="progress">Progress (%)</label>
+            <input 
+              type="number" 
+              id="progress" 
+              name="progress_percent" 
+              class="form-input" 
+              min="0" 
+              max="100" 
+              value="0"
+            >
+            <div class="form-description">0-100%</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="targetDate">Target Completion Date</label>
+            <input 
+              type="date" 
+              id="targetDate" 
+              name="target_completion_date" 
+              class="form-input"
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Tags Section -->
+      <div class="form-section">
+        <h2>🏷️ Tags</h2>
+
+        <div class="form-group">
+          <label class="form-label" for="tagsInput">Add tags to help people discover your project</label>
+          <div class="tag-input-container">
+            <div id="tagsList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+            <input 
+              type="text" 
+              id="tagsInput" 
+              class="tag-input" 
+              placeholder="Type a tag and press Enter..."
+              onkeydown="handleTagInput(event)"
+            >
+          </div>
+          <input type="hidden" id="tagsField" name="tags" value="[]">
+          <div class="form-description">Press Enter to add tags. Popular: #startup, #ai, #web3, #design, #mobile</div>
+        </div>
+      </div>
+
+      <!-- Goals Section -->
+      <div class="form-section">
+        <h2>🎯 Goals</h2>
+
+        <div class="form-group">
+          <label class="form-label">What are the main goals of your project?</label>
+          <div id="goalsList" class="goal-list">
+            <div class="goal-item">
+              <input 
+                type="text" 
+                class="goal-input" 
+                placeholder="e.g., Launch MVP by Q3 2024"
+              >
+              <button type="button" class="goal-remove-btn" onclick="removeGoal(this)">×</button>
+            </div>
+          </div>
+          <button type="button" class="add-goal-btn" onclick="addGoal()">+ Add another goal</button>
+          <input type="hidden" id="goalsField" name="goals" value="[]">
+        </div>
+      </div>
+
+      <!-- Files & Media Section -->
+      <div class="form-section">
+        <h2>📁 Files & Media</h2>
+
+        <div class="form-group">
+          <label class="form-label">Add project files, images, or videos <span class="optional">(optional)</span></label>
+          <div class="file-upload-section" id="fileUploadArea" ondrop="handleFileDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('fileInput').click()">
+            <div style="font-size: 2rem; margin-bottom: 8px;">📸 📄 🎥</div>
+            <div style="font-weight: 600; margin-bottom: 4px;">Drag and drop files here or click to browse</div>
+            <div style="font-size: 0.85rem; color: #6b7280;">Images, PDFs, documents, videos (max 20MB each)</div>
+            <input type="file" id="fileInput" multiple style="display: none;" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.mp4,.webm,.mov,.zip" onchange="handleFileSelection(event)">
+          </div>
+          <div class="file-list" id="fileList"></div>
+          <input type="hidden" id="filesField" name="files" value="[]">
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+          ← Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          🚀 Create Project
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let tags = [];
+  let goals = [];
+  let selectedFiles = [];
+
+  // File upload handling
+  function handleDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    document.getElementById('fileUploadArea').classList.add('dragover');
+  }
+
+  function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    document.getElementById('fileUploadArea').classList.remove('dragover');
+  }
+
+  function handleFileDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    document.getElementById('fileUploadArea').classList.remove('dragover');
+    
+    const files = event.dataTransfer.files;
+    handleFiles(files);
+  }
+
+  function handleFileSelection(event) {
+    handleFiles(event.target.files);
+  }
+
+  function handleFiles(files) {
+    for (let file of files) {
+      if (file.size > 20 * 1024 * 1024) {
+        alert(`${file.name} is too large (max 20MB)`);
+        continue;
+      }
+      
+      selectedFiles.push(file);
+    }
+    
+    renderFileList();
+  }
+
+  function renderFileList() {
+    const fileList = document.getElementById('fileList');
+    fileList.innerHTML = selectedFiles.map((file, index) => `
+      <div class="file-item">
+        <span>${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)</span>
+        <button type="button" class="file-remove-btn" onclick="removeFile(${index})">×</button>
+      </div>
+    `).join('');
+  }
+
+  function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    renderFileList();
+  }
+
+  function handleTagInput(event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const input = event.target;
+      const tag = input.value.trim();
+
+      if (tag && !tags.includes(tag)) {
+        tags.push(tag);
+        renderTags();
+        input.value = '';
+        updateTagsField();
+      }
+    }
+  }
+
+  function renderTags() {
+    const tagsList = document.getElementById('tagsList');
+    tagsList.innerHTML = tags.map(tag => `
+      <div class="tag">
+        ${tag}
+        <button type="button" class="tag-remove" onclick="removeTag('${tag}')">×</button>
+      </div>
+    `).join('');
+  }
+
+  function removeTag(tag) {
+    tags = tags.filter(t => t !== tag);
+    renderTags();
+    updateTagsField();
+  }
+
+  function updateTagsField() {
+    document.getElementById('tagsField').value = JSON.stringify(tags);
+  }
+
+  function addGoal() {
+    const goalsList = document.getElementById('goalsList');
+    const newGoal = document.createElement('div');
+    newGoal.className = 'goal-item';
+    newGoal.innerHTML = `
+      <input 
+        type="text" 
+        class="goal-input" 
+        placeholder="Enter a goal..."
+      >
+      <button type="button" class="goal-remove-btn" onclick="removeGoal(this)">×</button>
+    `;
+    goalsList.appendChild(newGoal);
+  }
+
+  function removeGoal(button) {
+    button.parentElement.remove();
+  }
+
+  function updateGoalsField() {
+    const goalInputs = document.querySelectorAll('.goal-input');
+    goals = Array.from(goalInputs)
+      .map(input => input.value.trim())
+      .filter(goal => goal.length > 0);
+    document.getElementById('goalsField').value = JSON.stringify(goals);
+  }
+
+  document.getElementById('projectForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    updateTagsField();
+    updateGoalsField();
+
+    const formData = new FormData(this);
+    
+    // Add files to FormData
+    for (let file of selectedFiles) {
+      formData.append('files', file);
+    }
+    
+    const data = {};
+    for (let [key, value] of formData.entries()) {
+      if (key === 'files') continue; // Skip files for JSON
+      data[key] = value;
+    }
+    
+    console.log('Form data being sent:', data);
+    
+    if (!data.title || !data.description) {
+      alert('Please fill in both title and description');
+      return;
+    }
+    
+    try {
+      // First create the project
+      const projectRes = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      
+      const projectData = await projectRes.json();
+      console.log('Project created:', projectData);
+      
+      if (!projectData.success) {
+        alert('Error creating project: ' + (projectData.error || 'Unknown error'));
+        return;
+      }
+      
+      // Then upload files if any
+      if (selectedFiles.length > 0) {
+        const fileFormData = new FormData();
+        for (let file of selectedFiles) {
+          fileFormData.append('files', file);
+        }
+        
+        const fileRes = await fetch(`/api/projects/${projectData.projectId}/files`, {
+          method: 'POST',
+          body: fileFormData
+        });
+        
+        const fileData = await fileRes.json();
+        console.log('Files uploaded:', fileData);
+      }
+      
+      // Navigate to project detail
+      window.location.href = `/project/${projectData.projectId}`;
+    } catch (err) {
+      console.error('Error:', err);
+      alert('Error creating project: ' + err.message);
+    }
+  });
+
+  // Update goals field when inputs change
+  document.addEventListener('change', updateGoalsField);
+  document.addEventListener('blur', updateGoalsField, true);
+</script>
+
+<%- include('partials/footer') %>

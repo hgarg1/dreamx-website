@@ -1,0 +1,950 @@
+<%- include('partials/header') %>
+
+<style>
+  .edit-project-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+
+  .project-form-section {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .project-form-section h2 {
+    margin: 0 0 24px 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #1f2937;
+  }
+
+  .form-input,
+  .form-textarea,
+  .form-select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 1rem;
+  }
+
+  .form-textarea {
+    resize: vertical;
+    min-height: 120px;
+  }
+
+  .form-description {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 6px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 640px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #ec4899, #f472b6);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(236, 72, 153, 0.3);
+  }
+
+  .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+  }
+
+  .btn-secondary:hover {
+    background: #e5e7eb;
+  }
+
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .radio-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+
+  .radio-option label {
+    cursor: pointer;
+    margin: 0;
+    font-weight: 500;
+  }
+
+  /* Milestones, Tasks, and Updates Styling */
+  .list-section {
+    background: linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%);
+    padding: 24px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .list-section h3 {
+    margin: 0 0 20px 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .item-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border-left: 4px solid #ff4fa3;
+    position: relative;
+  }
+
+  .item-card:hover {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    border-color: #d1d5db;
+    transform: translateY(-2px);
+  }
+
+  .item-content {
+    flex: 1;
+  }
+
+  .item-title {
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 8px;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .item-description {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+    line-height: 1.6;
+  }
+
+  .item-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: #6b7280;
+    align-items: center;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .item-btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .item-btn-edit {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+  }
+
+  .item-btn-edit:hover {
+    background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .item-btn-delete {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+  }
+
+  .item-btn-delete:hover {
+    background: linear-gradient(135deg, #fecaca 0%, #f87171 100%);
+    box-shadow: 0 4px 12px rgba(153, 27, 27, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .form-section-inline {
+    background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 20px;
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .form-section-inline:focus-within {
+    border-color: #ff4fa3;
+    background: linear-gradient(135deg, #fef9fc 0%, #faf5f9 100%);
+    box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.1);
+  }
+
+  .inline-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+    align-items: flex-end;
+  }
+
+  .inline-form-row:last-child {
+    margin-bottom: 0;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-field label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .inline-form-row input,
+  .inline-form-row select,
+  .inline-form-row textarea,
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    transition: all 0.2s ease;
+  }
+
+  .inline-form-row input:focus,
+  .inline-form-row select:focus,
+  .inline-form-row textarea:focus,
+  .form-field input:focus,
+  .form-field select:focus,
+  .form-field textarea:focus {
+    outline: none;
+    border-color: #ff4fa3;
+    box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.1);
+  }
+
+  .inline-form-row textarea,
+  .form-field textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+
+  .inline-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #ec4899, #f472b6);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(236, 72, 153, 0.15);
+  }
+
+  .inline-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(236, 72, 153, 0.25);
+  }
+
+  .inline-btn:active {
+    transform: translateY(0);
+  }
+
+  .empty-state {
+    text-align: center;
+    color: #9ca3af;
+    padding: 32px 20px;
+    font-style: italic;
+    font-size: 0.95rem;
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    border-radius: 8px;
+    border: 1px dashed #d1d5db;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-high { 
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+  }
+  
+  .badge-medium { 
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #b45309;
+    border: 1px solid #fcd34d;
+  }
+  
+  .badge-low { 
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+  }
+  
+  .badge-pending {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    color: #374151;
+    border: 1px solid #d1d5db;
+  }
+  
+  .badge-in-progress {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+  }
+  
+  .badge-completed {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #15803d;
+    border: 1px solid #86efac;
+  }
+  
+  .badge-status-update {
+    background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+    color: #be185d;
+    border: 1px solid #f472b6;
+  }
+
+  /* Custom Checkbox Styling */
+  .checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .checkbox-wrapper:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+  }
+
+  .checkbox-wrapper input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #ff4fa3;
+  }
+
+  .checkbox-wrapper span {
+    color: #374151;
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+
+</style>
+
+<div class="edit-project-container">
+  <h1 style="margin: 0 0 32px 0; font-size: 2rem; font-weight: 700; color: #111827;">✏️ Edit Project</h1>
+
+  <form id="projectEditForm" method="POST" action="/api/projects/<%= project.id %>">
+    <!-- Basic Info Section -->
+    <div class="project-form-section">
+      <h2>📋 Basic Information</h2>
+
+      <div class="form-group">
+        <label class="form-label" for="title">Project Title</label>
+        <input 
+          type="text" 
+          id="title" 
+          name="title" 
+          class="form-input" 
+          value="<%= project.title %>"
+          required
+          maxlength="200"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="description">Description</label>
+        <textarea 
+          id="description" 
+          name="description" 
+          class="form-textarea" 
+          required
+        ><%= project.description %></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="category">Category</label>
+          <select id="category" name="category" class="form-select">
+            <option value="tech" <%= project.category === 'tech' ? 'selected' : '' %>>🔧 Technology</option>
+            <option value="design" <%= project.category === 'design' ? 'selected' : '' %>>🎨 Design</option>
+            <option value="business" <%= project.category === 'business' ? 'selected' : '' %>>💼 Business</option>
+            <option value="creative" <%= project.category === 'creative' ? 'selected' : '' %>>🎬 Creative</option>
+            <option value="education" <%= project.category === 'education' ? 'selected' : '' %>>📚 Education</option>
+            <option value="health" <%= project.category === 'health' ? 'selected' : '' %>>💊 Health</option>
+            <option value="social" <%= project.category === 'social' ? 'selected' : '' %>>👥 Social Impact</option>
+            <option value="other" <%= project.category === 'other' ? 'selected' : '' %>>✨ Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="visibility">Visibility</label>
+          <select id="visibility" name="visibility" class="form-select">
+            <option value="public" <%= project.visibility === 'public' ? 'selected' : '' %>>🌍 Public</option>
+            <option value="unlisted" <%= project.visibility === 'unlisted' ? 'selected' : '' %>>🔗 Unlisted</option>
+            <option value="private" <%= project.visibility === 'private' ? 'selected' : '' %>>🔒 Private</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status & Timeline Section -->
+    <div class="project-form-section">
+      <h2>🎯 Status & Timeline</h2>
+
+      <div class="form-group">
+        <label class="form-label">Current Status</label>
+        <div class="radio-group">
+          <div class="radio-option">
+            <input type="radio" id="status-planning" name="status" value="planning" <%= project.status === 'planning' ? 'checked' : '' %>>
+            <label for="status-planning">Planning</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" id="status-progress" name="status" value="in-progress" <%= project.status === 'in-progress' ? 'checked' : '' %>>
+            <label for="status-progress">In Progress</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" id="status-completed" name="status" value="completed" <%= project.status === 'completed' ? 'checked' : '' %>>
+            <label for="status-completed">Completed</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" id="status-paused" name="status" value="paused" <%= project.status === 'paused' ? 'checked' : '' %>>
+            <label for="status-paused">Paused</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="progress">Progress (%)</label>
+          <input 
+            type="number" 
+            id="progress" 
+            name="progress_percent" 
+            class="form-input" 
+            min="0" 
+            max="100" 
+            value="<%= project.progress_percent || 0 %>"
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="targetDate">Target Completion Date</label>
+          <input 
+            type="date" 
+            id="targetDate" 
+            name="target_end_date" 
+            class="form-input"
+            value="<%= project.target_end_date ? project.target_end_date.split('T')[0] : '' %>"
+          >
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+        ← Cancel
+      </button>
+      <button type="submit" class="btn btn-primary">
+        💾 Save Changes
+      </button>
+    </div>
+  </form>
+
+  <!-- Milestones Section -->
+  <div class="list-section" style="margin-top: 60px;">
+    <h3>🎯 Milestones</h3>
+    <div id="milestonesList"></div>
+    
+    <div class="form-section-inline">
+      <h4>+ Add New Milestone</h4>
+      <div class="inline-form-row">
+        <div class="form-field">
+          <label for="milestoneName">Milestone Name</label>
+          <input type="text" id="milestoneName" placeholder="e.g., Beta Launch" maxlength="100">
+        </div>
+        <div class="form-field">
+          <label for="milestoneDate">Target Date</label>
+          <input type="date" id="milestoneDate">
+        </div>
+        <div class="form-field">
+          <label for="milestoneStatus">Status</label>
+          <select id="milestoneStatus">
+            <option value="pending">Pending</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+      <div class="inline-form-row">
+        <div class="form-field" style="grid-column: 1 / -1;">
+          <label for="milestoneDesc">Description</label>
+          <textarea id="milestoneDesc" placeholder="What does this milestone entail?"></textarea>
+        </div>
+      </div>
+      <div class="inline-form-row">
+        <button type="button" class="inline-btn" onclick="addMilestone()" style="margin-left: auto;">🎯 Add Milestone</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tasks Section -->
+  <div class="list-section">
+    <h3>✓ Tasks</h3>
+    <div id="tasksList"></div>
+    
+    <div class="form-section-inline">
+      <h4>+ Add New Task</h4>
+      <div class="inline-form-row">
+        <div class="form-field">
+          <label for="taskName">Task Name</label>
+          <input type="text" id="taskName" placeholder="e.g., Design login page" maxlength="100">
+        </div>
+        <div class="form-field">
+          <label for="taskPriority">Priority</label>
+          <select id="taskPriority">
+            <option value="low">Low Priority</option>
+            <option value="medium" selected>Medium Priority</option>
+            <option value="high">High Priority</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="taskDate">Due Date</label>
+          <input type="date" id="taskDate">
+        </div>
+      </div>
+      <div class="inline-form-row">
+        <div class="form-field" style="grid-column: 1 / -1;">
+          <label for="taskDesc">Description</label>
+          <textarea id="taskDesc" placeholder="What needs to be done?"></textarea>
+        </div>
+      </div>
+      <div class="inline-form-row">
+        <button type="button" class="inline-btn" onclick="addTask()" style="margin-left: auto;">✓ Add Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Updates Section -->
+  <div class="list-section">
+    <h3>📝 Project Updates</h3>
+    <div id="updatesList"></div>
+    
+    <div class="form-section-inline">
+      <h4>📝 Share Project Update</h4>
+      <div class="inline-form-row">
+        <div class="form-field" style="grid-column: 1 / -1;">
+          <label for="updateTitle">Update Title (Optional)</label>
+          <input type="text" id="updateTitle" placeholder="e.g., Major feature complete" maxlength="150">
+        </div>
+      </div>
+      <div class="inline-form-row">
+        <div class="form-field" style="grid-column: 1 / -1;">
+          <label for="updateContent">Update Content</label>
+          <textarea id="updateContent" placeholder="What's new on your project? Share your progress, challenges, or exciting updates..."></textarea>
+        </div>
+      </div>
+      <div class="inline-form-row" style="display: flex; gap: 12px; align-items: flex-end;">
+        <label class="checkbox-wrapper" title="Mark this as an important status update for your project timeline">
+          <input type="checkbox" id="isStatusUpdate"> 
+          <span>📢 Mark as Status Update</span>
+        </label>
+        <button type="button" class="inline-btn" onclick="addUpdate()" style="margin-left: auto;">📤 Post Update</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const projectId = <%= project.id %>;
+  let milestones = [];
+  let tasks = [];
+  let updates = [];
+
+  // Load existing data
+  async function loadProjectData() {
+    try {
+      const response = await fetch(`/api/projects/${projectId}`);
+      const data = await response.json();
+      if (data.success) {
+        milestones = data.milestones || [];
+        tasks = data.tasks || [];
+        updates = data.updates || [];
+        renderMilestones();
+        renderTasks();
+        renderUpdates();
+      }
+    } catch (err) {
+      console.error('Error loading project data:', err);
+    }
+  }
+
+  function renderMilestones() {
+    const list = document.getElementById('milestonesList');
+    if (milestones.length === 0) {
+      list.innerHTML = '<div class="empty-state">No milestones yet. Create one to get started!</div>';
+      return;
+    }
+    list.innerHTML = milestones.map(m => {
+      const statusMap = { 'pending': 'badge-pending', 'in-progress': 'badge-in-progress', 'completed': 'badge-completed' };
+      const badgeClass = statusMap[m.status] || 'badge-pending';
+      return `
+        <div class="item-card">
+          <div class="item-content">
+            <div class="item-title">🎯 ${m.title}</div>
+            ${m.description ? `<div class="item-description">${m.description}</div>` : ''}
+            <div class="item-meta">
+              <span class="badge ${badgeClass}">${m.status?.toUpperCase() || 'PENDING'}</span>
+              ${m.due_date ? `<span>📅 ${new Date(m.due_date).toLocaleDateString()}</span>` : ''}
+            </div>
+          </div>
+          <div class="item-actions">
+            <button type="button" class="item-btn item-btn-delete" onclick="deleteMilestone(${m.id})">🗑️ Delete</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderTasks() {
+    const list = document.getElementById('tasksList');
+    if (tasks.length === 0) {
+      list.innerHTML = '<div class="empty-state">No tasks yet. Break down your work into tasks!</div>';
+      return;
+    }
+    list.innerHTML = tasks.map(t => {
+      const priorityMap = { 'high': 'badge-high', 'medium': 'badge-medium', 'low': 'badge-low' };
+      const priorityBadge = priorityMap[t.priority] || 'badge-low';
+      return `
+        <div class="item-card">
+          <div class="item-content">
+            <div class="item-title">✓ ${t.title}</div>
+            ${t.description ? `<div class="item-description">${t.description}</div>` : ''}
+            <div class="item-meta">
+              <span class="badge ${priorityBadge}">⚡ ${(t.priority || 'low').toUpperCase()}</span>
+              ${t.due_date ? `<span>📅 ${new Date(t.due_date).toLocaleDateString()}</span>` : ''}
+              ${t.assigned_to_name ? `<span>👤 ${t.assigned_to_name}</span>` : ''}
+            </div>
+          </div>
+          <div class="item-actions">
+            <button type="button" class="item-btn item-btn-delete" onclick="deleteTask(${t.id})">🗑️ Delete</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderUpdates() {
+    const list = document.getElementById('updatesList');
+    if (updates.length === 0) {
+      list.innerHTML = '<div class="empty-state">No updates yet. Share your progress!</div>';
+      return;
+    }
+    list.innerHTML = updates.map(u => {
+      return `
+        <div class="item-card">
+          <div class="item-content">
+            <div class="item-title">📝 ${u.title || (u.text_content?.substring(0, 40) || 'Update')}</div>
+            ${u.text_content ? `<div class="item-description">${u.text_content.substring(0, 120)}...</div>` : ''}
+            <div class="item-meta">
+              <span>📅 ${new Date(u.created_at).toLocaleDateString()}</span>
+              ${u.status_update ? `<span class="badge badge-status-update">📢 STATUS UPDATE</span>` : ''}
+            </div>
+          </div>
+          <div class="item-actions">
+            <button type="button" class="item-btn item-btn-delete" onclick="deleteUpdate(${u.id})">🗑️ Delete</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function addMilestone() {
+    const title = document.getElementById('milestoneName').value.trim();
+    const dueDate = document.getElementById('milestoneDate').value;
+    const description = document.getElementById('milestoneDesc').value.trim();
+    const status = document.getElementById('milestoneStatus').value;
+
+    if (!title) {
+      alert('Please enter a milestone name');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/milestones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, dueDate, description, status })
+      });
+      const data = await response.json();
+      if (data.success) {
+        document.getElementById('milestoneName').value = '';
+        document.getElementById('milestoneDate').value = '';
+        document.getElementById('milestoneDesc').value = '';
+        await loadProjectData();
+      } else {
+        alert('Error: ' + (data.error || 'Failed to create milestone'));
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      alert('Error creating milestone');
+    }
+  }
+
+  async function deleteMilestone(id) {
+    if (!confirm('Delete this milestone?')) return;
+    try {
+      const response = await fetch(`/api/projects/${projectId}/milestones/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (data.success) {
+        await loadProjectData();
+      } else {
+        alert('Error: ' + (data.error || 'Failed to delete milestone'));
+      }
+    } catch (err) {
+      alert('Error deleting milestone');
+    }
+  }
+
+  async function addTask() {
+    const title = document.getElementById('taskName').value.trim();
+    const priority = document.getElementById('taskPriority').value;
+    const description = document.getElementById('taskDesc').value.trim();
+    const dueDate = document.getElementById('taskDate').value;
+
+    if (!title) {
+      alert('Please enter a task name');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, priority, description, dueDate })
+      });
+      const data = await response.json();
+      if (data.success) {
+        document.getElementById('taskName').value = '';
+        document.getElementById('taskDesc').value = '';
+        document.getElementById('taskDate').value = '';
+        await loadProjectData();
+      } else {
+        alert('Error: ' + (data.error || 'Failed to create task'));
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      alert('Error creating task');
+    }
+  }
+
+  async function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    try {
+      const response = await fetch(`/api/projects/${projectId}/tasks/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (data.success) {
+        await loadProjectData();
+      } else {
+        alert('Error: ' + (data.error || 'Failed to delete task'));
+      }
+    } catch (err) {
+      alert('Error deleting task');
+    }
+  }
+
+  async function addUpdate() {
+    const title = document.getElementById('updateTitle').value.trim();
+    const content = document.getElementById('updateContent').value.trim();
+    const isStatus = document.getElementById('isStatusUpdate').checked;
+
+    if (!content) {
+      alert('Please enter update content');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/updates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          title: title || 'Project Update',
+          contentType: 'text',
+          textContent: content,
+          statusUpdate: isStatus 
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        document.getElementById('updateTitle').value = '';
+        document.getElementById('updateContent').value = '';
+        document.getElementById('isStatusUpdate').checked = false;
+        await loadProjectData();
+      } else {
+        alert('Error: ' + (data.error || 'Failed to post update'));
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      alert('Error posting update');
+    }
+  }
+
+  async function deleteUpdate(id) {
+    if (!confirm('Delete this update?')) return;
+    try {
+      const response = await fetch(`/api/projects/${projectId}/updates/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (data.success) {
+        await loadProjectData();
+      } else {
+        alert('Error: ' + (data.error || 'Failed to delete update'));
+      }
+    } catch (err) {
+      alert('Error deleting update');
+    }
+  }
+
+  // Load data on page load
+  loadProjectData();
+
+
+<script>
+  document.getElementById('projectEditForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const data = {};
+    
+    for (let [key, value] of formData.entries()) {
+      data[key] = value;
+    }
+    
+    fetch('/api/projects/<%= project.id %>', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = `/project/<%= project.id %>`;
+      } else {
+        alert('Error updating project: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      alert('Error updating project');
+    });
+  });
+</script>
+
+<%- include('partials/footer') %>

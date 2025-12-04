@@ -701,13 +701,10 @@ function getCallbackURLFromRequest(req, path) {
 router.get('/auth/google', (req, res, next) => {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return res.status(503).send('Google OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    const callbackURL = getCallbackURLFromRequest(req, '/auth/google/callback');
-    const options = { 
-        scope: ['profile', 'email'], 
-        state: mode,
-        callbackURL: callbackURL
-    };
-    passport.authenticate('google', options)(req, res, next);
+    console.log('🔍 Google OAuth - Request Host:', req.get('host'));
+    console.log('🔍 Google OAuth - Protocol:', req.protocol);
+    console.log('🔍 Google OAuth - Note: Google uses static callback URL from strategy initialization');
+    passport.authenticate('google', { state: mode, scope: ['profile', 'email'] })(req, res, next);
 });
 
 router.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), async (req, res) => {

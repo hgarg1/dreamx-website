@@ -1,5 +1,5 @@
 const path = require('path');
-const { initSync, isProduction, getDatabaseSync, initDatabase } = require('./db-adapter');
+const { initSync, isProduction, getDatabaseSync, initDatabase } = require('./adapter');
 
 // Initialize database based on environment
 let db = null;
@@ -1216,6 +1216,161 @@ try {
   `);
 } catch (e) { }
 
+// Projects table
+db.exec(`CREATE TABLE IF NOT EXISTS projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  cover_image TEXT,
+  category TEXT,
+  status TEXT DEFAULT 'planning',
+  visibility TEXT DEFAULT 'public',
+  progress_percent INTEGER DEFAULT 0,
+  start_date DATETIME,
+  target_end_date DATETIME,
+  actual_end_date DATETIME,
+  tags TEXT,
+  gallery_images TEXT,
+  goals TEXT,
+  team_members TEXT,
+  view_count INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (owner_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_projects_owner ON projects(owner_id);
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at);
+CREATE INDEX IF NOT EXISTS idx_projects_visibility ON projects(visibility);
+`);
+
+// Project milestones
+db.exec(`CREATE TABLE IF NOT EXISTS project_milestones (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  target_date DATETIME,
+  status TEXT DEFAULT 'pending',
+  progress_percent INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+CREATE INDEX IF NOT EXISTS idx_milestones_project ON project_milestones(project_id);
+CREATE INDEX IF NOT EXISTS idx_milestones_status ON project_milestones(status);
+`);
+
+// Project tasks
+db.exec(`CREATE TABLE IF NOT EXISTS project_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  milestone_id INTEGER,
+  assigned_to INTEGER,
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'todo',
+  priority TEXT DEFAULT 'medium',
+  due_date DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (milestone_id) REFERENCES project_milestones(id),
+  FOREIGN KEY (assigned_to) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_project ON project_tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_milestone ON project_tasks(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_assigned ON project_tasks(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON project_tasks(status);
+`);
+
+// Project updates
+db.exec(`CREATE TABLE IF NOT EXISTS project_updates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  title TEXT,
+  content_type TEXT DEFAULT 'text',
+  text_content TEXT,
+  media_url TEXT,
+  audio_url TEXT,
+  image_url TEXT,
+  video_url TEXT,
+  external_video_url TEXT,
+  milestone_id INTEGER,
+  status_update TEXT,
+  metrics TEXT,
+  attachment_urls TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (milestone_id) REFERENCES project_milestones(id)
+);
+CREATE INDEX IF NOT EXISTS idx_updates_project ON project_updates(project_id);
+CREATE INDEX IF NOT EXISTS idx_updates_user ON project_updates(user_id);
+CREATE INDEX IF NOT EXISTS idx_updates_created_at ON project_updates(created_at);
+`);
+
+// Project reactions
+db.exec(`CREATE TABLE IF NOT EXISTS project_reactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  update_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  reaction_type TEXT DEFAULT 'like',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(update_id, user_id),
+  FOREIGN KEY (update_id) REFERENCES project_updates(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_reactions_update ON project_reactions(update_id);
+CREATE INDEX IF NOT EXISTS idx_reactions_type ON project_reactions(reaction_type);
+`);
+
+// Project comments
+db.exec(`CREATE TABLE IF NOT EXISTS project_comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  update_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  parent_id INTEGER,
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (update_id) REFERENCES project_updates(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (parent_id) REFERENCES project_comments(id)
+);
+CREATE INDEX IF NOT EXISTS idx_comments_update ON project_comments(update_id);
+CREATE INDEX IF NOT EXISTS idx_comments_parent ON project_comments(parent_id);
+`);
+
+// Project comment files (attachments in comments)
+db.exec(`CREATE TABLE IF NOT EXISTS project_comment_files (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  comment_id INTEGER NOT NULL,
+  file_url TEXT NOT NULL,
+  file_name TEXT,
+  file_type TEXT,
+  file_size INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (comment_id) REFERENCES project_comments(id)
+);
+CREATE INDEX IF NOT EXISTS idx_comment_files_comment ON project_comment_files(comment_id);
+`);
+
+// Project comment reactions (star reactions on comments)
+db.exec(`CREATE TABLE IF NOT EXISTS project_comment_reactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  comment_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  reaction_type TEXT DEFAULT 'star',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(comment_id, user_id, reaction_type),
+  FOREIGN KEY (comment_id) REFERENCES project_comments(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_comment_reactions_comment ON project_comment_reactions(comment_id);
+`);
+
 // Helper function to get the database instance (works with both SQLite and SQL Server)
 function getDb() {
   if (isProduction && !dbWrapper) {
@@ -1753,11 +1908,15 @@ module.exports = {
       JOIN users u ON p.user_id = u.id
       WHERE p.user_id = ?
       ORDER BY p.created_at DESC
-    `).all(userId).map((row) => ({
-      ...row,
-      hashtags: getPostHashtags(row.id),
-      tags: getPostTags(row.id)
-    }));
+    `).all(userId).map((row) => {
+      const repostCount = db.prepare(`SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?`).get(row.id);
+      row.repost_count = repostCount ? repostCount.c : 0;
+      return {
+        ...row,
+        hashtags: getPostHashtags(row.id),
+        tags: getPostTags(row.id)
+      };
+    });
   },
   getUserReels: (userId) => {
     return db.prepare(`
@@ -3386,5 +3545,487 @@ module.exports = {
       WHERE user_id = ? AND original_post_id = ?
     `).get(userId, originalPostId);
     return !!row;
+  },
+
+  // ============ PROJECTS ============
+
+  createProject: (data) => {
+    const {
+      owner_id, ownerId, title, description, cover_image, coverImage, category,
+      status, visibility, tags, goals, progress_percent, target_completion_date, target_end_date
+    } = data;
+
+    const stmt = db.prepare(`
+      INSERT INTO projects (
+        owner_id, title, description, cover_image, category,
+        status, visibility, tags, goals, progress_percent, target_end_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const info = stmt.run(
+      owner_id || ownerId, 
+      title, 
+      description, 
+      cover_image || coverImage, 
+      category,
+      status || 'planning', 
+      visibility || 'public',
+      tags ? JSON.stringify(tags) : null,
+      goals ? JSON.stringify(goals) : null,
+      progress_percent || 0,
+      target_end_date || target_completion_date || null
+    );
+
+    return info.lastInsertRowid;
+  },
+
+  getProjectById: (projectId) => {
+    const stmt = db.prepare(`
+      SELECT 
+        p.*,
+        u.full_name as owner_name,
+        u.profile_picture as owner_picture,
+        COUNT(DISTINCT pu.id) as update_count,
+        COUNT(DISTINCT pm.id) as milestone_count
+      FROM projects p
+      JOIN users u ON u.id = p.owner_id
+      LEFT JOIN project_updates pu ON pu.project_id = p.id
+      LEFT JOIN project_milestones pm ON pm.project_id = p.id
+      WHERE p.id = ?
+      GROUP BY p.id
+    `);
+
+    return stmt.get(projectId);
+  },
+
+  getProjectsByOwner: (ownerId, limit = 50, offset = 0) => {
+    const stmt = db.prepare(`
+      SELECT 
+        p.*,
+        u.full_name as owner_name,
+        u.profile_picture as owner_picture,
+        COUNT(DISTINCT pu.id) as update_count
+      FROM projects p
+      JOIN users u ON u.id = p.owner_id
+      LEFT JOIN project_updates pu ON pu.project_id = p.id
+      WHERE p.owner_id = ?
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+      LIMIT ? OFFSET ?
+    `);
+
+    return stmt.all(ownerId, limit, offset);
+  },
+
+  getPublicProjects: (limit = 50, offset = 0) => {
+    const stmt = db.prepare(`
+      SELECT 
+        p.*,
+        u.full_name as owner_name,
+        u.profile_picture as owner_picture,
+        COUNT(DISTINCT pu.id) as update_count
+      FROM projects p
+      JOIN users u ON u.id = p.owner_id
+      LEFT JOIN project_updates pu ON pu.project_id = p.id
+      WHERE p.visibility IN ('public', 'unlisted')
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+      LIMIT ? OFFSET ?
+    `);
+
+    return stmt.all(limit, offset);
+  },
+
+  getProjectCount: (ownerId = null) => {
+    let stmt;
+    if (ownerId) {
+      stmt = db.prepare('SELECT COUNT(*) as count FROM projects WHERE owner_id = ?');
+      return stmt.get(ownerId).count;
+    } else {
+      stmt = db.prepare("SELECT COUNT(*) as count FROM projects WHERE visibility IN ('public', 'unlisted')");
+      return stmt.get().count;
+    }
+  },
+
+  updateProject: (projectId, data) => {
+    const fields = [];
+    const values = [];
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && key !== 'id') {
+        const colName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+        fields.push(`${colName} = ?`);
+        
+        if (typeof value === 'object') {
+          values.push(JSON.stringify(value));
+        } else {
+          values.push(value);
+        }
+      }
+    });
+
+    values.push(projectId);
+
+    const stmt = db.prepare(
+      `UPDATE projects SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+    );
+
+    return stmt.run(...values);
+  },
+
+  deleteProject: (projectId) => {
+    const stmt = db.prepare('DELETE FROM projects WHERE id = ?');
+    return stmt.run(projectId);
+  },
+
+  incrementProjectViews: (projectId) => {
+    const stmt = db.prepare('UPDATE projects SET view_count = view_count + 1 WHERE id = ?');
+    return stmt.run(projectId);
+  },
+
+  // ============ PROJECT MILESTONES ============
+
+  createMilestone: (projectId, data) => {
+    const { title, description, targetDate, status } = data;
+
+    const stmt = db.prepare(`
+      INSERT INTO project_milestones (
+        project_id, title, description, target_date, status
+      ) VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const info = stmt.run(projectId, title, description, targetDate, status || 'pending');
+    return info.lastInsertRowid;
+  },
+
+  getMilestonesByProject: (projectId) => {
+    const stmt = db.prepare(`
+      SELECT * FROM project_milestones
+      WHERE project_id = ?
+      ORDER BY target_date ASC, created_at ASC
+    `);
+
+    return stmt.all(projectId);
+  },
+
+  getMilestoneById: (milestoneId) => {
+    const stmt = db.prepare('SELECT * FROM project_milestones WHERE id = ?');
+    return stmt.get(milestoneId);
+  },
+
+  updateMilestone: (milestoneId, data) => {
+    const fields = [];
+    const values = [];
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && key !== 'id') {
+        const colName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+        fields.push(`${colName} = ?`);
+        values.push(value);
+      }
+    });
+
+    values.push(milestoneId);
+
+    const stmt = db.prepare(`UPDATE project_milestones SET ${fields.join(', ')} WHERE id = ?`);
+    return stmt.run(...values);
+  },
+
+  deleteMilestone: (milestoneId) => {
+    const stmt = db.prepare('DELETE FROM project_milestones WHERE id = ?');
+    return stmt.run(milestoneId);
+  },
+
+  // ============ PROJECT TASKS ============
+
+  createTask: (projectId, data) => {
+    const { milestoneId, assignedTo, title, description, status, priority, dueDate } = data;
+
+    const stmt = db.prepare(`
+      INSERT INTO project_tasks (
+        project_id, milestone_id, assigned_to, title, description, status, priority, due_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const info = stmt.run(
+      projectId, milestoneId || null, assignedTo || null,
+      title, description, status || 'todo', priority || 'medium', dueDate
+    );
+
+    return info.lastInsertRowid;
+  },
+
+  getTasksByProject: (projectId) => {
+    const stmt = db.prepare(`
+      SELECT pt.*, u.full_name as assigned_name
+      FROM project_tasks pt
+      LEFT JOIN users u ON u.id = pt.assigned_to
+      WHERE pt.project_id = ?
+      ORDER BY pt.priority DESC, pt.due_date ASC
+    `);
+
+    return stmt.all(projectId);
+  },
+
+  getTaskById: (taskId) => {
+    const stmt = db.prepare(`
+      SELECT pt.*, u.full_name as assigned_name
+      FROM project_tasks pt
+      LEFT JOIN users u ON u.id = pt.assigned_to
+      WHERE pt.id = ?
+    `);
+
+    return stmt.get(taskId);
+  },
+
+  updateTask: (taskId, data) => {
+    const fields = [];
+    const values = [];
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && key !== 'id') {
+        const colName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+        fields.push(`${colName} = ?`);
+        values.push(value);
+      }
+    });
+
+    values.push(taskId);
+
+    const stmt = db.prepare(`UPDATE project_tasks SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`);
+    return stmt.run(...values);
+  },
+
+  deleteTask: (taskId) => {
+    const stmt = db.prepare('DELETE FROM project_tasks WHERE id = ?');
+    return stmt.run(taskId);
+  },
+
+  // ============ PROJECT UPDATES ============
+
+  createProjectUpdate: (data) => {
+    const {
+      projectId, userId, title, contentType, textContent,
+      mediaUrl, audioUrl, imageUrl, videoUrl, externalVideoUrl,
+      milestoneId, statusUpdate, metrics, attachmentUrls
+    } = data;
+
+    const stmt = db.prepare(`
+      INSERT INTO project_updates (
+        project_id, user_id, title, content_type, text_content,
+        media_url, audio_url, image_url, video_url, external_video_url,
+        milestone_id, status_update, metrics, attachment_urls
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const info = stmt.run(
+      projectId, userId, title, contentType, textContent,
+      mediaUrl, audioUrl, imageUrl, videoUrl, externalVideoUrl,
+      milestoneId || null, statusUpdate, metrics ? JSON.stringify(metrics) : null,
+      attachmentUrls ? JSON.stringify(attachmentUrls) : null
+    );
+
+    return info.lastInsertRowid;
+  },
+
+  getProjectUpdates: (projectId, limit = 50, offset = 0) => {
+    const stmt = db.prepare(`
+      SELECT 
+        pu.*,
+        u.full_name, u.profile_picture,
+        COUNT(DISTINCT pr.id) as reaction_count,
+        COUNT(DISTINCT pc.id) as comment_count
+      FROM project_updates pu
+      JOIN users u ON u.id = pu.user_id
+      LEFT JOIN project_reactions pr ON pr.update_id = pu.id
+      LEFT JOIN project_comments pc ON pc.update_id = pu.id
+      WHERE pu.project_id = ?
+      GROUP BY pu.id
+      ORDER BY pu.created_at DESC
+      LIMIT ? OFFSET ?
+    `);
+
+    return stmt.all(projectId, limit, offset);
+  },
+
+  getProjectUpdate: (updateId) => {
+    const stmt = db.prepare(`
+      SELECT pu.*, u.full_name, u.profile_picture
+      FROM project_updates pu
+      JOIN users u ON u.id = pu.user_id
+      WHERE pu.id = ?
+    `);
+
+    return stmt.get(updateId);
+  },
+
+  updateProjectUpdate: (updateId, data) => {
+    const fields = [];
+    const values = [];
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && key !== 'id') {
+        const colName = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+        fields.push(`${colName} = ?`);
+        
+        if (typeof value === 'object') {
+          values.push(JSON.stringify(value));
+        } else {
+          values.push(value);
+        }
+      }
+    });
+
+    values.push(updateId);
+
+    const stmt = db.prepare(
+      `UPDATE project_updates SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+    );
+
+    return stmt.run(...values);
+  },
+
+  deleteProjectUpdate: (updateId) => {
+    const stmt = db.prepare('DELETE FROM project_updates WHERE id = ?');
+    return stmt.run(updateId);
+  },
+
+  // ============ PROJECT REACTIONS ============
+
+  setProjectReaction: (updateId, userId, reactionType = 'like') => {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO project_reactions (update_id, user_id, reaction_type)
+      VALUES (?, ?, ?)
+    `);
+
+    stmt.run(updateId, userId, reactionType);
+
+    const countStmt = db.prepare(`
+      SELECT COUNT(*) as count FROM project_reactions WHERE update_id = ? AND reaction_type = ?
+    `);
+
+    return { status: 'added', count: countStmt.get(updateId, reactionType).count };
+  },
+
+  getProjectReactionsSummary: (updateId) => {
+    const stmt = db.prepare(`
+      SELECT reaction_type, COUNT(*) as count
+      FROM project_reactions
+      WHERE update_id = ?
+      GROUP BY reaction_type
+    `);
+
+    const results = stmt.all(updateId);
+    const summary = {};
+    results.forEach(r => {
+      summary[r.reaction_type] = r.count;
+    });
+
+    return summary;
+  },
+
+  getUserProjectReaction: (updateId, userId) => {
+    const stmt = db.prepare(`
+      SELECT reaction_type FROM project_reactions
+      WHERE update_id = ? AND user_id = ?
+    `);
+
+    const result = stmt.get(updateId, userId);
+    return result ? result.reaction_type : null;
+  },
+
+  // ============ PROJECT COMMENTS ============
+
+  addProjectComment: (updateId, userId, content, parentId = null) => {
+    const stmt = db.prepare(`
+      INSERT INTO project_comments (update_id, user_id, content, parent_id)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    const info = stmt.run(updateId, userId, content, parentId || null);
+    return info.lastInsertRowid;
+  },
+
+  getProjectComments: (updateId, limit = 50, offset = 0) => {
+    const stmt = db.prepare(`
+      SELECT pc.*, u.full_name, u.profile_picture
+      FROM project_comments pc
+      JOIN users u ON u.id = pc.user_id
+      WHERE pc.update_id = ?
+      ORDER BY pc.created_at DESC
+      LIMIT ? OFFSET ?
+    `);
+
+    return stmt.all(updateId, limit, offset);
+  },
+
+  getProjectCommentCount: (updateId) => {
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM project_comments WHERE update_id = ?');
+    return stmt.get(updateId).count;
+  },
+
+  deleteProjectComment: (commentId) => {
+    const stmt = db.prepare('DELETE FROM project_comments WHERE id = ?');
+    return stmt.run(commentId);
+  },
+
+  // Project comment file attachments
+  addProjectCommentFile: (commentId, fileUrl, fileName, fileType, fileSize) => {
+    const stmt = db.prepare(`
+      INSERT INTO project_comment_files (comment_id, file_url, file_name, file_type, file_size)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const info = stmt.run(commentId, fileUrl, fileName, fileType, fileSize);
+    return info.lastInsertRowid;
+  },
+
+  getProjectCommentFiles: (commentId) => {
+    const stmt = db.prepare(`
+      SELECT * FROM project_comment_files 
+      WHERE comment_id = ? 
+      ORDER BY created_at DESC
+    `);
+    return stmt.all(commentId);
+  },
+
+  deleteProjectCommentFile: (fileId) => {
+    const stmt = db.prepare('DELETE FROM project_comment_files WHERE id = ?');
+    return stmt.run(fileId);
+  },
+
+  // Project comment reactions (stars)
+  setProjectCommentReaction: (commentId, userId, reactionType = 'star') => {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO project_comment_reactions (comment_id, user_id, reaction_type)
+      VALUES (?, ?, ?)
+    `);
+    return stmt.run(commentId, userId, reactionType);
+  },
+
+  removeProjectCommentReaction: (commentId, userId, reactionType = 'star') => {
+    const stmt = db.prepare(`
+      DELETE FROM project_comment_reactions 
+      WHERE comment_id = ? AND user_id = ? AND reaction_type = ?
+    `);
+    return stmt.run(commentId, userId, reactionType);
+  },
+
+  getProjectCommentReactions: (commentId) => {
+    const stmt = db.prepare(`
+      SELECT reaction_type, COUNT(*) as count
+      FROM project_comment_reactions
+      WHERE comment_id = ?
+      GROUP BY reaction_type
+    `);
+    return stmt.all(commentId);
+  },
+
+  getUserProjectCommentReaction: (commentId, userId) => {
+    const stmt = db.prepare(`
+      SELECT reaction_type FROM project_comment_reactions
+      WHERE comment_id = ? AND user_id = ?
+    `);
+    return stmt.get(commentId, userId);
   }
 };
+

@@ -11,7 +11,7 @@
       </div>
       <div class="banner-actions">
         <button class="install-btn" onclick="installPWA()">Install</button>
-        <button class="dismiss-btn" onclick="this.closest('#pwa-install-banner').style.display='none'">Not now</button>
+        <button class="dismiss-btn" onclick="sessionStorage.setItem('dreamx_pwa_dismissed', 'true'); this.closest('#pwa-install-banner').style.display='none'">Not now</button>
       </div>
     </div>
 
@@ -68,6 +68,7 @@
                         <li><a href="/downloads">Downloads</a></li>
                         <% if (typeof authUser !== 'undefined' && authUser) { %>
                             <li><a href="/feed">Feed</a></li>
+                            <li><a href="/projects">Projects</a></li>
                         <% } %>
                     </ul>
                 </div>

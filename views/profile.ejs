@@ -26,11 +26,32 @@
     <% }); %>
   </div>
   <p class="profile-bio"><%= user.bio %></p>
-  <div class="profile-stats">
+  <div class="profile-stats" id="profileStats">
     <div class="stat"><span class="stat-number"><%= user.stats.posts %></span><span class="stat-label">Posts</span></div>
     <div class="stat"><span class="stat-number"><%= user.stats.followers %></span><span class="stat-label">Followers</span></div>
     <div class="stat"><span class="stat-number"><%= user.stats.following %></span><span class="stat-label">Following</span></div>
-    <div class="stat"><span class="stat-number"><%= user.isSeller ? user.stats.sessions : '—' %></span><span class="stat-label">Sessions Offered</span></div>
+    <div class="stat"><span class="stat-number"><%= user.stats.sessions %></span><span class="stat-label">Sessions Offered</span></div>
+  </div>
+  <button class="stats-dropdown-btn" id="statsDropdownBtn">
+    <span style="font-size:0.75rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#6b7280;">Stats ▼</span>
+  </button>
+  <div class="stats-dropdown-menu" id="statsDropdownMenu">
+    <div class="stats-dropdown-item">
+      <span class="stats-dropdown-label">Posts</span>
+      <span class="stats-dropdown-value"><%= user.stats.posts %></span>
+    </div>
+    <div class="stats-dropdown-item">
+      <span class="stats-dropdown-label">Followers</span>
+      <span class="stats-dropdown-value"><%= user.stats.followers %></span>
+    </div>
+    <div class="stats-dropdown-item">
+      <span class="stats-dropdown-label">Following</span>
+      <span class="stats-dropdown-value"><%= user.stats.following %></span>
+    </div>
+    <div class="stats-dropdown-item">
+      <span class="stats-dropdown-label">Sessions Offered</span>
+      <span class="stats-dropdown-value"><%= user.stats.sessions %></span>
+    </div>
   </div>
   <div class="profile-action-row">
     <% if (typeof isOwnProfile !== 'undefined' && isOwnProfile) { %>
@@ -73,6 +94,28 @@
   </div>
   
   <script>
+    // Stats dropdown toggle (mobile)
+    document.addEventListener('DOMContentLoaded', function() {
+      const statsDropdownBtn = document.getElementById('statsDropdownBtn');
+      const statsDropdownMenu = document.getElementById('statsDropdownMenu');
+      
+      if (statsDropdownBtn) {
+        statsDropdownBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          statsDropdownBtn.classList.toggle('active');
+          statsDropdownMenu.classList.toggle('active');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+          if (!e.target.closest('#statsDropdownBtn') && !e.target.closest('#statsDropdownMenu')) {
+            statsDropdownBtn.classList.remove('active');
+            statsDropdownMenu.classList.remove('active');
+          }
+        });
+      }
+    });
+
     // Follow/unfollow functionality
     const followBtn = document.getElementById('followBtn');
     if (followBtn) {
@@ -377,6 +420,33 @@
 </section>
 
 <div class="profile-tabs-wrapper">
+  <!-- Dropdown for mobile -->
+  <div class="tabs-dropdown-container">
+    <button class="tabs-dropdown-btn" id="tabsDropdownBtn">
+      <span id="tabsDropdownLabel">Overview</span>
+      <span style="margin-left:8px;">▼</span>
+    </button>
+    <div class="tabs-dropdown-menu" id="tabsDropdownMenu">
+      <button class="tabs-dropdown-item" data-tab="overview" onclick="switchTab('overview'); closeTabsDropdown();">Overview</button>
+      <button class="tabs-dropdown-item" data-tab="posts" onclick="switchTab('posts'); closeTabsDropdown();">
+        Posts <span class="tab-badge" style="background:#e5e7eb;color:#374151;padding:2px 6px;border-radius:999px;font-size:.75rem;font-weight:700;margin-left:4px;"><%= (Array.isArray(userPosts) ? userPosts.length : 0) %></span>
+      </button>
+      <button class="tabs-dropdown-item" data-tab="reels" onclick="switchTab('reels'); closeTabsDropdown();">
+        Reels <span class="reels-count-badge tab-badge" style="background:#e5e7eb;color:#374151;padding:2px 6px;border-radius:999px;font-size:.75rem;font-weight:700;margin-left:4px;">0</span>
+      </button>
+      <button class="tabs-dropdown-item" data-tab="reposts" onclick="switchTab('reposts'); closeTabsDropdown();">
+        Reposts <span class="tab-badge" style="background:#e5e7eb;color:#374151;padding:2px 6px;border-radius:999px;font-size:.75rem;font-weight:700;margin-left:4px;"><%= (Array.isArray(userReposts) ? userReposts.length : 0) %></span>
+      </button>
+      <button class="tabs-dropdown-item" data-tab="projects" onclick="switchTab('projects'); closeTabsDropdown();">
+        Projects <span class="tab-badge" style="background:#e5e7eb;color:#374151;padding:2px 6px;border-radius:999px;font-size:.75rem;font-weight:700;margin-left:4px;"><%= (Array.isArray(projects) ? projects.length : 0) %></span>
+      </button>
+      <button class="tabs-dropdown-item" data-tab="services" onclick="switchTab('services'); closeTabsDropdown();">
+        Services <span class="tab-badge" style="background:#e5e7eb;color:#374151;padding:2px 6px;border-radius:999px;font-size:.75rem;font-weight:700;margin-left:4px;"><%= (Array.isArray(services) ? services.length : 0) %></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Horizontal tabs for desktop -->
   <nav class="profile-tabs" aria-label="Profile sections">
     <button class="tab-btn <%= (Array.isArray(userPosts) && userPosts.length > 0) ? '' : 'active' %>" data-tab="overview">Overview</button>
     <button class="tab-btn <%= (Array.isArray(userPosts) && userPosts.length > 0) ? 'active' : '' %>" data-tab="posts">Posts
@@ -396,7 +466,11 @@
         <%= (Array.isArray(userReposts) ? userReposts.length : 0) %>
       </span>
     </button>
-    <button class="tab-btn" data-tab="projects">Projects</button>
+    <button class="tab-btn" data-tab="projects">Projects
+      <span class="tab-badge" style="margin-left:6px;background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:700;">
+        <%= (Array.isArray(projects) ? projects.length : 0) %>
+      </span>
+    </button>
     <button class="tab-btn" data-tab="services">Services
       <span class="tab-badge" style="margin-left:6px;background:#e5e7eb;color:#374151;padding:2px 8px;border-radius:999px;font-size:.8rem;font-weight:700;">
         <%= (Array.isArray(services) ? services.length : 0) %>
@@ -508,18 +582,60 @@
 
     <!-- Projects Panel -->
     <div class="tab-panel" id="projects">
-      <div class="projects-grid">
-        <% projects.forEach(function(pr){ %>
-          <div class="project-card">
-            <div class="project-card-header">
-              <h3 class="project-title"><%= pr.title %></h3>
-              <span class="project-tag"><%= pr.tag %></span>
+      <% if (typeof isOwnProfile !== 'undefined' && isOwnProfile) { %>
+        <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+          <h2 style="margin:0;font-size:1.5rem;font-weight:700;">My Projects</h2>
+          <button onclick="window.location.href='/projects/create'" style="padding:10px 20px;background:linear-gradient(135deg,#ff4fa3,#764ba2);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">+ New Project</button>
+        </div>
+      <% } %>
+      
+      <% if (projects && projects.length > 0) { %>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;">
+          <% projects.forEach(function(pr){ %>
+            <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);border:1px solid #e5e7eb;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);cursor:pointer;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 32px rgba(0,0,0,0.15)';this.style.borderColor='rgba(255,79,163,0.3)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';this.style.borderColor='#e5e7eb'" onclick="window.location.href='/project/<%= pr.id %>'">
+              <div style="width:100%;height:150px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:3rem;">
+                <%= pr.category === 'tech' ? '💻' : pr.category === 'design' ? '🎨' : pr.category === 'business' ? '💼' : '🚀' %>
+              </div>
+              
+              <div style="padding:20px;">
+                <h3 style="font-size:1.125rem;font-weight:700;color:#111827;margin:0 0 8px 0;"><%= pr.title %></h3>
+                
+                <% if (pr.status) { %>
+                  <span style="display:inline-block;padding:4px 12px;border-radius:999px;font-weight:600;font-size:0.75rem;text-transform:uppercase;background:<%= pr.status === 'planning' ? '#dbeafe' : pr.status === 'in-progress' ? '#dcfce7' : '#fecaca' %>;color:<%= pr.status === 'planning' ? '#1e40af' : pr.status === 'in-progress' ? '#166534' : '#991b1b' %>;">
+                    <%= pr.status %>
+                  </span>
+                <% } %>
+
+                <p style="color:#6b7280;font-size:0.9rem;line-height:1.5;margin:12px 0;">
+                  <%= pr.description ? pr.description.substring(0, 80) : 'No description' %><%= pr.description && pr.description.length > 80 ? '...' : '' %>
+                </p>
+
+                <% if (pr.progress_percent > 0) { %>
+                  <div style="background:#e5e7eb;height:6px;border-radius:3px;overflow:hidden;margin:12px 0;">
+                    <div style="background:linear-gradient(90deg,#ff4fa3,#764ba2);height:100%;width:<%= pr.progress_percent %>%;"></div>
+                  </div>
+                  <span style="font-size:0.85rem;color:#6b7280;"><%= pr.progress_percent %>% complete</span>
+                <% } %>
+
+                <div style="display:flex;gap:12px;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px;font-size:0.9rem;color:#6b7280;">
+                  <div>👁️ <strong style="color:#111827;"><%= pr.view_count || 0 %></strong></div>
+                  <div>📝 <strong style="color:#111827;"><%= pr.update_count || 0 %></strong></div>
+                </div>
+              </div>
             </div>
-            <p class="project-desc"><%= pr.desc %></p>
-            <a href="#" class="project-link">View project →</a>
-          </div>
-        <% }); %>
-      </div>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <div style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;">
+          <p style="font-size:1.125rem;margin:0 0 8px 0;">No projects yet</p>
+          <% if (typeof isOwnProfile !== 'undefined' && isOwnProfile) { %>
+            <p style="margin:0 0 20px 0;">Start sharing your projects with the community</p>
+            <button onclick="window.location.href='/projects/create'" style="padding:12px 28px;background:linear-gradient(135deg,#ff4fa3,#764ba2);color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">Create Your First Project</button>
+          <% } else { %>
+            <p style="margin:0;">This user hasn't created any projects yet.</p>
+          <% } %>
+        </div>
+      <% } %>
     </div>
 
     <!-- Services Panel -->
@@ -833,10 +949,72 @@
 <%- include('partials/reels-overlay') %>
 
 <script>
+  // Tabs dropdown functionality (mobile)
+  function switchTab(tabName) {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.tab-panel');
+    const dropdownItems = document.querySelectorAll('.tabs-dropdown-item');
+    const dropdownLabel = document.getElementById('tabsDropdownLabel');
+    const tabNames = { overview: 'Overview', posts: 'Posts', reels: 'Reels', reposts: 'Reposts', projects: 'Projects', services: 'Services' };
+    
+    // Update desktop tabs
+    tabButtons.forEach(b => b.classList.remove('active'));
+    const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
+    if (activeTab) activeTab.classList.add('active');
+    
+    // Update dropdown items
+    dropdownItems.forEach(item => {
+      item.classList.remove('active');
+      if (item.getAttribute('data-tab') === tabName) {
+        item.classList.add('active');
+      }
+    });
+    
+    // Update dropdown label
+    if (dropdownLabel) {
+      dropdownLabel.textContent = tabNames[tabName] || 'Overview';
+    }
+    
+    // Update panels
+    panels.forEach(p => p.classList.remove('active'));
+    document.getElementById(tabName).classList.add('active');
+    
+    // Load reels when reels tab is opened
+    if (tabName === 'reels') {
+      loadProfileReels();
+    }
+  }
+
+  function closeTabsDropdown() {
+    const dropdownBtn = document.getElementById('tabsDropdownBtn');
+    const dropdownMenu = document.getElementById('tabsDropdownMenu');
+    if (dropdownBtn) dropdownBtn.classList.remove('active');
+    if (dropdownMenu) dropdownMenu.classList.remove('active');
+  }
+
   // Simple tab switch logic
   document.addEventListener('DOMContentLoaded', function(){
     const tabButtons = document.querySelectorAll('.tab-btn');
     const panels = document.querySelectorAll('.tab-panel');
+    const tabsDropdownBtn = document.getElementById('tabsDropdownBtn');
+    const tabsDropdownMenu = document.getElementById('tabsDropdownMenu');
+    
+    // Tabs dropdown toggle
+    if (tabsDropdownBtn) {
+      tabsDropdownBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        tabsDropdownBtn.classList.toggle('active');
+        tabsDropdownMenu.classList.toggle('active');
+      });
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (tabsDropdownBtn && !e.target.closest('#tabsDropdownBtn') && !e.target.closest('#tabsDropdownMenu')) {
+        tabsDropdownBtn.classList.remove('active');
+        tabsDropdownMenu.classList.remove('active');
+      }
+    });
     
     // Load reels when reels tab is clicked
     let reelsLoaded = false;
@@ -851,10 +1029,10 @@
         
         const reelsGrid = document.getElementById('reelsGridContent');
         const emptyState = document.getElementById('reelsEmptyState');
-        const countBadge = document.querySelector('.reels-count-badge');
+        const countBadges = document.querySelectorAll('.reels-count-badge');
         
         if (data.reels && data.reels.length > 0) {
-          countBadge.textContent = data.reels.length;
+          countBadges.forEach(badge => badge.textContent = data.reels.length);
           reelsGrid.innerHTML = data.reels.map(reel => `
             <div class="reel-card" onclick="openReelFromGrid(${JSON.stringify(reel.media_url || '')}, ${JSON.stringify(reel.audio_url || '')})" style="position:relative;border-radius:12px;overflow:hidden;cursor:pointer;aspect-ratio:9/16;background:#000;">
               ${String(reel.media_url || '').toLowerCase().endsWith('.gif')
@@ -868,7 +1046,7 @@
           `).join('');
           emptyState.style.display = 'none';
         } else {
-          countBadge.textContent = '0';
+          countBadges.forEach(badge => badge.textContent = '0');
           reelsGrid.innerHTML = '';
           emptyState.style.display = 'block';
         }
@@ -937,16 +1115,8 @@
     
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        tabButtons.forEach(b => b.classList.remove('active'));
-        panels.forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
         const target = btn.getAttribute('data-tab');
-        document.getElementById(target).classList.add('active');
-        
-        // Load reels when reels tab is opened
-        if (target === 'reels') {
-          loadProfileReels();
-        }
+        switchTab(target);
       });
     });
   });
