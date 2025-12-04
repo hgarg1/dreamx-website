@@ -11,7 +11,9 @@ if (!isProduction) {
   db = dbWrapper.getRaw();
 } else {
   // SQL Server - async initialization required
-  // Create a proxy that will work after initialization
+  // dbWrapper will be assigned by initializeDatabase() at startup
+  // Create a proxy that delegates to dbWrapper once it's ready
+  initializeDatabase()
   db = new Proxy({}, {
     get(target, prop) {
       if (prop === 'prepare' || prop === 'exec') {
@@ -36,13 +38,71 @@ async function initializeDatabase() {
   if (isProduction && !dbWrapper) {
     await initDatabase();
     dbWrapper = await getDatabaseSync();
-    db = dbWrapper.getRaw();
+    // Do NOT reassign db in production - keep using the Proxy that delegates to dbWrapper
     console.log('✅ Database initialized for production');
     
     // Run migrations after database is initialized
     await runMigrations();
   }
   return db;
+}
+
+// Seed built-in accounts (admin, HR) - call after database initialization
+async function seedDatabase() {
+  try {
+    // Ensure admin permissions and account status are initialized
+    try {
+      db.exec(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL;`);
+    } catch (e) {
+      // Ignore if fails
+    }
+    try {
+      db.exec(`UPDATE users SET admin_permissions = '[]' WHERE admin_permissions IS NULL;`);
+      db.exec(`UPDATE users SET admin_scopes = '[]' WHERE admin_scopes IS NULL;`);
+    } catch (e) {
+      // Ignore if fails
+    }
+
+    // Seed Global Admin account if it doesn't exist
+    try {
+      const adminExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('admin@dreamx.local');
+      if (!adminExists) {
+        const bcrypt = require('bcrypt');
+        const adminPassword = bcrypt.hashSync('DreamXAdmin2025!', 10);
+        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+          .run('Global Administrator', 'admin@dreamx.local', adminPassword, 'global_admin', 'active', 'Global Administrator - Full System Access');
+        console.log('✅ Global Admin account created: admin@dreamx.local / DreamXAdmin2025!');
+      } else {
+        // Ensure existing admin has global_admin role
+        const adminRole = db.prepare(`SELECT role FROM users WHERE email = ?`).get('admin@dreamx.local');
+        if (adminRole && adminRole.role !== 'global_admin') {
+          db.prepare(`UPDATE users SET role = 'global_admin' WHERE email = ?`).run('admin@dreamx.local');
+          console.log('✅ Admin account upgraded to global_admin role');
+        }
+      }
+    } catch (e) {
+      console.warn('Admin seed error:', e.message);
+    }
+
+    // Seed HR account if it doesn't exist
+    try {
+      const hrExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('hr@dreamx.local');
+      if (!hrExists) {
+        const bcrypt = require('bcrypt');
+        const hrPassword = bcrypt.hashSync('DreamXHR2025!', 10);
+        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+          .run('Global HR Partner', 'hr@dreamx.local', hrPassword, 'global_hr', 'active', 'Global HR Partner - Talent Architecture and People Experience');
+        console.log('✅ HR account created: hr@dreamx.local / DreamXHR2025!');
+      } else {
+        db.prepare(`UPDATE users SET role = 'global_hr' WHERE email = ? AND role != 'global_hr'`).run('hr@dreamx.local');
+      }
+    } catch (e) {
+      console.warn('HR seed error:', e.message);
+    }
+  } catch (e) {
+    console.error('Database seeding failed:', e.message);
+    throw e;
+  }
 }
 
 // Run database migrations (works for both SQLite and SQL Server)
@@ -393,55 +453,8 @@ try {
 } catch (e) {
   // Column already exists, ignore
 }
-// Ensure all existing users have account_status set
-try {
-  db.exec(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL;`);
-} catch (e) {
-  // Ignore if fails
-}
-try {
-  db.exec(`UPDATE users SET admin_permissions = '[]' WHERE admin_permissions IS NULL;`);
-  db.exec(`UPDATE users SET admin_scopes = '[]' WHERE admin_scopes IS NULL;`);
-} catch (e) {
-  // Ignore if fails
-}
-
-// Seed Global Admin account if it doesn't exist
-try {
-  const adminExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('admin@dreamx.local');
-  if (!adminExists) {
-    const bcrypt = require('bcrypt');
-    const adminPassword = bcrypt.hashSync('DreamXAdmin2025!', 10);
-    db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
-      .run('Global Administrator', 'admin@dreamx.local', adminPassword, 'global_admin', 'active', 'Global Administrator - Full System Access');
-    console.log('✅ Global Admin account created: admin@dreamx.local / DreamXAdmin2025!');
-  } else {
-    // Ensure existing admin has global_admin role
-    const adminRole = db.prepare(`SELECT role FROM users WHERE email = ?`).get('admin@dreamx.local');
-    if (adminRole && adminRole.role !== 'global_admin') {
-      db.prepare(`UPDATE users SET role = 'global_admin' WHERE email = ?`).run('admin@dreamx.local');
-      console.log('✅ Admin account upgraded to global_admin role');
-    }
-  }
-} catch (e) {
-  console.warn('Admin seed error:', e.message);
-}
-
-// Seed HR account if it doesn't exist
-try {
-  const hrExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('hr@dreamx.local');
-  if (!hrExists) {
-    const bcrypt = require('bcrypt');
-    const hrPassword = bcrypt.hashSync('DreamXHR2025!', 10);
-    db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
-      .run('Global HR Partner', 'hr@dreamx.local', hrPassword, 'global_hr', 'active', 'Global HR Partner - Talent Architecture and People Experience');
-    console.log('✅ HR account created: hr@dreamx.local / DreamXHR2025!');
-  } else {
-    db.prepare(`UPDATE users SET role = 'global_hr' WHERE email = ? AND role != 'global_hr'`).run('hr@dreamx.local');
-  }
-} catch (e) {
-  console.warn('HR seed error:', e.message);
-}
+// NOTE: Seeding moved to seedDatabase() function - called after initializeDatabase()
+// This prevents "Database not initialized" errors in production mode
 
 try {
   db.exec(`ALTER TABLE users ADD COLUMN suspension_until DATETIME;`);
@@ -1407,6 +1420,7 @@ function prepare(sql) {
 module.exports = {
   db,
   initializeDatabase, // MUST be called at app startup in production (SQL Server only)
+  seedDatabase, // Call after initializeDatabase() to seed admin/HR accounts
   getUserById: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
   getUserByEmail: (email) => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
   getUserByHandle: (handle) => db.prepare('SELECT * FROM users WHERE handle = ?').get(handle),
