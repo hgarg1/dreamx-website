@@ -533,6 +533,10 @@ const initApiRoutes = require('./routes/api');
 const apiRoutes = initApiRoutes({ io, careerUpload });
 app.use('/', apiRoutes);
 
+// RBAC Admin API routes
+const rbacRoutes = require('./routes/rbac');
+app.use('/api/rbac', rbacRoutes);
+
 // Mobile API authentication routes (token-based)
 const apiAuthRoutes = require('./routes/api-auth');
 app.use('/', apiAuthRoutes);
@@ -988,6 +992,10 @@ app.use((req, res, next) => {
         next();
     }
 });
+
+// Attach RBAC context middleware
+const { attachRbacContext } = require('./middleware/rbac');
+app.use(attachRbacContext);
 
 // Force email verification for authenticated users
 app.use((req, res, next) => {

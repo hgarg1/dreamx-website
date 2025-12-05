@@ -264,6 +264,27 @@ async function seedDatabase() {
     } catch (e) {
       console.warn('Pricing tiers seed error:', e.message);
     }
+    
+    // Initialize and seed RBAC system
+    try {
+      const rbacService = require('../services/rbac');
+      const rbacSeed = require('../services/rbac-seed');
+      
+      // Initialize RBAC service with database connection
+      rbacService.initialize(db);
+      
+      // Seed RBAC if not already seeded
+      if (!rbacSeed.isSeeded()) {
+        console.log('🔄 Seeding RBAC system...');
+        await rbacSeed.seedRbac(db);
+      } else {
+        // Still grandfather legacy accounts in case new ones were added
+        await rbacSeed.grandfatherLegacyAccounts(db);
+        console.log('✅ RBAC system already seeded');
+      }
+    } catch (e) {
+      console.warn('RBAC seed error:', e.message);
+    }
   } catch (e) {
     console.error('Database seeding failed:', e.message);
     throw e;
