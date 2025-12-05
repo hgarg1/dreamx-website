@@ -307,8 +307,9 @@ function requirePermission(permission, options = {}) {
       }
       
       // Return appropriate response based on request type
+      // Note: Permission name is intentionally not exposed in production for security
       if (req.xhr || req.headers.accept?.includes('application/json')) {
-        return res.status(403).json({ error: 'Insufficient permissions', permission });
+        return res.status(403).json({ error: 'Insufficient permissions' });
       }
       return res.redirect('/dashboard?error=Insufficient+permissions');
     }
@@ -326,7 +327,7 @@ function requireAnyPermission(permissions, options = {}) {
     
     if (!hasAnyPermission(user, permissions, options)) {
       if (req.xhr || req.headers.accept?.includes('application/json')) {
-        return res.status(403).json({ error: 'Insufficient permissions', requiredAny: permissions });
+        return res.status(403).json({ error: 'Insufficient permissions' });
       }
       return res.redirect('/dashboard?error=Insufficient+permissions');
     }
@@ -344,7 +345,7 @@ function requireAllPermissions(permissions, options = {}) {
     
     if (!hasAllPermissions(user, permissions, options)) {
       if (req.xhr || req.headers.accept?.includes('application/json')) {
-        return res.status(403).json({ error: 'Insufficient permissions', requiredAll: permissions });
+        return res.status(403).json({ error: 'Insufficient permissions' });
       }
       return res.redirect('/dashboard?error=Insufficient+permissions');
     }
@@ -362,7 +363,7 @@ function requireRole(roleName) {
     
     if (!hasRole(user, roleName)) {
       if (req.xhr || req.headers.accept?.includes('application/json')) {
-        return res.status(403).json({ error: 'Role required', role: roleName });
+        return res.status(403).json({ error: 'Insufficient permissions' });
       }
       return res.redirect('/dashboard?error=Insufficient+permissions');
     }
