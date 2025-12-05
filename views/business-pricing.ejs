@@ -1,0 +1,1016 @@
+<%- include('partials/header') %>
+
+<section class="business-page">
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="breadcrumb">
+                <a href="/business">Dashboard</a>
+                <span class="separator">→</span>
+                <span class="current">Pricing Management</span>
+            </div>
+            <div class="header-row">
+                <div>
+                    <h1 class="page-title">
+                        <span class="title-icon">💰</span>
+                        Pricing Management
+                    </h1>
+                    <p class="page-subtitle">Manage subscription tiers, pricing, and features for all account types.</p>
+                </div>
+                <button onclick="openAddTierModal()" class="add-btn">
+                    <span class="btn-icon">➕</span> Add New Tier
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success"><%= success %></div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <div class="pricing-container">
+        <div class="pricing-info-banner">
+            <div class="info-icon">ℹ️</div>
+            <div class="info-text">
+                <strong>Important:</strong> Changes to pricing tiers will be reflected immediately on the public pricing page and billing pages. 
+                Existing subscribers will retain their current rates until their subscription renews.
+            </div>
+        </div>
+
+        <div class="tiers-grid">
+            <% if (tiers && tiers.length > 0) { %>
+                <% tiers.forEach(function(tier) { %>
+                <div class="tier-card <%= !tier.is_active ? 'inactive' : '' %> <%= tier.is_highlighted ? 'highlighted' : '' %>">
+                    <div class="tier-header">
+                        <div class="tier-status">
+                            <% if (!tier.is_active) { %>
+                            <span class="status-badge inactive">Inactive</span>
+                            <% } %>
+                            <% if (tier.is_highlighted) { %>
+                            <span class="status-badge featured">⭐ Featured</span>
+                            <% } %>
+                        </div>
+                        <div class="tier-actions-menu">
+                            <button class="tier-menu-btn" onclick="toggleTierMenu('<%= tier.tier_id %>')">⋮</button>
+                            <div class="tier-dropdown" id="menu-<%= tier.tier_id %>">
+                                <button onclick="editTier('<%= tier.tier_id %>')">✏️ Edit</button>
+                                <button onclick="toggleTierStatus('<%= tier.tier_id %>', <%= tier.is_active %>)">
+                                    <%= tier.is_active ? '🔒 Deactivate' : '✅ Activate' %>
+                                </button>
+                                <button onclick="toggleHighlight('<%= tier.tier_id %>', <%= tier.is_highlighted %>)">
+                                    <%= tier.is_highlighted ? '⭐ Remove Feature' : '⭐ Feature Tier' %>
+                                </button>
+                                <button class="danger" onclick="deleteTier('<%= tier.tier_id %>')">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tier-main">
+                        <h3 class="tier-name"><%= tier.name %></h3>
+                        <div class="tier-price"><%= tier.price_display %></div>
+                        <p class="tier-tagline"><%= tier.tagline %></p>
+                    </div>
+                    
+                    <div class="tier-features">
+                        <h4>Features (<%= tier.features.length %>)</h4>
+                        <ul>
+                            <% tier.features.slice(0, 4).forEach(function(feature) { %>
+                            <li><%= feature %></li>
+                            <% }); %>
+                            <% if (tier.features.length > 4) { %>
+                            <li class="more-features">+<%= tier.features.length - 4 %> more features...</li>
+                            <% } %>
+                        </ul>
+                    </div>
+                    
+                    <% if (tier.note) { %>
+                    <div class="tier-note"><%= tier.note %></div>
+                    <% } %>
+                    
+                    <div class="tier-meta">
+                        <span class="meta-item">ID: <code><%= tier.tier_id %></code></span>
+                        <span class="meta-item">Order: <%= tier.display_order %></span>
+                    </div>
+                    
+                    <button onclick="editTier('<%= tier.tier_id %>')" class="edit-btn">Edit Tier</button>
+                </div>
+                <% }); %>
+            <% } else { %>
+            <div class="empty-state">
+                <div class="empty-icon">💰</div>
+                <h3>No Pricing Tiers</h3>
+                <p>Create your first pricing tier to get started.</p>
+                <button onclick="openAddTierModal()" class="add-first-btn">+ Add First Tier</button>
+            </div>
+            <% } %>
+        </div>
+    </div>
+</section>
+
+<!-- Add/Edit Tier Modal -->
+<div id="tierModal" class="modal">
+    <div class="modal-overlay" onclick="closeTierModal()"></div>
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Tier</h2>
+            <button onclick="closeTierModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="tierForm" class="modal-form">
+            <input type="hidden" id="editTierId" name="originalTierId">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tier ID <span class="required">*</span></label>
+                    <input type="text" id="tierId" name="tierId" required placeholder="e.g., pro-seller" pattern="[a-z0-9-]+" title="Lowercase letters, numbers, and hyphens only">
+                    <span class="form-help">Unique identifier. Cannot be changed later.</span>
+                </div>
+                <div class="form-group">
+                    <label>Display Name <span class="required">*</span></label>
+                    <input type="text" id="tierName" name="name" required placeholder="e.g., Pro Seller">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Price (USD) <span class="required">*</span></label>
+                    <input type="number" id="tierPrice" name="price" required min="0" step="0.01" placeholder="9.99">
+                </div>
+                <div class="form-group">
+                    <label>Price Display <span class="required">*</span></label>
+                    <input type="text" id="tierPriceDisplay" name="priceDisplay" required placeholder="$9.99/mo">
+                    <span class="form-help">How the price appears on the page</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Tagline</label>
+                <input type="text" id="tierTagline" name="tagline" placeholder="A short description of this tier">
+            </div>
+            
+            <div class="form-group">
+                <label>Features <span class="required">*</span></label>
+                <div id="featuresContainer" class="features-editor">
+                    <!-- Features will be added here dynamically -->
+                </div>
+                <button type="button" onclick="addFeatureInput()" class="add-feature-btn">+ Add Feature</button>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Display Order</label>
+                    <input type="number" id="tierDisplayOrder" name="displayOrder" min="0" placeholder="1">
+                    <span class="form-help">Lower numbers appear first</span>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="tierIsHighlighted" name="isHighlighted">
+                        <span class="checkbox-custom"></span>
+                        Feature this tier (highlight on pricing page)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="tierIsActive" name="isActive" checked>
+                        <span class="checkbox-custom"></span>
+                        Active (visible on pricing page)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Note (optional)</label>
+                <input type="text" id="tierNote" name="note" placeholder="Additional information displayed below features">
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" onclick="closeTierModal()" class="cancel-btn">Cancel</button>
+                <button type="submit" class="submit-btn" id="submitTierBtn">Save Tier</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.business-page {
+    min-height: 100vh;
+    background: #f8fafc;
+    padding-bottom: 60px;
+}
+
+.page-header {
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+    padding: 48px 32px;
+    color: white;
+}
+
+.page-header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+
+.page-subtitle {
+    margin-top: 8px;
+    opacity: 0.9;
+}
+
+.add-btn {
+    padding: 14px 24px;
+    background: white;
+    color: #0f766e;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Alerts */
+.alert {
+    max-width: 1400px;
+    margin: 24px auto;
+    padding: 16px 24px;
+    border-radius: 12px;
+}
+
+.alert-success { background: #d1fae5; color: #065f46; }
+.alert-error { background: #fee2e2; color: #991b1b; }
+
+/* Pricing Container */
+.pricing-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px;
+}
+
+.pricing-info-banner {
+    display: flex;
+    gap: 16px;
+    padding: 20px 24px;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 12px;
+    margin-bottom: 32px;
+}
+
+.info-icon {
+    font-size: 1.5rem;
+}
+
+.info-text {
+    color: #0369a1;
+    line-height: 1.6;
+}
+
+/* Tiers Grid */
+.tiers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+}
+
+.tier-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.tier-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+}
+
+.tier-card.inactive {
+    opacity: 0.7;
+    border: 2px dashed #e5e7eb;
+}
+
+.tier-card.highlighted {
+    border: 2px solid #14b8a6;
+    box-shadow: 0 4px 20px rgba(20, 184, 166, 0.15);
+}
+
+.tier-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.tier-status {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.inactive {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.status-badge.featured {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.tier-actions-menu {
+    position: relative;
+}
+
+.tier-menu-btn {
+    background: #f3f4f6;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.tier-menu-btn:hover {
+    background: #e5e7eb;
+}
+
+.tier-dropdown {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    min-width: 180px;
+    z-index: 100;
+    display: none;
+    overflow: hidden;
+}
+
+.tier-dropdown.active {
+    display: block;
+}
+
+.tier-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.tier-dropdown button:hover {
+    background: #f8fafc;
+}
+
+.tier-dropdown button.danger {
+    color: #dc2626;
+}
+
+.tier-dropdown button.danger:hover {
+    background: #fef2f2;
+}
+
+.tier-main {
+    text-align: center;
+    padding: 16px 0;
+    border-bottom: 1px solid #f1f5f9;
+    margin-bottom: 16px;
+}
+
+.tier-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 8px;
+}
+
+.tier-price {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #14b8a6;
+    margin-bottom: 8px;
+}
+
+.tier-tagline {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.tier-features h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 0 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tier-features ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.tier-features li {
+    padding: 6px 0;
+    font-size: 0.9rem;
+    color: #374151;
+    position: relative;
+    padding-left: 20px;
+}
+
+.tier-features li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #14b8a6;
+    font-weight: 700;
+}
+
+.tier-features li.more-features {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.tier-features li.more-features::before {
+    content: '';
+}
+
+.tier-note {
+    margin-top: 16px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.tier-meta {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.tier-meta code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.edit-btn {
+    margin-top: 16px;
+    padding: 12px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.edit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+}
+
+/* Empty State */
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 80px 24px;
+    background: white;
+    border-radius: 16px;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px;
+    color: #374151;
+}
+
+.empty-state p {
+    color: #6b7280;
+    margin: 0 0 24px;
+}
+
+.add-first-btn {
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content.large {
+    max-width: 720px;
+}
+
+.modal-header {
+    padding: 24px 28px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #9ca3af;
+    cursor: pointer;
+}
+
+.modal-form {
+    padding: 24px 28px 28px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+.required {
+    color: #dc2626;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #14b8a6;
+}
+
+.form-help {
+    display: block;
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-top: 4px;
+}
+
+/* Features Editor */
+.features-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feature-input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.feature-input-row input {
+    flex: 1;
+}
+
+.remove-feature-btn {
+    padding: 8px 12px;
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.remove-feature-btn:hover {
+    background: #fecaca;
+}
+
+.add-feature-btn {
+    margin-top: 8px;
+    padding: 10px;
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px dashed #86efac;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.add-feature-btn:hover {
+    background: #dcfce7;
+}
+
+/* Checkbox */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 24px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.checkbox-label input {
+    width: auto;
+    margin: 0;
+    accent-color: #14b8a6;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.cancel-btn {
+    padding: 12px 24px;
+    background: #f3f4f6;
+    color: #374151;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.submit-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+}
+
+@media (max-width: 768px) {
+    .tiers-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .header-row {
+        flex-direction: column;
+    }
+}
+</style>
+
+<script>
+// Tiers data sanitized for client-side usage
+const tiersData = JSON.parse('<%= JSON.stringify(tiers).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/</g, "\\u003c").replace(/>/g, "\\u003e") %>');
+let isEditMode = false;
+let currentEditTierId = null;
+
+// Toggle tier dropdown menu
+function toggleTierMenu(tierId) {
+    // Close all other menus
+    document.querySelectorAll('.tier-dropdown').forEach(menu => {
+        if (menu.id !== `menu-${tierId}`) {
+            menu.classList.remove('active');
+        }
+    });
+    
+    const menu = document.getElementById(`menu-${tierId}`);
+    menu.classList.toggle('active');
+}
+
+// Close menus when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.tier-actions-menu')) {
+        document.querySelectorAll('.tier-dropdown').forEach(menu => {
+            menu.classList.remove('active');
+        });
+    }
+});
+
+// Open Add Tier Modal
+function openAddTierModal() {
+    isEditMode = false;
+    currentEditTierId = null;
+    document.getElementById('modalTitle').textContent = 'Add New Tier';
+    document.getElementById('tierForm').reset();
+    document.getElementById('tierId').disabled = false;
+    document.getElementById('featuresContainer').innerHTML = '';
+    addFeatureInput(); // Add one empty feature input
+    document.getElementById('tierIsActive').checked = true;
+    document.getElementById('tierModal').classList.add('active');
+}
+
+// Edit Tier
+function editTier(tierId) {
+    const tier = tiersData.find(t => t.tier_id === tierId);
+    if (!tier) return;
+    
+    isEditMode = true;
+    currentEditTierId = tierId;
+    document.getElementById('modalTitle').textContent = 'Edit Tier';
+    document.getElementById('editTierId').value = tierId;
+    document.getElementById('tierId').value = tierId;
+    document.getElementById('tierId').disabled = true;
+    document.getElementById('tierName').value = tier.name;
+    document.getElementById('tierPrice').value = tier.price;
+    document.getElementById('tierPriceDisplay').value = tier.price_display;
+    document.getElementById('tierTagline').value = tier.tagline || '';
+    document.getElementById('tierDisplayOrder').value = tier.display_order || 0;
+    document.getElementById('tierIsHighlighted').checked = tier.is_highlighted;
+    document.getElementById('tierIsActive').checked = tier.is_active;
+    document.getElementById('tierNote').value = tier.note || '';
+    
+    // Populate features
+    const container = document.getElementById('featuresContainer');
+    container.innerHTML = '';
+    if (tier.features && tier.features.length > 0) {
+        tier.features.forEach(feature => addFeatureInput(feature));
+    } else {
+        addFeatureInput();
+    }
+    
+    document.getElementById('tierModal').classList.add('active');
+}
+
+// Close modal
+function closeTierModal() {
+    document.getElementById('tierModal').classList.remove('active');
+}
+
+// Add feature input
+function addFeatureInput(value = '') {
+    const container = document.getElementById('featuresContainer');
+    const row = document.createElement('div');
+    row.className = 'feature-input-row';
+    row.innerHTML = `
+        <input type="text" class="feature-input" value="${escapeHtml(value)}" placeholder="Enter a feature...">
+        <button type="button" class="remove-feature-btn" onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(row);
+}
+
+// Collect features from form
+function collectFeatures() {
+    const inputs = document.querySelectorAll('.feature-input');
+    const features = [];
+    inputs.forEach(input => {
+        const value = input.value.trim();
+        if (value) features.push(value);
+    });
+    return features;
+}
+
+// Handle form submission
+document.getElementById('tierForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const features = collectFeatures();
+    if (features.length === 0) {
+        alert('Please add at least one feature');
+        return;
+    }
+    
+    const formData = {
+        tierId: document.getElementById('tierId').value,
+        name: document.getElementById('tierName').value,
+        price: parseFloat(document.getElementById('tierPrice').value),
+        priceDisplay: document.getElementById('tierPriceDisplay').value,
+        tagline: document.getElementById('tierTagline').value,
+        features: features,
+        displayOrder: parseInt(document.getElementById('tierDisplayOrder').value) || 0,
+        isHighlighted: document.getElementById('tierIsHighlighted').checked,
+        isActive: document.getElementById('tierIsActive').checked,
+        note: document.getElementById('tierNote').value
+    };
+    
+    try {
+        const url = isEditMode 
+            ? `/api/business/pricing/${currentEditTierId}`
+            : '/api/business/pricing';
+        
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            closeTierModal();
+            window.location.reload();
+        } else {
+            alert(data.error || 'Failed to save tier');
+        }
+    } catch (error) {
+        console.error('Save tier error:', error);
+        alert('Error saving tier');
+    }
+});
+
+// Toggle tier status
+async function toggleTierStatus(tierId, currentStatus) {
+    if (!confirm(`Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} this tier?`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/business/pricing/${tierId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isActive: !currentStatus })
+        });
+        
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to update tier status');
+        }
+    } catch (error) {
+        alert('Error updating tier');
+    }
+}
+
+// Toggle highlight
+async function toggleHighlight(tierId, currentHighlight) {
+    try {
+        const res = await fetch(`/api/business/pricing/${tierId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isHighlighted: !currentHighlight })
+        });
+        
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to update tier');
+        }
+    } catch (error) {
+        alert('Error updating tier');
+    }
+}
+
+// Delete tier
+async function deleteTier(tierId) {
+    if (!confirm(`Are you sure you want to delete this tier? This cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/business/pricing/${tierId}`, {
+            method: 'DELETE'
+        });
+        
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to delete tier');
+        }
+    } catch (error) {
+        alert('Error deleting tier');
+    }
+}
+
+// Escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeTierModal();
+    }
+});
+</script>
+
+<%- include('partials/footer') %>

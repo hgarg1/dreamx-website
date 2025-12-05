@@ -80,6 +80,20 @@ The application comes with pre-seeded admin accounts for testing and management:
 - **Role:** `global_admin` (highest level administrator)
 - **Permissions:** Full system access, can manage all users and admins
 
+### Business Admin Account
+- **Email:** `business@dreamx.local`
+- **Password:** `DreamXBusiness2025!`
+- **Role:** `business_admin` (business operations administrator)
+- **Permissions:** 
+  - View, manage, and contact sales inquiries
+  - Manage business team and subordinates
+  - Enterprise account management
+  - Sales analytics and revenue reports
+  - **Pricing customization** - Adjust subscription tiers, pricing, and features
+  - Contract and partner management
+  - Customer success operations
+- **Dashboard:** Access at `/business` to manage enterprise sales, team, and pricing
+
 ### HR Account
 - **Email:** `hr@dreamx.local`
 - **Password:** `DreamXHR2025!`

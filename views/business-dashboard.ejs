@@ -19,6 +19,11 @@
                     <span class="btn-icon">👥</span> Manage Team
                 </a>
                 <% } %>
+                <% if (hasPermission('pricing_customization')) { %>
+                <a href="/business/pricing" class="business-btn secondary">
+                    <span class="btn-icon">💰</span> Manage Pricing
+                </a>
+                <% } %>
             </div>
         </div>
     </div>

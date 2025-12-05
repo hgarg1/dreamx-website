@@ -19,6 +19,11 @@ const {
     getAllBusinessAdmins,
     isBusinessAdminOf,
     addAuditLog,
+    getPricingTiers,
+    getPricingTier,
+    updatePricingTier,
+    createPricingTier,
+    deletePricingTier,
     db
 } = require('../db');
 
@@ -64,6 +69,15 @@ const hasBusinessPermission = (user, permission) => {
     if (!isBusinessAdmin(user)) return false;
     const { permissions } = parseBusinessMeta(user);
     return permissions.includes(permission);
+};
+
+// Safe JSON parse helper
+const safeParseJSON = (str, defaultValue = null) => {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return defaultValue;
+    }
 };
 
 // Middleware to attach user to request and check business admin access
@@ -482,6 +496,145 @@ function initBusinessRoutes({ emailService }) {
         } catch (error) {
             console.error('User search error:', error);
             res.status(500).json({ error: 'Search failed' });
+        }
+    });
+
+    // ====================
+    // PRICING MANAGEMENT
+    // ====================
+
+    // Pricing Management Page
+    router.get('/business/pricing', requireBusinessAdmin, requireBusinessPermission('pricing_customization'), (req, res) => {
+        const user = req.businessUser;
+        const tiers = getPricingTiers(true); // Include inactive tiers for management
+
+        res.render('business-pricing', {
+            title: 'Pricing Management - Dream X',
+            currentPage: 'business-pricing',
+            authUser: { ...user, displayName: user.full_name },
+            tiers,
+            hasPermission: (perm) => hasBusinessPermission(user, perm),
+            success: req.query.success,
+            error: req.query.error
+        });
+    });
+
+    // Get all pricing tiers (API)
+    router.get('/api/business/pricing', requireBusinessAdmin, requireBusinessPermission('pricing_customization'), (req, res) => {
+        try {
+            const tiers = getPricingTiers(req.query.includeInactive === 'true');
+            res.json({ success: true, tiers });
+        } catch (error) {
+            console.error('Get pricing tiers error:', error);
+            res.status(500).json({ error: 'Failed to get pricing tiers' });
+        }
+    });
+
+    // Get single tier (API)
+    router.get('/api/business/pricing/:tierId', requireBusinessAdmin, requireBusinessPermission('pricing_customization'), (req, res) => {
+        try {
+            const tier = getPricingTier(req.params.tierId);
+            if (!tier) {
+                return res.status(404).json({ error: 'Tier not found' });
+            }
+            res.json({ success: true, tier });
+        } catch (error) {
+            console.error('Get pricing tier error:', error);
+            res.status(500).json({ error: 'Failed to get pricing tier' });
+        }
+    });
+
+    // Update pricing tier
+    router.post('/api/business/pricing/:tierId', requireBusinessAdmin, requireBusinessPermission('pricing_customization'), (req, res) => {
+        try {
+            const { name, price, priceDisplay, tagline, features, isHighlighted, displayOrder, isActive, note } = req.body;
+            
+            const updated = updatePricingTier({
+                tierId: req.params.tierId,
+                name,
+                price: price !== undefined ? parseFloat(price) : undefined,
+                priceDisplay,
+                tagline,
+                features: features ? (Array.isArray(features) ? features : safeParseJSON(features, [])) : undefined,
+                isHighlighted,
+                displayOrder: displayOrder !== undefined ? parseInt(displayOrder) : undefined,
+                isActive,
+                note
+            });
+
+            if (updated) {
+                addAuditLog({
+                    userId: req.session.userId,
+                    action: 'update_pricing_tier',
+                    details: JSON.stringify({ tierId: req.params.tierId, changes: req.body })
+                });
+            }
+
+            res.json({ success: updated });
+        } catch (error) {
+            console.error('Update pricing tier error:', error);
+            res.status(500).json({ error: 'Failed to update pricing tier' });
+        }
+    });
+
+    // Create new pricing tier
+    router.post('/api/business/pricing', requireBusinessAdmin, requireBusinessPermission('pricing_customization'), (req, res) => {
+        try {
+            const { tierId, name, price, priceDisplay, tagline, features, isHighlighted, displayOrder, isActive, note } = req.body;
+            
+            if (!tierId || !name) {
+                return res.status(400).json({ error: 'Tier ID and name are required' });
+            }
+
+            // Check if tier ID already exists
+            const existing = getPricingTier(tierId);
+            if (existing) {
+                return res.status(409).json({ error: 'Tier ID already exists' });
+            }
+
+            const id = createPricingTier({
+                tierId,
+                name,
+                price: parseFloat(price) || 0,
+                priceDisplay: priceDisplay || `$${price}/mo`,
+                tagline,
+                features: features ? (Array.isArray(features) ? features : safeParseJSON(features, [])) : [],
+                isHighlighted: !!isHighlighted,
+                displayOrder: parseInt(displayOrder) || 0,
+                isActive: isActive !== false,
+                note
+            });
+
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'create_pricing_tier',
+                details: JSON.stringify({ tierId, name })
+            });
+
+            res.json({ success: true, id });
+        } catch (error) {
+            console.error('Create pricing tier error:', error);
+            res.status(500).json({ error: 'Failed to create pricing tier' });
+        }
+    });
+
+    // Delete pricing tier
+    router.delete('/api/business/pricing/:tierId', requireBusinessAdmin, requireBusinessPermission('pricing_customization'), (req, res) => {
+        try {
+            const deleted = deletePricingTier(req.params.tierId);
+            
+            if (deleted) {
+                addAuditLog({
+                    userId: req.session.userId,
+                    action: 'delete_pricing_tier',
+                    details: JSON.stringify({ tierId: req.params.tierId })
+                });
+            }
+
+            res.json({ success: deleted });
+        } catch (error) {
+            console.error('Delete pricing tier error:', error);
+            res.status(500).json({ error: 'Failed to delete pricing tier' });
         }
     });
 

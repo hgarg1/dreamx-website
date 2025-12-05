@@ -99,6 +99,171 @@ async function seedDatabase() {
     } catch (e) {
       console.warn('HR seed error:', e.message);
     }
+
+    // Seed Business Admin account if it doesn't exist
+    try {
+      const businessExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('business@dreamx.local');
+      if (!businessExists) {
+        const bcrypt = require('bcrypt');
+        const businessPassword = bcrypt.hashSync('DreamXBusiness2025!', 10);
+        // Grant all business permissions
+        const businessPermissions = JSON.stringify([
+          'sales_inquiries_view',
+          'sales_inquiries_manage',
+          'sales_inquiries_contact',
+          'business_team_view',
+          'business_team_manage',
+          'enterprise_accounts',
+          'sales_analytics',
+          'contract_management',
+          'pricing_customization',
+          'partner_management',
+          'revenue_reports',
+          'customer_success'
+        ]);
+        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, admin_permissions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+          .run('Business Administrator', 'business@dreamx.local', businessPassword, 'business_admin', 'active', 'Business Administrator - Sales & Enterprise Management', businessPermissions);
+        console.log('✅ Business Admin account created: business@dreamx.local / DreamXBusiness2025!');
+      } else {
+        db.prepare(`UPDATE users SET role = 'business_admin' WHERE email = ? AND role != 'business_admin'`).run('business@dreamx.local');
+      }
+    } catch (e) {
+      console.warn('Business Admin seed error:', e.message);
+    }
+
+    // Seed default pricing tiers if they don't exist
+    try {
+      const tiersExist = db.prepare(`SELECT COUNT(*) as count FROM pricing_tiers`).get();
+      if (!tiersExist || tiersExist.count === 0) {
+        const defaultTiers = [
+          {
+            tier_id: 'free',
+            name: 'Free User',
+            price: 0,
+            price_display: '$0/mo',
+            tagline: 'Social home for productive passions.',
+            features: JSON.stringify([
+              'Post photos, videos, project updates',
+              'Follow creators, mentors, students, professionals',
+              'Rich profiles (skills, passions, portfolio, achievements)',
+              'Up to 10 Project Collections',
+              'Book sessions, basic messaging, post analytics (views + likes)',
+              'Ads from Fortune 100 brands only'
+            ]),
+            is_highlighted: 0,
+            display_order: 1,
+            is_active: 1,
+            note: null
+          },
+          {
+            tier_id: 'pro-buyer',
+            name: 'Pro Buyer',
+            price: 5.99,
+            price_display: '$5.99/mo',
+            tagline: 'Power user of the social side.',
+            features: JSON.stringify([
+              'Ad-free experience',
+              'Enhanced discovery filters (top rising creators, people near you, people who match interests)',
+              'Unlimited Project Collections',
+              'Priority messaging',
+              'Post up to 3 one-time request listings per month',
+              'Early access to premium sellers',
+              'Basic AI mentor/creator recommendations'
+            ]),
+            is_highlighted: 0,
+            display_order: 2,
+            is_active: 1,
+            note: null
+          },
+          {
+            tier_id: 'pro-seller',
+            name: 'Pro Seller',
+            price: 9.99,
+            price_display: '$9.99/mo',
+            tagline: 'Turn your craft into a brand.',
+            features: JSON.stringify([
+              'Pro badge + priority in discovery',
+              'Pin 3 posts to profile',
+              'Weekly insights (reach, audience interests, followers by profession/skill)',
+              'Custom profile banner & theme',
+              '5 service listings, unlimited messaging',
+              'Payment tools, basic CRM',
+              'Scheduling, reminders, custom availability',
+              'Coupons, discounts, basic buyer analytics'
+            ]),
+            is_highlighted: 1,
+            display_order: 3,
+            is_active: 1,
+            note: null
+          },
+          {
+            tier_id: 'elite-seller',
+            name: 'Elite Seller',
+            price: 29.99,
+            price_display: '$29.99/mo',
+            tagline: 'You\'re a top creator — build a full microbrand.',
+            features: JSON.stringify([
+              'Verified status, full portfolio builder, video banners',
+              'In-depth analytics (peak times, demographics, top-performing categories)',
+              'Cross-platform link hub, featured on Discover when trending',
+              'Unlimited listings, recurring subscriptions',
+              'Advanced analytics & automation',
+              'CRM + workflow automation',
+              'Custom storefront page, tax reports',
+              'Integrations, auto-responses, Smart rebooking AI'
+            ]),
+            is_highlighted: 0,
+            display_order: 4,
+            is_active: 1,
+            note: null
+          },
+          {
+            tier_id: 'enterprise',
+            name: 'Enterprise Creator',
+            price: 99.99,
+            price_display: '$99.99/mo',
+            tagline: 'Dream X is your community\'s social + learning hub.',
+            features: JSON.stringify([
+              'Multi-user team posting',
+              'Event pages, showcase collections',
+              'Custom homepage blocks, co-branded community page',
+              'Invite followers to events, livestreams, seminars',
+              'Multi-instructor scheduling, team-wide analytics',
+              'Bulk payouts, shared CRM',
+              'Dedicated account manager',
+              'Featured category placement, sponsored creator onboarding'
+            ]),
+            is_highlighted: 0,
+            display_order: 5,
+            is_active: 1,
+            note: 'Best for tutoring companies, mentorship orgs, clubs, and studios.'
+          }
+        ];
+        
+        const insertTier = db.prepare(`
+          INSERT INTO pricing_tiers (tier_id, name, price, price_display, tagline, features, is_highlighted, display_order, is_active, note)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        
+        for (const tier of defaultTiers) {
+          insertTier.run(
+            tier.tier_id,
+            tier.name,
+            tier.price,
+            tier.price_display,
+            tier.tagline,
+            tier.features,
+            tier.is_highlighted,
+            tier.display_order,
+            tier.is_active,
+            tier.note
+          );
+        }
+        console.log('✅ Default pricing tiers seeded');
+      }
+    } catch (e) {
+      console.warn('Pricing tiers seed error:', e.message);
+    }
   } catch (e) {
     console.error('Database seeding failed:', e.message);
     throw e;
@@ -1499,6 +1664,27 @@ db.exec(`CREATE TABLE IF NOT EXISTS business_admin_assignments (
 );
 CREATE INDEX IF NOT EXISTS idx_business_admin_parent ON business_admin_assignments(parent_admin_id);
 CREATE INDEX IF NOT EXISTS idx_business_admin_assigned ON business_admin_assignments(assigned_admin_id);
+`);
+
+// Pricing tiers configuration table - allows business admins to adjust pricing and features
+db.exec(`CREATE TABLE IF NOT EXISTS pricing_tiers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tier_id TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  price REAL NOT NULL,
+  price_display TEXT NOT NULL,
+  tagline TEXT,
+  features TEXT NOT NULL DEFAULT '[]',
+  is_highlighted INTEGER DEFAULT 0,
+  display_order INTEGER DEFAULT 0,
+  is_active INTEGER DEFAULT 1,
+  note TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_pricing_tiers_tier_id ON pricing_tiers(tier_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_tiers_active ON pricing_tiers(is_active);
+CREATE INDEX IF NOT EXISTS idx_pricing_tiers_order ON pricing_tiers(display_order);
 `);
 
 } // End of non-production schema initialization
@@ -4447,6 +4633,120 @@ module.exports = {
       WHERE u.role = 'business_admin'
       ORDER BY u.created_at DESC
     `).all();
+  },
+
+  // Pricing tier management functions
+  getPricingTiers: (includeInactive = false) => {
+    const sql = includeInactive
+      ? `SELECT * FROM pricing_tiers ORDER BY display_order ASC`
+      : `SELECT * FROM pricing_tiers WHERE is_active = 1 ORDER BY display_order ASC`;
+    const rows = db.prepare(sql).all();
+    return rows.map(row => {
+      let features = [];
+      try {
+        features = JSON.parse(row.features || '[]');
+      } catch (e) {
+        console.warn('Failed to parse tier features for', row.tier_id, e.message);
+        features = [];
+      }
+      return {
+        ...row,
+        features,
+        is_highlighted: !!row.is_highlighted,
+        is_active: !!row.is_active
+      };
+    });
+  },
+
+  getPricingTier: (tierId) => {
+    const row = db.prepare(`SELECT * FROM pricing_tiers WHERE tier_id = ?`).get(tierId);
+    if (!row) return null;
+    let features = [];
+    try {
+      features = JSON.parse(row.features || '[]');
+    } catch (e) {
+      console.warn('Failed to parse tier features for', tierId, e.message);
+      features = [];
+    }
+    return {
+      ...row,
+      features,
+      is_highlighted: !!row.is_highlighted,
+      is_active: !!row.is_active
+    };
+  },
+
+  updatePricingTier: ({ tierId, name, price, priceDisplay, tagline, features, isHighlighted, displayOrder, isActive, note }) => {
+    const fields = [];
+    const values = [];
+
+    if (name !== undefined) {
+      fields.push('name = ?');
+      values.push(name);
+    }
+    if (price !== undefined) {
+      fields.push('price = ?');
+      values.push(price);
+    }
+    if (priceDisplay !== undefined) {
+      fields.push('price_display = ?');
+      values.push(priceDisplay);
+    }
+    if (tagline !== undefined) {
+      fields.push('tagline = ?');
+      values.push(tagline);
+    }
+    if (features !== undefined) {
+      fields.push('features = ?');
+      values.push(JSON.stringify(features));
+    }
+    if (isHighlighted !== undefined) {
+      fields.push('is_highlighted = ?');
+      values.push(isHighlighted ? 1 : 0);
+    }
+    if (displayOrder !== undefined) {
+      fields.push('display_order = ?');
+      values.push(displayOrder);
+    }
+    if (isActive !== undefined) {
+      fields.push('is_active = ?');
+      values.push(isActive ? 1 : 0);
+    }
+    if (note !== undefined) {
+      fields.push('note = ?');
+      values.push(note);
+    }
+
+    if (fields.length === 0) return false;
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(tierId);
+
+    const sql = `UPDATE pricing_tiers SET ${fields.join(', ')} WHERE tier_id = ?`;
+    return db.prepare(sql).run(...values).changes > 0;
+  },
+
+  createPricingTier: ({ tierId, name, price, priceDisplay, tagline, features, isHighlighted, displayOrder, isActive, note }) => {
+    const result = db.prepare(`
+      INSERT INTO pricing_tiers (tier_id, name, price, price_display, tagline, features, is_highlighted, display_order, is_active, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      tierId,
+      name,
+      price,
+      priceDisplay,
+      tagline,
+      JSON.stringify(features || []),
+      isHighlighted ? 1 : 0,
+      displayOrder || 0,
+      isActive !== false ? 1 : 0,
+      note || null
+    );
+    return result.lastInsertRowid;
+  },
+
+  deletePricingTier: (tierId) => {
+    return db.prepare(`DELETE FROM pricing_tiers WHERE tier_id = ?`).run(tierId).changes > 0;
   }
 };
 
