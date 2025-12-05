@@ -1097,7 +1097,7 @@ app.get('/onboarding-empty', (req, res) => {
     // If they already finished, just go to feed
     if (!userNeedsOnboarding(user)) return res.redirect('/feed');
     req.session.seenOnboardingPrompt = true;
-    res.render('onboarding-empty', {
+    res.render('user/onboarding-empty', {
         title: 'Onboarding - Let\'s Get Started | Dream X',
         currentPage: 'onboarding-empty',
         authUser: res.locals.authUser || user
@@ -1387,7 +1387,7 @@ app.get('/admin', requireAdmin, (req, res) => {
         console.warn('Refund requests fetch error:', e.message);
     }
 
-    res.render('admin-consolidated', {
+    res.render('admin/admin-consolidated', {
         title: 'Admin Dashboard - Dream X',
         currentPage: 'admin',
         authUser: me,
@@ -1489,7 +1489,7 @@ app.get('/admin/services', requireAdmin, (req, res) => {
     const q = (req.query.q || '').trim();
     const rows = require('./db').listAllServicesAdmin({ status, limit: pageSize, offset, q: q || null });
     const me = req.session.userId ? getUserById(req.session.userId) : null;
-    res.render('admin-services', {
+    res.render('admin/admin-services', {
         title: 'Services Moderation - Dream X',
         currentPage: 'admin',
         services: rows,
@@ -1727,7 +1727,7 @@ app.get('/admin/users/:id/stats', requireAdmin, async (req, res) => {
     // Get account status
     const accountStatus = checkAccountStatus(userId);
 
-    res.render('admin-user-stats', {
+    res.render('admin/admin-user-stats', {
         title: `${user.full_name} - User Statistics - Dream X`,
         currentPage: 'admin',
         user: req.session.user,
@@ -1890,7 +1890,7 @@ app.get('/hr', requireHR, (req, res) => {
     const acceptedApps = careers.filter(c => c.status === 'accepted').length;
     const rejectedApps = careers.filter(c => c.status === 'rejected').length;
 
-    res.render('hr', {
+    res.render('hr/hr', {
         title: 'HR Review - Dream X',
         currentPage: 'hr',
         authUser: me,
@@ -2591,7 +2591,7 @@ app.get('/feed', (req, res) => {
         topPassions = ['Entrepreneurship', 'Technology', 'Design', 'Writing', 'Art'];
     }
 
-    res.render('feed', {
+    res.render('feed/feed', {
         title: 'Your Feed - Dream X',
         currentPage: 'feed',
         authUser,
@@ -2635,7 +2635,7 @@ app.get('/search', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
-    res.render('search', {
+    res.render('feed/search', {
         title: `Search: ${q} - Dream X`,
         currentPage: 'search',
         authUser,
@@ -2926,7 +2926,7 @@ app.get('/post/:id', (req, res) => {
         if (!post) return res.redirect('/feed');
         // augment with current user's reaction
         try { post.user_reaction = getUserReactionForPost({ postId, userId: req.session.userId }); } catch (e) { }
-        res.render('post-detail', {
+        res.render('feed/post-detail', {
             title: 'Post - Dream X',
             currentPage: 'feed',
             post
@@ -3231,7 +3231,7 @@ app.get('/profile', (req, res) => {
         const me = getUserById(req.session.userId);
         const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
 
-        res.render('profile', {
+        res.render('user/profile', {
             title: `${user.displayName} - Profile - Dream X`,
             currentPage: 'profile',
             user,
@@ -3260,7 +3260,7 @@ app.get('/profile/:id(\\d+)', (req, res) => {
         if (!uid || isNaN(uid)) return res.redirect('/feed');
         const row = getUserById(uid);
         if (!row) {
-            return res.status(404).render('profile-not-found', {
+            return res.status(404).render('user/profile-not-found', {
                 title: 'Profile Not Found - Dream X',
                 currentPage: 'profile',
                 userId: uid
@@ -3335,7 +3335,7 @@ app.get('/profile/:id(\\d+)', (req, res) => {
         const me = getUserById(req.session.userId);
         const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
 
-        res.render('profile', {
+        res.render('user/profile', {
             title: `${user.displayName} - Profile - Dream X`,
             currentPage: 'profile',
             user,
@@ -3436,7 +3436,7 @@ app.get('/profile/edit', (req, res) => {
         skills: row.skills || '',
         location: row.location || ''
     };
-    res.render('edit-profile', {
+    res.render('user/edit-profile', {
         title: 'Edit Profile - Dream X',
         currentPage: 'profile',
         authUser,
@@ -3547,7 +3547,7 @@ app.get('/services', (req, res) => {
         limit: 100
     });
 
-    res.render('services', {
+    res.render('services/services', {
         title: 'Services Marketplace - Dream X',
         currentPage: 'services',
         authUser: res.locals.authUser,
@@ -3558,7 +3558,7 @@ app.get('/services', (req, res) => {
 
 // Create service page
 app.get('/services/new', ensureAuthenticated, (req, res) => {
-    res.render('create-service', {
+    res.render('services/create-service', {
         title: 'Create Service - Dream X',
         currentPage: 'services'
     });
@@ -3619,7 +3619,7 @@ app.get('/services/:id', (req, res) => {
         } catch (e) { canReview = false; }
     }
 
-    res.render('service-details', {
+    res.render('services/service-details', {
         title: `${service.name} - Service - Dream X`,
         currentPage: 'services',
         authUser: res.locals.authUser,
@@ -3638,7 +3638,7 @@ app.get('/services/:id/edit', ensureAuthenticated, (req, res) => {
     if (Number(service.user_id) !== Number(req.session.userId) && !isAdmin(getUserById(req.session.userId))) {
         return res.redirect(`/services/${id}`);
     }
-    res.render('edit-service', { title: `Edit Service - ${service.title}`, currentPage: 'services', service });
+    res.render('services/edit-service', { title: `Edit Service - ${service.title}`, currentPage: 'services', service });
 });
 
 app.post('/services/:id/edit', ensureAuthenticated, (req, res) => {
@@ -3898,7 +3898,7 @@ app.get('/messages', (req, res) => {
         } catch (e) { /* noop */ }
     }
 
-    res.render('messages', {
+    res.render('user/messages', {
         title: 'Messages - Dream X',
         currentPage: 'messages',
         conversations,
@@ -4380,7 +4380,7 @@ app.get('/map', ensureAuthenticated, (req, res) => {
     // Get current user's location
     const userLocation = getUserLocation(req.session.userId);
 
-    res.render('map', {
+    res.render('static/map', {
         title: 'Map - Dream X',
         currentPage: 'map',
         authUser: {
@@ -4488,7 +4488,7 @@ app.get('/settings', (req, res) => {
     const charges = getUserCharges({ userId: req.session.userId, limit: 50, offset: 0 }) || [];
     const blockedUsers = getBlockedUsers(req.session.userId) || [];
 
-    res.render('settings', {
+    res.render('user/settings', {
         title: 'Settings - Dream X',
         currentPage: 'settings',
         authUser,
@@ -4516,7 +4516,7 @@ app.get('/billing', (req, res) => {
     const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
     const userTier = (subscription.tier || 'free');
 
-    res.render('billing', {
+    res.render('user/billing', {
         title: 'Billing - Dream X',
         currentPage: 'billing',
         userTier,
@@ -5531,7 +5531,7 @@ app.get('/pricing', (req, res) => {
         }
     }
 
-    res.render('pricing', {
+    res.render('static/pricing', {
         title: 'Pricing - Dream X',
         currentPage: 'pricing',
         tiers,
@@ -5573,7 +5573,7 @@ app.get('/help-center', (req, res) => {
 
 // Privacy Policy page
 app.get('/privacy', (req, res) => {
-    res.render('privacy', {
+    res.render('static/privacy', {
         title: 'Privacy Policy - Dream X',
         currentPage: 'privacy'
     });
@@ -5581,7 +5581,7 @@ app.get('/privacy', (req, res) => {
 
 // Terms of Service page
 app.get('/terms', (req, res) => {
-    res.render('terms', {
+    res.render('static/terms', {
         title: 'Terms of Service - Dream X',
         currentPage: 'terms',
         authUser: req.session.userId ? db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId) : null
@@ -5590,7 +5590,7 @@ app.get('/terms', (req, res) => {
 
 // Community Guidelines page
 app.get('/community-guidelines', (req, res) => {
-    res.render('community-guidelines', {
+    res.render('static/community-guidelines', {
         title: 'Community Guidelines - Dream X',
         currentPage: 'community-guidelines',
         authUser: req.session.userId ? db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId) : null
@@ -5599,7 +5599,7 @@ app.get('/community-guidelines', (req, res) => {
 
 // Content Appeal page
 app.get('/content-appeal', (req, res) => {
-    res.render('content-appeal', {
+    res.render('appeals/content-appeal', {
         title: 'Content Appeal - Dream X',
         currentPage: 'content-appeal'
     });
@@ -5607,7 +5607,7 @@ app.get('/content-appeal', (req, res) => {
 
 // Account Appeal page
 app.get('/account-appeal', (req, res) => {
-    res.render('account-appeal', {
+    res.render('appeals/account-appeal', {
         title: 'Account Appeal - Dream X',
         currentPage: 'account-appeal'
     });
@@ -5645,7 +5645,7 @@ app.get('/refund-request', async (req, res) => {
 
         const user = await getUserById(req.session.userId);
 
-        res.render('refund-request', {
+        res.render('user/refund-request', {
             title: 'Refund Request - Dream X',
             currentPage: 'refund-request',
             charges: charges,
@@ -6134,7 +6134,7 @@ app.get('/admin/moderation/user-actions', requireSuperAdmin, (req, res) => {
         const reports = getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
         const me = getUserById(req.session.userId);
 
-        res.render('admin-user-actions', {
+        res.render('admin/admin-user-actions', {
             title: 'User Actions Moderation - Dream X',
             currentPage: 'admin',
             authUser: me,
@@ -6504,7 +6504,7 @@ app.get('/account-status', (req, res) => {
     const accountStatus = checkAccountStatus(userId);
     const user = getUserById(userId);
 
-    res.render('account-status', {
+    res.render('user/account-status', {
         title: 'Account Status - Dream X',
         currentPage: 'account-status',
         accountStatus,

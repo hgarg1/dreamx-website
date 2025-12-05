@@ -73,7 +73,7 @@ function initServicesRoutes({ io }) {
             limit: 100
         });
 
-        res.render('services', {
+        res.render('services/services', {
             title: 'Services Marketplace - Dream X',
             currentPage: 'services',
             categories,
@@ -83,7 +83,7 @@ function initServicesRoutes({ io }) {
 
     // Create service page
     router.get('/services/new', ensureAuthenticated, (req, res) => {
-        res.render('create-service', {
+        res.render('services/create-service', {
             title: 'Create Service - Dream X',
             currentPage: 'services'
         });
@@ -142,7 +142,7 @@ function initServicesRoutes({ io }) {
             } catch (e) { canReview = false; }
         }
 
-        res.render('service-details', {
+        res.render('services/service-details', {
             title: `${service.name} - Service - Dream X`,
             currentPage: 'services',
             service,
@@ -160,7 +160,7 @@ function initServicesRoutes({ io }) {
         if (Number(service.user_id) !== Number(req.session.userId) && !isAdmin(getUserById(req.session.userId))) {
             return res.redirect(`/services/${id}`);
         }
-        res.render('edit-service', { title: `Edit Service - ${service.title}`, currentPage: 'services', service });
+        res.render('services/edit-service', { title: `Edit Service - ${service.title}`, currentPage: 'services', service });
     });
 
     router.post('/services/:id/edit', ensureAuthenticated, (req, res) => {

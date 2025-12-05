@@ -156,7 +156,7 @@ function initMessagesRoutes({ chatUpload, io }) {
             } catch (e) { /* noop */ }
         }
 
-        res.render('messages', {
+        res.render('user/messages', {
             title: 'Messages - Dream X',
             currentPage: 'messages',
             authUser,

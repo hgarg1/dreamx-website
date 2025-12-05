@@ -135,7 +135,7 @@ function initSettingsRoutes() {
         const charges = getUserCharges({ userId: req.session.userId, limit: 50, offset: 0 }) || [];
         const blockedUsers = getBlockedUsers(req.session.userId) || [];
 
-        res.render('settings', {
+        res.render('user/settings', {
             title: 'Settings - Dream X',
             currentPage: 'settings',
             user: authUser,
@@ -163,7 +163,7 @@ function initSettingsRoutes() {
         const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
         const userTier = (subscription.tier || 'free');
 
-        res.render('billing', {
+        res.render('user/billing', {
             title: 'Billing - Dream X',
             currentPage: 'billing',
             userTier,

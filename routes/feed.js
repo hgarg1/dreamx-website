@@ -288,7 +288,7 @@ function initFeedRoutes({ postUpload, io }) {
             topPassions = ['Entrepreneurship', 'Technology', 'Design', 'Writing', 'Art'];
         }
 
-        res.render('feed', {
+        res.render('feed/feed', {
             title: 'Your Feed - Dream X',
             currentPage: 'feed',
             authUser,
@@ -324,7 +324,7 @@ function initFeedRoutes({ postUpload, io }) {
             });
         }
 
-        res.render('search', {
+        res.render('feed/search', {
             title: `Search: ${q} - Dream X`,
             currentPage: 'search',
             authUser,
@@ -470,7 +470,7 @@ function initFeedRoutes({ postUpload, io }) {
             try {
                 post.user_reaction = getUserReactionForPost({ postId, userId: req.session.userId });
             } catch (e) { }
-            res.render('post-detail', {
+            res.render('feed/post-detail', {
                 title: 'Post - Dream X',
                 currentPage: 'feed',
                 post

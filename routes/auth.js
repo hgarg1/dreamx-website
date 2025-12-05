@@ -305,7 +305,7 @@ router.get('/verify-email', (req, res) => {
     const user = getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
     if (user.email_verified === 1) return res.redirect(resolvePostAuthRedirect(user));
-    res.render('verify-email', {
+    res.render('auth/verify-email', {
         title: 'Verify Your Email - Dream X',
         currentPage: 'verify-email',
         user,
@@ -384,7 +384,7 @@ router.post('/resend-verification', async (req, res) => {
 // Forgot password
 router.get('/forgot-password', (req, res) => {
     if (req.session && req.session.userId) return res.redirect('/feed');
-    res.render('forgot-password', {
+    res.render('auth/forgot-password', {
         title: 'Forgot Password - Dream X',
         currentPage: 'forgot-password',
         error: null,
@@ -411,7 +411,7 @@ router.post('/forgot-password', async (req, res) => {
     }
     const user = getUserByEmail(email);
     if (!user) {
-        return res.render('forgot-password', {
+        return res.render('auth/forgot-password', {
             title: 'Forgot Password - Dream X',
             currentPage: 'forgot-password',
             error: null,
@@ -440,7 +440,7 @@ router.post('/forgot-password', async (req, res) => {
                 error: emailResult?.error || 'Unknown error'
             });
         }
-        return res.render('forgot-password', {
+        return res.render('auth/forgot-password', {
             title: 'Forgot Password - Dream X',
             currentPage: 'forgot-password',
             error: null,
@@ -485,7 +485,7 @@ router.get('/reset-password', (req, res) => {
             token: null
         });
     }
-    return res.render('reset-password', {
+    return res.render('auth/reset-password', {
         title: 'Reset Password - Dream X',
         currentPage: 'reset-password',
         error: null,
@@ -586,7 +586,7 @@ router.get('/login', (req, res) => {
     const microsoftEnabled = !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
     const appleEnabled = !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY && process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://'));
     const twitterEnabled = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET);
-    res.render('login', {
+    res.render('auth/login', {
         title: 'Login - Dream X',
         currentPage: 'login',
         error: null,

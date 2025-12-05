@@ -119,7 +119,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
         ];
         const HR_PAGE_SCOPES = ['hr-dashboard', 'candidate-pipeline', 'career-applications', 'job-board', 'hr-org', 'talent-outreach'];
 
-        res.render('hr', {
+        res.render('hr/hr', {
             title: 'HR Review - Dream X',
             currentPage: 'hr',
             authUser: me,

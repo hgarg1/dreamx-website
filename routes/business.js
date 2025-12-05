@@ -136,7 +136,7 @@ function initBusinessRoutes({ emailService }) {
         // Check if this admin has a parent (is subordinate)
         const parentAdmin = getBusinessAdminParent(req.session.userId);
 
-        res.render('business-dashboard', {
+        res.render('business/business-dashboard', {
             title: 'Business Admin Dashboard - Dream X',
             currentPage: 'business',
             authUser: { ...user, displayName: user.full_name },
@@ -180,7 +180,7 @@ function initBusinessRoutes({ emailService }) {
         // Get list of business admins for assignment dropdown
         const businessAdmins = getAllBusinessAdmins();
 
-        res.render('business-sales', {
+        res.render('business/business-sales', {
             title: 'Sales Inquiries - Dream X',
             currentPage: 'business-sales',
             authUser: { ...user, displayName: user.full_name },
@@ -210,7 +210,7 @@ function initBusinessRoutes({ emailService }) {
         const communications = getSalesInquiryCommunications(inquiryId);
         const businessAdmins = getAllBusinessAdmins();
 
-        res.render('business-sales-detail', {
+        res.render('business/business-sales-detail', {
             title: `Sales Inquiry #${inquiryId} - Dream X`,
             currentPage: 'business-sales',
             authUser: { ...user, displayName: user.full_name },
@@ -359,7 +359,7 @@ function initBusinessRoutes({ emailService }) {
         const parentAdmin = getBusinessAdminParent(req.session.userId);
         const allBusinessAdmins = getAllBusinessAdmins();
 
-        res.render('business-team', {
+        res.render('business/business-team', {
             title: 'Business Team - Dream X',
             currentPage: 'business-team',
             authUser: { ...user, displayName: user.full_name },
@@ -508,7 +508,7 @@ function initBusinessRoutes({ emailService }) {
         const user = req.businessUser;
         const tiers = getPricingTiers(true); // Include inactive tiers for management
 
-        res.render('business-pricing', {
+        res.render('business/business-pricing', {
             title: 'Pricing Management - Dream X',
             currentPage: 'business-pricing',
             authUser: { ...user, displayName: user.full_name },

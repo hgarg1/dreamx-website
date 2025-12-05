@@ -30,7 +30,7 @@ function initMiscRoutes() {
         const userLocations = getAllUserLocations();
         const userLocation = getUserLocation(req.session.userId);
 
-        res.render('map', {
+        res.render('static/map', {
             title: 'Map - Dream X',
             currentPage: 'map',
             authUser: {
@@ -197,7 +197,7 @@ function initMiscRoutes() {
             }
         }
 
-        res.render('pricing', {
+        res.render('static/pricing', {
             title: 'Pricing - Dream X',
             currentPage: 'pricing',
             tiers,
@@ -224,7 +224,7 @@ function initMiscRoutes() {
             { q: 'How does the marketplace work?', a: 'Pro Seller and Elite Seller tiers can create service listings for tutoring, coaching, or consultations. Buyers can browse, book sessions, and pay directly through the platform. Dream X handles scheduling, payments, and invoicing.' },
             { q: 'What payment methods are accepted?', a: 'We accept major credit cards, debit cards, and digital wallets through our secure payment processor. Sellers receive payouts via bank transfer or PayPal on a regular schedule.' }
         ];
-        res.render('help-center', {
+        res.render('static/help-center', {
             title: 'Help Center - Dream X',
             currentPage: 'help-center',
             faqs
@@ -233,7 +233,7 @@ function initMiscRoutes() {
 
     // About page
     router.get('/about', preventCache, (req, res) => {
-        res.render('about', {
+        res.render('static/about', {
             title: 'About - Dream X',
             currentPage: 'about'
         });
@@ -241,7 +241,7 @@ function initMiscRoutes() {
 
     // Team page
     router.get('/team', preventCache, (req, res) => {
-        res.render('team', {
+        res.render('static/team', {
             title: 'Our Team - Dream X',
             currentPage: 'team'
         });
@@ -249,7 +249,7 @@ function initMiscRoutes() {
 
     // Features page
     router.get('/features', preventCache, (req, res) => {
-        res.render('features', {
+        res.render('static/features', {
             title: 'Features - Dream X',
             currentPage: 'features'
         });
@@ -257,7 +257,7 @@ function initMiscRoutes() {
 
     // Contact page
     router.get('/contact', preventCache, (req, res) => {
-        res.render('contact', {
+        res.render('static/contact', {
             title: 'Contact - Dream X',
             currentPage: 'contact'
         });
@@ -267,7 +267,7 @@ function initMiscRoutes() {
     router.get('/careers', preventCache, (req, res) => {
         const jobs = getPublicCareerJobs();
         const heroJob = jobs.find(j => j.status === 'live') || jobs[0] || null;
-        res.render('careers', {
+        res.render('static/careers', {
             title: 'Careers - Dream X',
             currentPage: 'careers',
             jobs,
@@ -277,7 +277,7 @@ function initMiscRoutes() {
 
     // Downloads page
     router.get('/downloads', preventCache, (req, res) => {
-        res.render('downloads', {
+        res.render('static/downloads', {
             title: 'Downloads - Dream X',
             currentPage: 'downloads',
             authUser: res.locals.authUser

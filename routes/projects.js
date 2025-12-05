@@ -103,7 +103,7 @@ router.get('/projects', requireAuth, (req, res) => {
     
     const authUser = getUserById(req.session.userId);
 
-    res.render('projects-feed', {
+    res.render('projects/projects-feed', {
       title: 'Projects - Dream X',
       currentPage: 'projects',
       authUser,
@@ -171,7 +171,7 @@ router.get('/project/:id(\\d+)', requireAuth, (req, res) => {
     const authUser = getUserById(req.session.userId);
     const isOwner = project.owner_id === req.session.userId;
 
-    res.render('project-detail', {
+    res.render('projects/project-detail', {
       title: `${project.title} - Dream X`,
       currentPage: 'project',
       authUser,
@@ -206,7 +206,7 @@ router.get('/projects/:id/edit', requireAuth, (req, res) => {
 
     const authUser = getUserById(req.session.userId);
 
-    res.render('project-edit', {
+    res.render('projects/project-edit', {
       title: `Edit ${project.title} - Dream X`,
       currentPage: 'projects',
       authUser,
@@ -223,7 +223,7 @@ router.get('/projects/:id/edit', requireAuth, (req, res) => {
 router.get('/projects/create', requireAuth, (req, res) => {
   try {
     const authUser = getUserById(req.session.userId);
-    res.render('project-wizard', {
+    res.render('projects/project-wizard', {
       title: 'Create Project - Dream X',
       currentPage: 'projects',
       authUser,

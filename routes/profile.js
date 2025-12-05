@@ -145,7 +145,7 @@ function initProfileRoutes({ upload, io }) {
                 userReposts = [];
             }
 
-            res.render('profile', {
+            res.render('user/profile', {
                 title: `${user.displayName} - Profile - Dream X`,
                 currentPage: 'profile',
                 user,
@@ -175,7 +175,7 @@ function initProfileRoutes({ upload, io }) {
             if (!uid || isNaN(uid)) return res.redirect('/feed');
             const row = getUserById(uid);
             if (!row) {
-                return res.status(404).render('profile-not-found', {
+                return res.status(404).render('user/profile-not-found', {
                     title: 'Profile Not Found - Dream X',
                     currentPage: 'profile',
                     userId: uid
@@ -274,7 +274,7 @@ function initProfileRoutes({ upload, io }) {
             const me = getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
 
-            res.render('profile', {
+            res.render('user/profile', {
                 title: `${user.displayName} - Profile - Dream X`,
                 currentPage: 'profile',
                 user,
@@ -371,7 +371,7 @@ function initProfileRoutes({ upload, io }) {
             skills: row.skills || '',
             location: row.location || ''
         };
-        res.render('edit-profile', {
+        res.render('user/edit-profile', {
             title: 'Edit Profile - Dream X',
             currentPage: 'profile',
             authUser,

@@ -138,7 +138,7 @@ router.get('/dashboard', requireRbacDashboardAccess, ensureRbacReady, (req, res)
       cacheStats = rbacCache.cache.getStats();
     }
     
-    res.render('rbac-dashboard', {
+    res.render('rbac/rbac-dashboard', {
       title: 'RBAC Dashboard - Dream X',
       currentPage: 'admin',
       activePage: 'dashboard',
@@ -173,7 +173,7 @@ router.get('/roles', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     // Build inheritance tree
     const roleTree = buildRoleTree(roles);
     
-    res.render('rbac-roles', {
+    res.render('rbac/rbac-roles', {
       title: 'Role Management - Dream X',
       currentPage: 'admin',
       activePage: 'roles',
@@ -218,7 +218,7 @@ router.get('/roles/:id', requireRbacDashboardAccess, ensureRbacReady, (req, res)
       console.warn('Failed to get users with role:', e.message);
     }
     
-    res.render('rbac-role-detail', {
+    res.render('rbac/rbac-role-detail', {
       activePage: 'roles',
       title: `${role.display_name || role.name} - Role Details - Dream X`,
       currentPage: 'admin',
@@ -260,7 +260,7 @@ router.get('/permissions', requireRbacDashboardAccess, ensureRbacReady, (req, re
     // Get unique modules
     const modules = [...new Set(permissions.map(p => p.module).filter(Boolean))];
     
-    res.render('rbac-permissions', {
+    res.render('rbac/rbac-permissions', {
       activePage: 'permissions',
       title: 'Permission Management - Dream X',
       currentPage: 'admin',
@@ -324,7 +324,7 @@ router.get('/users', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     // Get all roles for assignment dropdown
     const allRoles = rbacService.getRoles({ includeDisabled: false });
     
-    res.render('rbac-users', {
+    res.render('rbac/rbac-users', {
       activePage: 'users',
       title: 'User-Role Assignment - Dream X',
       currentPage: 'admin',
@@ -393,7 +393,7 @@ router.get('/overrides', requireRbacDashboardAccess, ensureRbacReady, (req, res)
       return diff > 0 && diff < 24 * 60 * 60 * 1000;
     });
     
-    res.render('rbac-overrides', {
+    res.render('rbac/rbac-overrides', {
       activePage: 'overrides',
       title: 'Active Overrides - Dream X',
       currentPage: 'admin',
@@ -424,7 +424,7 @@ router.get('/history', requireRbacDashboardAccess, ensureRbacReady, (req, res) =
       { limit: pageSize, offset: (pageNum - 1) * pageSize }
     );
     
-    res.render('rbac-history', {
+    res.render('rbac/rbac-history', {
       activePage: 'history',
       title: 'Version History - Dream X',
       currentPage: 'admin',
@@ -464,7 +464,7 @@ router.get('/audit', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
       SELECT DISTINCT action FROM rbac_audit_logs ORDER BY action
     `).all().map(r => r.action);
     
-    res.render('rbac-audit', {
+    res.render('rbac/rbac-audit', {
       activePage: 'audit',
       title: 'RBAC Audit Logs - Dream X',
       currentPage: 'admin',
@@ -497,7 +497,7 @@ router.get('/security', requireRbacDashboardAccess, ensureRbacReady, (req, res) 
       suggestions = rbacAnalytics.suggestionEngine.getFullReport();
     }
     
-    res.render('rbac-security', {
+    res.render('rbac/rbac-security', {
       activePage: 'security',
       title: 'Security & Analytics - Dream X',
       currentPage: 'admin',
@@ -529,7 +529,7 @@ router.get('/docs', requireRbacDashboardAccess, ensureRbacReady, (req, res) => {
       changelog = rbacAnalytics.DocumentationGenerator.generateChangelog({ limit: 50 });
     }
     
-    res.render('rbac-docs', {
+    res.render('rbac/rbac-docs', {
       activePage: 'docs',
       title: 'RBAC Documentation - Dream X',
       currentPage: 'admin',
@@ -572,7 +572,7 @@ router.get('/migration', requireRbacManagement, ensureRbacReady, (req, res) => {
       }
     }
     
-    res.render('rbac-migration', {
+    res.render('rbac/rbac-migration', {
       activePage: 'migration',
       title: 'RBAC Migration - Dream X',
       currentPage: 'admin',
@@ -646,7 +646,7 @@ router.get('/devtools', requireRbacManagement, ensureRbacReady, (req, res) => {
       cacheStats = rbacCache.cache.getStats();
     }
     
-    res.render('rbac-devtools', {
+    res.render('rbac/rbac-devtools', {
       activePage: 'devtools',
       title: 'RBAC Developer Tools - Dream X',
       currentPage: 'admin',

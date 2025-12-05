@@ -287,7 +287,7 @@ function initAdminRoutes({ io, webpush }) {
             console.warn('Sales inquiries fetch error:', e.message);
         }
 
-        res.render('admin-consolidated', {
+        res.render('admin/admin-consolidated', {
             title: 'Admin Dashboard - Dream X',
             currentPage: 'admin',
             authUser: me,
@@ -390,7 +390,7 @@ function initAdminRoutes({ io, webpush }) {
         const q = (req.query.q || '').trim();
         const rows = require('../db').listAllServicesAdmin({ status, limit: pageSize, offset, q: q || null });
         const me = req.session.userId ? getUserById(req.session.userId) : null;
-        res.render('admin-services', {
+        res.render('admin/admin-services', {
             title: 'Services Moderation - Dream X',
             currentPage: 'admin',
             services: rows,
@@ -615,7 +615,7 @@ function initAdminRoutes({ io, webpush }) {
         const accountAge = Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24));
         const accountStatus = checkAccountStatus(userId);
 
-        res.render('admin-user-stats', {
+        res.render('admin/admin-user-stats', {
             title: `${user.full_name} - User Statistics - Dream X`,
             currentPage: 'admin',
             user: req.session.user,
@@ -935,7 +935,7 @@ function initAdminRoutes({ io, webpush }) {
             const blocks = getAllBlocksAndReports({ limit: pageSize, offset });
             const reports = getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
             const me = getUserById(req.session.userId);
-            res.render('admin-user-actions', {
+            res.render('admin/admin-user-actions', {
                 title: 'User Actions Moderation - Dream X',
                 currentPage: 'admin',
                 authUser: me,

@@ -12,7 +12,10 @@ function getAllEjsRoutes(dir, baseUrl = '') {
     files.forEach(file => {
         const fullPath = path.join(dir, file);
         const stat = fs.statSync(fullPath);
-        const excludedFolders = ['partials', 'includes'];
+        // Exclude folders that are for organization only, not URL paths
+        const excludedFolders = ['partials', 'includes', 'admin', 'auth', 'business', 'errors', 
+                                 'services', 'projects', 'rbac', 'user', 'static', 'appeals', 
+                                 'feed', 'hr', 'refunds'];
         if (stat.isDirectory() && !excludedFolders.includes(file)) {
             routes = routes.concat(getAllEjsRoutes(fullPath, baseUrl + '/' + file));
         } else if (file.endsWith('.ejs')) {

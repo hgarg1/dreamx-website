@@ -99,7 +99,7 @@ function initOnboardingRoutes({ upload }) {
         if (!user) return res.redirect('/login');
         if (!userNeedsOnboarding(user)) return res.redirect('/feed');
         req.session.seenOnboardingPrompt = true;
-        res.render('onboarding-empty', {
+        res.render('user/onboarding-empty', {
             title: 'Onboarding - Let\'s Get Started | Dream X',
             currentPage: 'onboarding-empty',
             authUser: res.locals.authUser || user
@@ -121,7 +121,7 @@ function initOnboardingRoutes({ upload }) {
         const user = getUserById(req.session.userId);
         if (!user) return res.redirect('/login');
         if (!userNeedsOnboarding(user)) return res.redirect(resolvePostAuthRedirect(user));
-        res.render('onboarding', {
+        res.render('user/onboarding', {
             title: 'Start with your passions',
             currentPage: 'onboarding'
         });
