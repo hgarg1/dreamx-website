@@ -4,6 +4,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
 const AppleStrategy = require('passport-apple');
+const TwitterStrategy = require('@superfaceai/passport-twitter-oauth2');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
@@ -765,6 +766,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     // Note: Google OAuth doesn't support per-request callback URL override like Microsoft
     // Must whitelist all callback URLs in Google Cloud Console
     const callbackURL = process.env.GOOGLE_CALLBACK_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/auth/google/callback` : 'http://localhost/auth/google/callback');
+    console.log('📍 Google OAuth configured with callback URL:', callbackURL);
     passport.use('google', new GoogleStrategy({
         passReqToCallback: true,
         clientID: process.env.GOOGLE_CLIENT_ID,
@@ -773,12 +775,19 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         skipUserProfile: false
     }, async (req, accessToken, refreshToken, profile, done) => {
         try {
+            console.log('📍 Google strategy verification - Profile ID:', profile.id, 'Display name:', profile.displayName);
             const email = Array.isArray(profile.emails) && profile.emails[0] ? profile.emails[0].value : null;
             const photoUrl = Array.isArray(profile.photos) && profile.photos[0] ? profile.photos[0].value : null;
+            console.log('📍 Google strategy - Email:', email);
             const user = await findOrCreateOAuthUser({ provider: 'google', providerId: profile.id, displayName: profile.displayName, email });
+            console.log('📍 Google strategy - User created/found:', user.id);
             await importProfilePhotoIfNeeded(user, photoUrl);
+            console.log('✅ Google strategy verification successful for user', user.id);
             done(null, user, { provider: 'google', providerId: profile.id, photoUrl });
-        } catch (e) { done(e); }
+        } catch (e) { 
+            console.error('❌ Google strategy verification error:', e.message, e.stack);
+            done(e); 
+        }
     }));
 } else {
     console.warn('Google OAuth not configured');
@@ -838,6 +847,47 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
     }));
 } else {
     console.warn('Apple Sign-In not configured');
+}
+
+// X (Twitter) OAuth 2.0
+if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
+    // Note: Twitter OAuth 2.0 callback URL is set at initialization
+    // Must whitelist callback URLs in Twitter Developer Console
+    // For localhost testing: http://localhost/auth/x/callback
+    // For production: https://yourdomain.com/auth/x/callback
+    const callbackURL = process.env.TWITTER_CALLBACK_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/auth/x/callback` : 'http://localhost/auth/x/callback');
+    console.log('📍 Twitter OAuth configured with callback URL:', callbackURL);
+    console.log('📍 IMPORTANT: Make sure this URL is registered in your Twitter app settings!');
+    passport.use('twitter', new TwitterStrategy({
+        clientType: 'confidential',
+        clientID: process.env.TWITTER_CLIENT_ID,
+        clientSecret: process.env.TWITTER_CLIENT_SECRET,
+        callbackURL: callbackURL,
+        scope: ['tweet.read', 'users.read', 'email', 'offline.access'],
+        passReqToCallback: true
+    }, async (req, accessToken, refreshToken, profile, done) => {
+        try {
+            console.log('📍 Twitter strategy verification - Profile ID:', profile.id, 'Username:', profile.username);
+            const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
+            const photoUrl = profile.photos && profile.photos[0] ? profile.photos[0].value : null;
+            const displayName = profile.displayName || profile.username || email || 'Twitter User';
+            console.log('📍 Twitter strategy - Email:', email, 'Display name:', displayName);
+            const user = await findOrCreateOAuthUser({ provider: 'twitter', providerId: profile.id, displayName: displayName, email });
+            console.log('📍 Twitter strategy - User created/found:', user.id);
+            await importProfilePhotoIfNeeded(user, photoUrl);
+            console.log('✅ Twitter strategy verification successful for user', user.id);
+            done(null, user, { provider: 'twitter', providerId: profile.id, photoUrl });
+        } catch (e) { 
+            console.error('❌ Twitter strategy verification error:', e.message, e.stack);
+            done(e); 
+        }
+    }));
+} else {
+    if (process.env.TWITTER_CLIENT_ID && !process.env.TWITTER_CLIENT_SECRET) {
+        console.warn('⚠️ TWITTER_CLIENT_ID is set but TWITTER_CLIENT_SECRET is empty! Twitter OAuth will not work.');
+    } else {
+        console.warn('X (Twitter) OAuth 2.0 not configured - missing TWITTER_CLIENT_ID or TWITTER_CLIENT_SECRET');
+    }
 }
 
 // Functions to seed data - will be called after database is initialized

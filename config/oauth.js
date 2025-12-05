@@ -25,5 +25,12 @@ module.exports = {
     privateKeyString: (process.env.APPLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
     scope: ['name', 'email'],
     enabled: !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY)
+  },
+
+  twitter: {
+    clientID: process.env.TWITTER_CLIENT_ID,
+    clientSecret: process.env.TWITTER_CLIENT_SECRET,
+    callbackURL: process.env.TWITTER_CALLBACK_URL,
+    enabled: !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
   }
 };

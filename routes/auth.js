@@ -585,11 +585,12 @@ router.get('/login', (req, res) => {
     const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
     const microsoftEnabled = !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
     const appleEnabled = !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY && process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://'));
+    const twitterEnabled = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET);
     res.render('login', {
         title: 'Login - Dream X',
         currentPage: 'login',
         error: null,
-        providers: { googleEnabled, microsoftEnabled, appleEnabled }
+        providers: { googleEnabled, microsoftEnabled, appleEnabled, twitterEnabled }
     });
 });
 
@@ -600,7 +601,8 @@ router.post('/login', async (req, res) => {
     const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
     const microsoftEnabled = !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
     const appleEnabled = !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY && process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://'));
-    const providers = { googleEnabled, microsoftEnabled, appleEnabled };
+    const twitterEnabled = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET);
+    const providers = { googleEnabled, microsoftEnabled, appleEnabled, twitterEnabled };
     if (!user) {
         return res.status(400).render('login', { title: 'Login - Dream X', currentPage: 'login', error: 'Invalid credentials.', providers });
     }
@@ -698,16 +700,125 @@ function getCallbackURLFromRequest(req, path) {
 
 // OAuth routes - these need to be set up in app.js with passport strategies
 // They're included here for reference but need passport middleware
+
+// Shared OAuth callback handler for all providers
+async function handleOAuthCallback(req, res, provider) {
+    try {
+        console.log(`🟡 [${provider}] handleOAuthCallback called`);
+        const mode = req.query.state;
+        console.log(`🟡 [${provider}] Mode from query.state:`, mode);
+        
+        // Handle account linking mode
+        if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
+            console.log(`🟡 [${provider}] Handling account linking mode`);
+            updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
+            if (req.authInfo.photoUrl) {
+                const user = getUserById(req.session.userId);
+                await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
+            }
+            const displayName = provider.charAt(0).toUpperCase() + provider.slice(1);
+            return res.redirect('/settings?success=' + displayName + ' connected');
+        }
+        
+        // Handle login mode
+        console.log(`🟡 [${provider}] Checking for req.user, value:`, req.user?.id);
+        if (req.user && req.user.id) {
+            console.log(`🟡 [${provider}] User found (${req.user.id}), calling req.login()`);
+            // Use req.login() to establish Passport session
+            return req.login(req.user, async (err) => {
+                console.log(`🟡 [${provider}] req.login() callback - err:`, err?.message);
+                if (err) {
+                    console.error(`❌ ${provider} login error:`, err);
+                    return res.redirect('/login');
+                }
+                
+                console.log(`🟡 [${provider}] req.login() successful, setting session.userId`);
+                // Auto-verify email for OAuth users
+                try {
+                    const u = getUserById(req.user.id);
+                    if (u && u.email_verified !== 1) {
+                        console.log(`🟡 [${provider}] Marking email as verified for user ${u.id}`);
+                        markEmailAsVerified({ userId: u.id });
+                    }
+                } catch (e) {
+                    console.warn('Email verification during OAuth login failed:', e.message);
+                }
+                
+                // Ensure session is saved
+                req.session.userId = req.user.id;
+                console.log(`🟡 [${provider}] Set session.userId = ${req.user.id}, saving session...`);
+                return new Promise((resolve) => {
+                    req.session.save((saveErr) => {
+                        console.log(`🟡 [${provider}] Session save callback - err:`, saveErr?.message);
+                        if (saveErr) {
+                            console.error(`❌ ${provider} session save error:`, saveErr);
+                            return resolve(res.redirect('/login'));
+                        }
+                        
+                        try {
+                            const u = getUserById(req.user.id);
+                            const redirectTarget = resolvePostAuthRedirect(u);
+                            console.log(`✅ ${provider} login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
+                            return resolve(res.redirect(redirectTarget));
+                        } catch (e) {
+                            console.error(`❌ ${provider} redirect resolution error:`, e.message);
+                            return resolve(res.redirect('/feed'));
+                        }
+                    });
+                });
+            });
+        } else {
+            console.warn(`⚠️ ${provider} callback: req.user not populated, redirecting to login`);
+            return res.redirect('/login');
+        }
+    } catch (e) {
+        console.error(`❌ ${provider} callback error:`, e.message, e.stack);
+        return res.redirect('/login');
+    }
+}
+
 router.get('/auth/google', (req, res, next) => {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return res.status(503).send('Google OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    console.log('🔍 Google OAuth - Request Host:', req.get('host'));
-    console.log('🔍 Google OAuth - Protocol:', req.protocol);
-    console.log('🔍 Google OAuth - Note: Google uses static callback URL from strategy initialization');
+    console.log('🔵 [Google] Initiating OAuth flow - Mode:', mode);
+    console.log('🔵 [Google] Request Host:', req.get('host'));
+    console.log('🔵 [Google] Protocol:', req.protocol);
     passport.authenticate('google', { state: mode, scope: ['profile', 'email'] })(req, res, next);
 });
 
-router.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), async (req, res) => {
+router.get('/auth/google/callback', (req, res, next) => {
+    console.log('🟢 [Google Callback] Received callback with query:', req.query);
+    console.log('🟢 [Google Callback] Session exists:', !!req.session);
+    console.log('🟢 [Google Callback] Session userId:', req.session?.userId);
+    
+    // Don't use failureRedirect with custom callback - it won't work as expected
+    // Instead, handle auth in a proper middleware style
+    passport.authenticate('google', (err, user, info) => {
+        console.log('🟢 [Google Callback] Passport.authenticate callback - err:', err?.message);
+        console.log('🟢 [Google Callback] Passport.authenticate callback - user:', user?.id);
+        console.log('🟢 [Google Callback] Passport.authenticate callback - info:', info);
+        
+        if (err) {
+            console.error('❌ Google Passport authentication error:', err);
+            return res.redirect('/login');
+        }
+        
+        if (!user) {
+            console.warn('⚠️ Google callback: Passport returned no user');
+            return res.redirect('/login');
+        }
+        
+        // Set req.user for use in handleOAuthCallback
+        req.user = user;
+        req.authInfo = info;
+        
+        console.log('🟢 [Google Callback] About to handle OAuth callback');
+        // Now handle the OAuth callback logic
+        handleOAuthCallback(req, res, 'google');
+    })(req, res, next);
+});
+
+async function handleOAuthCallback(req, res, provider) {
     try {
         const mode = req.query.state;
         
@@ -718,52 +829,58 @@ router.get('/auth/google/callback', passport.authenticate('google', { failureRed
                 const user = getUserById(req.session.userId);
                 await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
             }
-            return res.redirect('/settings?success=Google connected');
+            return res.redirect('/settings?success=' + provider.charAt(0).toUpperCase() + provider.slice(1) + ' connected');
         }
         
         // Handle login mode
         if (req.user && req.user.id) {
-            // Set session userId directly and ensure session is saved
-            req.session.userId = req.user.id;
-            
-            // Auto-verify email for OAuth users
-            try {
-                const u = getUserById(req.user.id);
-                if (u && u.email_verified !== 1) {
-                    markEmailAsVerified({ userId: u.id });
+            // Use req.login() to establish Passport session
+            return req.login(req.user, async (err) => {
+                if (err) {
+                    console.error(`❌ ${provider} login error:`, err);
+                    return res.redirect('/login');
                 }
-            } catch (e) {
-                console.warn('Email verification during OAuth login failed:', e.message);
-            }
-            
-            // Save session and redirect
-            return new Promise((resolve) => {
-                req.session.save((saveErr) => {
-                    if (saveErr) {
-                        console.error('❌ Google session save error:', saveErr);
-                        return resolve(res.redirect('/login'));
+                
+                // Auto-verify email for OAuth users
+                try {
+                    const u = getUserById(req.user.id);
+                    if (u && u.email_verified !== 1) {
+                        markEmailAsVerified({ userId: u.id });
                     }
-                    
-                    try {
-                        const u = getUserById(req.user.id);
-                        const redirectTarget = resolvePostAuthRedirect(u);
-                        console.log(`✅ Google login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
-                        return resolve(res.redirect(redirectTarget));
-                    } catch (e) {
-                        console.error('❌ Google redirect resolution error:', e.message);
-                        return resolve(res.redirect('/feed'));
-                    }
+                } catch (e) {
+                    console.warn('Email verification during OAuth login failed:', e.message);
+                }
+                
+                // Ensure session is saved
+                req.session.userId = req.user.id;
+                return new Promise((resolve) => {
+                    req.session.save((saveErr) => {
+                        if (saveErr) {
+                            console.error(`❌ ${provider} session save error:`, saveErr);
+                            return resolve(res.redirect('/login'));
+                        }
+                        
+                        try {
+                            const u = getUserById(req.user.id);
+                            const redirectTarget = resolvePostAuthRedirect(u);
+                            console.log(`✅ ${provider} login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
+                            return resolve(res.redirect(redirectTarget));
+                        } catch (e) {
+                            console.error(`❌ ${provider} redirect resolution error:`, e.message);
+                            return resolve(res.redirect('/feed'));
+                        }
+                    });
                 });
             });
         } else {
-            console.warn('⚠️ Google callback: req.user not populated, redirecting to login');
+            console.warn(`⚠️ ${provider} callback: req.user not populated, redirecting to login`);
             return res.redirect('/login');
         }
     } catch (e) {
-        console.error('❌ Google callback error:', e.message);
+        console.error(`❌ ${provider} callback error:`, e.message);
         return res.redirect('/login');
     }
-});
+}
 
 router.get('/auth/microsoft', (req, res, next) => {
     if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) return res.status(503).send('Microsoft OAuth not configured');
@@ -772,58 +889,27 @@ router.get('/auth/microsoft', (req, res, next) => {
     passport.authenticate('microsoft', { state: mode })(req, res, next);
 });
 
-router.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), async (req, res) => {
-    try {
-        const mode = req.query.state;
-        
-        // Handle account linking mode
-        if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
-            updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-            return res.redirect('/settings?success=Microsoft connected');
-        }
-        
-        // Handle login mode
-        if (req.user && req.user.id) {
-            // Set session userId directly and ensure session is saved
-            req.session.userId = req.user.id;
-            
-            // Auto-verify email for OAuth users
-            try {
-                const u = getUserById(req.user.id);
-                if (u && u.email_verified !== 1) {
-                    markEmailAsVerified({ userId: u.id });
-                }
-            } catch (e) {
-                console.warn('Email verification during OAuth login failed:', e.message);
-            }
-            
-            // Save session and redirect
-            return new Promise((resolve) => {
-                req.session.save((saveErr) => {
-                    if (saveErr) {
-                        console.error('❌ Microsoft session save error:', saveErr);
-                        return resolve(res.redirect('/login'));
-                    }
-                    
-                    try {
-                        const u = getUserById(req.user.id);
-                        const redirectTarget = resolvePostAuthRedirect(u);
-                        console.log(`✅ Microsoft login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
-                        return resolve(res.redirect(redirectTarget));
-                    } catch (e) {
-                        console.error('❌ Microsoft redirect resolution error:', e.message);
-                        return resolve(res.redirect('/feed'));
-                    }
-                });
-            });
-        } else {
-            console.warn('⚠️ Microsoft callback: req.user not populated, redirecting to login');
+router.get('/auth/microsoft/callback', (req, res, next) => {
+    // Don't use failureRedirect with custom callback - it won't work as expected
+    // Instead, handle auth in a proper middleware style
+    passport.authenticate('microsoft', (err, user, info) => {
+        if (err) {
+            console.error('❌ Microsoft Passport authentication error:', err);
             return res.redirect('/login');
         }
-    } catch (e) {
-        console.error('❌ Microsoft callback error:', e.message);
-        return res.redirect('/login');
-    }
+        
+        if (!user) {
+            console.warn('⚠️ Microsoft callback: Passport returned no user');
+            return res.redirect('/login');
+        }
+        
+        // Set req.user for use in handleOAuthCallback
+        req.user = user;
+        req.authInfo = info;
+        
+        // Now handle the OAuth callback logic
+        handleOAuthCallback(req, res, 'microsoft');
+    })(req, res, next);
 });
 
 router.get('/auth/apple', (req, res, next) => {
@@ -833,40 +919,71 @@ router.get('/auth/apple', (req, res, next) => {
     passport.authenticate('apple', { state: mode, callbackURL: callbackURL })(req, res, next);
 });
 
-router.post('/auth/apple/callback', passport.authenticate('apple', { failureRedirect: '/login' }), async (req, res) => {
-    const mode = req.query.state;
-    if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
-        updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-        return res.redirect('/settings?success=Apple connected');
-    }
-    if (req.user && req.user.id) {
-        req.login(req.user, (err) => {
-            if (err) {
-                console.error('Apple login error:', err);
-                return res.redirect('/login');
-            }
-            if (req.session) {
-                req.session.userId = req.user.id;
-                req.session.save((saveErr) => {
-                    if (saveErr) console.error('Apple session save error:', saveErr);
-                    try {
-                        const u = getUserById(req.user.id);
-                        if (u && u.email_verified !== 1) {
-                            markEmailAsVerified({ userId: u.id });
-                        }
-                        const redirectTarget = resolvePostAuthRedirect(u ? getUserById(u.id) : null);
-                        return res.redirect(redirectTarget);
-                    } catch (_) {
-                        return res.redirect('/feed');
-                    }
-                });
-            } else {
-                return res.redirect('/feed');
-            }
-        });
-    } else {
-        res.redirect('/feed');
-    }
+router.post('/auth/apple/callback', (req, res, next) => {
+    // Don't use failureRedirect with custom callback - it won't work as expected
+    // Instead, handle auth in a proper middleware style
+    passport.authenticate('apple', (err, user, info) => {
+        if (err) {
+            console.error('❌ Apple Passport authentication error:', err);
+            return res.redirect('/login');
+        }
+        
+        if (!user) {
+            console.warn('⚠️ Apple callback: Passport returned no user');
+            return res.redirect('/login');
+        }
+        
+        // Set req.user for use in handleOAuthCallback
+        req.user = user;
+        req.authInfo = info;
+        
+        // Now handle the OAuth callback logic
+        handleOAuthCallback(req, res, 'apple');
+    })(req, res, next);
+});
+
+router.get('/auth/x', (req, res, next) => {
+    if (!process.env.TWITTER_CLIENT_ID || !process.env.TWITTER_CLIENT_SECRET) return res.status(503).send('X (Twitter) OAuth not configured');
+    const mode = req.query.mode === 'link' ? 'link' : 'login';
+    console.log('🔵 [Twitter] Initiating OAuth flow - Mode:', mode);
+    console.log('🔵 [Twitter] Request Host:', req.get('host'));
+    console.log('🔵 [Twitter] Protocol:', req.protocol);
+    console.log('🔵 [Twitter] Client ID:', process.env.TWITTER_CLIENT_ID.substring(0, 10) + '...');
+    console.log('🔵 [Twitter] Callback URL being used: http://localhost/auth/x/callback (from strategy config)');
+    console.log('🔵 [Twitter] Make sure this callback URL is registered in Twitter Developer Console!');
+    passport.authenticate('twitter', { state: mode })(req, res, next);
+});
+
+router.get('/auth/x/callback', (req, res, next) => {
+    console.log('🟢 [Twitter Callback] Received callback with query:', req.query);
+    console.log('🟢 [Twitter Callback] Session exists:', !!req.session);
+    console.log('🟢 [Twitter Callback] Session userId:', req.session?.userId);
+    
+    // Don't use failureRedirect with custom callback - it won't work as expected
+    // Instead, handle auth in a proper middleware style
+    passport.authenticate('twitter', (err, user, info) => {
+        console.log('🟢 [Twitter Callback] Passport.authenticate callback - err:', err?.message);
+        console.log('🟢 [Twitter Callback] Passport.authenticate callback - user:', user?.id);
+        console.log('🟢 [Twitter Callback] Passport.authenticate callback - info:', info);
+        
+        if (err) {
+            console.error('❌ Twitter Passport authentication error:', err);
+            return res.redirect('/login');
+        }
+        
+        if (!user) {
+            console.warn('⚠️ Twitter callback: Passport returned no user');
+            return res.redirect('/login');
+        }
+        
+        // Set req.user for use in handleOAuthCallback
+        req.user = user;
+        req.authInfo = info;
+        
+        console.log('🟢 [Twitter Callback] About to handle OAuth callback');
+        // Now handle the OAuth callback logic
+        handleOAuthCallback(req, res, 'twitter');
+    })(req, res, next);
 });
 
 module.exports = router;
