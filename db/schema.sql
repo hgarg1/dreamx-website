@@ -930,3 +930,110 @@ CREATE TABLE project_comment_reactions (
 CREATE INDEX idx_comment_reactions_comment ON project_comment_reactions(comment_id);
 CREATE INDEX idx_comment_reactions_user ON project_comment_reactions(user_id);
 
+-- Pricing tiers
+CREATE TABLE pricing_tiers (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  tier_id NVARCHAR(50) NOT NULL UNIQUE,
+  name NVARCHAR(100) NOT NULL,
+  price FLOAT NOT NULL DEFAULT 0,
+  price_display NVARCHAR(50) NOT NULL,
+  tagline NVARCHAR(255),
+  features NVARCHAR(MAX),                       -- JSON array of feature strings
+  is_highlighted BIT DEFAULT 0,
+  display_order INT DEFAULT 0,
+  is_active BIT DEFAULT 1,
+  note NVARCHAR(MAX),
+  created_at DATETIME2 DEFAULT GETDATE(),
+  updated_at DATETIME2 DEFAULT GETDATE()
+);
+
+CREATE INDEX idx_pricing_tiers_tier_id ON pricing_tiers(tier_id);
+CREATE INDEX idx_pricing_tiers_display_order ON pricing_tiers(display_order);
+CREATE INDEX idx_pricing_tiers_is_active ON pricing_tiers(is_active);
+
+-- Sales inquiries
+CREATE TABLE sales_inquiries (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  company_name NVARCHAR(255) NOT NULL,
+  industry NVARCHAR(100),
+  company_size NVARCHAR(50),
+  company_website NVARCHAR(500),
+  company_address NVARCHAR(500),
+  company_city NVARCHAR(100),
+  company_country NVARCHAR(100),
+  contact_name NVARCHAR(255) NOT NULL,
+  contact_email NVARCHAR(255) NOT NULL,
+  contact_phone NVARCHAR(50),
+  contact_job_title NVARCHAR(100),
+  contact_department NVARCHAR(100),
+  use_case NVARCHAR(MAX) NOT NULL,
+  expected_users NVARCHAR(50),
+  timeline NVARCHAR(50),
+  budget_range NVARCHAR(50),
+  current_solution NVARCHAR(MAX),
+  integration_needs NVARCHAR(MAX),
+  additional_info NVARCHAR(MAX),
+  how_heard_about_us NVARCHAR(100),
+  preferred_contact_method NVARCHAR(50) DEFAULT 'email',
+  preferred_contact_time NVARCHAR(100),
+  status NVARCHAR(50) DEFAULT 'new',
+  priority NVARCHAR(50) DEFAULT 'normal',
+  assigned_to INT,
+  assigned_at DATETIME2,
+  last_contacted_at DATETIME2,
+  last_contacted_by INT,
+  follow_up_notes NVARCHAR(MAX),
+  next_follow_up_date DATETIME2,
+  outcome NVARCHAR(50),
+  outcome_notes NVARCHAR(MAX),
+  closed_at DATETIME2,
+  closed_by INT,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  updated_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (last_contacted_by) REFERENCES users(id) ON DELETE NO ACTION,
+  FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE NO ACTION
+);
+
+CREATE INDEX idx_sales_inquiries_status ON sales_inquiries(status);
+CREATE INDEX idx_sales_inquiries_priority ON sales_inquiries(priority);
+CREATE INDEX idx_sales_inquiries_assigned_to ON sales_inquiries(assigned_to);
+CREATE INDEX idx_sales_inquiries_created_at ON sales_inquiries(created_at);
+
+-- Sales inquiry communications
+CREATE TABLE sales_inquiry_communications (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  inquiry_id INT NOT NULL,
+  sender_id INT NOT NULL,
+  communication_type NVARCHAR(50) NOT NULL,     -- 'email', 'phone', 'meeting', 'note'
+  subject NVARCHAR(255),
+  content NVARCHAR(MAX) NOT NULL,
+  recipient_email NVARCHAR(255),
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (inquiry_id) REFERENCES sales_inquiries(id) ON DELETE CASCADE,
+  FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE NO ACTION
+);
+
+CREATE INDEX idx_sales_comms_inquiry ON sales_inquiry_communications(inquiry_id);
+CREATE INDEX idx_sales_comms_sender ON sales_inquiry_communications(sender_id);
+
+-- Business admin assignments
+CREATE TABLE business_admin_assignments (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  parent_admin_id INT NOT NULL,
+  assigned_admin_id INT NOT NULL,
+  permissions NVARCHAR(MAX) DEFAULT '[]',
+  scopes NVARCHAR(MAX) DEFAULT '[]',
+  notes NVARCHAR(MAX),
+  status NVARCHAR(50) DEFAULT 'active',
+  created_at DATETIME2 DEFAULT GETDATE(),
+  updated_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (parent_admin_id) REFERENCES users(id) ON DELETE NO ACTION,
+  FOREIGN KEY (assigned_admin_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE(parent_admin_id, assigned_admin_id)
+);
+
+CREATE INDEX idx_baa_parent ON business_admin_assignments(parent_admin_id);
+CREATE INDEX idx_baa_assigned ON business_admin_assignments(assigned_admin_id);
+CREATE INDEX idx_baa_status ON business_admin_assignments(status);
+

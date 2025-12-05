@@ -137,7 +137,7 @@ async function seedPermissionGroups() {
  */
 async function seedPermissions() {
   // Get permission group IDs
-  const groups = rbacService.getPermissionGroups();
+  const groups = rbacService.getPermissionGroups() || [];
   const groupMap = {};
   for (const g of groups) {
     groupMap[g.name] = g.id;
@@ -319,8 +319,8 @@ async function seedRoles() {
  */
 async function seedRolePermissions() {
   // Get all roles and permissions
-  const roles = rbacService.getRoles({ includeDisabled: true });
-  const permissions = rbacService.getPermissions({ includeDisabled: true });
+  const roles = rbacService.getRoles({ includeDisabled: true }) || [];
+  const permissions = rbacService.getPermissions({ includeDisabled: true }) || [];
   
   const roleMap = {};
   for (const r of roles) roleMap[r.name] = r;
@@ -395,7 +395,7 @@ function assignPermissionsToRole(roleId, permissionNames, permMap) {
  * Seed legacy role mappings for backward compatibility
  */
 async function seedLegacyMappings() {
-  const roles = rbacService.getRoles({ includeDisabled: true });
+  const roles = rbacService.getRoles({ includeDisabled: true }) || [];
   
   for (const role of roles) {
     try {
