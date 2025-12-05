@@ -96,13 +96,13 @@
 
   <!-- Add Payment Method Modal -->
   <div id="addPaymentMethodModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;overflow-y:auto;padding:20px 0;">
-    <div class="payment-modal-container" style="background:white;border-radius:20px;padding:32px;max-width:520px;width:90%;box-shadow:0 25px 80px rgba(0,0,0,0.35);position:relative;margin:auto;max-height:calc(100vh - 40px);overflow-y:auto;">
+    <div class="payment-modal-container" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:32px;max-width:520px;width:90%;box-shadow:0 25px 80px rgba(0,0,0,0.35);max-height:calc(100vh - 40px);overflow-y:auto;">
       <!-- Animated gradient background -->
-      <div class="payment-modal-bg" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0.03;pointer-events:none;background:linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ff4fa3 100%);"></div>
+      <div class="payment-modal-bg" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0.03;pointer-events:none;background:linear-gradient(135deg, #FF4DFF 0%, #A53CFF 50%, #3FD6FF 100%);border-radius:20px;"></div>
       
       <div style="position:relative;z-index:1;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-          <h3 style="margin:0;font-size:28px;font-weight:700;background:linear-gradient(135deg, #667eea, #ff4fa3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Add Payment Method</h3>
+          <h3 style="margin:0;font-size:28px;font-weight:700;background:linear-gradient(135deg, #FF4DFF, #A53CFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Add Payment Method</h3>
           <button onclick="closeAddPaymentModal()" style="background:none;border:none;font-size:32px;color:#6b7280;cursor:pointer;line-height:1;transition:all 0.2s;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">&times;</button>
         </div>
         
@@ -112,7 +112,7 @@
         
         <form id="addPaymentForm" onsubmit="handleAddPayment(event)">
           <!-- Card preview area with dynamic styling -->
-          <div id="cardPreview" class="card-preview" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:16px;padding:24px;margin-bottom:24px;color:white;min-height:180px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 30px rgba(0,0,0,0.2);transition:all 0.4s cubic-bezier(0.4, 0, 0.2, 1);position:relative;overflow:hidden;">
+          <div id="cardPreview" class="card-preview" style="background:linear-gradient(135deg, #FF4DFF 0%, #A53CFF 100%);border-radius:16px;padding:24px;margin-bottom:24px;color:white;min-height:180px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 30px rgba(255,77,255,0.3);transition:all 0.4s cubic-bezier(0.4, 0, 0.2, 1);position:relative;overflow:hidden;">
             <!-- Card shine effect -->
             <div style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);transform:translateX(-100%);animation:cardShine 3s infinite;"></div>
             
@@ -139,7 +139,7 @@
           <div style="margin-bottom:20px;">
             <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">Card Number</label>
             <div style="position:relative;">
-              <input type="text" id="cardNumberInput" name="cardNumber" maxlength="19" placeholder="1234 5678 9012 3456" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-family:monospace;font-size:16px;letter-spacing:2px;transition:all 0.3s;padding-right:50px;" oninput="handleCardNumberInput(event)" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+              <input type="text" id="cardNumberInput" name="cardNumber" maxlength="19" placeholder="1234 5678 9012 3456" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-family:monospace;font-size:16px;letter-spacing:2px;transition:all 0.3s;padding-right:50px;" oninput="handleCardNumberInput(event)" onfocus="this.style.borderColor='#FF4DFF';this.style.boxShadow='0 0 0 3px rgba(255, 77, 255, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
               <div id="cardTypeIndicator" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:24px;transition:all 0.3s;">💳</div>
             </div>
             <div id="cardTypeLabel" style="font-size:12px;margin-top:6px;color:#6b7280;font-weight:600;"></div>
@@ -148,35 +148,35 @@
           <!-- Cardholder name -->
           <div style="margin-bottom:20px;">
             <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">Cardholder Name</label>
-            <input type="text" id="cardHolderInput" name="cardHolder" placeholder="JOHN DOE" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-transform:uppercase;" oninput="handleCardHolderInput(event)" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+            <input type="text" id="cardHolderInput" name="cardHolder" placeholder="JOHN DOE" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-transform:uppercase;" oninput="handleCardHolderInput(event)" onfocus="this.style.borderColor='#FF4DFF';this.style.boxShadow='0 0 0 3px rgba(255, 77, 255, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
           </div>
 
           <!-- Expiry and CVV row -->
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px;">
             <div>
               <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">Expiry Month</label>
-              <input type="text" id="expiryMonthInput" name="expiryMonth" maxlength="2" placeholder="MM" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="handleExpiryInput(event)" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+              <input type="text" id="expiryMonthInput" name="expiryMonth" maxlength="2" placeholder="MM" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="handleExpiryInput(event)" onfocus="this.style.borderColor='#FF4DFF';this.style.boxShadow='0 0 0 3px rgba(255, 77, 255, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
             </div>
             <div>
               <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">Expiry Year</label>
-              <input type="text" id="expiryYearInput" name="expiryYear" maxlength="2" placeholder="YY" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="handleExpiryInput(event)" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+              <input type="text" id="expiryYearInput" name="expiryYear" maxlength="2" placeholder="YY" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="handleExpiryInput(event)" onfocus="this.style.borderColor='#FF4DFF';this.style.boxShadow='0 0 0 3px rgba(255, 77, 255, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
             </div>
             <div>
               <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:14px;">CVV</label>
-              <input type="text" id="cvvInput" name="cvv" maxlength="4" placeholder="123" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onfocus="this.style.borderColor='#667eea';this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
+              <input type="text" id="cvvInput" name="cvv" maxlength="4" placeholder="123" required style="width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:16px;transition:all 0.3s;text-align:center;" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onfocus="this.style.borderColor='#FF4DFF';this.style.boxShadow='0 0 0 3px rgba(255, 77, 255, 0.1)'" onblur="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'" />
             </div>
           </div>
 
           <!-- Set as default checkbox -->
           <label style="display:flex;align-items:center;gap:10px;margin-bottom:24px;cursor:pointer;padding:12px;border-radius:12px;transition:all 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='transparent'">
-            <input type="checkbox" name="setDefault" checked style="width:20px;height:20px;cursor:pointer;accent-color:#667eea;" />
+            <input type="checkbox" name="setDefault" checked style="width:20px;height:20px;cursor:pointer;accent-color:#FF4DFF;" />
             <span style="font-weight:600;color:#374151;">Set as default payment method</span>
           </label>
 
           <!-- Action buttons -->
           <div style="display:flex;gap:12px;justify-content:flex-end;">
             <button type="button" onclick="closeAddPaymentModal()" style="padding:14px 28px;background:#f3f4f6;color:#374151;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:all 0.2s;font-size:15px;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">Cancel</button>
-            <button type="submit" style="padding:14px 28px;background:linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ff4fa3 100%);color:white;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 14px rgba(102, 126, 234, 0.4);font-size:15px;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.5)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 14px rgba(102, 126, 234, 0.4)'">Add Payment Method</button>
+            <button type="submit" style="padding:14px 28px;background:linear-gradient(135deg, #FF4DFF 0%, #A53CFF 100%);color:white;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 14px rgba(255, 77, 255, 0.4);font-size:15px;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(255, 77, 255, 0.5)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 14px rgba(255, 77, 255, 0.4)'">Add Payment Method</button>
           </div>
         </form>
       </div>
@@ -400,7 +400,7 @@
 <!-- Contact Sales Modal (same as pricing page) -->
 <div id="contactSalesModal" class="sales-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:10000;align-items:center;justify-content:center;">
     <div class="sales-modal-overlay" onclick="closeContactSalesModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"></div>
-    <div class="sales-modal-content" style="position:relative;background:white;border-radius:20px;width:90%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.3);">
+    <div class="sales-modal-content" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;width:90%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,0.3);">
         <button class="sales-modal-close" onclick="closeContactSalesModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:2rem;color:#9ca3af;cursor:pointer;z-index:1;">&times;</button>
         
         <!-- Step 1: Company Info -->
@@ -504,7 +504,7 @@
 
 <!-- Cancel Subscription Modal -->
 <div id="cancelSubscriptionModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:16px;padding:32px;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:16px;padding:32px;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <h3 style="margin:0;font-size:24px;color:#1f2937;">Cancel Subscription</h3>
       <button onclick="closeCancelModal()" style="background:none;border:none;font-size:32px;color:#6b7280;cursor:pointer;line-height:1;">&times;</button>
@@ -550,14 +550,14 @@
   }
 
   .tier-card:hover {
-    border-color: #14b8a6;
-    box-shadow: 0 8px 24px rgba(20, 184, 166, 0.15);
+    border-color: #FF4DFF;
+    box-shadow: 0 8px 24px rgba(255, 77, 255, 0.15);
     transform: translateY(-4px);
   }
 
   .tier-card-current {
-    border-color: #14b8a6;
-    background: linear-gradient(135deg, rgba(20, 184, 166, 0.05), rgba(15, 118, 110, 0.05));
+    border-color: #FF4DFF;
+    background: linear-gradient(135deg, rgba(255, 77, 255, 0.05), rgba(165, 60, 255, 0.05));
   }
 
   .tier-card-name {
@@ -576,7 +576,7 @@
   .tier-card-price {
     font-size: 1.75rem;
     font-weight: 800;
-    color: #14b8a6;
+    color: #FF4DFF;
   }
 
   .tier-card-price span {
@@ -617,23 +617,23 @@
   }
 
   .tier-btn-primary {
-    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    background: linear-gradient(135deg, #FF4DFF, #A53CFF);
     color: white;
   }
 
   .tier-btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+    box-shadow: 0 4px 12px rgba(255, 77, 255, 0.3);
   }
 
   .tier-btn-outline {
     background: white;
-    color: #14b8a6;
-    border: 2px solid #14b8a6;
+    color: #FF4DFF;
+    border: 2px solid #FF4DFF;
   }
 
   .tier-btn-outline:hover {
-    background: #f0fdf4;
+    background: rgba(255, 77, 255, 0.05);
   }
 
   .tier-btn-current {
@@ -846,7 +846,7 @@
     },
     default: {
       icon: '💳',
-      color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      color: 'linear-gradient(135deg, #FF4DFF 0%, #A53CFF 100%)',
       name: 'Unknown'
     }
   };
@@ -948,7 +948,7 @@
       document.getElementById('cardNumberDisplay').textContent = '•••• •••• •••• ••••';
       document.getElementById('cardHolderDisplay').textContent = 'YOUR NAME';
       document.getElementById('cardExpiryDisplay').textContent = 'MM/YY';
-      document.getElementById('cardPreview').style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      document.getElementById('cardPreview').style.background = 'linear-gradient(135deg, #FF4DFF 0%, #A53CFF 100%)';
       document.getElementById('cardTypeIcon').textContent = '💳';
       document.getElementById('cardTypeIndicator').textContent = '💳';
       document.getElementById('cardTypeLabel').textContent = '';
@@ -1025,15 +1025,19 @@
     }
   });
 
-  // Contact Sales Modal Functions
+  // Contact Sales Modal Functions - Fixed to work with actual modal structure
+  let currentSalesStep = 1;
+  const totalSalesSteps = 4;
+  let salesFormData = {};
+
   function openContactSalesModal() {
     const modal = document.getElementById('contactSalesModal');
     if (modal) {
-      modal.style.display = 'block';
-      document.querySelector('.sales-step-1').style.display = 'block';
-      document.querySelector('.sales-step-2').style.display = 'none';
-      document.querySelector('.sales-step-3').style.display = 'none';
-      document.querySelector('.sales-step-4').style.display = 'none';
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      currentSalesStep = 1;
+      updateSalesProgress();
+      showSalesStep(1);
     }
   }
 
@@ -1041,81 +1045,162 @@
     const modal = document.getElementById('contactSalesModal');
     if (modal) {
       modal.style.display = 'none';
+      document.body.style.overflow = '';
       // Reset form
-      document.getElementById('contactSalesForm').reset();
+      setTimeout(() => {
+        currentSalesStep = 1;
+        updateSalesProgress();
+        resetSalesForms();
+        showSalesStep(1);
+      }, 300);
     }
   }
 
-  function nextSalesStep(currentStep) {
-    const nextStep = currentStep + 1;
-    document.querySelector(`.sales-step-${currentStep}`).style.display = 'none';
-    document.querySelector(`.sales-step-${nextStep}`).style.display = 'block';
-    
-    // Update progress bar
-    updateSalesProgress(nextStep);
+  function resetSalesForms() {
+    document.getElementById('companyForm')?.reset();
+    document.getElementById('contactForm')?.reset();
+    document.getElementById('requirementsForm')?.reset();
+    document.getElementById('additionalForm')?.reset();
+    salesFormData = {};
   }
 
-  function prevSalesStep(currentStep) {
-    const prevStep = currentStep - 1;
-    document.querySelector(`.sales-step-${currentStep}`).style.display = 'none';
-    document.querySelector(`.sales-step-${prevStep}`).style.display = 'block';
+  function showSalesStep(step) {
+    // Hide all steps
+    for (let i = 1; i <= totalSalesSteps; i++) {
+      const stepEl = document.getElementById(`salesStep${i}`);
+      if (stepEl) stepEl.style.display = 'none';
+    }
+    const successEl = document.getElementById('salesStepSuccess');
+    if (successEl) successEl.style.display = 'none';
     
-    // Update progress bar
-    updateSalesProgress(prevStep);
-  }
-
-  function updateSalesProgress(step) {
-    for (let i = 1; i <= 4; i++) {
-      const indicator = document.querySelector(`.sales-progress-${i}`);
-      if (indicator) {
-        if (i <= step) {
-          indicator.classList.add('active');
-        } else {
-          indicator.classList.remove('active');
-        }
-      }
+    // Show current step
+    const currentStepEl = document.getElementById(`salesStep${step}`);
+    if (currentStepEl) {
+      currentStepEl.style.display = 'block';
     }
   }
 
-  async function submitSalesInquiry(event) {
-    event.preventDefault();
+  function updateSalesProgress() {
+    // No progress indicators in billing modal - just update step
+  }
+
+  function collectFormData(formId) {
+    const form = document.getElementById(formId);
+    if (!form) return {};
     
-    const formData = new FormData(event.target);
-    const data = {
-      company: formData.get('company'),
-      employees: formData.get('employees'),
-      contactName: formData.get('contactName'),
-      contactEmail: formData.get('contactEmail'),
-      contactPhone: formData.get('contactPhone'),
-      requirements: formData.get('requirements')
+    const formData = new FormData(form);
+    const data = {};
+    formData.forEach((value, key) => {
+      data[key] = value;
+    });
+    return data;
+  }
+
+  function validateStep(step) {
+    let formId;
+    switch(step) {
+      case 1: formId = 'companyForm'; break;
+      case 2: formId = 'contactForm'; break;
+      case 3: formId = 'requirementsForm'; break;
+      case 4: formId = 'additionalForm'; break;
+      default: return true;
+    }
+    
+    const form = document.getElementById(formId);
+    if (!form) return true;
+    
+    // Check HTML5 validation
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return false;
+    }
+    
+    return true;
+  }
+
+  function nextSalesStep(fromStep) {
+    if (!validateStep(fromStep)) return;
+    
+    // Collect data from current step
+    switch(fromStep) {
+      case 1:
+        Object.assign(salesFormData, collectFormData('companyForm'));
+        break;
+      case 2:
+        Object.assign(salesFormData, collectFormData('contactForm'));
+        break;
+      case 3:
+        Object.assign(salesFormData, collectFormData('requirementsForm'));
+        break;
+    }
+    
+    currentSalesStep = fromStep + 1;
+    updateSalesProgress();
+    showSalesStep(currentSalesStep);
+  }
+
+  function prevSalesStep(fromStep) {
+    currentSalesStep = fromStep - 1;
+    updateSalesProgress();
+    showSalesStep(currentSalesStep);
+  }
+
+  async function submitSalesInquiry() {
+    const agreeCheckbox = document.getElementById('agreeToContact');
+    if (agreeCheckbox && !agreeCheckbox.checked) {
+      alert('Please agree to be contacted by our sales team to proceed.');
+      return;
+    }
+    
+    // Collect final data
+    const additionalInfo = document.getElementById('additionalInfo')?.value || '';
+    
+    const payload = {
+      ...salesFormData,
+      additionalInfo
     };
     
     try {
-      const res = await fetch('/api/contact-sales', {
+      const response = await fetch('/api/sales/inquiry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
       });
       
-      const result = await res.json();
+      const result = await response.json();
       
-      if (res.ok && result.success) {
-        alert('Thank you! Our sales team will contact you shortly.');
-        closeContactSalesModal();
+      if (response.ok && result.success) {
+        // Show success state
+        for (let i = 1; i <= totalSalesSteps; i++) {
+          const stepEl = document.getElementById(`salesStep${i}`);
+          if (stepEl) stepEl.style.display = 'none';
+        }
+        
+        document.getElementById('salesStepSuccess').style.display = 'block';
       } else {
         alert(result.error || 'Failed to submit inquiry. Please try again.');
       }
-    } catch (err) {
-      console.error('Sales inquiry error:', err);
-      alert('Network error. Please try again.');
+    } catch (error) {
+      console.error('Sales inquiry error:', error);
+      alert('An error occurred. Please try again.');
     }
   }
 
   // Close modal when clicking outside
   window.addEventListener('click', (e) => {
     const salesModal = document.getElementById('contactSalesModal');
-    if (salesModal && e.target === salesModal) {
+    if (salesModal && e.target.classList.contains('sales-modal-overlay')) {
       closeContactSalesModal();
+    }
+  });
+
+  // Close modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const salesModal = document.getElementById('contactSalesModal');
+      if (salesModal && salesModal.style.display === 'flex') {
+        closeContactSalesModal();
+      }
     }
   });
 
@@ -1128,7 +1213,7 @@
     }
     
     .tier-btn-enterprise {
-      background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+      background: linear-gradient(135deg, #FF4DFF 0%, #A53CFF 100%);
       color: white;
       border: none;
       display: flex;
@@ -1145,13 +1230,33 @@
     }
     
     .tier-btn-enterprise:hover {
-      background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+      background: linear-gradient(135deg, #D845FF 0%, #A53CFF 100%);
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(20, 184, 166, 0.35);
+      box-shadow: 0 8px 20px rgba(255, 77, 255, 0.35);
     }
     
     .tier-btn-enterprise .btn-icon {
       font-size: 1.2rem;
+    }
+    
+    /* Sales modal centering fix */
+    #contactSalesModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #contactSalesModal .sales-modal-content {
+      position: relative;
+      margin: auto;
+      top: 50%;
+      transform: translateY(-50%);
     }
   `;
   document.head.appendChild(style);
