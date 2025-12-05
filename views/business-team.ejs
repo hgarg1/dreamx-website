@@ -1,0 +1,1023 @@
+<%- include('partials/header') %>
+
+<section class="business-page">
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="breadcrumb">
+                <a href="/business">Dashboard</a>
+                <span class="separator">→</span>
+                <span class="current">Team Management</span>
+            </div>
+            <div class="header-row">
+                <div>
+                    <h1 class="page-title">
+                        <span class="title-icon">👥</span>
+                        Business Admin Team
+                    </h1>
+                    <p class="page-subtitle">Manage business admin team members and their permissions.</p>
+                </div>
+                <% if (hasPermission('business_team_manage')) { %>
+                <button onclick="openAddMemberModal()" class="add-btn">
+                    <span class="btn-icon">➕</span> Add Team Member
+                </button>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success"><%= success %></div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <div class="team-container">
+        <% if (parentAdmin) { %>
+        <div class="parent-notice">
+            <span class="notice-icon">ℹ️</span>
+            <span>You are a subordinate business admin under <strong><%= parentAdmin.parent_name %></strong> (<%= parentAdmin.parent_email %>)</span>
+        </div>
+        <% } %>
+
+        <!-- Team Members List -->
+        <div class="team-section">
+            <h2 class="section-title">Your Team Members</h2>
+            
+            <% if (teamMembers && teamMembers.length > 0) { %>
+            <div class="team-grid">
+                <% teamMembers.forEach(function(member) { %>
+                <div class="team-card">
+                    <div class="member-header">
+                        <div class="member-avatar">
+                            <% if (member.profile_picture) { %>
+                            <img src="/uploads/<%= member.profile_picture %>" alt="<%= member.full_name %>">
+                            <% } else { %>
+                            <span class="avatar-initial"><%= member.full_name.charAt(0) %></span>
+                            <% } %>
+                        </div>
+                        <div class="member-info">
+                            <div class="member-name"><%= member.full_name %></div>
+                            <div class="member-email"><%= member.email %></div>
+                        </div>
+                        <span class="member-badge status-<%= member.status %>"><%= member.status %></span>
+                    </div>
+                    
+                    <div class="member-permissions">
+                        <h4>Permissions</h4>
+                        <div class="permissions-list">
+                            <% 
+                            const memberPerms = member.permissions ? JSON.parse(member.permissions) : [];
+                            BUSINESS_ADMIN_PERMISSION_DEFINITIONS.forEach(function(perm) { 
+                                const hasThisPerm = memberPerms.includes(perm.key);
+                            %>
+                            <span class="perm-chip <%= hasThisPerm ? 'granted' : 'denied' %>">
+                                <%= hasThisPerm ? '✓' : '✗' %> <%= perm.label %>
+                            </span>
+                            <% }); %>
+                        </div>
+                    </div>
+                    
+                    <div class="member-meta">
+                        <span>Added: <%= new Date(member.created_at).toLocaleDateString() %></span>
+                    </div>
+                    
+                    <% if (hasPermission('business_team_manage')) { %>
+                    <div class="member-actions">
+                        <button onclick="openEditPermissionsModal(<%= member.id %>, '<%= member.full_name %>', <%= JSON.stringify(memberPerms) %>)" class="action-btn edit">
+                            Edit Permissions
+                        </button>
+                        <button onclick="revokeMember(<%= member.id %>, '<%= member.full_name %>')" class="action-btn revoke">
+                            Revoke Access
+                        </button>
+                    </div>
+                    <% } %>
+                </div>
+                <% }); %>
+            </div>
+            <% } else { %>
+            <div class="empty-state">
+                <div class="empty-icon">👥</div>
+                <h3>No team members yet</h3>
+                <p>Add business admin team members to help manage enterprise sales inquiries.</p>
+                <% if (hasPermission('business_team_manage')) { %>
+                <button onclick="openAddMemberModal()" class="add-first-btn">+ Add First Team Member</button>
+                <% } %>
+            </div>
+            <% } %>
+        </div>
+
+        <!-- All Business Admins Overview -->
+        <div class="team-section">
+            <h2 class="section-title">All Business Admins</h2>
+            <div class="admins-table-container">
+                <table class="admins-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Subordinates</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% allBusinessAdmins.forEach(function(admin) { %>
+                        <tr>
+                            <td>
+                                <div class="admin-cell">
+                                    <div class="admin-avatar">
+                                        <% if (admin.profile_picture) { %>
+                                        <img src="/uploads/<%= admin.profile_picture %>" alt="<%= admin.full_name %>">
+                                        <% } else { %>
+                                        <span><%= admin.full_name.charAt(0) %></span>
+                                        <% } %>
+                                    </div>
+                                    <span><%= admin.full_name %></span>
+                                </div>
+                            </td>
+                            <td><%= admin.email %></td>
+                            <td><span class="subordinate-count"><%= admin.subordinate_count || 0 %></span></td>
+                            <td><%= new Date(admin.created_at).toLocaleDateString() %></td>
+                        </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add Member Modal -->
+<div id="addMemberModal" class="modal">
+    <div class="modal-overlay" onclick="closeAddMemberModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add Team Member</h2>
+            <button onclick="closeAddMemberModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="addMemberForm" class="modal-form">
+            <div class="form-group">
+                <label>Search User</label>
+                <input type="text" id="userSearch" placeholder="Search by name or email..." oninput="searchUsers(this.value)">
+                <div id="userSearchResults" class="search-results"></div>
+                <input type="hidden" id="selectedUserId" name="userId">
+            </div>
+            
+            <div class="form-group" id="selectedUserDisplay" style="display: none;">
+                <label>Selected User</label>
+                <div class="selected-user">
+                    <span id="selectedUserName"></span>
+                    <button type="button" onclick="clearSelectedUser()" class="clear-btn">&times;</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Permissions</label>
+                <p class="form-help">Select the permissions to grant to this team member.</p>
+                <div class="permissions-selector">
+                    <% BUSINESS_ADMIN_PERMISSION_DEFINITIONS.forEach(function(perm) { %>
+                    <label class="permission-checkbox">
+                        <input type="checkbox" name="permissions" value="<%= perm.key %>">
+                        <span class="checkbox-custom"></span>
+                        <span class="permission-info">
+                            <span class="permission-name"><%= perm.label %></span>
+                            <span class="permission-desc"><%= perm.desc %></span>
+                        </span>
+                    </label>
+                    <% }); %>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Notes (Optional)</label>
+                <textarea name="notes" rows="2" placeholder="Any notes about this team member..."></textarea>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" onclick="closeAddMemberModal()" class="cancel-btn">Cancel</button>
+                <button type="submit" class="submit-btn" id="addMemberSubmit" disabled>Add Team Member</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Permissions Modal -->
+<div id="editPermissionsModal" class="modal">
+    <div class="modal-overlay" onclick="closeEditPermissionsModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Permissions</h2>
+            <button onclick="closeEditPermissionsModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="editPermissionsForm" class="modal-form">
+            <input type="hidden" id="editAssignmentId" name="assignmentId">
+            
+            <div class="form-group">
+                <label>Team Member</label>
+                <div class="static-field" id="editMemberName"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>Permissions</label>
+                <div class="permissions-selector" id="editPermissionsSelector">
+                    <% BUSINESS_ADMIN_PERMISSION_DEFINITIONS.forEach(function(perm) { %>
+                    <label class="permission-checkbox">
+                        <input type="checkbox" name="permissions" value="<%= perm.key %>" id="edit_perm_<%= perm.key %>">
+                        <span class="checkbox-custom"></span>
+                        <span class="permission-info">
+                            <span class="permission-name"><%= perm.label %></span>
+                            <span class="permission-desc"><%= perm.desc %></span>
+                        </span>
+                    </label>
+                    <% }); %>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" onclick="closeEditPermissionsModal()" class="cancel-btn">Cancel</button>
+                <button type="submit" class="submit-btn">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.business-page {
+    min-height: 100vh;
+    background: #f8fafc;
+    padding-bottom: 60px;
+}
+
+.page-header {
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+    padding: 48px 32px;
+    color: white;
+}
+
+.page-header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+
+.page-subtitle {
+    margin-top: 8px;
+    opacity: 0.9;
+}
+
+.add-btn {
+    padding: 14px 24px;
+    background: white;
+    color: #0f766e;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Alerts */
+.alert {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 16px 24px;
+    border-radius: 12px;
+}
+
+.alert-success { background: #d1fae5; color: #065f46; }
+.alert-error { background: #fee2e2; color: #991b1b; }
+
+/* Team Container */
+.team-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px;
+}
+
+.parent-notice {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #0369a1;
+}
+
+.team-section {
+    margin-bottom: 48px;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 24px;
+    color: #1f2937;
+}
+
+/* Team Grid */
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 24px;
+}
+
+.team-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.member-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.member-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-initial {
+    color: white;
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.member-info {
+    flex: 1;
+}
+
+.member-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #1f2937;
+}
+
+.member-email {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.member-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-active { background: #d1fae5; color: #059669; }
+.status-revoked { background: #fee2e2; color: #dc2626; }
+
+.member-permissions h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 0 0 12px;
+}
+
+.permissions-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.perm-chip {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.perm-chip.granted { background: #d1fae5; color: #059669; }
+.perm-chip.denied { background: #f3f4f6; color: #9ca3af; }
+
+.member-meta {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 0.85rem;
+    color: #9ca3af;
+}
+
+.member-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn.edit {
+    background: #f0f9ff;
+    color: #0369a1;
+}
+
+.action-btn.edit:hover {
+    background: #e0f2fe;
+}
+
+.action-btn.revoke {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.action-btn.revoke:hover {
+    background: #fee2e2;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    background: white;
+    border-radius: 16px;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px;
+    color: #374151;
+}
+
+.empty-state p {
+    color: #6b7280;
+    margin: 0 0 24px;
+}
+
+.add-first-btn {
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-first-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(20, 184, 166, 0.3);
+}
+
+/* Admins Table */
+.admins-table-container {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.admins-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admins-table th {
+    text-align: left;
+    padding: 16px 20px;
+    background: #f8fafc;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.admins-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.admin-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.admin-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.subordinate-count {
+    padding: 4px 12px;
+    background: #f0fdf4;
+    color: #166534;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    padding: 24px 28px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #9ca3af;
+    cursor: pointer;
+}
+
+.modal-form {
+    padding: 24px 28px 28px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+.form-help {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: -4px 0 12px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #14b8a6;
+}
+
+.search-results {
+    margin-top: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    display: none;
+}
+
+.search-results.active {
+    display: block;
+}
+
+.search-result-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.search-result-item:hover {
+    background: #f8fafc;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.selected-user {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f0fdf4;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.clear-btn {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: #6b7280;
+    cursor: pointer;
+}
+
+.permissions-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.permission-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.permission-checkbox:hover {
+    background: #f8fafc;
+}
+
+.permission-checkbox input {
+    width: auto;
+    margin-top: 2px;
+    accent-color: #14b8a6;
+}
+
+.permission-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.permission-name {
+    font-weight: 600;
+    color: #374151;
+}
+
+.permission-desc {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.static-field {
+    padding: 12px 14px;
+    background: #f3f4f6;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+}
+
+.cancel-btn {
+    padding: 12px 24px;
+    background: #f3f4f6;
+    color: #374151;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.submit-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.submit-btn:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+}
+
+@media (max-width: 768px) {
+    .team-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .header-row {
+        flex-direction: column;
+    }
+    
+    .admins-table {
+        display: block;
+        overflow-x: auto;
+    }
+}
+</style>
+
+<script>
+let searchTimeout;
+
+// User Search
+async function searchUsers(query) {
+    if (query.length < 2) {
+        document.getElementById('userSearchResults').classList.remove('active');
+        return;
+    }
+    
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+        try {
+            const res = await fetch(`/api/business/users/search?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            
+            const resultsDiv = document.getElementById('userSearchResults');
+            if (data.users && data.users.length > 0) {
+                resultsDiv.innerHTML = data.users.map(user => {
+                    // Escape user data to prevent XSS
+                    const safeName = escapeHtml(user.full_name || '');
+                    const safeEmail = escapeHtml(user.email || '');
+                    return `
+                        <div class="search-result-item" data-user-id="${user.id}" data-user-name="${safeName}" data-user-email="${safeEmail}">
+                            <span>${safeName}</span>
+                            <span style="color: #6b7280; font-size: 0.85rem;">${safeEmail}</span>
+                        </div>
+                    `;
+                }).join('');
+                // Add click handlers via event delegation
+                resultsDiv.querySelectorAll('.search-result-item[data-user-id]').forEach(item => {
+                    item.addEventListener('click', () => {
+                        selectUser(
+                            parseInt(item.dataset.userId, 10),
+                            item.dataset.userName,
+                            item.dataset.userEmail
+                        );
+                    });
+                });
+                resultsDiv.classList.add('active');
+            } else {
+                resultsDiv.innerHTML = '<div class="search-result-item">No users found</div>';
+                resultsDiv.classList.add('active');
+            }
+        } catch (err) {
+            console.error('Search error:', err);
+        }
+    }, 300);
+}
+
+// HTML escape helper to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function selectUser(id, name, email) {
+    document.getElementById('selectedUserId').value = id;
+    document.getElementById('selectedUserName').textContent = `${name} (${email})`;
+    document.getElementById('selectedUserDisplay').style.display = 'block';
+    document.getElementById('userSearchResults').classList.remove('active');
+    document.getElementById('userSearch').value = '';
+    document.getElementById('addMemberSubmit').disabled = false;
+}
+
+function clearSelectedUser() {
+    document.getElementById('selectedUserId').value = '';
+    document.getElementById('selectedUserDisplay').style.display = 'none';
+    document.getElementById('addMemberSubmit').disabled = true;
+}
+
+// Add Member Modal
+function openAddMemberModal() {
+    document.getElementById('addMemberModal').classList.add('active');
+}
+
+function closeAddMemberModal() {
+    document.getElementById('addMemberModal').classList.remove('active');
+    document.getElementById('addMemberForm').reset();
+    clearSelectedUser();
+}
+
+document.getElementById('addMemberForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const userId = document.getElementById('selectedUserId').value;
+    if (!userId) {
+        alert('Please select a user');
+        return;
+    }
+    
+    const permissions = Array.from(document.querySelectorAll('#addMemberForm input[name="permissions"]:checked'))
+        .map(cb => cb.value);
+    
+    const notes = document.querySelector('#addMemberForm textarea[name="notes"]').value;
+    
+    try {
+        const res = await fetch('/api/business/team/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, permissions, notes })
+        });
+        
+        if (res.ok) {
+            closeAddMemberModal();
+            window.location.reload();
+        } else {
+            const data = await res.json();
+            alert(data.error || 'Failed to add team member');
+        }
+    } catch (err) {
+        alert('Error adding team member');
+    }
+});
+
+// Edit Permissions Modal
+function openEditPermissionsModal(assignmentId, memberName, currentPermissions) {
+    document.getElementById('editAssignmentId').value = assignmentId;
+    document.getElementById('editMemberName').textContent = memberName;
+    
+    // Reset all checkboxes
+    document.querySelectorAll('#editPermissionsSelector input[type="checkbox"]').forEach(cb => {
+        cb.checked = currentPermissions.includes(cb.value);
+    });
+    
+    document.getElementById('editPermissionsModal').classList.add('active');
+}
+
+function closeEditPermissionsModal() {
+    document.getElementById('editPermissionsModal').classList.remove('active');
+}
+
+document.getElementById('editPermissionsForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const assignmentId = document.getElementById('editAssignmentId').value;
+    const permissions = Array.from(document.querySelectorAll('#editPermissionsSelector input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
+    
+    try {
+        const res = await fetch(`/api/business/team/${assignmentId}/permissions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permissions })
+        });
+        
+        if (res.ok) {
+            closeEditPermissionsModal();
+            window.location.reload();
+        } else {
+            alert('Failed to update permissions');
+        }
+    } catch (err) {
+        alert('Error updating permissions');
+    }
+});
+
+// Revoke Member
+async function revokeMember(assignmentId, memberName) {
+    if (!confirm(`Are you sure you want to revoke business admin access for ${memberName}? This will downgrade them to a regular user.`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/business/team/${assignmentId}/revoke`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to revoke access');
+        }
+    } catch (err) {
+        alert('Error revoking access');
+    }
+}
+
+// Close modals on Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeAddMemberModal();
+        closeEditPermissionsModal();
+    }
+});
+</script>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,875 @@
+<%- include('partials/header') %>
+
+<section class="business-dashboard">
+    <div class="business-header">
+        <div class="business-header-content">
+            <div class="business-title-area">
+                <h1 class="business-title">
+                    <span class="title-icon">🏢</span>
+                    Business Admin Dashboard
+                </h1>
+                <p class="business-subtitle">Manage enterprise sales inquiries, team, and business operations.</p>
+            </div>
+            <div class="business-header-actions">
+                <a href="/business/sales" class="business-btn primary">
+                    <span class="btn-icon">📊</span> View All Inquiries
+                </a>
+                <% if (hasPermission('business_team_view')) { %>
+                <a href="/business/team" class="business-btn secondary">
+                    <span class="btn-icon">👥</span> Manage Team
+                </a>
+                <% } %>
+                <% if (hasPermission('pricing_customization')) { %>
+                <a href="/business/pricing" class="business-btn secondary">
+                    <span class="btn-icon">💰</span> Manage Pricing
+                </a>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success">
+        ✅ <%= success %>
+    </div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-error">
+        ❌ <%= error %>
+    </div>
+    <% } %>
+
+    <!-- Quick Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card stat-card-new">
+            <div class="stat-icon">🆕</div>
+            <div class="stat-content">
+                <div class="stat-value"><%= stats.new || 0 %></div>
+                <div class="stat-label">New Inquiries</div>
+            </div>
+            <div class="stat-trend trend-up">Needs attention</div>
+        </div>
+        
+        <div class="stat-card stat-card-contacted">
+            <div class="stat-icon">📞</div>
+            <div class="stat-content">
+                <div class="stat-value"><%= stats.contacted || 0 %></div>
+                <div class="stat-label">Contacted</div>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-card-progress">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-content">
+                <div class="stat-value"><%= stats.inProgress || 0 %></div>
+                <div class="stat-label">In Progress</div>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-card-qualified">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-content">
+                <div class="stat-value"><%= stats.qualified || 0 %></div>
+                <div class="stat-label">Qualified Leads</div>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-card-urgent">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-content">
+                <div class="stat-value"><%= stats.urgent || 0 %></div>
+                <div class="stat-label">Urgent Priority</div>
+            </div>
+            <% if ((stats.urgent || 0) > 0) { %>
+            <div class="stat-trend trend-urgent">Action required!</div>
+            <% } %>
+        </div>
+        
+        <div class="stat-card stat-card-total">
+            <div class="stat-icon">📈</div>
+            <div class="stat-content">
+                <div class="stat-value"><%= stats.total || 0 %></div>
+                <div class="stat-label">Total Inquiries</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid">
+        <!-- Recent Inquiries Section -->
+        <div class="dashboard-card large">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span class="title-icon">📋</span>
+                    Recent Sales Inquiries
+                </h2>
+                <a href="/business/sales" class="card-action">View All →</a>
+            </div>
+            <div class="card-content">
+                <% if (recentInquiries && recentInquiries.length > 0) { %>
+                <div class="inquiries-list">
+                    <% recentInquiries.forEach(function(inquiry) { %>
+                    <div class="inquiry-item">
+                        <div class="inquiry-status">
+                            <span class="status-badge status-<%= inquiry.status %>">
+                                <%= inquiry.status.replace('_', ' ') %>
+                            </span>
+                            <% if (inquiry.priority === 'urgent') { %>
+                            <span class="priority-badge priority-urgent">🔥 Urgent</span>
+                            <% } else if (inquiry.priority === 'high') { %>
+                            <span class="priority-badge priority-high">⬆️ High</span>
+                            <% } %>
+                        </div>
+                        <div class="inquiry-main">
+                            <h3 class="inquiry-company"><%= inquiry.company_name %></h3>
+                            <div class="inquiry-meta">
+                                <span class="meta-item">
+                                    <span class="meta-icon">👤</span>
+                                    <%= inquiry.contact_name %>
+                                </span>
+                                <span class="meta-item">
+                                    <span class="meta-icon">📧</span>
+                                    <%= inquiry.contact_email %>
+                                </span>
+                                <span class="meta-item">
+                                    <span class="meta-icon">🏭</span>
+                                    <%= inquiry.industry %>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="inquiry-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Use Case</span>
+                                <span class="detail-value"><%= inquiry.use_case ? inquiry.use_case.replace(/_/g, ' ') : '-' %></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Expected Users</span>
+                                <span class="detail-value"><%= inquiry.expected_users || '-' %></span>
+                            </div>
+                        </div>
+                        <div class="inquiry-actions">
+                            <a href="/business/sales/<%= inquiry.id %>" class="inquiry-btn">View Details</a>
+                        </div>
+                    </div>
+                    <% }); %>
+                </div>
+                <% } else { %>
+                <div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <h3>No inquiries yet</h3>
+                    <p>Enterprise sales inquiries will appear here when submitted through the pricing page.</p>
+                </div>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- Quick Actions Panel -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span class="title-icon">⚡</span>
+                    Quick Actions
+                </h2>
+            </div>
+            <div class="card-content">
+                <div class="quick-actions-grid">
+                    <a href="/business/sales?status=new" class="quick-action-item">
+                        <div class="action-icon">🆕</div>
+                        <span>New Inquiries</span>
+                        <span class="action-count"><%= stats.new || 0 %></span>
+                    </a>
+                    <a href="/business/sales?priority=urgent" class="quick-action-item urgent">
+                        <div class="action-icon">🔥</div>
+                        <span>Urgent</span>
+                        <span class="action-count"><%= stats.urgent || 0 %></span>
+                    </a>
+                    <% if (hasPermission('business_team_manage')) { %>
+                    <a href="/business/team" class="quick-action-item">
+                        <div class="action-icon">➕</div>
+                        <span>Add Team Member</span>
+                    </a>
+                    <% } %>
+                    <% if (hasPermission('sales_analytics')) { %>
+                    <a href="/business/analytics" class="quick-action-item">
+                        <div class="action-icon">📊</div>
+                        <span>Analytics</span>
+                    </a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Overview -->
+        <% if (hasPermission('business_team_view')) { %>
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span class="title-icon">👥</span>
+                    Your Team
+                </h2>
+                <a href="/business/team" class="card-action">Manage →</a>
+            </div>
+            <div class="card-content">
+                <% if (teamMembers && teamMembers.length > 0) { %>
+                <div class="team-list">
+                    <% teamMembers.slice(0, 5).forEach(function(member) { %>
+                    <div class="team-member">
+                        <div class="member-avatar">
+                            <% if (member.profile_picture) { %>
+                            <img src="/uploads/<%= member.profile_picture %>" alt="<%= member.full_name %>">
+                            <% } else { %>
+                            <span class="avatar-initial"><%= member.full_name.charAt(0) %></span>
+                            <% } %>
+                        </div>
+                        <div class="member-info">
+                            <div class="member-name"><%= member.full_name %></div>
+                            <div class="member-email"><%= member.email %></div>
+                        </div>
+                        <span class="member-status status-active">Active</span>
+                    </div>
+                    <% }); %>
+                </div>
+                <% if (teamMembers.length > 5) { %>
+                <a href="/business/team" class="see-more-link">See all <%= teamMembers.length %> team members →</a>
+                <% } %>
+                <% } else { %>
+                <div class="empty-state small">
+                    <p>No team members yet</p>
+                    <% if (hasPermission('business_team_manage')) { %>
+                    <a href="/business/team" class="add-team-btn">+ Add First Member</a>
+                    <% } %>
+                </div>
+                <% } %>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Your Permissions -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span class="title-icon">🔐</span>
+                    Your Permissions
+                </h2>
+            </div>
+            <div class="card-content">
+                <div class="permissions-grid">
+                    <% BUSINESS_ADMIN_PERMISSION_DEFINITIONS.forEach(function(perm) { %>
+                    <div class="permission-item <%= hasPermission(perm.key) ? 'granted' : 'denied' %>">
+                        <span class="permission-icon"><%= hasPermission(perm.key) ? '✅' : '❌' %></span>
+                        <span class="permission-label"><%= perm.label %></span>
+                    </div>
+                    <% }); %>
+                </div>
+                <% if (parentAdmin) { %>
+                <div class="parent-admin-notice">
+                    <span class="notice-icon">ℹ️</span>
+                    You report to: <strong><%= parentAdmin.parent_name %></strong>
+                </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+/* Business Dashboard Styles */
+.business-dashboard {
+    padding: 0 0 60px;
+    min-height: 100vh;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.business-header {
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 50%, #2dd4bf 100%);
+    padding: 48px 32px;
+    color: white;
+    margin-bottom: 32px;
+}
+
+.business-header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.business-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 0;
+}
+
+.title-icon {
+    font-size: 2rem;
+}
+
+.business-subtitle {
+    margin-top: 8px;
+    opacity: 0.9;
+    font-size: 1.1rem;
+}
+
+.business-header-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.business-btn {
+    padding: 14px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+}
+
+.business-btn.primary {
+    background: white;
+    color: #0f766e;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.business-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.business-btn.secondary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.business-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Alerts */
+.alert {
+    max-width: 1400px;
+    margin: 0 auto 24px;
+    padding: 16px 24px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.alert-success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* Stats Grid */
+.stats-grid {
+    max-width: 1400px;
+    margin: 0 auto 32px;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 20px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+}
+
+.stat-card-new::before { background: #3b82f6; }
+.stat-card-contacted::before { background: #8b5cf6; }
+.stat-card-progress::before { background: #f59e0b; }
+.stat-card-qualified::before { background: #10b981; }
+.stat-card-urgent::before { background: #ef4444; }
+.stat-card-total::before { background: #6b7280; }
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+    font-size: 1.5rem;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #1f2937;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.stat-trend {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: auto;
+}
+
+.trend-up {
+    color: #3b82f6;
+}
+
+.trend-urgent {
+    color: #ef4444;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+}
+
+.dashboard-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+.dashboard-card.large {
+    grid-column: span 1;
+    grid-row: span 2;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 28px 0;
+}
+
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: #1f2937;
+}
+
+.card-action {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #14b8a6;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.card-action:hover {
+    color: #0f766e;
+}
+
+.card-content {
+    padding: 20px 28px 28px;
+}
+
+/* Inquiries List */
+.inquiries-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.inquiry-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 16px;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.inquiry-item:hover {
+    border-color: #14b8a6;
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.1);
+}
+
+.inquiry-status {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-new { background: #dbeafe; color: #1d4ed8; }
+.status-contacted { background: #ede9fe; color: #7c3aed; }
+.status-in_progress { background: #fef3c7; color: #d97706; }
+.status-qualified { background: #d1fae5; color: #059669; }
+.status-closed { background: #f3f4f6; color: #6b7280; }
+
+.priority-badge {
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.priority-urgent { background: #fee2e2; color: #dc2626; }
+.priority-high { background: #ffedd5; color: #ea580c; }
+
+.inquiry-company {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: #1f2937;
+}
+
+.inquiry-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    font-size: 0.85rem;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.inquiry-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-item {
+    font-size: 0.85rem;
+}
+
+.detail-label {
+    color: #9ca3af;
+}
+
+.detail-value {
+    color: #374151;
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+.inquiry-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    text-decoration: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.inquiry-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+}
+
+/* Quick Actions */
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.quick-action-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.quick-action-item:hover {
+    background: #f1f5f9;
+    transform: translateY(-2px);
+}
+
+.quick-action-item.urgent {
+    background: #fef2f2;
+}
+
+.quick-action-item.urgent:hover {
+    background: #fee2e2;
+}
+
+.action-icon {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+}
+
+.quick-action-item span {
+    font-size: 0.9rem;
+    color: #374151;
+    font-weight: 500;
+}
+
+.action-count {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #14b8a6;
+}
+
+/* Team List */
+.team-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.team-member {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.team-member:hover {
+    background: #f8fafc;
+}
+
+.member-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-initial {
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.member-name {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.member-email {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.member-status {
+    margin-left: auto;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-active {
+    background: #d1fae5;
+    color: #059669;
+}
+
+/* Permissions Grid */
+.permissions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.permission-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.permission-item.granted {
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.permission-item.denied {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.parent-admin-notice {
+    margin-top: 16px;
+    padding: 12px;
+    background: #f0f9ff;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #0369a1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 48px 24px;
+}
+
+.empty-state.small {
+    padding: 24px;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px;
+    font-weight: 700;
+    color: #374151;
+}
+
+.empty-state p {
+    color: #6b7280;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.add-team-btn {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    text-decoration: none;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.see-more-link {
+    display: block;
+    margin-top: 16px;
+    text-align: center;
+    color: #14b8a6;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-card.large {
+        grid-column: span 1;
+        grid-row: span 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .business-header {
+        padding: 32px 20px;
+    }
+    
+    .business-title {
+        font-size: 1.75rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        padding: 0 20px;
+    }
+    
+    .dashboard-grid {
+        padding: 0 20px;
+    }
+    
+    .inquiry-item {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+    
+    .inquiry-status,
+    .inquiry-details {
+        flex-direction: row;
+        justify-content: center;
+    }
+    
+    .permissions-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<%- include('partials/footer') %>

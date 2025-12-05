@@ -99,6 +99,171 @@ async function seedDatabase() {
     } catch (e) {
       console.warn('HR seed error:', e.message);
     }
+
+    // Seed Business Admin account if it doesn't exist
+    try {
+      const businessExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('business@dreamx.local');
+      if (!businessExists) {
+        const bcrypt = require('bcrypt');
+        const businessPassword = bcrypt.hashSync('DreamXBusiness2025!', 10);
+        // Grant all business permissions
+        const businessPermissions = JSON.stringify([
+          'sales_inquiries_view',
+          'sales_inquiries_manage',
+          'sales_inquiries_contact',
+          'business_team_view',
+          'business_team_manage',
+          'enterprise_accounts',
+          'sales_analytics',
+          'contract_management',
+          'pricing_customization',
+          'partner_management',
+          'revenue_reports',
+          'customer_success'
+        ]);
+        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, admin_permissions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+          .run('Business Administrator', 'business@dreamx.local', businessPassword, 'business_admin', 'active', 'Business Administrator - Sales & Enterprise Management', businessPermissions);
+        console.log('✅ Business Admin account created: business@dreamx.local / DreamXBusiness2025!');
+      } else {
+        db.prepare(`UPDATE users SET role = 'business_admin' WHERE email = ? AND role != 'business_admin'`).run('business@dreamx.local');
+      }
+    } catch (e) {
+      console.warn('Business Admin seed error:', e.message);
+    }
+
+    // Seed default pricing tiers if they don't exist
+    try {
+      const tiersExist = db.prepare(`SELECT COUNT(*) as count FROM pricing_tiers`).get();
+      if (!tiersExist || tiersExist.count === 0) {
+        const defaultTiers = [
+          {
+            tier_id: 'free',
+            name: 'Free User',
+            price: 0,
+            price_display: '$0/mo',
+            tagline: 'Social home for productive passions.',
+            features: JSON.stringify([
+              'Post photos, videos, project updates',
+              'Follow creators, mentors, students, professionals',
+              'Rich profiles (skills, passions, portfolio, achievements)',
+              'Up to 10 Project Collections',
+              'Book sessions, basic messaging, post analytics (views + likes)',
+              'Ads from Fortune 100 brands only'
+            ]),
+            is_highlighted: 0,
+            display_order: 1,
+            is_active: 1,
+            note: null
+          },
+          {
+            tier_id: 'pro-buyer',
+            name: 'Pro Buyer',
+            price: 5.99,
+            price_display: '$5.99/mo',
+            tagline: 'Power user of the social side.',
+            features: JSON.stringify([
+              'Ad-free experience',
+              'Enhanced discovery filters (top rising creators, people near you, people who match interests)',
+              'Unlimited Project Collections',
+              'Priority messaging',
+              'Post up to 3 one-time request listings per month',
+              'Early access to premium sellers',
+              'Basic AI mentor/creator recommendations'
+            ]),
+            is_highlighted: 0,
+            display_order: 2,
+            is_active: 1,
+            note: null
+          },
+          {
+            tier_id: 'pro-seller',
+            name: 'Pro Seller',
+            price: 9.99,
+            price_display: '$9.99/mo',
+            tagline: 'Turn your craft into a brand.',
+            features: JSON.stringify([
+              'Pro badge + priority in discovery',
+              'Pin 3 posts to profile',
+              'Weekly insights (reach, audience interests, followers by profession/skill)',
+              'Custom profile banner & theme',
+              '5 service listings, unlimited messaging',
+              'Payment tools, basic CRM',
+              'Scheduling, reminders, custom availability',
+              'Coupons, discounts, basic buyer analytics'
+            ]),
+            is_highlighted: 1,
+            display_order: 3,
+            is_active: 1,
+            note: null
+          },
+          {
+            tier_id: 'elite-seller',
+            name: 'Elite Seller',
+            price: 29.99,
+            price_display: '$29.99/mo',
+            tagline: 'You\'re a top creator — build a full microbrand.',
+            features: JSON.stringify([
+              'Verified status, full portfolio builder, video banners',
+              'In-depth analytics (peak times, demographics, top-performing categories)',
+              'Cross-platform link hub, featured on Discover when trending',
+              'Unlimited listings, recurring subscriptions',
+              'Advanced analytics & automation',
+              'CRM + workflow automation',
+              'Custom storefront page, tax reports',
+              'Integrations, auto-responses, Smart rebooking AI'
+            ]),
+            is_highlighted: 0,
+            display_order: 4,
+            is_active: 1,
+            note: null
+          },
+          {
+            tier_id: 'enterprise',
+            name: 'Enterprise Creator',
+            price: 99.99,
+            price_display: '$99.99/mo',
+            tagline: 'Dream X is your community\'s social + learning hub.',
+            features: JSON.stringify([
+              'Multi-user team posting',
+              'Event pages, showcase collections',
+              'Custom homepage blocks, co-branded community page',
+              'Invite followers to events, livestreams, seminars',
+              'Multi-instructor scheduling, team-wide analytics',
+              'Bulk payouts, shared CRM',
+              'Dedicated account manager',
+              'Featured category placement, sponsored creator onboarding'
+            ]),
+            is_highlighted: 0,
+            display_order: 5,
+            is_active: 1,
+            note: 'Best for tutoring companies, mentorship orgs, clubs, and studios.'
+          }
+        ];
+        
+        const insertTier = db.prepare(`
+          INSERT INTO pricing_tiers (tier_id, name, price, price_display, tagline, features, is_highlighted, display_order, is_active, note)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        
+        for (const tier of defaultTiers) {
+          insertTier.run(
+            tier.tier_id,
+            tier.name,
+            tier.price,
+            tier.price_display,
+            tier.tagline,
+            tier.features,
+            tier.is_highlighted,
+            tier.display_order,
+            tier.is_active,
+            tier.note
+          );
+        }
+        console.log('✅ Default pricing tiers seeded');
+      }
+    } catch (e) {
+      console.warn('Pricing tiers seed error:', e.message);
+    }
   } catch (e) {
     console.error('Database seeding failed:', e.message);
     throw e;
@@ -1463,6 +1628,123 @@ db.exec(`CREATE TABLE IF NOT EXISTS project_comment_reactions (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_comment_reactions_comment ON project_comment_reactions(comment_id);
+`);
+
+// Sales inquiries table for Enterprise contact requests
+db.exec(`CREATE TABLE IF NOT EXISTS sales_inquiries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  -- Company Information
+  company_name TEXT NOT NULL,
+  industry TEXT NOT NULL,
+  company_size TEXT NOT NULL,
+  company_website TEXT,
+  company_address TEXT,
+  company_city TEXT,
+  company_country TEXT,
+  -- Contact Person
+  contact_name TEXT NOT NULL,
+  contact_email TEXT NOT NULL,
+  contact_phone TEXT,
+  contact_job_title TEXT,
+  contact_department TEXT,
+  -- Requirements
+  use_case TEXT NOT NULL,
+  expected_users TEXT,
+  timeline TEXT,
+  budget_range TEXT,
+  current_solution TEXT,
+  integration_needs TEXT,
+  -- Additional Info
+  additional_info TEXT,
+  how_heard_about_us TEXT,
+  preferred_contact_method TEXT DEFAULT 'email',
+  preferred_contact_time TEXT,
+  -- Status and Assignment
+  status TEXT DEFAULT 'new',
+  priority TEXT DEFAULT 'normal',
+  assigned_to INTEGER,
+  assigned_at DATETIME,
+  -- Follow-up tracking
+  last_contacted_at DATETIME,
+  last_contacted_by INTEGER,
+  follow_up_notes TEXT,
+  next_follow_up_date DATETIME,
+  -- Outcome
+  outcome TEXT,
+  outcome_notes TEXT,
+  closed_at DATETIME,
+  closed_by INTEGER,
+  -- Metadata
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (assigned_to) REFERENCES users(id),
+  FOREIGN KEY (last_contacted_by) REFERENCES users(id),
+  FOREIGN KEY (closed_by) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_sales_inquiries_status ON sales_inquiries(status);
+CREATE INDEX IF NOT EXISTS idx_sales_inquiries_assigned ON sales_inquiries(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_sales_inquiries_created ON sales_inquiries(created_at);
+CREATE INDEX IF NOT EXISTS idx_sales_inquiries_priority ON sales_inquiries(priority);
+`);
+
+// Sales inquiry communications/follow-ups
+db.exec(`CREATE TABLE IF NOT EXISTS sales_inquiry_communications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  inquiry_id INTEGER NOT NULL,
+  sender_id INTEGER NOT NULL,
+  communication_type TEXT NOT NULL,
+  subject TEXT,
+  content TEXT NOT NULL,
+  recipient_email TEXT,
+  status TEXT DEFAULT 'sent',
+  opened_at DATETIME,
+  replied_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (inquiry_id) REFERENCES sales_inquiries(id),
+  FOREIGN KEY (sender_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_sales_communications_inquiry ON sales_inquiry_communications(inquiry_id);
+CREATE INDEX IF NOT EXISTS idx_sales_communications_sender ON sales_inquiry_communications(sender_id);
+`);
+
+// Business admin assignments - for business admins assigning other business admins
+db.exec(`CREATE TABLE IF NOT EXISTS business_admin_assignments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  parent_admin_id INTEGER NOT NULL,
+  assigned_admin_id INTEGER NOT NULL,
+  permissions TEXT DEFAULT '[]',
+  scopes TEXT DEFAULT '[]',
+  notes TEXT,
+  status TEXT DEFAULT 'active',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (parent_admin_id) REFERENCES users(id),
+  FOREIGN KEY (assigned_admin_id) REFERENCES users(id),
+  UNIQUE(parent_admin_id, assigned_admin_id)
+);
+CREATE INDEX IF NOT EXISTS idx_business_admin_parent ON business_admin_assignments(parent_admin_id);
+CREATE INDEX IF NOT EXISTS idx_business_admin_assigned ON business_admin_assignments(assigned_admin_id);
+`);
+
+// Pricing tiers configuration table - allows business admins to adjust pricing and features
+db.exec(`CREATE TABLE IF NOT EXISTS pricing_tiers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tier_id TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  price REAL NOT NULL,
+  price_display TEXT NOT NULL,
+  tagline TEXT,
+  features TEXT NOT NULL DEFAULT '[]',
+  is_highlighted INTEGER DEFAULT 0,
+  display_order INTEGER DEFAULT 0,
+  is_active INTEGER DEFAULT 1,
+  note TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_pricing_tiers_tier_id ON pricing_tiers(tier_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_tiers_active ON pricing_tiers(is_active);
+CREATE INDEX IF NOT EXISTS idx_pricing_tiers_order ON pricing_tiers(display_order);
 `);
 
 } // End of non-production schema initialization
@@ -4189,6 +4471,408 @@ module.exports = {
       WHERE comment_id = ? AND user_id = ?
     `);
     return stmt.get(commentId, userId);
+  },
+
+  // ============ SALES INQUIRIES ============
+
+  createSalesInquiry: (data) => {
+    const stmt = db.prepare(`
+      INSERT INTO sales_inquiries (
+        company_name, industry, company_size, company_website, company_address,
+        company_city, company_country, contact_name, contact_email, contact_phone,
+        contact_job_title, contact_department, use_case, expected_users, timeline,
+        budget_range, current_solution, integration_needs, additional_info,
+        how_heard_about_us, preferred_contact_method, preferred_contact_time,
+        status, priority
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const info = stmt.run(
+      data.companyName, data.industry, data.companySize, data.companyWebsite || null,
+      data.companyAddress || null, data.companyCity || null, data.companyCountry || null,
+      data.contactName, data.contactEmail, data.contactPhone || null,
+      data.contactJobTitle || null, data.contactDepartment || null,
+      data.useCase, data.expectedUsers || null, data.timeline || null,
+      data.budgetRange || null, data.currentSolution || null, data.integrationNeeds || null,
+      data.additionalInfo || null, data.howHeardAboutUs || null,
+      data.preferredContactMethod || 'email', data.preferredContactTime || null,
+      'new', 'normal'
+    );
+    return info.lastInsertRowid;
+  },
+
+  getSalesInquiry: (id) => {
+    return db.prepare(`
+      SELECT si.*,
+             u1.full_name as assigned_to_name, u1.email as assigned_to_email,
+             u2.full_name as last_contacted_by_name,
+             u3.full_name as closed_by_name
+      FROM sales_inquiries si
+      LEFT JOIN users u1 ON u1.id = si.assigned_to
+      LEFT JOIN users u2 ON u2.id = si.last_contacted_by
+      LEFT JOIN users u3 ON u3.id = si.closed_by
+      WHERE si.id = ?
+    `).get(id);
+  },
+
+  getSalesInquiriesPaged: ({ limit = 20, offset = 0, status, priority, assignedTo, search }) => {
+    let sql = `
+      SELECT si.*,
+             u1.full_name as assigned_to_name, u1.email as assigned_to_email
+      FROM sales_inquiries si
+      LEFT JOIN users u1 ON u1.id = si.assigned_to
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (status) {
+      sql += ` AND si.status = ?`;
+      params.push(status);
+    }
+    if (priority) {
+      sql += ` AND si.priority = ?`;
+      params.push(priority);
+    }
+    if (assignedTo) {
+      sql += ` AND si.assigned_to = ?`;
+      params.push(assignedTo);
+    }
+    if (search) {
+      sql += ` AND (LOWER(si.company_name) LIKE ? OR LOWER(si.contact_name) LIKE ? OR LOWER(si.contact_email) LIKE ?)`;
+      const s = `%${search.toLowerCase()}%`;
+      params.push(s, s, s);
+    }
+
+    sql += ` ORDER BY 
+      CASE si.priority 
+        WHEN 'urgent' THEN 1 
+        WHEN 'high' THEN 2 
+        WHEN 'normal' THEN 3 
+        WHEN 'low' THEN 4 
+      END,
+      si.created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    params.push(limit, offset);
+
+    return db.prepare(sql).all(...params);
+  },
+
+  getSalesInquiriesCount: ({ status, priority, assignedTo, search }) => {
+    let sql = `SELECT COUNT(*) as count FROM sales_inquiries si WHERE 1=1`;
+    const params = [];
+
+    if (status) {
+      sql += ` AND si.status = ?`;
+      params.push(status);
+    }
+    if (priority) {
+      sql += ` AND si.priority = ?`;
+      params.push(priority);
+    }
+    if (assignedTo) {
+      sql += ` AND si.assigned_to = ?`;
+      params.push(assignedTo);
+    }
+    if (search) {
+      sql += ` AND (LOWER(si.company_name) LIKE ? OR LOWER(si.contact_name) LIKE ? OR LOWER(si.contact_email) LIKE ?)`;
+      const s = `%${search.toLowerCase()}%`;
+      params.push(s, s, s);
+    }
+
+    return db.prepare(sql).get(...params).count;
+  },
+
+  updateSalesInquiry: (id, data) => {
+    const fields = [];
+    const values = [];
+
+    const allowedFields = [
+      'status', 'priority', 'assigned_to', 'assigned_at',
+      'last_contacted_at', 'last_contacted_by', 'follow_up_notes',
+      'next_follow_up_date', 'outcome', 'outcome_notes', 'closed_at', 'closed_by'
+    ];
+
+    for (const [key, value] of Object.entries(data)) {
+      const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      if (allowedFields.includes(snakeKey)) {
+        fields.push(`${snakeKey} = ?`);
+        values.push(value);
+      }
+    }
+
+    if (fields.length === 0) return false;
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    const sql = `UPDATE sales_inquiries SET ${fields.join(', ')} WHERE id = ?`;
+    return db.prepare(sql).run(...values).changes > 0;
+  },
+
+  assignSalesInquiry: ({ inquiryId, assignedTo, assignedBy }) => {
+    db.prepare(`
+      UPDATE sales_inquiries 
+      SET assigned_to = ?, assigned_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(assignedTo, inquiryId);
+
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      assignedBy,
+      'assign_sales_inquiry',
+      JSON.stringify({ inquiryId, assignedTo })
+    );
+  },
+
+  closeSalesInquiry: ({ inquiryId, outcome, outcomeNotes, closedBy }) => {
+    db.prepare(`
+      UPDATE sales_inquiries 
+      SET status = 'closed', outcome = ?, outcome_notes = ?, 
+          closed_at = CURRENT_TIMESTAMP, closed_by = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(outcome, outcomeNotes || null, closedBy, inquiryId);
+
+    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+      closedBy,
+      'close_sales_inquiry',
+      JSON.stringify({ inquiryId, outcome })
+    );
+  },
+
+  // Sales inquiry communications
+  addSalesInquiryCommunication: ({ inquiryId, senderId, communicationType, subject, content, recipientEmail }) => {
+    const stmt = db.prepare(`
+      INSERT INTO sales_inquiry_communications (inquiry_id, sender_id, communication_type, subject, content, recipient_email)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const info = stmt.run(inquiryId, senderId, communicationType, subject || null, content, recipientEmail || null);
+
+    // Update last contacted info on the inquiry
+    db.prepare(`
+      UPDATE sales_inquiries 
+      SET last_contacted_at = CURRENT_TIMESTAMP, last_contacted_by = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(senderId, inquiryId);
+
+    return info.lastInsertRowid;
+  },
+
+  getSalesInquiryCommunications: (inquiryId) => {
+    return db.prepare(`
+      SELECT sic.*, u.full_name as sender_name, u.email as sender_email
+      FROM sales_inquiry_communications sic
+      JOIN users u ON u.id = sic.sender_id
+      WHERE sic.inquiry_id = ?
+      ORDER BY sic.created_at DESC
+    `).all(inquiryId);
+  },
+
+  getSalesInquiryStats: () => {
+    const stats = {};
+    stats.total = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries`).get().c;
+    stats.new = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'new'`).get().c;
+    stats.contacted = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'contacted'`).get().c;
+    stats.inProgress = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'in_progress'`).get().c;
+    stats.qualified = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'qualified'`).get().c;
+    stats.closed = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'closed'`).get().c;
+    stats.urgent = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE priority = 'urgent' AND status != 'closed'`).get().c;
+    return stats;
+  },
+
+  // ============ BUSINESS ADMIN ASSIGNMENTS ============
+
+  createBusinessAdminAssignment: ({ parentAdminId, assignedAdminId, permissions, scopes, notes }) => {
+    const stmt = db.prepare(`
+      INSERT INTO business_admin_assignments (parent_admin_id, assigned_admin_id, permissions, scopes, notes)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const info = stmt.run(
+      parentAdminId, assignedAdminId,
+      JSON.stringify(permissions || []),
+      JSON.stringify(scopes || []),
+      notes || null
+    );
+    return info.lastInsertRowid;
+  },
+
+  getBusinessAdminAssignments: (parentAdminId) => {
+    return db.prepare(`
+      SELECT baa.*, u.full_name, u.email, u.profile_picture
+      FROM business_admin_assignments baa
+      JOIN users u ON u.id = baa.assigned_admin_id
+      WHERE baa.parent_admin_id = ? AND baa.status = 'active'
+      ORDER BY baa.created_at DESC
+    `).all(parentAdminId);
+  },
+
+  getBusinessAdminParent: (assignedAdminId) => {
+    return db.prepare(`
+      SELECT baa.*, u.full_name as parent_name, u.email as parent_email
+      FROM business_admin_assignments baa
+      JOIN users u ON u.id = baa.parent_admin_id
+      WHERE baa.assigned_admin_id = ? AND baa.status = 'active'
+    `).get(assignedAdminId);
+  },
+
+  updateBusinessAdminAssignment: ({ assignmentId, permissions, scopes, status }) => {
+    const fields = ['updated_at = CURRENT_TIMESTAMP'];
+    const values = [];
+
+    if (permissions !== undefined) {
+      fields.push('permissions = ?');
+      values.push(JSON.stringify(permissions));
+    }
+    if (scopes !== undefined) {
+      fields.push('scopes = ?');
+      values.push(JSON.stringify(scopes));
+    }
+    if (status !== undefined) {
+      fields.push('status = ?');
+      values.push(status);
+    }
+
+    values.push(assignmentId);
+    const sql = `UPDATE business_admin_assignments SET ${fields.join(', ')} WHERE id = ?`;
+    return db.prepare(sql).run(...values).changes > 0;
+  },
+
+  revokeBusinessAdminAssignment: (assignmentId) => {
+    return db.prepare(`
+      UPDATE business_admin_assignments 
+      SET status = 'revoked', updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `).run(assignmentId).changes > 0;
+  },
+
+  isBusinessAdminOf: (parentAdminId, targetAdminId) => {
+    const row = db.prepare(`
+      SELECT 1 FROM business_admin_assignments 
+      WHERE parent_admin_id = ? AND assigned_admin_id = ? AND status = 'active'
+    `).get(parentAdminId, targetAdminId);
+    return !!row;
+  },
+
+  getAllBusinessAdmins: () => {
+    return db.prepare(`
+      SELECT u.id, u.full_name, u.email, u.profile_picture, u.role, u.created_at,
+             (SELECT COUNT(*) FROM business_admin_assignments baa WHERE baa.parent_admin_id = u.id AND baa.status = 'active') as subordinate_count
+      FROM users u
+      WHERE u.role = 'business_admin'
+      ORDER BY u.created_at DESC
+    `).all();
+  },
+
+  // Pricing tier management functions
+  getPricingTiers: (includeInactive = false) => {
+    const sql = includeInactive
+      ? `SELECT * FROM pricing_tiers ORDER BY display_order ASC`
+      : `SELECT * FROM pricing_tiers WHERE is_active = 1 ORDER BY display_order ASC`;
+    const rows = db.prepare(sql).all();
+    return rows.map(row => {
+      let features = [];
+      try {
+        features = JSON.parse(row.features || '[]');
+      } catch (e) {
+        console.warn('Failed to parse tier features for', row.tier_id, e.message);
+        features = [];
+      }
+      return {
+        ...row,
+        features,
+        is_highlighted: !!row.is_highlighted,
+        is_active: !!row.is_active
+      };
+    });
+  },
+
+  getPricingTier: (tierId) => {
+    const row = db.prepare(`SELECT * FROM pricing_tiers WHERE tier_id = ?`).get(tierId);
+    if (!row) return null;
+    let features = [];
+    try {
+      features = JSON.parse(row.features || '[]');
+    } catch (e) {
+      console.warn('Failed to parse tier features for', tierId, e.message);
+      features = [];
+    }
+    return {
+      ...row,
+      features,
+      is_highlighted: !!row.is_highlighted,
+      is_active: !!row.is_active
+    };
+  },
+
+  updatePricingTier: ({ tierId, name, price, priceDisplay, tagline, features, isHighlighted, displayOrder, isActive, note }) => {
+    const fields = [];
+    const values = [];
+
+    if (name !== undefined) {
+      fields.push('name = ?');
+      values.push(name);
+    }
+    if (price !== undefined) {
+      fields.push('price = ?');
+      values.push(price);
+    }
+    if (priceDisplay !== undefined) {
+      fields.push('price_display = ?');
+      values.push(priceDisplay);
+    }
+    if (tagline !== undefined) {
+      fields.push('tagline = ?');
+      values.push(tagline);
+    }
+    if (features !== undefined) {
+      fields.push('features = ?');
+      values.push(JSON.stringify(features));
+    }
+    if (isHighlighted !== undefined) {
+      fields.push('is_highlighted = ?');
+      values.push(isHighlighted ? 1 : 0);
+    }
+    if (displayOrder !== undefined) {
+      fields.push('display_order = ?');
+      values.push(displayOrder);
+    }
+    if (isActive !== undefined) {
+      fields.push('is_active = ?');
+      values.push(isActive ? 1 : 0);
+    }
+    if (note !== undefined) {
+      fields.push('note = ?');
+      values.push(note);
+    }
+
+    if (fields.length === 0) return false;
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(tierId);
+
+    const sql = `UPDATE pricing_tiers SET ${fields.join(', ')} WHERE tier_id = ?`;
+    return db.prepare(sql).run(...values).changes > 0;
+  },
+
+  createPricingTier: ({ tierId, name, price, priceDisplay, tagline, features, isHighlighted, displayOrder, isActive, note }) => {
+    const result = db.prepare(`
+      INSERT INTO pricing_tiers (tier_id, name, price, price_display, tagline, features, is_highlighted, display_order, is_active, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      tierId,
+      name,
+      price,
+      priceDisplay,
+      tagline,
+      JSON.stringify(features || []),
+      isHighlighted ? 1 : 0,
+      displayOrder || 0,
+      isActive !== false ? 1 : 0,
+      note || null
+    );
+    return result.lastInsertRowid;
+  },
+
+  deletePricingTier: (tierId) => {
+    return db.prepare(`DELETE FROM pricing_tiers WHERE tier_id = ?`).run(tierId).changes > 0;
   }
 };
 
