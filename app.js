@@ -6894,8 +6894,8 @@ async function startServer() {
         await seedAdminUser();
         initializePaymentProcessors();
         
-        httpServer.listen(80, () => {
-            console.log(`HTTP server running at http://localhost`);
+        httpServer.listen(process.env.PORT || 3000, () => {
+            console.log(`HTTP server running at http://localhost:${process.env.PORT || 3000}`);
         });
     } catch (error) {
         console.error('❌ Failed to start server:', error);

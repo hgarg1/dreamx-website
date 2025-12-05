@@ -141,6 +141,7 @@ router.get('/dashboard', requireRbacDashboardAccess, ensureRbacReady, (req, res)
     res.render('rbac-dashboard', {
       title: 'RBAC Dashboard - Dream X',
       currentPage: 'admin',
+      activePage: 'dashboard',
       authUser: req.rbacUser,
       stats,
       roles,
@@ -175,6 +176,7 @@ router.get('/roles', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     res.render('rbac-roles', {
       title: 'Role Management - Dream X',
       currentPage: 'admin',
+      activePage: 'roles',
       authUser: req.rbacUser,
       roles,
       roleTree,
@@ -217,6 +219,7 @@ router.get('/roles/:id', requireRbacDashboardAccess, ensureRbacReady, (req, res)
     }
     
     res.render('rbac-role-detail', {
+      activePage: 'roles',
       title: `${role.display_name || role.name} - Role Details - Dream X`,
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -258,6 +261,7 @@ router.get('/permissions', requireRbacDashboardAccess, ensureRbacReady, (req, re
     const modules = [...new Set(permissions.map(p => p.module).filter(Boolean))];
     
     res.render('rbac-permissions', {
+      activePage: 'permissions',
       title: 'Permission Management - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -321,6 +325,7 @@ router.get('/users', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     const allRoles = rbacService.getRoles({ includeDisabled: false });
     
     res.render('rbac-users', {
+      activePage: 'users',
       title: 'User-Role Assignment - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -389,6 +394,7 @@ router.get('/overrides', requireRbacDashboardAccess, ensureRbacReady, (req, res)
     });
     
     res.render('rbac-overrides', {
+      activePage: 'overrides',
       title: 'Active Overrides - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -419,6 +425,7 @@ router.get('/history', requireRbacDashboardAccess, ensureRbacReady, (req, res) =
     );
     
     res.render('rbac-history', {
+      activePage: 'history',
       title: 'Version History - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -458,6 +465,7 @@ router.get('/audit', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     `).all().map(r => r.action);
     
     res.render('rbac-audit', {
+      activePage: 'audit',
       title: 'RBAC Audit Logs - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -490,6 +498,7 @@ router.get('/security', requireRbacDashboardAccess, ensureRbacReady, (req, res) 
     }
     
     res.render('rbac-security', {
+      activePage: 'security',
       title: 'Security & Analytics - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -521,6 +530,7 @@ router.get('/docs', requireRbacDashboardAccess, ensureRbacReady, (req, res) => {
     }
     
     res.render('rbac-docs', {
+      activePage: 'docs',
       title: 'RBAC Documentation - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -563,6 +573,7 @@ router.get('/migration', requireRbacManagement, ensureRbacReady, (req, res) => {
     }
     
     res.render('rbac-migration', {
+      activePage: 'migration',
       title: 'RBAC Migration - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
@@ -636,6 +647,7 @@ router.get('/devtools', requireRbacManagement, ensureRbacReady, (req, res) => {
     }
     
     res.render('rbac-devtools', {
+      activePage: 'devtools',
       title: 'RBAC Developer Tools - Dream X',
       currentPage: 'admin',
       authUser: req.rbacUser,
