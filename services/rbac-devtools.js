@@ -60,11 +60,13 @@ class TestUserSeeder {
       metadata = {}
     } = options;
 
-    // Create user in database
+    // Create user in database with random unusable password hash
+    // This ensures test users cannot be logged into with any password
+    const randomHash = `test_${crypto.randomBytes(32).toString('hex')}_cannot_login`;
     const userId = db.prepare(`
       INSERT INTO users (full_name, email, password_hash, role)
       VALUES (?, ?, ?, ?)
-    `).run(name, email, 'test_hash_not_for_login', role).lastInsertRowid;
+    `).run(name, email, randomHash, role).lastInsertRowid;
 
     // Assign RBAC role
     const rbacRole = rbacService.getRoleByName(role);

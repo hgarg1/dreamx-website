@@ -162,8 +162,8 @@
     }
     
     function downloadDocs() {
-      const content = `<%= documentation ? documentation.replace(/'/g, "\\'").replace(/\n/g, '\\n') : '' %>`;
-      const blob = new Blob([content.replace(/\\n/g, '\n')], { type: 'text/markdown' });
+      const content = `<%= documentation ? documentation.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') : '' %>`;
+      const blob = new Blob([content.replace(/\\n/g, '\n').replace(/\\\\/g, '\\')], { type: 'text/markdown' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'rbac-documentation.md';
@@ -171,8 +171,8 @@
     }
     
     function downloadChangelog() {
-      const content = `<%= changelog ? changelog.replace(/'/g, "\\'").replace(/\n/g, '\\n') : '' %>`;
-      const blob = new Blob([content.replace(/\\n/g, '\n')], { type: 'text/markdown' });
+      const content = `<%= changelog ? changelog.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') : '' %>`;
+      const blob = new Blob([content.replace(/\\n/g, '\n').replace(/\\\\/g, '\\')], { type: 'text/markdown' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'rbac-changelog.md';

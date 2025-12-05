@@ -205,7 +205,8 @@
   <%- include('partials/footer') %>
   
   <script>
-    let allRoles = <%- JSON.stringify(allRoles) %>;
+    // Safely serialize roles to JSON, filtering sensitive data and escaping properly
+    let allRoles = JSON.parse('<%= JSON.stringify(allRoles.map(r => ({ id: r.id, name: r.name, display_name: r.display_name }))).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/</g, "\\u003c") %>');
     
     function toggleSelectAll() {
       const checked = document.getElementById('selectAll').checked;

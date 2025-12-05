@@ -541,6 +541,12 @@ router.get('/docs', requireRbacDashboardAccess, ensureRbacReady, (req, res) => {
  * Migration Status Page
  */
 router.get('/migration', requireRbacManagement, ensureRbacReady, (req, res) => {
+  // Only allow in development mode or for global admins
+  const isDev = process.env.NODE_ENV !== 'production';
+  if (!isDev && !isGlobalAdmin(req.rbacUser)) {
+    return res.redirect('/rbac/dashboard?error=Migration+tools+not+available+in+production');
+  }
+  
   try {
     let migrationReport = null;
     let codeScanResults = null;
@@ -575,6 +581,12 @@ router.get('/migration', requireRbacManagement, ensureRbacReady, (req, res) => {
  * Run migration for unmigrated users
  */
 router.post('/migration/run', requireRbacManagement, ensureRbacReady, (req, res) => {
+  // Only allow in development mode or for global admins
+  const isDev = process.env.NODE_ENV !== 'production';
+  if (!isDev && !isGlobalAdmin(req.rbacUser)) {
+    return res.status(403).json({ error: 'Migration not available in production' });
+  }
+  
   try {
     if (!rbacMigration) {
       return res.status(503).json({ error: 'Migration service not available' });
