@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { isProduction } = require('../db/adapter');
 
 // Lazy load dependencies
 let db = null;
@@ -485,10 +486,23 @@ class FallbackManager {
     initDependencies();
     if (db) {
       try {
-        db.prepare(`
-          INSERT OR REPLACE INTO rbac_settings (key, value, updated_at)
-          VALUES ('fallback_enabled', ?, CURRENT_TIMESTAMP)
-        `).run(enabled ? '1' : '0');
+        if (isProduction) {
+          // SQL Server: MERGE statement for upsert
+          db.prepare(`
+            MERGE INTO rbac_settings AS target
+            USING (SELECT 'fallback_enabled' AS [key], ? AS value, GETDATE() AS updated_at) AS source
+            ON target.[key] = source.[key]
+            WHEN MATCHED THEN
+              UPDATE SET value = source.value, updated_at = source.updated_at
+            WHEN NOT MATCHED THEN
+              INSERT ([key], value, updated_at) VALUES (source.[key], source.value, source.updated_at);
+          `).run(enabled ? '1' : '0');
+        } else {
+          db.prepare(`
+            INSERT OR REPLACE INTO rbac_settings (key, value, updated_at)
+            VALUES ('fallback_enabled', ?, CURRENT_TIMESTAMP)
+          `).run(enabled ? '1' : '0');
+        }
       } catch (e) {
         // Settings table might not exist, that's okay
       }
