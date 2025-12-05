@@ -7626,6 +7626,161 @@ main {
     max-width: 300px;
 }
 
+/* Admin Dashboard Two-Column Layout */
+.admin-two-column {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 992px) {
+    .admin-two-column {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Admin Actions Section */
+.admin-actions {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.admin-actions h2 {
+    margin: 0 0 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+/* Mini Button */
+.mini-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mini-btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+}
+
+.mini-btn.danger {
+    background: var(--error-color);
+}
+
+.mini-btn.danger:hover {
+    background: #dc2626;
+}
+
+/* Status Chips */
+.status-chip {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-chip.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-chip.approved,
+.status-chip.resolved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-chip.rejected,
+.status-chip.flagged {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-chip.review,
+.status-chip.open {
+    background: #cce5ff;
+    color: #004085;
+}
+
+/* Broadcast Form */
+.broadcast-form {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px solid var(--border-color);
+}
+
+.broadcast-form label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-dark);
+}
+
+.broadcast-form textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: vertical;
+    transition: all 0.3s ease;
+    color: var(--text-dark);
+    background: white;
+}
+
+.broadcast-form textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(255, 77, 255, 0.1);
+}
+
+.broadcast-form textarea::placeholder {
+    color: var(--text-light);
+}
+
+/* Submit Announce Button */
+.submit-announce {
+    margin-top: 1rem;
+    background: linear-gradient(135deg, var(--primary-color), #D845FF);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 77, 255, 0.3);
+}
+
+.submit-announce:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 77, 255, 0.4);
+}
+
+/* Action Button Danger Variant */
+.action-btn.danger {
+    background: linear-gradient(135deg, var(--error-color), #dc2626);
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+.action-btn.danger:hover {
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .admin-dashboard-container {
