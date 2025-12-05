@@ -7,6 +7,7 @@
  */
 
 const rbacService = require('./rbac');
+const { isProduction } = require('../db/adapter');
 
 // =============================================================================
 // LEGACY ROLE AND PERMISSION DEFINITIONS
@@ -136,8 +137,16 @@ async function seedPermissionGroups() {
  * Seed all permissions from legacy definitions
  */
 async function seedPermissions() {
-  // Get permission group IDs
-  const groups = rbacService.getPermissionGroups() || [];
+  // Get permission group IDs - handle both sync (SQLite) and async (SQL Server) results
+  let groups = rbacService.getPermissionGroups() || [];
+  // In SQL Server mode, getPermissionGroups returns a Promise
+  if (groups && typeof groups.then === 'function') {
+    groups = await groups;
+  }
+  // Ensure groups is an array
+  if (!Array.isArray(groups)) {
+    groups = [];
+  }
   const groupMap = {};
   for (const g of groups) {
     groupMap[g.name] = g.id;
@@ -318,9 +327,21 @@ async function seedRoles() {
  * Seed role-permission assignments
  */
 async function seedRolePermissions() {
-  // Get all roles and permissions
-  const roles = rbacService.getRoles({ includeDisabled: true }) || [];
-  const permissions = rbacService.getPermissions({ includeDisabled: true }) || [];
+  // Get all roles and permissions - handle both sync (SQLite) and async (SQL Server) results
+  let roles = rbacService.getRoles({ includeDisabled: true }) || [];
+  let permissions = rbacService.getPermissions({ includeDisabled: true }) || [];
+  
+  // In SQL Server mode, these return Promises
+  if (roles && typeof roles.then === 'function') {
+    roles = await roles;
+  }
+  if (permissions && typeof permissions.then === 'function') {
+    permissions = await permissions;
+  }
+  
+  // Ensure arrays
+  if (!Array.isArray(roles)) roles = [];
+  if (!Array.isArray(permissions)) permissions = [];
   
   const roleMap = {};
   for (const r of roles) roleMap[r.name] = r;
@@ -395,7 +416,15 @@ function assignPermissionsToRole(roleId, permissionNames, permMap) {
  * Seed legacy role mappings for backward compatibility
  */
 async function seedLegacyMappings() {
-  const roles = rbacService.getRoles({ includeDisabled: true }) || [];
+  let roles = rbacService.getRoles({ includeDisabled: true }) || [];
+  
+  // In SQL Server mode, getRoles returns a Promise
+  if (roles && typeof roles.then === 'function') {
+    roles = await roles;
+  }
+  
+  // Ensure array
+  if (!Array.isArray(roles)) roles = [];
   
   for (const role of roles) {
     try {
@@ -418,17 +447,33 @@ async function seedLegacyMappings() {
  * Seed default role assignments
  */
 async function seedDefaultAssignments() {
-  const userRole = rbacService.getRoleByName('user');
+  let userRole = rbacService.getRoleByName('user');
+  
+  // In SQL Server mode, getRoleByName returns a Promise
+  if (userRole && typeof userRole.then === 'function') {
+    userRole = await userRole;
+  }
+  
   if (!userRole) return;
   
   try {
     // All new users get the 'user' role by default
-    const stmt = require('../db').db?.prepare ? require('../db').db.prepare(`
-      INSERT OR IGNORE INTO rbac_default_assignments (role_id, condition_type, condition_value, priority, is_enabled)
-      VALUES (?, 'new_user', NULL, 100, 1)
-    `) : null;
+    const dbModule = require('../db');
+    if (!dbModule.db?.prepare) return;
     
-    if (stmt) {
+    if (isProduction) {
+      // SQL Server: INSERT with WHERE NOT EXISTS
+      const stmt = dbModule.db.prepare(`
+        INSERT INTO rbac_default_assignments (role_id, condition_type, condition_value, priority, is_enabled)
+        SELECT ?, 'new_user', NULL, 100, 1
+        WHERE NOT EXISTS (SELECT 1 FROM rbac_default_assignments WHERE role_id = ? AND condition_type = 'new_user')
+      `);
+      stmt.run(userRole.id, userRole.id);
+    } else {
+      const stmt = dbModule.db.prepare(`
+        INSERT OR IGNORE INTO rbac_default_assignments (role_id, condition_type, condition_value, priority, is_enabled)
+        VALUES (?, 'new_user', NULL, 100, 1)
+      `);
       stmt.run(userRole.id);
     }
   } catch (error) {
@@ -446,24 +491,38 @@ async function grandfatherLegacyAccounts(db) {
   console.log('🔄 Grandfathering legacy accounts...');
   
   try {
-    // Get all users with legacy roles
-    const legacyUsers = db.prepare(`
+    // Get all users with legacy roles - handle both sync (SQLite) and async (SQL Server) results
+    let legacyUsers = db.prepare(`
       SELECT id, email, role, admin_permissions, admin_scopes 
       FROM users 
       WHERE role IN ('hr', 'super_hr', 'global_hr', 'admin', 'super_admin', 'global_admin', 'business_admin')
     `).all();
     
+    // In SQL Server mode, this returns a Promise
+    if (legacyUsers && typeof legacyUsers.then === 'function') {
+      legacyUsers = await legacyUsers;
+    }
+    
+    // Ensure array
+    if (!Array.isArray(legacyUsers)) legacyUsers = [];
+    
     for (const user of legacyUsers) {
       try {
         // Map legacy role to RBAC role
-        const mapping = rbacService.mapLegacyRole(user.role);
+        let mapping = rbacService.mapLegacyRole(user.role);
+        if (mapping && typeof mapping.then === 'function') {
+          mapping = await mapping;
+        }
         
         if (mapping) {
           // Assign the mapped RBAC role to the user
-          rbacService.assignRoleToUser(user.id, mapping.rbac_role_id, {
+          let assignResult = rbacService.assignRoleToUser(user.id, mapping.rbac_role_id, {
             isPrimary: true,
             assignedBy: null // System assignment
           });
+          if (assignResult && typeof assignResult.then === 'function') {
+            await assignResult;
+          }
           
           // Parse and preserve any additional custom permissions
           let legacyPerms = [];
@@ -475,24 +534,41 @@ async function grandfatherLegacyAccounts(db) {
           for (const permKey of legacyPerms) {
             // Try to find the permission in the new system
             let permission = rbacService.getPermissionByName(`admin.${permKey}`);
+            if (permission && typeof permission.then === 'function') {
+              permission = await permission;
+            }
             if (!permission) {
               permission = rbacService.getPermissionByName(`hr.${permKey}`);
+              if (permission && typeof permission.then === 'function') {
+                permission = await permission;
+              }
             }
             if (!permission) {
               permission = rbacService.getPermissionByName(`business.${permKey}`);
+              if (permission && typeof permission.then === 'function') {
+                permission = await permission;
+              }
             }
             
             if (permission) {
               // Check if user already has this through their role
-              const effectivePerms = rbacService.getEffectivePermissions(user.id);
+              let effectivePerms = rbacService.getEffectivePermissions(user.id);
+              if (effectivePerms && typeof effectivePerms.then === 'function') {
+                effectivePerms = await effectivePerms;
+              }
+              if (!Array.isArray(effectivePerms)) effectivePerms = [];
+              
               const hasPermission = effectivePerms.some(p => p.id === permission.id);
               
               if (!hasPermission) {
                 // Grant as user override to preserve the permission
-                rbacService.grantUserOverride(user.id, permission.id, {
+                let grantResult = rbacService.grantUserOverride(user.id, permission.id, {
                   reason: 'Grandfathered from legacy system',
                   isTemporary: false
                 });
+                if (grantResult && typeof grantResult.then === 'function') {
+                  await grantResult;
+                }
               }
             }
           }
@@ -512,18 +588,27 @@ async function grandfatherLegacyAccounts(db) {
     ];
     
     for (const account of builtInAccounts) {
-      const user = db.prepare(`SELECT id, role FROM users WHERE email = ?`).get(account.email);
+      let user = db.prepare(`SELECT id, role FROM users WHERE email = ?`).get(account.email);
+      if (user && typeof user.then === 'function') {
+        user = await user;
+      }
       
       if (user) {
-        const mapping = rbacService.mapLegacyRole(account.expectedRole);
+        let mapping = rbacService.mapLegacyRole(account.expectedRole);
+        if (mapping && typeof mapping.then === 'function') {
+          mapping = await mapping;
+        }
         
         if (mapping) {
           // Ensure the role is assigned
           try {
-            rbacService.assignRoleToUser(user.id, mapping.rbac_role_id, {
+            let assignResult = rbacService.assignRoleToUser(user.id, mapping.rbac_role_id, {
               isPrimary: true,
               assignedBy: null
             });
+            if (assignResult && typeof assignResult.then === 'function') {
+              await assignResult;
+            }
             console.log(`  ✅ Confirmed RBAC role for ${account.email}`);
           } catch (error) {
             // Already assigned

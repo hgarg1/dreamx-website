@@ -12,6 +12,7 @@
  */
 
 const path = require('path');
+const { isProduction } = require('../db/adapter');
 
 // Import database module - will be initialized after db is ready
 let db = null;
@@ -632,12 +633,24 @@ function assignPermissionToRole(roleId, permissionId, { grantedBy = null, expire
   if (!role) throw new Error('Role not found');
   if (!permission) throw new Error('Permission not found');
   
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO rbac_role_permissions (role_id, permission_id, granted_by, expires_at, is_denied)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  
-  stmt.run(roleId, permissionId, grantedBy, expiresAt || null, isDenied ? 1 : 0);
+  if (isProduction) {
+    // SQL Server: MERGE statement for upsert
+    db.prepare(`
+      MERGE INTO rbac_role_permissions AS target
+      USING (SELECT ? AS role_id, ? AS permission_id, ? AS granted_by, ? AS expires_at, ? AS is_denied) AS source
+      ON target.role_id = source.role_id AND target.permission_id = source.permission_id
+      WHEN MATCHED THEN
+        UPDATE SET granted_by = source.granted_by, expires_at = source.expires_at, is_denied = source.is_denied
+      WHEN NOT MATCHED THEN
+        INSERT (role_id, permission_id, granted_by, expires_at, is_denied) VALUES (source.role_id, source.permission_id, source.granted_by, source.expires_at, source.is_denied);
+    `).run(roleId, permissionId, grantedBy, expiresAt || null, isDenied ? 1 : 0);
+  } else {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO rbac_role_permissions (role_id, permission_id, granted_by, expires_at, is_denied)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    stmt.run(roleId, permissionId, grantedBy, expiresAt || null, isDenied ? 1 : 0);
+  }
   
   // Create audit log
   createAuditLog({
@@ -734,12 +747,24 @@ function assignRoleToUser(userId, roleId, { assignedBy = null, expiresAt = null,
     db.prepare(`UPDATE rbac_user_roles SET is_primary = 0 WHERE user_id = ?`).run(userId);
   }
   
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO rbac_user_roles (user_id, role_id, assigned_by, expires_at, is_primary, scope)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  
-  stmt.run(userId, roleId, assignedBy, expiresAt || null, isPrimary ? 1 : 0, scope || null);
+  if (isProduction) {
+    // SQL Server: MERGE statement for upsert
+    db.prepare(`
+      MERGE INTO rbac_user_roles AS target
+      USING (SELECT ? AS user_id, ? AS role_id, ? AS assigned_by, ? AS expires_at, ? AS is_primary, ? AS scope) AS source
+      ON target.user_id = source.user_id AND target.role_id = source.role_id
+      WHEN MATCHED THEN
+        UPDATE SET assigned_by = source.assigned_by, expires_at = source.expires_at, is_primary = source.is_primary, scope = source.scope
+      WHEN NOT MATCHED THEN
+        INSERT (user_id, role_id, assigned_by, expires_at, is_primary, scope) VALUES (source.user_id, source.role_id, source.assigned_by, source.expires_at, source.is_primary, source.scope);
+    `).run(userId, roleId, assignedBy, expiresAt || null, isPrimary ? 1 : 0, scope || null);
+  } else {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO rbac_user_roles (user_id, role_id, assigned_by, expires_at, is_primary, scope)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(userId, roleId, assignedBy, expiresAt || null, isPrimary ? 1 : 0, scope || null);
+  }
   
   // Create audit log
   createAuditLog({
@@ -821,10 +846,24 @@ function bulkAssignRole(userIds, roleId, { assignedBy = null, expiresAt = null }
   let success = 0;
   let failed = 0;
   
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO rbac_user_roles (user_id, role_id, assigned_by, expires_at)
-    VALUES (?, ?, ?, ?)
-  `);
+  let stmt;
+  if (isProduction) {
+    // SQL Server: MERGE statement for upsert
+    stmt = db.prepare(`
+      MERGE INTO rbac_user_roles AS target
+      USING (SELECT ? AS user_id, ? AS role_id, ? AS assigned_by, ? AS expires_at) AS source
+      ON target.user_id = source.user_id AND target.role_id = source.role_id
+      WHEN MATCHED THEN
+        UPDATE SET assigned_by = source.assigned_by, expires_at = source.expires_at
+      WHEN NOT MATCHED THEN
+        INSERT (user_id, role_id, assigned_by, expires_at) VALUES (source.user_id, source.role_id, source.assigned_by, source.expires_at);
+    `);
+  } else {
+    stmt = db.prepare(`
+      INSERT OR REPLACE INTO rbac_user_roles (user_id, role_id, assigned_by, expires_at)
+      VALUES (?, ?, ?, ?)
+    `);
+  }
   
   for (const userId of userIds) {
     try {
@@ -861,12 +900,24 @@ function grantUserOverride(userId, permissionId, { grantedBy = null, isTemporary
   const permission = getPermissionById(permissionId);
   if (!permission) throw new Error('Permission not found');
   
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO rbac_user_overrides (user_id, permission_id, is_granted, is_temporary, granted_by, expires_at, reason, scope)
-    VALUES (?, ?, 1, ?, ?, ?, ?, ?)
-  `);
-  
-  stmt.run(userId, permissionId, isTemporary ? 1 : 0, grantedBy, expiresAt || null, reason || null, scope || null);
+  if (isProduction) {
+    // SQL Server: MERGE statement for upsert
+    db.prepare(`
+      MERGE INTO rbac_user_overrides AS target
+      USING (SELECT ? AS user_id, ? AS permission_id, 1 AS is_granted, ? AS is_temporary, ? AS granted_by, ? AS expires_at, ? AS reason, ? AS scope) AS source
+      ON target.user_id = source.user_id AND target.permission_id = source.permission_id
+      WHEN MATCHED THEN
+        UPDATE SET is_granted = source.is_granted, is_temporary = source.is_temporary, granted_by = source.granted_by, expires_at = source.expires_at, reason = source.reason, scope = source.scope
+      WHEN NOT MATCHED THEN
+        INSERT (user_id, permission_id, is_granted, is_temporary, granted_by, expires_at, reason, scope) VALUES (source.user_id, source.permission_id, source.is_granted, source.is_temporary, source.granted_by, source.expires_at, source.reason, source.scope);
+    `).run(userId, permissionId, isTemporary ? 1 : 0, grantedBy, expiresAt || null, reason || null, scope || null);
+  } else {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO rbac_user_overrides (user_id, permission_id, is_granted, is_temporary, granted_by, expires_at, reason, scope)
+      VALUES (?, ?, 1, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(userId, permissionId, isTemporary ? 1 : 0, grantedBy, expiresAt || null, reason || null, scope || null);
+  }
   
   // Create audit log
   createAuditLog({
@@ -890,12 +941,24 @@ function denyUserOverride(userId, permissionId, { grantedBy = null, isTemporary 
   const permission = getPermissionById(permissionId);
   if (!permission) throw new Error('Permission not found');
   
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO rbac_user_overrides (user_id, permission_id, is_granted, is_temporary, granted_by, expires_at, reason, scope)
-    VALUES (?, ?, 0, ?, ?, ?, ?, ?)
-  `);
-  
-  stmt.run(userId, permissionId, isTemporary ? 1 : 0, grantedBy, expiresAt || null, reason || null, scope || null);
+  if (isProduction) {
+    // SQL Server: MERGE statement for upsert
+    db.prepare(`
+      MERGE INTO rbac_user_overrides AS target
+      USING (SELECT ? AS user_id, ? AS permission_id, 0 AS is_granted, ? AS is_temporary, ? AS granted_by, ? AS expires_at, ? AS reason, ? AS scope) AS source
+      ON target.user_id = source.user_id AND target.permission_id = source.permission_id
+      WHEN MATCHED THEN
+        UPDATE SET is_granted = source.is_granted, is_temporary = source.is_temporary, granted_by = source.granted_by, expires_at = source.expires_at, reason = source.reason, scope = source.scope
+      WHEN NOT MATCHED THEN
+        INSERT (user_id, permission_id, is_granted, is_temporary, granted_by, expires_at, reason, scope) VALUES (source.user_id, source.permission_id, source.is_granted, source.is_temporary, source.granted_by, source.expires_at, source.reason, source.scope);
+    `).run(userId, permissionId, isTemporary ? 1 : 0, grantedBy, expiresAt || null, reason || null, scope || null);
+  } else {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO rbac_user_overrides (user_id, permission_id, is_granted, is_temporary, granted_by, expires_at, reason, scope)
+      VALUES (?, ?, 0, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(userId, permissionId, isTemporary ? 1 : 0, grantedBy, expiresAt || null, reason || null, scope || null);
+  }
   
   // Create audit log
   createAuditLog({
@@ -1320,12 +1383,24 @@ function mapLegacyRole(legacyRole) {
 function createLegacyMapping({ legacyRole, rbacRoleId, legacyPermissions = [] }) {
   if (!isInitialized) throw new Error('RBAC service not initialized');
   
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO rbac_legacy_mapping (legacy_role, rbac_role_id, legacy_permissions)
-    VALUES (?, ?, ?)
-  `);
-  
-  stmt.run(legacyRole, rbacRoleId, JSON.stringify(legacyPermissions));
+  if (isProduction) {
+    // SQL Server: MERGE statement for upsert
+    db.prepare(`
+      MERGE INTO rbac_legacy_mapping AS target
+      USING (SELECT ? AS legacy_role, ? AS rbac_role_id, ? AS legacy_permissions) AS source
+      ON target.legacy_role = source.legacy_role
+      WHEN MATCHED THEN
+        UPDATE SET rbac_role_id = source.rbac_role_id, legacy_permissions = source.legacy_permissions
+      WHEN NOT MATCHED THEN
+        INSERT (legacy_role, rbac_role_id, legacy_permissions) VALUES (source.legacy_role, source.rbac_role_id, source.legacy_permissions);
+    `).run(legacyRole, rbacRoleId, JSON.stringify(legacyPermissions));
+  } else {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO rbac_legacy_mapping (legacy_role, rbac_role_id, legacy_permissions)
+      VALUES (?, ?, ?)
+    `);
+    stmt.run(legacyRole, rbacRoleId, JSON.stringify(legacyPermissions));
+  }
   
   return true;
 }
@@ -1349,7 +1424,12 @@ function getStats() {
   stats.userRoleAssignments = db.prepare(`SELECT COUNT(*) as count FROM rbac_user_roles`).get().count;
   stats.userOverrides = db.prepare(`SELECT COUNT(*) as count FROM rbac_user_overrides`).get().count;
   stats.modules = db.prepare(`SELECT COUNT(*) as count FROM rbac_module_registrations WHERE is_enabled = 1`).get().count;
-  stats.auditLogsToday = db.prepare(`SELECT COUNT(*) as count FROM rbac_audit_logs WHERE created_at >= date('now')`).get().count;
+  
+  // Use SQL Server compatible date syntax when in production, SQLite date() otherwise
+  const todayDateSql = isProduction 
+    ? `SELECT COUNT(*) as count FROM rbac_audit_logs WHERE created_at >= CAST(GETDATE() AS DATE)`
+    : `SELECT COUNT(*) as count FROM rbac_audit_logs WHERE created_at >= date('now')`;
+  stats.auditLogsToday = db.prepare(todayDateSql).get().count;
   
   return stats;
 }
