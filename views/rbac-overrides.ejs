@@ -172,24 +172,75 @@
     </div>
   </main>
   
-  <!-- Coming Soon Modal -->
-  <div id="comingSoonModal" class="coming-soon-modal-overlay">
-    <div class="coming-soon-modal">
-      <div class="coming-soon-modal-header">
-        <span class="coming-soon-icon">🚧</span>
-        <h3>Coming Soon!</h3>
+  <!-- Grant Override Modal -->
+  <div id="grantOverrideModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🔓 Grant Permission Override</h2>
+        <button class="modal-close" onclick="closeGrantModal()">&times;</button>
       </div>
-      <div class="coming-soon-modal-body">
-        <p id="comingSoonMessage">This feature is currently under development and will be available soon.</p>
-      </div>
-      <div class="coming-soon-modal-footer">
-        <button class="btn btn-primary" onclick="closeComingSoonModal()">Got it!</button>
-      </div>
+      <form id="grantOverrideForm">
+        <div class="form-group">
+          <label for="overrideUserId">User *</label>
+          <input type="text" id="userSearch" placeholder="Search users by email..." autocomplete="off">
+          <input type="hidden" id="overrideUserId" name="userId" required>
+          <div id="userSearchResults" class="search-results"></div>
+          <small>Search and select a user to grant override</small>
+        </div>
+        <div class="form-group">
+          <label for="overridePermissionId">Permission *</label>
+          <select id="overridePermissionId" name="permissionId" required>
+            <option value="">Select a permission...</option>
+          </select>
+          <small>Select the permission to grant or deny</small>
+        </div>
+        <div class="form-group">
+          <label>Override Type *</label>
+          <div class="radio-group">
+            <label class="radio-option grant">
+              <input type="radio" name="overrideType" value="grant" checked>
+              <span class="radio-label">✅ Grant</span>
+              <small>User will have this permission</small>
+            </label>
+            <label class="radio-option deny">
+              <input type="radio" name="overrideType" value="deny">
+              <span class="radio-label">❌ Deny</span>
+              <small>User will be denied this permission</small>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Duration</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="isTemporary" value="false" checked>
+              <span class="radio-label">Permanent</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="isTemporary" value="true">
+              <span class="radio-label">Temporary</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="expiryGroup" style="display: none;">
+          <label for="expiresAt">Expiry Date & Time</label>
+          <input type="datetime-local" id="expiresAt" name="expiresAt">
+        </div>
+        <div class="form-group">
+          <label for="overrideReason">Reason</label>
+          <textarea id="overrideReason" name="reason" rows="2" placeholder="Why is this override being granted?"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeGrantModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Grant Override</button>
+        </div>
+      </form>
+      <div id="grantResult" class="result-message" style="display: none;"></div>
     </div>
   </div>
   
   <style>
-    .coming-soon-modal-overlay {
+    .modal-overlay {
       display: none;
       position: fixed;
       top: 0;
@@ -202,93 +253,281 @@
       align-items: center;
       justify-content: center;
     }
-    .coming-soon-modal-overlay.active {
-      display: flex;
-    }
-    .coming-soon-modal {
+    .modal-overlay.active { display: flex; }
+    .modal-content {
       background: white;
-      border-radius: 20px;
+      border-radius: 16px;
       box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
-      max-width: 400px;
-      width: 90%;
-      text-align: center;
+      max-width: 550px;
+      width: 95%;
+      max-height: 90vh;
+      overflow-y: auto;
       animation: modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      overflow: hidden;
     }
     @keyframes modalSlideIn {
-      from {
-        opacity: 0;
-        transform: scale(0.9) translateY(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-      }
+      from { opacity: 0; transform: scale(0.9) translateY(-20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
     }
-    .coming-soon-modal-header {
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid #e5e7eb;
       background: linear-gradient(135deg, #6366f1, #a855f7);
-      padding: 24px;
       color: white;
+      border-radius: 16px 16px 0 0;
     }
-    .coming-soon-icon {
-      font-size: 48px;
-      display: block;
-      margin-bottom: 8px;
+    .modal-header h2 { margin: 0; font-size: 1.25rem; }
+    .modal-close {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
     }
-    .coming-soon-modal-header h3 {
-      margin: 0;
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
-    .coming-soon-modal-body {
-      padding: 24px;
-    }
-    .coming-soon-modal-body p {
-      margin: 0;
-      color: #4b5563;
-      font-size: 1rem;
-      line-height: 1.6;
-    }
-    .coming-soon-modal-footer {
-      padding: 16px 24px 24px;
-    }
-    .coming-soon-modal-footer .btn {
+    .modal-close:hover { background: rgba(255,255,255,0.3); }
+    #grantOverrideForm { padding: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #374151; font-size: 14px; }
+    .form-group input, .form-group select, .form-group textarea {
       width: 100%;
-      padding: 12px 24px;
-      font-size: 1rem;
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    .form-group small { display: block; margin-top: 4px; color: #6b7280; font-size: 12px; }
+    .search-results {
+      position: absolute;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      width: calc(100% - 48px);
+      z-index: 10001;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: none;
+    }
+    .search-results.active { display: block; }
+    .search-result-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .search-result-item:hover { background: #f9fafb; }
+    .search-result-item .name { font-weight: 500; color: #1f2937; }
+    .search-result-item .email { font-size: 12px; color: #6b7280; }
+    .radio-group { display: flex; gap: 12px; flex-wrap: wrap; }
+    .radio-option {
+      flex: 1;
+      min-width: 140px;
+      padding: 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .radio-option:hover { border-color: #6366f1; }
+    .radio-option input { margin-right: 8px; }
+    .radio-option.grant input:checked + .radio-label { color: #059669; }
+    .radio-option.deny input:checked + .radio-label { color: #dc2626; }
+    .radio-option input:checked ~ small { color: #374151; }
+    .radio-option small { display: block; margin-top: 4px; font-size: 11px; color: #9ca3af; }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+      margin-top: 8px;
+    }
+    .result-message {
+      margin: 16px 24px 24px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .result-message.success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .result-message.error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .selected-user {
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .selected-user .clear-user {
+      background: none;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 18px;
     }
   </style>
   
   <%- include('partials/footer') %>
   
   <script>
+    let allPermissions = [];
+    let searchTimeout = null;
+    let selectedUser = null;
+    
     function openGrantModal() {
-      showComingSoonModal('Grant override functionality is coming soon. You\'ll be able to grant or deny specific permissions to individual users.');
+      document.getElementById('grantOverrideModal').classList.add('active');
+      loadPermissions();
     }
     
-    function showComingSoonModal(message) {
-      const modal = document.getElementById('comingSoonModal');
-      const messageEl = document.getElementById('comingSoonMessage');
-      messageEl.textContent = message || 'This feature is currently under development and will be available soon.';
-      modal.classList.add('active');
+    function closeGrantModal() {
+      document.getElementById('grantOverrideModal').classList.remove('active');
+      document.getElementById('grantOverrideForm').reset();
+      document.getElementById('grantResult').style.display = 'none';
+      document.getElementById('userSearchResults').classList.remove('active');
+      selectedUser = null;
+      document.getElementById('userSearch').value = '';
+      document.getElementById('overrideUserId').value = '';
     }
     
-    function closeComingSoonModal() {
-      const modal = document.getElementById('comingSoonModal');
-      modal.classList.remove('active');
-    }
-    
-    // Close modal when clicking outside
-    document.getElementById('comingSoonModal').addEventListener('click', function(e) {
-      if (e.target === this) {
-        closeComingSoonModal();
+    async function loadPermissions() {
+      try {
+        const res = await fetch('/api/rbac/permissions');
+        const data = await res.json();
+        if (data.success && data.permissions) {
+          allPermissions = data.permissions;
+          const select = document.getElementById('overridePermissionId');
+          select.innerHTML = '<option value="">Select a permission...</option>';
+          data.permissions.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = p.display_name || p.name;
+            select.appendChild(option);
+          });
+        }
+      } catch (e) {
+        console.error('Failed to load permissions:', e);
       }
+    }
+    
+    // User search
+    document.getElementById('userSearch').addEventListener('input', function(e) {
+      clearTimeout(searchTimeout);
+      const query = e.target.value.trim();
+      
+      if (query.length < 2) {
+        document.getElementById('userSearchResults').classList.remove('active');
+        return;
+      }
+      
+      searchTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/rbac/search?q=${encodeURIComponent(query)}&types=user&limit=10`);
+          const data = await res.json();
+          
+          const resultsEl = document.getElementById('userSearchResults');
+          
+          if (data.success && data.results && data.results.length > 0) {
+            resultsEl.innerHTML = data.results.map(user => `
+              <div class="search-result-item" onclick="selectUser(${user.id}, '${user.full_name || user.email}', '${user.email}')">
+                <div class="name">${user.full_name || 'Unknown'}</div>
+                <div class="email">${user.email}</div>
+              </div>
+            `).join('');
+            resultsEl.classList.add('active');
+          } else {
+            resultsEl.innerHTML = '<div class="search-result-item"><em>No users found</em></div>';
+            resultsEl.classList.add('active');
+          }
+        } catch (e) {
+          console.error('Search failed:', e);
+        }
+      }, 300);
     });
     
-    // Close modal with ESC key
+    function selectUser(id, name, email) {
+      selectedUser = { id, name, email };
+      document.getElementById('overrideUserId').value = id;
+      document.getElementById('userSearch').value = `${name} (${email})`;
+      document.getElementById('userSearchResults').classList.remove('active');
+    }
+    
+    // Toggle expiry field
+    document.querySelectorAll('input[name="isTemporary"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        document.getElementById('expiryGroup').style.display = this.value === 'true' ? 'block' : 'none';
+      });
+    });
+    
+    // Close modal when clicking outside
+    document.getElementById('grantOverrideModal').addEventListener('click', function(e) {
+      if (e.target === this) closeGrantModal();
+    });
+    
+    // Close on ESC
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        closeComingSoonModal();
+      if (e.key === 'Escape') closeGrantModal();
+    });
+    
+    // Form submission
+    document.getElementById('grantOverrideForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const userId = document.getElementById('overrideUserId').value;
+      const permissionId = document.getElementById('overridePermissionId').value;
+      const overrideType = document.querySelector('input[name="overrideType"]:checked').value;
+      const isTemporary = document.querySelector('input[name="isTemporary"]:checked').value === 'true';
+      const expiresAt = document.getElementById('expiresAt').value;
+      const reason = document.getElementById('overrideReason').value;
+      
+      if (!userId || !permissionId) {
+        alert('Please select a user and permission');
+        return;
+      }
+      
+      const resultEl = document.getElementById('grantResult');
+      resultEl.style.display = 'none';
+      
+      try {
+        const endpoint = overrideType === 'grant' 
+          ? `/api/rbac/users/${userId}/overrides/${permissionId}/grant`
+          : `/api/rbac/users/${userId}/overrides/${permissionId}/deny`;
+        
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            isTemporary,
+            expiresAt: isTemporary && expiresAt ? expiresAt : null,
+            reason
+          })
+        });
+        
+        const result = await res.json();
+        
+        if (result.success) {
+          resultEl.className = 'result-message success';
+          resultEl.textContent = '✅ Override granted successfully!';
+          resultEl.style.display = 'block';
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          resultEl.className = 'result-message error';
+          resultEl.textContent = '❌ ' + (result.error || 'Failed to grant override');
+          resultEl.style.display = 'block';
+        }
+      } catch (err) {
+        resultEl.className = 'result-message error';
+        resultEl.textContent = '❌ Network error: ' + err.message;
+        resultEl.style.display = 'block';
       }
     });
     

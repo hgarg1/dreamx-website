@@ -143,24 +143,75 @@
     </div>
   </main>
   
-  <!-- Coming Soon Modal -->
-  <div id="comingSoonModal" class="coming-soon-modal-overlay">
-    <div class="coming-soon-modal">
-      <div class="coming-soon-modal-header">
-        <span class="coming-soon-icon">🚧</span>
-        <h3>Coming Soon!</h3>
+  <!-- Create Permission Modal -->
+  <div id="createPermissionModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🔑 Create New Permission</h2>
+        <button class="modal-close" onclick="closeCreateModal()">&times;</button>
       </div>
-      <div class="coming-soon-modal-body">
-        <p id="comingSoonMessage">This feature is currently under development and will be available soon.</p>
-      </div>
-      <div class="coming-soon-modal-footer">
-        <button class="btn btn-primary" onclick="closeComingSoonModal()">Got it!</button>
-      </div>
+      <form id="createPermissionForm">
+        <div class="form-group">
+          <label for="permName">Permission Name *</label>
+          <input type="text" id="permName" name="name" required placeholder="e.g., posts.create" pattern="[a-z0-9._]+" title="Lowercase letters, numbers, dots and underscores only">
+          <small>Unique identifier (lowercase, dots for namespacing)</small>
+        </div>
+        <div class="form-group">
+          <label for="permDisplayName">Display Name</label>
+          <input type="text" id="permDisplayName" name="displayName" placeholder="e.g., Create Posts">
+        </div>
+        <div class="form-group">
+          <label for="permDescription">Description</label>
+          <textarea id="permDescription" name="description" rows="2" placeholder="Describe what this permission allows..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="permModule">Module</label>
+            <input type="text" id="permModule" name="module" placeholder="e.g., content" list="modulesList">
+            <datalist id="modulesList">
+              <% modules.forEach(mod => { %>
+              <option value="<%= mod %>">
+              <% }) %>
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label for="permResource">Resource</label>
+            <input type="text" id="permResource" name="resource" placeholder="e.g., posts">
+          </div>
+          <div class="form-group">
+            <label for="permAction">Action</label>
+            <select id="permAction" name="action">
+              <option value="">Select action...</option>
+              <option value="create">create</option>
+              <option value="read">read</option>
+              <option value="update">update</option>
+              <option value="delete">delete</option>
+              <option value="manage">manage</option>
+              <option value="view">view</option>
+              <option value="edit">edit</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="permGroup">Permission Group</label>
+          <select id="permGroup" name="groupId">
+            <option value="">No group</option>
+            <% groups.forEach(group => { %>
+            <option value="<%= group.id %>"><%= group.display_name || group.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Permission</button>
+        </div>
+      </form>
+      <div id="createResult" class="result-message" style="display: none;"></div>
     </div>
   </div>
   
   <style>
-    .coming-soon-modal-overlay {
+    .modal-overlay {
       display: none;
       position: fixed;
       top: 0;
@@ -173,93 +224,151 @@
       align-items: center;
       justify-content: center;
     }
-    .coming-soon-modal-overlay.active {
+    .modal-overlay.active {
       display: flex;
     }
-    .coming-soon-modal {
+    .modal-content {
       background: white;
-      border-radius: 20px;
+      border-radius: 16px;
       box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
-      max-width: 400px;
-      width: 90%;
-      text-align: center;
+      max-width: 550px;
+      width: 95%;
+      max-height: 90vh;
+      overflow-y: auto;
       animation: modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      overflow: hidden;
     }
     @keyframes modalSlideIn {
-      from {
-        opacity: 0;
-        transform: scale(0.9) translateY(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-      }
+      from { opacity: 0; transform: scale(0.9) translateY(-20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
     }
-    .coming-soon-modal-header {
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid #e5e7eb;
       background: linear-gradient(135deg, #6366f1, #a855f7);
-      padding: 24px;
       color: white;
+      border-radius: 16px 16px 0 0;
     }
-    .coming-soon-icon {
-      font-size: 48px;
-      display: block;
-      margin-bottom: 8px;
+    .modal-header h2 { margin: 0; font-size: 1.25rem; }
+    .modal-close {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .coming-soon-modal-header h3 {
-      margin: 0;
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
-    .coming-soon-modal-body {
-      padding: 24px;
-    }
-    .coming-soon-modal-body p {
-      margin: 0;
-      color: #4b5563;
-      font-size: 1rem;
-      line-height: 1.6;
-    }
-    .coming-soon-modal-footer {
-      padding: 16px 24px 24px;
-    }
-    .coming-soon-modal-footer .btn {
+    .modal-close:hover { background: rgba(255,255,255,0.3); }
+    #createPermissionForm { padding: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #374151; font-size: 14px; }
+    .form-group input, .form-group select, .form-group textarea {
       width: 100%;
-      padding: 12px 24px;
-      font-size: 1rem;
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    .form-group small { display: block; margin-top: 4px; color: #6b7280; font-size: 12px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+      margin-top: 8px;
+    }
+    .result-message {
+      margin: 16px 24px 24px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .result-message.success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .result-message.error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
   </style>
   
   <%- include('partials/footer') %>
   
   <script>
     function openCreateModal() {
-      showComingSoonModal('Permission creation is coming soon. You\'ll be able to create custom permissions with modules, resources, and actions.');
+      document.getElementById('createPermissionModal').classList.add('active');
+      document.getElementById('permName').focus();
     }
     
-    function showComingSoonModal(message) {
-      const modal = document.getElementById('comingSoonModal');
-      const messageEl = document.getElementById('comingSoonMessage');
-      messageEl.textContent = message || 'This feature is currently under development and will be available soon.';
-      modal.classList.add('active');
-    }
-    
-    function closeComingSoonModal() {
-      const modal = document.getElementById('comingSoonModal');
-      modal.classList.remove('active');
+    function closeCreateModal() {
+      document.getElementById('createPermissionModal').classList.remove('active');
+      document.getElementById('createPermissionForm').reset();
+      document.getElementById('createResult').style.display = 'none';
     }
     
     // Close modal when clicking outside
-    document.getElementById('comingSoonModal').addEventListener('click', function(e) {
+    document.getElementById('createPermissionModal').addEventListener('click', function(e) {
       if (e.target === this) {
-        closeComingSoonModal();
+        closeCreateModal();
       }
     });
     
     // Close modal with ESC key
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
-        closeComingSoonModal();
+        closeCreateModal();
+      }
+    });
+    
+    // Handle form submission
+    document.getElementById('createPermissionForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      const data = {};
+      formData.forEach((value, key) => {
+        if (value) data[key] = value;
+      });
+      
+      const resultEl = document.getElementById('createResult');
+      resultEl.style.display = 'none';
+      
+      try {
+        const res = await fetch('/api/rbac/permissions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        const result = await res.json();
+        
+        if (result.success || result.permission) {
+          resultEl.className = 'result-message success';
+          resultEl.textContent = '✅ Permission created successfully!';
+          resultEl.style.display = 'block';
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          resultEl.className = 'result-message error';
+          resultEl.textContent = '❌ ' + (result.error || 'Failed to create permission');
+          resultEl.style.display = 'block';
+        }
+      } catch (err) {
+        resultEl.className = 'result-message error';
+        resultEl.textContent = '❌ Network error: ' + err.message;
+        resultEl.style.display = 'block';
       }
     });
   </script>
