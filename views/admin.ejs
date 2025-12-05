@@ -59,6 +59,7 @@
                 <form action="/admin/users/<%= u.id %>/role" method="POST" style="display:flex;gap:6px;align-items:center;">
                   <select name="role" class="settings-select">
                     <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
+                    <option value="business_admin" <%= u.role === 'business_admin' ? 'selected' : '' %>>Business Admin</option>
                     <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
                     <option value="super_admin" <%= u.role === 'super_admin' ? 'selected' : '' %>>Super Admin</option>
                   </select>

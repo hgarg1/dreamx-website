@@ -1,0 +1,579 @@
+<%- include('partials/header') %>
+
+<section class="business-page">
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="breadcrumb">
+                <a href="/business">Dashboard</a>
+                <span class="separator">→</span>
+                <span class="current">Sales Inquiries</span>
+            </div>
+            <h1 class="page-title">
+                <span class="title-icon">📋</span>
+                Sales Inquiries
+            </h1>
+            <p class="page-subtitle">Manage enterprise sales leads and follow up with prospects.</p>
+        </div>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success"><%= success %></div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stat-item">
+            <span class="stat-value"><%= stats.new || 0 %></span>
+            <span class="stat-label">New</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value"><%= stats.contacted || 0 %></span>
+            <span class="stat-label">Contacted</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value"><%= stats.inProgress || 0 %></span>
+            <span class="stat-label">In Progress</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value"><%= stats.qualified || 0 %></span>
+            <span class="stat-label">Qualified</span>
+        </div>
+        <div class="stat-item urgent">
+            <span class="stat-value"><%= stats.urgent || 0 %></span>
+            <span class="stat-label">Urgent</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value"><%= stats.total || 0 %></span>
+            <span class="stat-label">Total</span>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-bar">
+        <form class="filters-form" method="GET" action="/business/sales">
+            <div class="filter-group">
+                <label>Status</label>
+                <select name="status" onchange="this.form.submit()">
+                    <option value="">All Statuses</option>
+                    <option value="new" <%= filters.status === 'new' ? 'selected' : '' %>>New</option>
+                    <option value="contacted" <%= filters.status === 'contacted' ? 'selected' : '' %>>Contacted</option>
+                    <option value="in_progress" <%= filters.status === 'in_progress' ? 'selected' : '' %>>In Progress</option>
+                    <option value="qualified" <%= filters.status === 'qualified' ? 'selected' : '' %>>Qualified</option>
+                    <option value="closed" <%= filters.status === 'closed' ? 'selected' : '' %>>Closed</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Priority</label>
+                <select name="priority" onchange="this.form.submit()">
+                    <option value="">All Priorities</option>
+                    <option value="urgent" <%= filters.priority === 'urgent' ? 'selected' : '' %>>🔥 Urgent</option>
+                    <option value="high" <%= filters.priority === 'high' ? 'selected' : '' %>>⬆️ High</option>
+                    <option value="normal" <%= filters.priority === 'normal' ? 'selected' : '' %>>Normal</option>
+                    <option value="low" <%= filters.priority === 'low' ? 'selected' : '' %>>Low</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Assigned To</label>
+                <select name="assignedTo" onchange="this.form.submit()">
+                    <option value="">All Team</option>
+                    <% businessAdmins.forEach(function(admin) { %>
+                    <option value="<%= admin.id %>" <%= filters.assignedTo == admin.id ? 'selected' : '' %>><%= admin.full_name %></option>
+                    <% }); %>
+                </select>
+            </div>
+            <div class="filter-group search">
+                <label>Search</label>
+                <input type="text" name="search" value="<%= filters.search || '' %>" placeholder="Company, contact, email...">
+                <button type="submit" class="search-btn">🔍</button>
+            </div>
+            <% if (filters.status || filters.priority || filters.assignedTo || filters.search) { %>
+            <a href="/business/sales" class="clear-filters">Clear Filters</a>
+            <% } %>
+        </form>
+    </div>
+
+    <!-- Inquiries Table -->
+    <div class="inquiries-table-container">
+        <% if (inquiries && inquiries.length > 0) { %>
+        <table class="inquiries-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Company</th>
+                    <th>Contact</th>
+                    <th>Use Case</th>
+                    <th>Users</th>
+                    <th>Timeline</th>
+                    <th>Assigned</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% inquiries.forEach(function(inquiry) { %>
+                <tr class="<%= inquiry.priority === 'urgent' ? 'row-urgent' : '' %>">
+                    <td>
+                        <div class="status-cell">
+                            <span class="status-badge status-<%= inquiry.status %>">
+                                <%= inquiry.status.replace('_', ' ') %>
+                            </span>
+                            <% if (inquiry.priority === 'urgent') { %>
+                            <span class="priority-icon">🔥</span>
+                            <% } else if (inquiry.priority === 'high') { %>
+                            <span class="priority-icon">⬆️</span>
+                            <% } %>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="company-cell">
+                            <div class="company-name"><%= inquiry.company_name %></div>
+                            <div class="company-meta"><%= inquiry.industry %> • <%= inquiry.company_size %></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="contact-cell">
+                            <div class="contact-name"><%= inquiry.contact_name %></div>
+                            <div class="contact-email"><%= inquiry.contact_email %></div>
+                        </div>
+                    </td>
+                    <td><%= inquiry.use_case ? inquiry.use_case.replace(/_/g, ' ') : '-' %></td>
+                    <td><%= inquiry.expected_users || '-' %></td>
+                    <td><%= inquiry.timeline ? inquiry.timeline.replace(/_/g, ' ') : '-' %></td>
+                    <td>
+                        <% if (inquiry.assigned_to_name) { %>
+                        <span class="assigned-badge"><%= inquiry.assigned_to_name %></span>
+                        <% } else { %>
+                        <span class="unassigned">Unassigned</span>
+                        <% } %>
+                    </td>
+                    <td class="date-cell">
+                        <%= new Date(inquiry.created_at).toLocaleDateString() %>
+                    </td>
+                    <td>
+                        <a href="/business/sales/<%= inquiry.id %>" class="action-btn">View</a>
+                    </td>
+                </tr>
+                <% }); %>
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination">
+            <span class="pagination-info">Showing <%= (page - 1) * 20 + 1 %>-<%= Math.min(page * 20, total) %> of <%= total %> inquiries</span>
+            <div class="pagination-controls">
+                <% if (page > 1) { %>
+                <a href="?page=<%= page - 1 %><%= filters.status ? '&status=' + filters.status : '' %><%= filters.priority ? '&priority=' + filters.priority : '' %><%= filters.assignedTo ? '&assignedTo=' + filters.assignedTo : '' %><%= filters.search ? '&search=' + encodeURIComponent(filters.search) : '' %>" class="page-btn">← Previous</a>
+                <% } %>
+                <span class="page-current">Page <%= page %> of <%= totalPages %></span>
+                <% if (page < totalPages) { %>
+                <a href="?page=<%= page + 1 %><%= filters.status ? '&status=' + filters.status : '' %><%= filters.priority ? '&priority=' + filters.priority : '' %><%= filters.assignedTo ? '&assignedTo=' + filters.assignedTo : '' %><%= filters.search ? '&search=' + encodeURIComponent(filters.search) : '' %>" class="page-btn">Next →</a>
+                <% } %>
+            </div>
+        </div>
+        <% } else { %>
+        <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <h3>No inquiries found</h3>
+            <p>
+                <% if (filters.status || filters.priority || filters.assignedTo || filters.search) { %>
+                Try adjusting your filters to see more results.
+                <% } else { %>
+                Enterprise sales inquiries will appear here when submitted through the pricing page.
+                <% } %>
+            </p>
+        </div>
+        <% } %>
+    </div>
+</section>
+
+<style>
+.business-page {
+    min-height: 100vh;
+    background: #f8fafc;
+    padding-bottom: 60px;
+}
+
+.page-header {
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+    padding: 48px 32px;
+    color: white;
+    margin-bottom: 0;
+}
+
+.page-header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.breadcrumb {
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+    opacity: 0.9;
+}
+
+.breadcrumb a {
+    color: white;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb .separator {
+    margin: 0 8px;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+
+.page-subtitle {
+    margin-top: 8px;
+    opacity: 0.9;
+}
+
+/* Alerts */
+.alert {
+    max-width: 1400px;
+    margin: 24px auto;
+    padding: 16px 24px;
+    border-radius: 12px;
+}
+
+.alert-success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.alert-error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Stats Bar */
+.stats-bar {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+    display: flex;
+    gap: 24px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 16px;
+}
+
+.stat-item.urgent .stat-value {
+    color: #dc2626;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1f2937;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+/* Filters */
+.filters-bar {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px 32px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.filters-form {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.filter-group label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.filter-group select,
+.filter-group input {
+    padding: 10px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    min-width: 150px;
+}
+
+.filter-group.search {
+    flex: 1;
+    min-width: 200px;
+    max-width: 300px;
+    position: relative;
+}
+
+.filter-group.search input {
+    width: 100%;
+    padding-right: 40px;
+}
+
+.search-btn {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.clear-filters {
+    padding: 10px 16px;
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.clear-filters:hover {
+    color: #1f2937;
+}
+
+/* Table */
+.inquiries-table-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+}
+
+.inquiries-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.inquiries-table th {
+    text-align: left;
+    padding: 16px 20px;
+    background: #f8fafc;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.inquiries-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.inquiries-table tr:hover {
+    background: #f8fafc;
+}
+
+.inquiries-table tr.row-urgent {
+    background: #fef2f2;
+}
+
+.inquiries-table tr.row-urgent:hover {
+    background: #fee2e2;
+}
+
+.status-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-new { background: #dbeafe; color: #1d4ed8; }
+.status-contacted { background: #ede9fe; color: #7c3aed; }
+.status-in_progress { background: #fef3c7; color: #d97706; }
+.status-qualified { background: #d1fae5; color: #059669; }
+.status-closed { background: #f3f4f6; color: #6b7280; }
+
+.priority-icon {
+    font-size: 0.9rem;
+}
+
+.company-name {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.company-meta {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+
+.contact-name {
+    font-weight: 500;
+    color: #374151;
+}
+
+.contact-email {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.assigned-badge {
+    padding: 4px 10px;
+    background: #f0fdf4;
+    color: #166534;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.unassigned {
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+
+.date-cell {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.action-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    padding: 16px 0;
+}
+
+.pagination-info {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.page-btn {
+    padding: 10px 20px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #374151;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.page-btn:hover {
+    background: #f8fafc;
+    border-color: #14b8a6;
+    color: #14b8a6;
+}
+
+.page-current {
+    color: #6b7280;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 80px 24px;
+    background: white;
+    border-radius: 16px;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+}
+
+.empty-state h3 {
+    margin: 0 0 8px;
+    color: #374151;
+}
+
+.empty-state p {
+    color: #6b7280;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+    .stats-bar {
+        flex-wrap: wrap;
+    }
+    
+    .filters-form {
+        flex-direction: column;
+    }
+    
+    .filter-group {
+        width: 100%;
+    }
+    
+    .filter-group.search {
+        max-width: none;
+    }
+    
+    .inquiries-table {
+        display: block;
+        overflow-x: auto;
+    }
+}
+</style>
+
+<%- include('partials/footer') %>

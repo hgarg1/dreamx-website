@@ -515,6 +515,9 @@ app.use('/', adminRoutes);
 const initHrRoutes = require('./routes/hr');
 const hrRoutes = initHrRoutes({ emailService, careerAssetUpload });
 app.use('/', hrRoutes);
+const initBusinessRoutes = require('./routes/business');
+const businessRoutes = initBusinessRoutes({ emailService });
+app.use('/', businessRoutes);
 const initSettingsRoutes = require('./routes/settings');
 const settingsRoutes = initSettingsRoutes();
 app.use('/', settingsRoutes);
@@ -1113,6 +1116,24 @@ const ADMIN_PERMISSION_DEFINITIONS = [
     { key: 'platform_metrics', label: 'Platform Metrics', desc: 'View KPIs and real-time operational stats.' }
 ];
 const ADMIN_PERMISSION_KEYS = new Set(ADMIN_PERMISSION_DEFINITIONS.map(p => p.key));
+
+// Business Admin Permission Definitions - 10+ permissions for enterprise sales/business operations
+const BUSINESS_ADMIN_PERMISSION_DEFINITIONS = [
+    { key: 'sales_inquiries_view', label: 'View Sales Inquiries', desc: 'View enterprise sales inquiry submissions.' },
+    { key: 'sales_inquiries_manage', label: 'Manage Sales Inquiries', desc: 'Assign, update status, and close sales inquiries.' },
+    { key: 'sales_inquiries_contact', label: 'Contact Prospects', desc: 'Send follow-up emails to sales leads.' },
+    { key: 'business_team_view', label: 'View Business Team', desc: 'View other business admins in the organization.' },
+    { key: 'business_team_manage', label: 'Manage Business Team', desc: 'Create and manage subordinate business admins.' },
+    { key: 'enterprise_accounts', label: 'Enterprise Accounts', desc: 'View and manage enterprise customer accounts.' },
+    { key: 'sales_analytics', label: 'Sales Analytics', desc: 'View sales pipeline metrics and conversion data.' },
+    { key: 'contract_management', label: 'Contract Management', desc: 'Create and manage enterprise contracts.' },
+    { key: 'pricing_customization', label: 'Custom Pricing', desc: 'Create custom pricing packages for enterprises.' },
+    { key: 'partner_management', label: 'Partner Management', desc: 'Manage business partners and affiliates.' },
+    { key: 'revenue_reports', label: 'Revenue Reports', desc: 'Access revenue and financial reports.' },
+    { key: 'customer_success', label: 'Customer Success', desc: 'Manage customer onboarding and success programs.' }
+];
+const BUSINESS_ADMIN_PERMISSION_KEYS = new Set(BUSINESS_ADMIN_PERMISSION_DEFINITIONS.map(p => p.key));
+
 const HR_PERMISSION_DEFINITIONS = [
     { key: 'hr_applications', label: 'Applications & Review', desc: 'View and triage candidate submissions.' },
     { key: 'hr_pipeline', label: 'Pipeline Moves', desc: 'Advance, reject, and tag candidates in the pipeline.' },
@@ -1123,12 +1144,16 @@ const HR_PERMISSION_DEFINITIONS = [
 ];
 const HR_PERMISSION_KEYS = new Set(HR_PERMISSION_DEFINITIONS.map(p => p.key));
 const HR_PAGE_SCOPES = ['hr-dashboard', 'candidate-pipeline', 'career-applications', 'job-board', 'hr-org', 'talent-outreach'];
-const roleRank = { user: 1, hr: 2, super_hr: 3, global_hr: 4, admin: 5, super_admin: 6, global_admin: 7 };
+
+// Role ranks - business_admin sits between admin and super_admin in hierarchy
+const roleRank = { user: 1, hr: 2, super_hr: 3, global_hr: 4, business_admin: 5, admin: 6, super_admin: 7, global_admin: 8 };
 const hrRoleRank = { hr: 1, super_hr: 2, global_hr: 3 };
+const businessAdminRoleRank = { business_admin: 1 };
+
 const parseAdminMeta = (user) => {
     try {
         const cleanPerms = normalizeArray(user.admin_permissions ? JSON.parse(user.admin_permissions) : [])
-            .filter(p => ADMIN_PERMISSION_KEYS.has(p));
+            .filter(p => ADMIN_PERMISSION_KEYS.has(p) || BUSINESS_ADMIN_PERMISSION_KEYS.has(p));
         return {
             permissions: cleanPerms,
             scopes: normalizeArray(user.admin_scopes ? JSON.parse(user.admin_scopes) : [])
@@ -1137,24 +1162,37 @@ const parseAdminMeta = (user) => {
         return { permissions: [], scopes: [] };
     }
 };
+
 const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin');
+const isBusinessAdmin = (user) => user && user.role === 'business_admin';
 const isHR = (user) => user && ['hr', 'super_hr', 'global_hr'].includes(user.role);
 const isSuperHR = (user) => user && (user.role === 'super_hr' || user.role === 'global_hr');
 const isGlobalHR = (user) => user && user.role === 'global_hr';
 const isSuperAdmin = (user) => user && (user.role === 'super_admin' || user.role === 'global_admin');
 const isGlobalAdmin = (user) => user && user.role === 'global_admin';
+
 const hasPermission = (user, permission) => {
     if (!user) return false;
     if (isSuperAdmin(user)) return true;
     const { permissions } = parseAdminMeta(user);
     return permissions.includes(permission);
 };
+
+const hasBusinessPermission = (user, permission) => {
+    if (!user) return false;
+    if (isSuperAdmin(user) || isGlobalAdmin(user)) return true;
+    if (!isBusinessAdmin(user)) return false;
+    const { permissions } = parseAdminMeta(user);
+    return permissions.includes(permission);
+};
+
 const canManageHrRole = (actor, targetRole) => {
     if (!actor || !isHR(actor)) return false;
     const actorRank = hrRoleRank[actor.role] || 0;
     const targetRank = hrRoleRank[targetRole] || 0;
     return actorRank > targetRank && actorRank >= 2;
 };
+
 const requireAdmin = (req, res, next) => {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
     if (!isAdmin(user)) return res.redirect('/');
@@ -1173,6 +1211,20 @@ const requireHR = (req, res, next) => {
 const requireAdminOrHR = (req, res, next) => {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
     if (!isAdmin(user) && !isHR(user)) return res.redirect('/');
+    next();
+};
+const requireBusinessAdmin = (req, res, next) => {
+    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!isBusinessAdmin(user) && !isSuperAdmin(user) && !isGlobalAdmin(user)) {
+        return res.redirect('/?error=Access+denied');
+    }
+    next();
+};
+const requireBusinessAdminPermission = (permission) => (req, res, next) => {
+    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!hasBusinessPermission(user, permission)) {
+        return res.status(403).json({ error: 'Insufficient business admin permissions' });
+    }
     next();
 };
 

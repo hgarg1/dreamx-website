@@ -37,6 +37,8 @@ const {
     updateReportStatus,
     lockUserBlockFunctionality,
     unlockUserBlockFunctionality,
+    getSalesInquiryStats,
+    getSalesInquiriesPaged,
     db
 } = require('../db');
 const { getRequestBaseUrl } = require('./utils');
@@ -275,6 +277,16 @@ function initAdminRoutes({ io, webpush }) {
             console.warn('Refund requests fetch error:', e.message);
         }
 
+        // Sales inquiries stats for admin overview
+        let salesInquiryStats = { total: 0, new: 0, urgent: 0 };
+        let recentSalesInquiries = [];
+        try {
+            salesInquiryStats = getSalesInquiryStats();
+            recentSalesInquiries = getSalesInquiriesPaged({ limit: 5, offset: 0, status: 'new' });
+        } catch (e) {
+            console.warn('Sales inquiries fetch error:', e.message);
+        }
+
         res.render('admin-consolidated', {
             title: 'Admin Dashboard - Dream X',
             currentPage: 'admin',
@@ -293,6 +305,8 @@ function initAdminRoutes({ io, webpush }) {
             cPage, caPage, aaPage, rPage,
             cHasMore, caHasMore, aaHasMore, rHasMore,
             cStatus, caStatus, aaStatus, rStatus,
+            salesInquiryStats,
+            recentSalesInquiries,
             adminPermissions: ADMIN_PERMISSION_DEFINITIONS,
             error: req.query.error,
             success: req.query.success

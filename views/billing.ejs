@@ -350,7 +350,9 @@
           <% if (normalized === 'enterprise') { %>
             <button class="tier-btn tier-btn-current" disabled>Current plan</button>
           <% } else { %>
-            <button class="tier-btn tier-btn-outline">Contact sales</button>
+            <button class="tier-btn tier-btn-enterprise" onclick="window.location.href='/pricing#enterprise'">
+              <span class="btn-icon">🏢</span> Contact Sales
+            </button>
           <% } %>
         </div>
         <p class="tier-card-note">Best for tutoring companies, mentorship orgs, clubs, and studios.</p>
@@ -803,12 +805,39 @@
     }
   });
 
-  // Add card shine animation
+  // Add card shine animation and enterprise button styles
   const style = document.createElement('style');
   style.textContent = `
     @keyframes cardShine {
       0% { transform: translateX(-100%); }
       100% { transform: translateX(100%); }
+    }
+    
+    .tier-btn-enterprise {
+      background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+      color: white;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .tier-btn-enterprise:hover {
+      background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(20, 184, 166, 0.35);
+    }
+    
+    .tier-btn-enterprise .btn-icon {
+      font-size: 1.2rem;
     }
   `;
   document.head.appendChild(style);

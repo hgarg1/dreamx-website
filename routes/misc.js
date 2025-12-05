@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUserById, getUserSubscription, saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation, getUnreadMessageCount, getPublicCareerJobs, db } = require('../db');
+const { getUserById, getUserSubscription, saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation, getUnreadMessageCount, getPublicCareerJobs, db, createSalesInquiry, addAuditLog, getPricingTiers } = require('../db');
 
 const router = express.Router();
 
@@ -83,87 +83,109 @@ function initMiscRoutes() {
 
     // Pricing page
     router.get('/pricing', preventCache, (req, res) => {
-        const tiers = [
-            {
-                id: 'free',
-                name: 'Free User',
-                price: '$0/mo',
-                tagline: 'Social home for productive passions.',
-                features: [
-                    'Post photos, videos, project updates',
-                    'Follow creators, mentors, students, professionals',
-                    'Rich profiles (skills, passions, portfolio, achievements)',
-                    'Up to 10 Project Collections',
-                    'Book sessions, basic messaging, post analytics (views + likes)',
-                    'Ads from Fortune 100 brands only'
-                ]
-            },
-            {
-                id: 'pro-buyer',
-                name: 'Pro Buyer',
-                price: '$5.99/mo',
-                tagline: 'Power user of the social side.',
-                features: [
-                    'Ad-free experience',
-                    'Enhanced discovery filters (top rising creators, people near you, people who match interests)',
-                    'Unlimited Project Collections',
-                    'Priority messaging',
-                    'Post up to 3 one-time request listings per month',
-                    'Early access to premium sellers',
-                    'Basic AI mentor/creator recommendations'
-                ]
-            },
-            {
-                id: 'pro-seller',
-                name: 'Pro Seller',
-                price: '$9.99/mo',
-                tagline: 'Turn your craft into a brand.',
-                highlight: true,
-                features: [
-                    'Pro badge + priority in discovery',
-                    'Pin 3 posts to profile',
-                    'Weekly insights (reach, audience interests, followers by profession/skill)',
-                    'Custom profile banner & theme',
-                    '5 service listings, unlimited messaging',
-                    'Payment tools, basic CRM',
-                    'Scheduling, reminders, custom availability',
-                    'Coupons, discounts, basic buyer analytics'
-                ]
-            },
-            {
-                id: 'elite-seller',
-                name: 'Elite Seller',
-                price: '$29.99/mo',
-                tagline: 'You\'re a top creator — build a full microbrand.',
-                features: [
-                    'Verified status, full portfolio builder, video banners',
-                    'In-depth analytics (peak times, demographics, top-performing categories)',
-                    'Cross-platform link hub, featured on Discover when trending',
-                    'Unlimited listings, recurring subscriptions',
-                    'Advanced analytics & automation',
-                    'CRM + workflow automation',
-                    'Custom storefront page, tax reports',
-                    'Integrations, auto-responses, Smart rebooking AI'
-                ]
-            },
-            {
-                id: 'enterprise',
-                name: 'Enterprise Creator',
-                price: '$99.99/mo',
-                tagline: 'Dream X is your community\'s social + learning hub.',
-                features: [
-                    'Multi-user team posting',
-                    'Event pages, showcase collections',
-                    'Custom homepage blocks, co-branded community page',
-                    'Invite followers to events, livestreams, seminars',
-                    'Multi-instructor scheduling, team-wide analytics',
-                    'Bulk payouts, shared CRM',
-                    'Dedicated account manager',
-                    'Featured category placement, sponsored creator onboarding'
-                ],
-                note: 'Best for tutoring companies, mentorship orgs, clubs, and studios.'
+        // Get tiers from database (falls back to defaults if empty)
+        let tiers = [];
+        try {
+            const dbTiers = getPricingTiers(false); // Only active tiers
+            if (dbTiers && dbTiers.length > 0) {
+                tiers = dbTiers.map(tier => ({
+                    id: tier.tier_id,
+                    name: tier.name,
+                    price: tier.price_display,
+                    tagline: tier.tagline,
+                    features: tier.features,
+                    highlight: tier.is_highlighted,
+                    note: tier.note
+                }));
             }
-        ];
+        } catch (e) {
+            console.warn('Failed to load pricing tiers from DB:', e.message);
+        }
+
+        // Fallback to hardcoded defaults if DB is empty
+        if (tiers.length === 0) {
+            tiers = [
+                {
+                    id: 'free',
+                    name: 'Free User',
+                    price: '$0/mo',
+                    tagline: 'Social home for productive passions.',
+                    features: [
+                        'Post photos, videos, project updates',
+                        'Follow creators, mentors, students, professionals',
+                        'Rich profiles (skills, passions, portfolio, achievements)',
+                        'Up to 10 Project Collections',
+                        'Book sessions, basic messaging, post analytics (views + likes)',
+                        'Ads from Fortune 100 brands only'
+                    ]
+                },
+                {
+                    id: 'pro-buyer',
+                    name: 'Pro Buyer',
+                    price: '$5.99/mo',
+                    tagline: 'Power user of the social side.',
+                    features: [
+                        'Ad-free experience',
+                        'Enhanced discovery filters (top rising creators, people near you, people who match interests)',
+                        'Unlimited Project Collections',
+                        'Priority messaging',
+                        'Post up to 3 one-time request listings per month',
+                        'Early access to premium sellers',
+                        'Basic AI mentor/creator recommendations'
+                    ]
+                },
+                {
+                    id: 'pro-seller',
+                    name: 'Pro Seller',
+                    price: '$9.99/mo',
+                    tagline: 'Turn your craft into a brand.',
+                    highlight: true,
+                    features: [
+                        'Pro badge + priority in discovery',
+                        'Pin 3 posts to profile',
+                        'Weekly insights (reach, audience interests, followers by profession/skill)',
+                        'Custom profile banner & theme',
+                        '5 service listings, unlimited messaging',
+                        'Payment tools, basic CRM',
+                        'Scheduling, reminders, custom availability',
+                        'Coupons, discounts, basic buyer analytics'
+                    ]
+                },
+                {
+                    id: 'elite-seller',
+                    name: 'Elite Seller',
+                    price: '$29.99/mo',
+                    tagline: 'You\'re a top creator — build a full microbrand.',
+                    features: [
+                        'Verified status, full portfolio builder, video banners',
+                        'In-depth analytics (peak times, demographics, top-performing categories)',
+                        'Cross-platform link hub, featured on Discover when trending',
+                        'Unlimited listings, recurring subscriptions',
+                        'Advanced analytics & automation',
+                        'CRM + workflow automation',
+                        'Custom storefront page, tax reports',
+                        'Integrations, auto-responses, Smart rebooking AI'
+                    ]
+                },
+                {
+                    id: 'enterprise',
+                    name: 'Enterprise Creator',
+                    price: '$99.99/mo',
+                    tagline: 'Dream X is your community\'s social + learning hub.',
+                    features: [
+                        'Multi-user team posting',
+                        'Event pages, showcase collections',
+                        'Custom homepage blocks, co-branded community page',
+                        'Invite followers to events, livestreams, seminars',
+                        'Multi-instructor scheduling, team-wide analytics',
+                        'Bulk payouts, shared CRM',
+                        'Dedicated account manager',
+                        'Featured category placement, sponsored creator onboarding'
+                    ],
+                    note: 'Best for tutoring companies, mentorship orgs, clubs, and studios.'
+                }
+            ];
+        }
 
         let userTier = null;
         if (req.session && req.session.userId) {
@@ -260,6 +282,132 @@ function initMiscRoutes() {
             currentPage: 'downloads',
             authUser: res.locals.authUser
         });
+    });
+
+    // Sales Inquiry API Endpoint
+    router.post('/api/sales/inquiry', async (req, res) => {
+        try {
+            const {
+                // Company Info
+                companyName,
+                industry,
+                companySize,
+                companyWebsite,
+                companyCity,
+                companyCountry,
+                // Contact Info
+                contactName,
+                contactEmail,
+                contactPhone,
+                contactJobTitle,
+                contactDepartment,
+                preferredContactMethod,
+                preferredContactTime,
+                // Requirements
+                useCase,
+                expectedUsers,
+                timeline,
+                budgetRange,
+                currentSolution,
+                integrationNeeds,
+                howHeardAboutUs,
+                // Additional
+                additionalInfo,
+                subscribeNewsletter
+            } = req.body;
+
+            // Validation
+            if (!companyName || !industry || !companySize) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Company name, industry, and size are required.' 
+                });
+            }
+            if (!contactName || !contactEmail || !contactJobTitle) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Contact name, email, and job title are required.' 
+                });
+            }
+            if (!useCase) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Primary use case is required.' 
+                });
+            }
+
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(contactEmail)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Please provide a valid email address.' 
+                });
+            }
+
+            // Create the inquiry
+            const inquiryId = createSalesInquiry({
+                companyName: companyName.trim(),
+                industry,
+                companySize,
+                companyWebsite: companyWebsite?.trim() || null,
+                companyCity: companyCity?.trim() || null,
+                companyCountry,
+                contactName: contactName.trim(),
+                contactEmail: contactEmail.trim().toLowerCase(),
+                contactPhone: contactPhone?.trim() || null,
+                contactJobTitle: contactJobTitle.trim(),
+                contactDepartment: contactDepartment || null,
+                preferredContactMethod: preferredContactMethod || 'email',
+                preferredContactTime: preferredContactTime || null,
+                useCase,
+                expectedUsers: expectedUsers || null,
+                timeline: timeline || null,
+                budgetRange: budgetRange || null,
+                currentSolution: currentSolution?.trim() || null,
+                integrationNeeds: integrationNeeds?.trim() || null,
+                howHeardAboutUs: howHeardAboutUs || null,
+                additionalInfo: additionalInfo?.trim() || null
+            });
+
+            // Add audit log
+            try {
+                addAuditLog({
+                    userId: req.session?.userId || null,
+                    action: 'sales_inquiry_submitted',
+                    details: JSON.stringify({
+                        inquiryId,
+                        companyName,
+                        contactEmail,
+                        useCase
+                    })
+                });
+            } catch (auditErr) {
+                console.warn('Audit log failed:', auditErr.message);
+            }
+
+            // Generate reference ID
+            const referenceId = `ENT-${Date.now().toString(36).toUpperCase()}-${inquiryId}`;
+
+            // TODO: Send confirmation email to contact
+            // TODO: Send notification email to sales team
+
+            console.log(`✅ New sales inquiry #${inquiryId} from ${contactEmail} for ${companyName}`);
+
+            res.json({
+                success: true,
+                message: 'Your inquiry has been submitted successfully. Our team will reach out within 1-2 business days.',
+                referenceId,
+                inquiryId
+            });
+
+        } catch (error) {
+            console.error('Sales inquiry error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to submit inquiry. Please try again or contact support@dreamx.app.'
+            });
+        }
     });
 
     return router;
