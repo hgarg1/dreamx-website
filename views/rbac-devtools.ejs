@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/rbac.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .dev-warning { background: #fef3c7; border: 1px solid #fcd34d; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
+    .dev-warning .icon { font-size: 24px; }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+    .btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; text-decoration: none; display: inline-block; margin: 5px 5px 5px 0; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #333; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-success { background: #10b981; color: white; }
+    .validation-results { max-height: 400px; overflow-y: auto; }
+    .check-item { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: flex-start; gap: 12px; }
+    .check-item:last-child { border-bottom: none; }
+    .check-icon { font-size: 18px; }
+    .check-icon.passed { color: #10b981; }
+    .check-icon.failed { color: #ef4444; }
+    .check-icon.warning { color: #f59e0b; }
+    .check-content h4 { margin: 0 0 5px 0; font-size: 14px; }
+    .check-content p { margin: 0; font-size: 13px; color: #666; }
+    .check-content .issues { margin-top: 8px; padding: 8px; background: #fee2e2; border-radius: 4px; font-size: 12px; color: #dc2626; }
+    .stats-row { display: flex; gap: 15px; margin-bottom: 20px; }
+    .stat-box { padding: 15px 20px; background: #f9fafb; border-radius: 8px; text-align: center; flex: 1; }
+    .stat-box .value { font-size: 24px; font-weight: 700; }
+    .stat-box .label { font-size: 12px; color: #888; }
+    .stat-box.passed .value { color: #10b981; }
+    .stat-box.failed .value { color: #ef4444; }
+    .stat-box.warnings .value { color: #f59e0b; }
+    .cache-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+    .cache-stat { padding: 15px; background: #f9fafb; border-radius: 8px; text-align: center; }
+    .cache-stat .value { font-size: 20px; font-weight: 600; color: #333; }
+    .cache-stat .label { font-size: 11px; color: #888; margin-top: 5px; }
+    .tool-card { padding: 20px; background: #f9fafb; border-radius: 8px; margin-bottom: 15px; }
+    .tool-card h3 { margin: 0 0 10px 0; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+    .tool-card p { margin: 0 0 15px 0; font-size: 14px; color: #666; }
+    .output-box { background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; max-height: 200px; overflow-y: auto; margin-top: 10px; display: none; }
+    .output-box.active { display: block; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>🛠️ Developer Tools</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/migration">Migration</a>
+        <a href="/rbac/devtools" class="active">Dev Tools</a>
+      </nav>
+    </div>
+    
+    <% if (!isDevelopment) { %>
+    <div class="dev-warning">
+      <div class="icon">⚠️</div>
+      <div>
+        <strong>Production Mode</strong>
+        <p style="margin: 5px 0 0 0; font-size: 14px;">Some developer tools are restricted in production. Only global admins have full access.</p>
+      </div>
+    </div>
+    <% } %>
+    
+    <!-- Validation Results -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>✅ RBAC Validation Suite</h2>
+        <button class="btn btn-primary" onclick="runValidation()">Run Validation</button>
+      </div>
+      
+      <% if (validationResults) { %>
+      <div class="stats-row">
+        <div class="stat-box passed">
+          <div class="value"><%= validationResults.passed %></div>
+          <div class="label">Passed</div>
+        </div>
+        <div class="stat-box failed">
+          <div class="value"><%= validationResults.failed %></div>
+          <div class="label">Failed</div>
+        </div>
+        <div class="stat-box warnings">
+          <div class="value"><%= validationResults.warnings %></div>
+          <div class="label">Warnings</div>
+        </div>
+      </div>
+      
+      <div class="validation-results">
+        <% validationResults.checks.forEach(check => { %>
+        <div class="check-item">
+          <div class="check-icon <%= check.status %>">
+            <% if (check.status === 'passed') { %>✓<% } %>
+            <% if (check.status === 'failed') { %>✗<% } %>
+            <% if (check.status === 'warning') { %>⚠<% } %>
+          </div>
+          <div class="check-content">
+            <h4><%= check.name %></h4>
+            <p><%= check.description %></p>
+            <% if (check.issues && check.issues.length > 0) { %>
+            <div class="issues">
+              <% check.issues.forEach(issue => { %>
+              <div>• <%= issue %></div>
+              <% }) %>
+            </div>
+            <% } %>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+      <% } %>
+    </div>
+    
+    <div class="grid-2">
+      <!-- Cache Management -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>💾 Cache Management</h2>
+        </div>
+        
+        <% if (cacheStats) { %>
+        <div class="cache-grid">
+          <div class="cache-stat">
+            <div class="value"><%= cacheStats.hitRate %></div>
+            <div class="label">Hit Rate</div>
+          </div>
+          <div class="cache-stat">
+            <div class="value"><%= cacheStats.totalSize %></div>
+            <div class="label">Total Entries</div>
+          </div>
+          <div class="cache-stat">
+            <div class="value"><%= cacheStats.cacheHits %></div>
+            <div class="label">Hits</div>
+          </div>
+          <div class="cache-stat">
+            <div class="value"><%= cacheStats.cacheMisses %></div>
+            <div class="label">Misses</div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <button class="btn btn-danger" onclick="invalidateCache()">Invalidate All</button>
+        </div>
+        <% } else { %>
+        <p style="color: #888;">Cache stats not available</p>
+        <% } %>
+      </div>
+      
+      <!-- Test Data -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>🧪 Test Data</h2>
+        </div>
+        
+        <div class="tool-card">
+          <h3>👥 Test Users</h3>
+          <p>Create a set of test users with various roles and permissions</p>
+          <button class="btn btn-primary" onclick="seedTestUsers()">Seed Test Users</button>
+          <button class="btn btn-danger" onclick="cleanupTestUsers()">Cleanup</button>
+          <div id="testUsersOutput" class="output-box"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Snapshot Tools -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📸 RBAC Snapshots</h2>
+      </div>
+      
+      <div class="tool-card">
+        <h3>🔄 Compare Changes</h3>
+        <p>Take snapshots of the current RBAC state to detect changes after refactors</p>
+        <button class="btn btn-primary" onclick="takeSnapshot()">Take Snapshot</button>
+        <button class="btn btn-secondary" onclick="compareSnapshots()">Compare</button>
+        <div id="snapshotOutput" class="output-box"></div>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    async function runValidation() {
+      window.location.reload();
+    }
+    
+    async function invalidateCache() {
+      if (!confirm('Invalidate all RBAC caches?')) return;
+      
+      try {
+        const res = await fetch('/rbac/devtools/invalidate-cache', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || 'Cache invalidated');
+        window.location.reload();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+    
+    async function seedTestUsers() {
+      const output = document.getElementById('testUsersOutput');
+      output.classList.add('active');
+      output.textContent = 'Creating test users...';
+      
+      try {
+        const res = await fetch('/rbac/devtools/seed-users', { method: 'POST' });
+        const data = await res.json();
+        output.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        output.textContent = 'Error: ' + e.message;
+      }
+    }
+    
+    async function cleanupTestUsers() {
+      if (!confirm('Delete all test users?')) return;
+      
+      const output = document.getElementById('testUsersOutput');
+      output.classList.add('active');
+      output.textContent = 'Cleaning up...';
+      
+      try {
+        const res = await fetch('/rbac/devtools/cleanup-users', { method: 'POST' });
+        const data = await res.json();
+        output.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        output.textContent = 'Error: ' + e.message;
+      }
+    }
+    
+    async function takeSnapshot() {
+      const output = document.getElementById('snapshotOutput');
+      output.classList.add('active');
+      output.textContent = 'Taking snapshot...';
+      
+      try {
+        const res = await fetch('/rbac/devtools/snapshot', { method: 'POST' });
+        const data = await res.json();
+        localStorage.setItem('rbac_snapshot', JSON.stringify(data.snapshot));
+        output.textContent = 'Snapshot saved! ' + new Date(data.snapshot.timestamp).toLocaleString();
+      } catch (e) {
+        output.textContent = 'Error: ' + e.message;
+      }
+    }
+    
+    async function compareSnapshots() {
+      const output = document.getElementById('snapshotOutput');
+      output.classList.add('active');
+      
+      const savedSnapshot = localStorage.getItem('rbac_snapshot');
+      if (!savedSnapshot) {
+        output.textContent = 'No saved snapshot. Take a snapshot first.';
+        return;
+      }
+      
+      output.textContent = 'Comparing...';
+      
+      try {
+        const res = await fetch('/rbac/devtools/snapshot', { method: 'POST' });
+        const data = await res.json();
+        const before = JSON.parse(savedSnapshot);
+        const after = data.snapshot;
+        
+        // Simple comparison
+        const diff = {
+          rolesAdded: Object.keys(after.roles).filter(r => !before.roles[r]),
+          rolesRemoved: Object.keys(before.roles).filter(r => !after.roles[r]),
+          permissionsAdded: after.permissions.filter(p => !before.permissions.some(bp => bp.name === p.name)).map(p => p.name),
+          permissionsRemoved: before.permissions.filter(p => !after.permissions.some(ap => ap.name === p.name)).map(p => p.name)
+        };
+        
+        output.textContent = JSON.stringify(diff, null, 2);
+      } catch (e) {
+        output.textContent = 'Error: ' + e.message;
+      }
+    }
+  </script>
+</body>
+</html>

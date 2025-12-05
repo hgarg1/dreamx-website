@@ -42,6 +42,7 @@
   <link rel="stylesheet" href="/css/notifications.css">
   <link rel="stylesheet" href="/css/mobile.css">
   <link rel="stylesheet" href="/css/pwa.css">
+  <link rel="stylesheet" href="/css/rbac.css">
 
 
 
@@ -258,6 +259,20 @@
                       <% if (authUser.role==='admin' || authUser.role==='super_admin' || authUser.role==='global_admin' ) {
                     %>
                     <li><a href="/admin">Admin</a></li>
+                    <li class="dropdown-submenu">
+                      <a href="/rbac/dashboard">RBAC Management ▸</a>
+                      <ul class="dropdown-submenu-content">
+                        <li><a href="/rbac/dashboard">📊 Dashboard</a></li>
+                        <li><a href="/rbac/roles">👥 Roles</a></li>
+                        <li><a href="/rbac/permissions">🔑 Permissions</a></li>
+                        <li><a href="/rbac/users">👤 User Roles</a></li>
+                        <% if (authUser.role==='super_admin' || authUser.role==='global_admin') { %>
+                        <li><a href="/rbac/overrides">🔓 Overrides</a></li>
+                        <li><a href="/rbac/audit">📋 Audit Logs</a></li>
+                        <li><a href="/rbac/security">🛡️ Security</a></li>
+                        <% } %>
+                      </ul>
+                    </li>
                     <% } %>
                       <% if (authUser.role==='hr' ) { %>
                         <li><a href="/hr">HR Portal</a></li>

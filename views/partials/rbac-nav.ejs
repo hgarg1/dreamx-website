@@ -1,0 +1,16 @@
+<nav class="rbac-nav">
+  <a href="/rbac/dashboard" class="<%= typeof activePage !== 'undefined' && activePage === 'dashboard' ? 'active' : '' %>">Dashboard</a>
+  <a href="/rbac/roles" class="<%= typeof activePage !== 'undefined' && activePage === 'roles' ? 'active' : '' %>">Roles</a>
+  <a href="/rbac/permissions" class="<%= typeof activePage !== 'undefined' && activePage === 'permissions' ? 'active' : '' %>">Permissions</a>
+  <a href="/rbac/users" class="<%= typeof activePage !== 'undefined' && activePage === 'users' ? 'active' : '' %>">Users</a>
+  <% if (typeof canManage !== 'undefined' && canManage) { %>
+  <a href="/rbac/overrides" class="<%= typeof activePage !== 'undefined' && activePage === 'overrides' ? 'active' : '' %>">Overrides</a>
+  <a href="/rbac/audit" class="<%= typeof activePage !== 'undefined' && activePage === 'audit' ? 'active' : '' %>">Audit Logs</a>
+  <a href="/rbac/security" class="<%= typeof activePage !== 'undefined' && activePage === 'security' ? 'active' : '' %>">Security</a>
+  <% } %>
+  <a href="/rbac/docs" class="<%= typeof activePage !== 'undefined' && activePage === 'docs' ? 'active' : '' %>">Docs</a>
+  <% if (typeof canManage !== 'undefined' && canManage) { %>
+  <a href="/rbac/migration" class="<%= typeof activePage !== 'undefined' && activePage === 'migration' ? 'active' : '' %>">Migration</a>
+  <a href="/rbac/devtools" class="<%= typeof activePage !== 'undefined' && activePage === 'devtools' ? 'active' : '' %>">Dev Tools</a>
+  <% } %>
+</nav>

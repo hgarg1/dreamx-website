@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/rbac.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .alert-banner { padding: 15px 20px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 15px; align-items: flex-start; }
+    .alert-banner.warning { background: #fef3c7; border: 1px solid #fcd34d; }
+    .alert-banner.expiring { background: #fee2e2; border: 1px solid #fca5a5; }
+    .alert-banner .count { font-size: 24px; font-weight: 700; }
+    .alert-banner .message { flex: 1; }
+    .overrides-table { width: 100%; border-collapse: collapse; }
+    .overrides-table th, .overrides-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+    .overrides-table th { font-weight: 500; color: #666; background: #f9fafb; }
+    .overrides-table tr:hover { background: #f9fafb; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    .badge-grant { background: #d1fae5; color: #059669; }
+    .badge-deny { background: #fee2e2; color: #dc2626; }
+    .badge-temp { background: #fef3c7; color: #d97706; }
+    .badge-permanent { background: #e5e7eb; color: #666; }
+    .expiry-timer { font-size: 12px; color: #dc2626; font-weight: 500; }
+    .expiry-timer.soon { background: #fee2e2; padding: 2px 6px; border-radius: 4px; }
+    .btn { padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; text-decoration: none; display: inline-block; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #333; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
+    .meta-cell { font-size: 12px; color: #888; }
+    .empty-state { text-align: center; padding: 40px; color: #888; }
+    .filters { display: flex; gap: 10px; margin-bottom: 20px; }
+    .filters label { display: flex; align-items: center; gap: 5px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>🔓 Active Overrides</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/permissions">Permissions</a>
+        <a href="/rbac/users">Users</a>
+        <a href="/rbac/overrides" class="active">Overrides</a>
+      </nav>
+    </div>
+    
+    <% if (expiringWithin24h && expiringWithin24h.length > 0) { %>
+    <div class="alert-banner expiring">
+      <div class="count">⏰ <%= expiringWithin24h.length %></div>
+      <div class="message">
+        <strong>Overrides expiring within 24 hours</strong>
+        <p style="margin: 5px 0 0 0; font-size: 14px;">
+          <% expiringWithin24h.slice(0, 3).forEach(o => { %>
+          <%= o.user_email %>: <%= o.permission_name %>;
+          <% }) %>
+          <% if (expiringWithin24h.length > 3) { %>
+          and <%= expiringWithin24h.length - 3 %> more...
+          <% } %>
+        </p>
+      </div>
+      <a href="#expiring" class="btn btn-secondary">Review</a>
+    </div>
+    <% } %>
+    
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Permission Overrides (<%= overrides.length %>)</h2>
+        <% if (canManage) { %>
+        <button class="btn btn-primary" onclick="openGrantModal()">+ Grant Override</button>
+        <% } %>
+      </div>
+      
+      <form method="get" class="filters">
+        <label>
+          <input type="checkbox" name="includeExpired" <%= filters.includeExpired ? 'checked' : '' %> onchange="this.form.submit()">
+          Show expired
+        </label>
+      </form>
+      
+      <% if (overrides && overrides.length > 0) { %>
+      <table class="overrides-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Permission</th>
+            <th>Type</th>
+            <th>Duration</th>
+            <th>Granted By</th>
+            <th>Reason</th>
+            <% if (canManage) { %><th>Actions</th><% } %>
+          </tr>
+        </thead>
+        <tbody>
+          <% overrides.forEach(override => {
+            const now = new Date();
+            const expires = override.expires_at ? new Date(override.expires_at) : null;
+            const isExpired = expires && expires < now;
+            const expiresIn24h = expires && (expires - now) < 24 * 60 * 60 * 1000 && !isExpired;
+          %>
+          <tr style="<%= isExpired ? 'opacity: 0.5;' : '' %>">
+            <td>
+              <div><%= override.user_name || 'Unknown' %></div>
+              <div class="meta-cell"><%= override.user_email %></div>
+            </td>
+            <td>
+              <code><%= override.permission_name %></code>
+              <% if (override.permission_display_name) { %>
+              <div class="meta-cell"><%= override.permission_display_name %></div>
+              <% } %>
+            </td>
+            <td>
+              <span class="badge <%= override.is_denied ? 'badge-deny' : 'badge-grant' %>">
+                <%= override.is_denied ? 'DENY' : 'GRANT' %>
+              </span>
+            </td>
+            <td>
+              <% if (expires) { %>
+                <% if (isExpired) { %>
+                <span class="badge badge-temp">Expired</span>
+                <% } else if (expiresIn24h) { %>
+                <span class="expiry-timer soon">
+                  Expires <%= Math.round((expires - now) / 1000 / 60 / 60) %>h
+                </span>
+                <% } else { %>
+                <span class="badge badge-temp">
+                  Expires <%= expires.toLocaleDateString() %>
+                </span>
+                <% } %>
+              <% } else { %>
+              <span class="badge badge-permanent">Permanent</span>
+              <% } %>
+            </td>
+            <td>
+              <%= override.granted_by_name || 'System' %>
+              <div class="meta-cell"><%= new Date(override.granted_at).toLocaleDateString() %></div>
+            </td>
+            <td>
+              <span class="meta-cell"><%= override.reason || '—' %></span>
+            </td>
+            <% if (canManage) { %>
+            <td>
+              <% if (!isExpired) { %>
+              <button class="btn btn-sm btn-danger" onclick="revokeOverride(<%= override.user_id %>, <%= override.permission_id %>)">
+                Revoke
+              </button>
+              <% } %>
+            </td>
+            <% } %>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <% } else { %>
+      <div class="empty-state">
+        <p>No active overrides</p>
+      </div>
+      <% } %>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    function openGrantModal() {
+      alert('Grant override modal coming soon');
+    }
+    
+    async function revokeOverride(userId, permissionId) {
+      if (!confirm('Revoke this permission override?')) return;
+      
+      try {
+        const res = await fetch(`/api/rbac/users/${userId}/overrides/${permissionId}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          window.location.reload();
+        } else {
+          alert(data.error || 'Failed to revoke override');
+        }
+      } catch (e) {
+        alert('Error revoking override');
+      }
+    }
+  </script>
+</body>
+</html>
