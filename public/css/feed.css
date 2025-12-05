@@ -1549,6 +1549,25 @@ body.modal-open .feed-layout > :not(.feed-modal) {
     text-overflow: ellipsis;
 }
 
+.creator-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.creator-passion {
+    font-size: 0.75rem;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
 .follow-btn {
     background: linear-gradient(135deg, #FF4DFF, #D845FF);
     color: white;

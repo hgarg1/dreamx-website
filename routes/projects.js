@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const multer = require('multer');
 const createStorageAdapter = require('../services/storage/multer-storage');
+const emailService = require('../services/emailService');
 const {
   createProject,
   getProjectById,
@@ -20,8 +21,13 @@ const {
   getUserProjectReaction,
   addProjectComment,
   getProjectComments,
+  getProjectCommentById,
+  getProjectCommentReplies,
   getProjectCommentCount,
+  updateProjectComment,
   deleteProjectComment,
+  pinProjectComment,
+  hideProjectComment,
   addProjectCommentFile,
   getProjectCommentFiles,
   deleteProjectCommentFile,
@@ -393,23 +399,34 @@ router.post('/api/projects/:id/updates/:updateId/react', requireAuth, (req, res)
   }
 });
 
-// POST /api/projects/:id/updates/:updateId/comments - Comment on update
-router.post('/api/projects/:id/updates/:updateId/comments', requireAuth, projectFilesUpload.array('files', 5), (req, res) => {
+// POST /api/projects/:id/comments - Comment on project
+router.post('/api/projects/:id/comments', requireAuth, projectFilesUpload.array('files', 5), (req, res) => {
   try {
-    const updateId = parseInt(req.params.updateId, 10);
     const projectId = parseInt(req.params.id, 10);
-    const { content } = req.body;
+    const { content, parentId } = req.body;
 
-    if (!content) {
+    const project = getProjectById(projectId);
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    if (!content || !content.trim()) {
       return res.status(400).json({ error: 'Comment cannot be empty' });
     }
 
-    const commentId = addProjectComment(updateId, req.session.userId, content);
+    const trimmedContent = content.trim();
+
+    const commentId = addProjectComment(
+      projectId, 
+      req.session.userId, 
+      trimmedContent,
+      parentId ? parseInt(parentId, 10) : null
+    );
     
     // Handle file uploads if present
     if (req.files && req.files.length > 0) {
       for (let file of req.files) {
-        const fileUrl = file.path || `/uploads/${file.filename}`;
+        const fileUrl = file.url || file.path || `/uploads/${file.filename}`;
         addProjectCommentFile(
           commentId,
           fileUrl,
@@ -420,34 +437,74 @@ router.post('/api/projects/:id/updates/:updateId/comments', requireAuth, project
       }
     }
 
-    const comments = getProjectComments(updateId, 50, 0);
+    // Notify project owner about the new comment (skip self-notify)
+    try {
+      const projectOwner = getUserById(project.owner_id);
+      const commenter = getUserById(req.session.userId);
+      if (projectOwner && commenter && projectOwner.id !== commenter.id) {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        emailService.sendProjectCommentEmail(projectOwner, commenter, trimmedContent, projectId, baseUrl, req);
+      }
+    } catch (notifyErr) {
+      console.warn('Project comment email notify failed:', notifyErr.message || notifyErr);
+    }
 
-    // Enrich comments with file info
-    const enrichedComments = comments.map(comment => {
-      return {
-        ...comment,
-        files: getProjectCommentFiles(comment.id)
-      };
+    const newComment = getProjectCommentById(commentId);
+    const files = getProjectCommentFiles(commentId);
+    
+    res.json({ 
+      success: true, 
+      comment: {
+        ...newComment,
+        files,
+        reactions: [],
+        userReaction: null,
+        replyCount: 0
+      }
     });
-
-    res.json({ success: true, comments: enrichedComments });
   } catch (err) {
     console.error('Comment error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/projects/:id/updates/:updateId/comments - Get comments for an update
-router.get('/api/projects/:id/updates/:updateId/comments', requireAuth, (req, res) => {
+// GET /api/projects/:id/comments - Get comments for a project
+router.get('/api/projects/:id/comments', requireAuth, (req, res) => {
   try {
-    const updateId = parseInt(req.params.updateId, 10);
-    const comments = getProjectComments(updateId, 50, 0);
+    const projectId = parseInt(req.params.id, 10);
+    const comments = getProjectComments(projectId, 50, 0);
 
-    // Enrich comments with file info
+    const project = getProjectById(projectId);
+    const authUser = getUserById(req.session.userId);
+    const isProjectOwner = project && project.owner_id === req.session.userId;
+    const isAdmin = authUser && (authUser.role === 'admin' || authUser.role === 'super_admin');
+
+    // Enrich comments with file info, reactions, and permissions
     const enrichedComments = comments.map(comment => {
+      const files = getProjectCommentFiles(comment.id);
+      const reactions = getProjectCommentReactions(comment.id);
+      const userReaction = getUserProjectCommentReaction(comment.id, req.session.userId);
+      const replyCount = comment.reply_count || 0;
+
+      const isCommentOwner = comment.user_id === req.session.userId;
+      const canEdit = isCommentOwner;
+      const canDelete = isCommentOwner || isProjectOwner || isAdmin;
+      const canPin = isProjectOwner || isAdmin;
+      const canHide = isProjectOwner || isAdmin;
+
       return {
         ...comment,
-        files: getProjectCommentFiles(comment.id)
+        files,
+        reactions,
+        userReaction: userReaction ? userReaction.reaction_type : null,
+        replyCount,
+        permissions: {
+          canEdit,
+          canDelete,
+          canPin,
+          canHide,
+          canReply: true
+        }
       };
     });
 
@@ -458,8 +515,8 @@ router.get('/api/projects/:id/updates/:updateId/comments', requireAuth, (req, re
   }
 });
 
-// POST /api/projects/:id/updates/:updateId/comments/:commentId/react - React to comment with star
-router.post('/api/projects/:id/updates/:updateId/comments/:commentId/react', requireAuth, (req, res) => {
+// POST /api/projects/:id/comments/:commentId/react - React to comment with star
+router.post('/api/projects/:id/comments/:commentId/react', requireAuth, (req, res) => {
   try {
     const commentId = parseInt(req.params.commentId, 10);
     const { type } = req.body;
@@ -484,8 +541,8 @@ router.post('/api/projects/:id/updates/:updateId/comments/:commentId/react', req
   }
 });
 
-// POST /api/projects/:id/updates/:updateId/comments/:commentId/files - Upload file to comment
-router.post('/api/projects/:id/updates/:updateId/comments/:commentId/files', requireAuth, projectFilesUpload.single('file'), (req, res) => {
+// POST /api/projects/:id/comments/:commentId/files - Upload file to comment
+router.post('/api/projects/:id/comments/:commentId/files', requireAuth, projectFilesUpload.single('file'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' });
@@ -518,14 +575,166 @@ router.post('/api/projects/:id/updates/:updateId/comments/:commentId/files', req
   }
 });
 
-// DELETE /api/projects/:id/updates/:updateId/comments/:commentId/files/:fileId - Delete comment file
-router.delete('/api/projects/:id/updates/:updateId/comments/:commentId/files/:fileId', requireAuth, (req, res) => {
+// DELETE /api/projects/:id/comments/:commentId/files/:fileId - Delete comment file
+router.delete('/api/projects/:id/comments/:commentId/files/:fileId', requireAuth, (req, res) => {
   try {
     const fileId = parseInt(req.params.fileId, 10);
     deleteProjectCommentFile(fileId);
     res.json({ success: true });
   } catch (err) {
     console.error('File delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/projects/:id/comments/:commentId - Delete comment
+router.delete('/api/projects/:id/comments/:commentId', requireAuth, (req, res) => {
+  try {
+    const commentId = parseInt(req.params.commentId, 10);
+    const projectId = parseInt(req.params.id, 10);
+
+    const comment = getProjectCommentById(commentId);
+    const project = getProjectById(projectId);
+
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    const authUser = getUserById(req.session.userId);
+    const isOwner = comment.user_id === req.session.userId;
+    const isProjectOwner = project && project.owner_id === req.session.userId;
+    const isAdmin = authUser && (authUser.role === 'admin' || authUser.role === 'super_admin');
+
+    // Only comment owner, project owner, or admin can delete
+    if (!isOwner && !isProjectOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    deleteProjectComment(commentId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete comment error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/projects/:id/comments/:commentId - Edit comment
+router.put('/api/projects/:id/comments/:commentId', requireAuth, (req, res) => {
+  try {
+    const commentId = parseInt(req.params.commentId, 10);
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Comment content required' });
+    }
+
+    const comment = getProjectCommentById(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    // Only comment owner can edit
+    if (comment.user_id !== req.session.userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    updateProjectComment(commentId, content.trim());
+    const updated = getProjectCommentById(commentId);
+
+    res.json({ success: true, comment: updated });
+  } catch (err) {
+    console.error('Edit comment error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/projects/:id/comments/:commentId/pin - Pin/unpin comment
+router.post('/api/projects/:id/comments/:commentId/pin', requireAuth, (req, res) => {
+  try {
+    const commentId = parseInt(req.params.commentId, 10);
+    const projectId = parseInt(req.params.id, 10);
+    const { isPinned } = req.body;
+
+    const project = getProjectById(projectId);
+    const authUser = getUserById(req.session.userId);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const isProjectOwner = project.owner_id === req.session.userId;
+    const isAdmin = authUser && (authUser.role === 'admin' || authUser.role === 'super_admin');
+
+    // Only project owner or admin can pin
+    if (!isProjectOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    pinProjectComment(commentId, isPinned !== false);
+    res.json({ success: true, isPinned: isPinned !== false });
+  } catch (err) {
+    console.error('Pin comment error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/projects/:id/comments/:commentId/hide - Hide/unhide comment
+router.post('/api/projects/:id/comments/:commentId/hide', requireAuth, (req, res) => {
+  try {
+    const commentId = parseInt(req.params.commentId, 10);
+    const projectId = parseInt(req.params.id, 10);
+    const { isHidden } = req.body;
+
+    const project = getProjectById(projectId);
+    const authUser = getUserById(req.session.userId);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const isProjectOwner = project.owner_id === req.session.userId;
+    const isAdmin = authUser && (authUser.role === 'admin' || authUser.role === 'super_admin');
+
+    // Only project owner or admin can hide
+    if (!isProjectOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    hideProjectComment(commentId, isHidden !== false);
+    res.json({ success: true, isHidden: isHidden !== false });
+  } catch (err) {
+    console.error('Hide comment error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/projects/:id/comments/:commentId/replies - Get comment replies
+router.get('/api/projects/:id/comments/:commentId/replies', requireAuth, (req, res) => {
+  try {
+    const commentId = parseInt(req.params.commentId, 10);
+    const limit = Math.min(parseInt(req.query.limit || 50, 10), 100);
+    const offset = parseInt(req.query.offset || 0, 10);
+
+    const replies = getProjectCommentReplies(commentId, limit, offset);
+
+    // Enrich replies with reactions and files
+    const enrichedReplies = replies.map(reply => {
+      const reactions = getProjectCommentReactions(reply.id);
+      const userReaction = getUserProjectCommentReaction(reply.id, req.session.userId);
+      const files = getProjectCommentFiles(reply.id);
+
+      return {
+        ...reply,
+        reactions,
+        userReaction: userReaction ? userReaction.reaction_type : null,
+        files
+      };
+    });
+
+    res.json({ success: true, replies: enrichedReplies });
+  } catch (err) {
+    console.error('Get replies error:', err);
     res.status(500).json({ error: err.message });
   }
 });

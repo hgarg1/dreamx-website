@@ -144,6 +144,66 @@ async function runMigrations() {
   } catch (e) {
     console.warn('Migration check failed (likely already applied):', e.message);
   }
+
+  // Ensure project_comments supports project-level fields
+  try {
+    const commentCols = db.prepare("PRAGMA table_info('project_comments')").all();
+    const commentNames = new Set(commentCols.map(c => c.name));
+    const updateIdCol = commentCols.find(c => c.name === 'update_id');
+    const needsRebuild = (
+      !commentNames.has('project_id') ||
+      !commentNames.has('is_pinned') ||
+      !commentNames.has('is_hidden') ||
+      !commentNames.has('edited_at') ||
+      (updateIdCol && updateIdCol.notnull === 1)
+    );
+
+    if (needsRebuild) {
+      db.exec(`
+        CREATE TABLE project_comments_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id INTEGER,
+          update_id INTEGER,
+          user_id INTEGER NOT NULL,
+          parent_id INTEGER,
+          content TEXT NOT NULL,
+          is_pinned INTEGER DEFAULT 0,
+          is_hidden INTEGER DEFAULT 0,
+          edited_at DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      db.exec(`
+        INSERT INTO project_comments_new (
+          id, project_id, update_id, user_id, parent_id, content, is_pinned, is_hidden, edited_at, created_at
+        )
+        SELECT
+          id,
+          COALESCE(project_id, (
+            SELECT project_id FROM project_updates pu WHERE pu.id = pc.update_id
+          )),
+          update_id,
+          user_id,
+          parent_id,
+          content,
+          COALESCE(is_pinned, 0),
+          COALESCE(is_hidden, 0),
+          edited_at,
+          created_at
+        FROM project_comments pc;
+      `);
+
+      db.exec('DROP TABLE project_comments;');
+      db.exec('ALTER TABLE project_comments_new RENAME TO project_comments;');
+    }
+
+    db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_project ON project_comments(project_id);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_parent ON project_comments(parent_id);");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_pinned ON project_comments(is_pinned, created_at);");
+  } catch (e) {
+    console.error('Failed to ensure project_comments migration', e.message);
+  }
 }
 
 // Initialize schema if not exists (SQLite only - SQL Server uses schema.sql)
@@ -1943,7 +2003,7 @@ module.exports = {
         (SELECT COUNT(*) FROM post_comments WHERE post_id = p.id) as comments_count
       FROM posts p
       JOIN users u ON p.user_id = u.id
-      WHERE p.user_id = ?
+      WHERE p.user_id = ? AND (p.content_type IS NULL OR p.content_type != 'repost')
       ORDER BY p.created_at DESC
     `).all(userId).map((row) => {
       const repostCount = db.prepare(`SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?`).get(row.id);
@@ -3564,7 +3624,15 @@ module.exports = {
       JOIN post_reposts pr ON pr.post_id = p.id
       WHERE p.user_id = ? AND p.content_type = 'repost'
       ORDER BY p.created_at DESC
-    `).all(userId);
+    `).all(userId).map((row) => {
+      const repostCount = db.prepare(`SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?`).get(row.id);
+      row.repost_count = repostCount ? repostCount.c : 0;
+      return {
+        ...row,
+        hashtags: getPostHashtags(row.id),
+        tags: getPostTags(row.id)
+      };
+    });
   },
 
   getRepostCount: (postId) => {
@@ -3973,37 +4041,95 @@ module.exports = {
 
   // ============ PROJECT COMMENTS ============
 
-  addProjectComment: (updateId, userId, content, parentId = null) => {
+  addProjectComment: (projectId, userId, content, parentId = null, updateId = null) => {
     const stmt = db.prepare(`
-      INSERT INTO project_comments (update_id, user_id, content, parent_id)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO project_comments (project_id, update_id, user_id, content, parent_id)
+      VALUES (?, ?, ?, ?, ?)
     `);
 
-    const info = stmt.run(updateId, userId, content, parentId || null);
+    const info = stmt.run(projectId, updateId || null, userId, content, parentId || null);
     return info.lastInsertRowid;
   },
 
-  getProjectComments: (updateId, limit = 50, offset = 0) => {
+  getProjectComments: (projectId, limit = 50, offset = 0, includeHidden = false) => {
+    const hiddenFilter = includeHidden ? '' : 'AND pc.is_hidden = 0';
     const stmt = db.prepare(`
-      SELECT pc.*, u.full_name, u.profile_picture
+      SELECT 
+        pc.*, 
+        u.full_name, 
+        u.profile_picture,
+        u.role,
+        (SELECT COUNT(*) FROM project_comment_reactions WHERE comment_id = pc.id) as reaction_count,
+        (SELECT COUNT(*) FROM project_comments WHERE parent_id = pc.id) as reply_count
       FROM project_comments pc
       JOIN users u ON u.id = pc.user_id
-      WHERE pc.update_id = ?
-      ORDER BY pc.created_at DESC
+      WHERE pc.project_id = ? ${hiddenFilter}
+      ORDER BY pc.is_pinned DESC, pc.created_at DESC
       LIMIT ? OFFSET ?
     `);
 
-    return stmt.all(updateId, limit, offset);
+    return stmt.all(projectId, limit, offset);
   },
 
-  getProjectCommentCount: (updateId) => {
-    const stmt = db.prepare('SELECT COUNT(*) as count FROM project_comments WHERE update_id = ?');
-    return stmt.get(updateId).count;
+  getProjectCommentById: (commentId) => {
+    const stmt = db.prepare(`
+      SELECT 
+        pc.*, 
+        u.full_name, 
+        u.profile_picture,
+        u.role
+      FROM project_comments pc
+      JOIN users u ON u.id = pc.user_id
+      WHERE pc.id = ?
+    `);
+    return stmt.get(commentId);
+  },
+
+  getProjectCommentReplies: (parentId, limit = 50, offset = 0) => {
+    const stmt = db.prepare(`
+      SELECT 
+        pc.*, 
+        u.full_name, 
+        u.profile_picture,
+        u.role,
+        (SELECT COUNT(*) FROM project_comment_reactions WHERE comment_id = pc.id) as reaction_count
+      FROM project_comments pc
+      JOIN users u ON u.id = pc.user_id
+      WHERE pc.parent_id = ? AND pc.is_hidden = 0
+      ORDER BY pc.created_at ASC
+      LIMIT ? OFFSET ?
+    `);
+
+    return stmt.all(parentId, limit, offset);
+  },
+
+  getProjectCommentCount: (projectId) => {
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM project_comments WHERE project_id = ? AND is_hidden = 0');
+    return stmt.get(projectId).count;
+  },
+
+  updateProjectComment: (commentId, content) => {
+    const stmt = db.prepare(`
+      UPDATE project_comments 
+      SET content = ?, edited_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `);
+    return stmt.run(content, commentId);
   },
 
   deleteProjectComment: (commentId) => {
     const stmt = db.prepare('DELETE FROM project_comments WHERE id = ?');
     return stmt.run(commentId);
+  },
+
+  pinProjectComment: (commentId, isPinned = true) => {
+    const stmt = db.prepare('UPDATE project_comments SET is_pinned = ? WHERE id = ?');
+    return stmt.run(isPinned ? 1 : 0, commentId);
+  },
+
+  hideProjectComment: (commentId, isHidden = true) => {
+    const stmt = db.prepare('UPDATE project_comments SET is_hidden = ? WHERE id = ?');
+    return stmt.run(isHidden ? 1 : 0, commentId);
   },
 
   // Project comment file attachments

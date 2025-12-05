@@ -268,6 +268,9 @@
       const article = document.currentScript.closest('article.post-card');
       article.setAttribute('data-post-id', '<%= post.id %>');
       const postId = <%= post.id %>;
+      // For reposts, use the original post ID for comments and reactions
+      const contentPostId = <%= post.content_type === 'repost' && post.repost_info ? post.repost_info.original_post_id : post.id %>;
+      
       function setToggleLabel(open){
         const cc = article.querySelector('.comment-count');
         const num = cc ? (cc.textContent || '0') : '0';
@@ -289,7 +292,8 @@
             icon.style.transform = 'scale(1) rotate(0deg)';
           }, 300);
           
-          const res = await fetch(`/api/posts/${postId}/react`, { 
+          // Use original post ID for reactions on reposts
+          const res = await fetch(`/api/posts/${contentPostId}/react`, { 
             method:'POST', 
             headers:{'Content-Type':'application/json'}, 
             body: JSON.stringify({ type: 'like' }) 
@@ -329,7 +333,8 @@
       let open = false;
       toggleBtn.addEventListener('click', async ()=>{
         if (!open) {
-          await H.loadComments(article, postId);
+          // Use original post ID for loading comments on reposts
+          await H.loadComments(article, contentPostId);
           const commentsList = panel.querySelector('.comments-list');
           panel.style.maxHeight = '0px';
           panel.style.opacity = '0';
@@ -364,8 +369,9 @@
         article.querySelector('.replying-indicator').style.display = 'none';
         const input = article.querySelector('.comment-input'); input.placeholder = 'Write a thoughtful comment...'; input.focus();
       });
-      article.querySelector('.comment-send').addEventListener('click', ()=>{ H.sendComment(article, postId); setToggleLabel(true); });
-      article.querySelector('.comment-input').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); H.sendComment(article, postId); }});
+      // Use original post ID for sending comments on reposts
+      article.querySelector('.comment-send').addEventListener('click', ()=>{ H.sendComment(article, contentPostId); setToggleLabel(true); });
+      article.querySelector('.comment-input').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); H.sendComment(article, contentPostId); }});
       // Initialize label on load
       setToggleLabel(false);
       

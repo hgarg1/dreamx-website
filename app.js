@@ -766,7 +766,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     // Note: Google OAuth doesn't support per-request callback URL override like Microsoft
     // Must whitelist all callback URLs in Google Cloud Console
     const callbackURL = process.env.GOOGLE_CALLBACK_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/auth/google/callback` : 'http://localhost/auth/google/callback');
-    console.log('📍 Google OAuth configured with callback URL:', callbackURL);
     passport.use('google', new GoogleStrategy({
         passReqToCallback: true,
         clientID: process.env.GOOGLE_CLIENT_ID,
@@ -775,17 +774,13 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         skipUserProfile: false
     }, async (req, accessToken, refreshToken, profile, done) => {
         try {
-            console.log('📍 Google strategy verification - Profile ID:', profile.id, 'Display name:', profile.displayName);
             const email = Array.isArray(profile.emails) && profile.emails[0] ? profile.emails[0].value : null;
             const photoUrl = Array.isArray(profile.photos) && profile.photos[0] ? profile.photos[0].value : null;
-            console.log('📍 Google strategy - Email:', email);
             const user = await findOrCreateOAuthUser({ provider: 'google', providerId: profile.id, displayName: profile.displayName, email });
-            console.log('📍 Google strategy - User created/found:', user.id);
             await importProfilePhotoIfNeeded(user, photoUrl);
-            console.log('✅ Google strategy verification successful for user', user.id);
             done(null, user, { provider: 'google', providerId: profile.id, photoUrl });
         } catch (e) { 
-            console.error('❌ Google strategy verification error:', e.message, e.stack);
+            console.error('❌ [Google] OAuth error:', e.message);
             done(e); 
         }
     }));
@@ -851,34 +846,41 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
 
 // X (Twitter) OAuth 2.0
 if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
-    // Note: Twitter OAuth 2.0 callback URL is set at initialization
-    // Must whitelist callback URLs in Twitter Developer Console
-    // For localhost testing: http://localhost/auth/x/callback
-    // For production: https://yourdomain.com/auth/x/callback
-    const callbackURL = process.env.TWITTER_CALLBACK_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/auth/x/callback` : 'http://localhost/auth/x/callback');
-    console.log('📍 Twitter OAuth configured with callback URL:', callbackURL);
-    console.log('📍 IMPORTANT: Make sure this URL is registered in your Twitter app settings!');
+    // Twitter OAuth 2.0 callback URL MUST match exactly what's registered in Twitter Developer Console
+    // This URL is static - it's set when the strategy is initialized
+    // If you change where you access the app, update this environment variable
+    
+    // Build the callback URL - try to be smart about detecting the environment
+    let callbackURL = process.env.TWITTER_CALLBACK_URL;
+    
+    if (!callbackURL) {
+        // If not explicitly set, use sensible defaults
+        if (process.env.BASE_URL) {
+            callbackURL = `${process.env.BASE_URL}/auth/x/callback`;
+        } else {
+            // Default for local development
+            callbackURL = 'http://localhost/auth/x/callback';
+        }
+    }
+    
     passport.use('twitter', new TwitterStrategy({
         clientType: 'confidential',
         clientID: process.env.TWITTER_CLIENT_ID,
         clientSecret: process.env.TWITTER_CLIENT_SECRET,
         callbackURL: callbackURL,
-        scope: ['tweet.read', 'users.read', 'email', 'offline.access'],
-        passReqToCallback: true
+        passReqToCallback: true,
+        // Twitter OAuth 2.0 scopes - must be enabled in Twitter Developer Console
+        scope: ['tweet.read', 'users.read']
     }, async (req, accessToken, refreshToken, profile, done) => {
         try {
-            console.log('📍 Twitter strategy verification - Profile ID:', profile.id, 'Username:', profile.username);
             const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
             const photoUrl = profile.photos && profile.photos[0] ? profile.photos[0].value : null;
             const displayName = profile.displayName || profile.username || email || 'Twitter User';
-            console.log('📍 Twitter strategy - Email:', email, 'Display name:', displayName);
             const user = await findOrCreateOAuthUser({ provider: 'twitter', providerId: profile.id, displayName: displayName, email });
-            console.log('📍 Twitter strategy - User created/found:', user.id);
             await importProfilePhotoIfNeeded(user, photoUrl);
-            console.log('✅ Twitter strategy verification successful for user', user.id);
             done(null, user, { provider: 'twitter', providerId: profile.id, photoUrl });
         } catch (e) { 
-            console.error('❌ Twitter strategy verification error:', e.message, e.stack);
+            console.error('❌ [Twitter] OAuth error:', e.message);
             done(e); 
         }
     }));

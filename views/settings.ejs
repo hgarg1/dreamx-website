@@ -48,22 +48,35 @@
   <!-- Security Section -->
   <div class="settings-card">
     <h2 class="settings-card-title">Security</h2>
-    <% if (typeof linked !== 'undefined' && (linked.google || linked.microsoft || linked.apple)) { %>
+    <% if (typeof linked !== 'undefined' && (linked.google || linked.microsoft || linked.apple || linked.twitter)) { %>
       <div style="background:#fef3c7;padding:12px;border-radius:10px;border:1px solid #fbbf24;margin-bottom:16px;">
         <p style="margin:0 0 8px 0;font-weight:600;color:#92400e;">SSO Account Detected</p>
-        <p style="margin:0 0 8px 0;color:#78350f;font-size:0.9rem;">Your account is connected to SSO providers. If you haven't set a password, password changes won't be available. You can still create passkeys for easier sign-in.</p>
+        <p style="margin:0 0 8px 0;color:#78350f;font-size:0.9rem;">
+          <% if (!hasPassword) { %>
+            Your account is connected via SSO. You can set a password below to enable email/password sign-in as an alternative to SSO.
+          <% } else { %>
+            Your account has both SSO and password authentication enabled. You can sign in using either method.
+          <% } %>
+        </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
           <% if (linked.google) { %><span style="background:white;padding:6px 10px;border-radius:6px;border:1px solid #e5e7eb;color:#111827;font-weight:500;font-size:0.85rem;">Google</span><% } %>
           <% if (linked.microsoft) { %><span style="background:white;padding:6px 10px;border-radius:6px;border:1px solid #e5e7eb;color:#111827;font-weight:500;font-size:0.85rem;">Microsoft</span><% } %>
           <% if (linked.apple) { %><span style="background:white;padding:6px 10px;border-radius:6px;border:1px solid #e5e7eb;color:#111827;font-weight:500;font-size:0.85rem;">Apple</span><% } %>
+          <% if (linked.twitter) { %><span style="background:white;padding:6px 10px;border-radius:6px;border:1px solid #e5e7eb;color:#111827;font-weight:500;font-size:0.85rem;">X (Twitter)</span><% } %>
         </div>
       </div>
     <% } %>
-    <p style="color:#4b5563;margin-top:-4px;margin-bottom:16px;">Update your password with the same strength requirements we enforce during sign up.</p>
+    <p style="color:#4b5563;margin-top:-4px;margin-bottom:16px;">
+      <% if (hasPassword) { %>
+        Update your password with the same strength requirements we enforce during sign up.
+      <% } else { %>
+        Set a password to enable email/password sign-in for your account.
+      <% } %>
+    </p>
     <form action="/settings/password" method="POST" id="passwordForm">
       <div class="settings-field-group">
-        <label class="settings-label" for="currentPassword">Current Password</label>
-        <input id="currentPassword" name="currentPassword" type="password" class="settings-input" required autocomplete="current-password" />
+        <label class="settings-label" for="currentPassword">Current Password <% if (!hasPassword) { %><span style="color:#6b7280;font-weight:400;">(Not required - you haven't set a password yet)</span><% } %></label>
+        <input id="currentPassword" name="currentPassword" type="password" class="settings-input" <%= hasPassword ? 'required' : '' %> autocomplete="current-password" <% if (!hasPassword) { %>placeholder="Leave blank if setting password for first time"<% } %> />
       </div>
       <div class="settings-field-group">
         <label class="settings-label" for="newPassword">New Password</label>
@@ -89,6 +102,10 @@
       <div class="settings-field-group">
         <label class="settings-label" for="confirmPassword">Confirm New Password</label>
         <input id="confirmPassword" name="confirmPassword" type="password" class="settings-input" required autocomplete="new-password" />
+        <div id="passwordMatchFeedback" style="margin-top:8px;font-size:0.85rem;display:none;">
+          <span id="matchIcon" style="margin-right:4px;"></span>
+          <span id="matchText"></span>
+        </div>
       </div>
       <div class="settings-actions-inline">
         <button type="submit" class="settings-btn primary">Update Password</button>
@@ -169,6 +186,45 @@
 
     // Password form handler with modal feedback
     const passwordForm = document.querySelector('form[action="/settings/password"]');
+    const newPasswordInput = document.getElementById('newPassword');
+    const confirmPasswordInput = document.getElementById('confirmPassword');
+    const passwordMatchFeedback = document.getElementById('passwordMatchFeedback');
+    const matchIcon = document.getElementById('matchIcon');
+    const matchText = document.getElementById('matchText');
+
+    // Password matching validation
+    function checkPasswordMatch() {
+      const newPwd = newPasswordInput ? newPasswordInput.value : '';
+      const confirmPwd = confirmPasswordInput ? confirmPasswordInput.value : '';
+      
+      if (!confirmPwd || !passwordMatchFeedback) {
+        if (passwordMatchFeedback) passwordMatchFeedback.style.display = 'none';
+        return;
+      }
+      
+      passwordMatchFeedback.style.display = 'block';
+      
+      if (newPwd === confirmPwd) {
+        matchIcon.textContent = '✓';
+        matchIcon.style.color = '#22c55e';
+        matchText.textContent = 'Passwords match';
+        matchText.style.color = '#22c55e';
+        confirmPasswordInput.style.borderColor = '#22c55e';
+      } else {
+        matchIcon.textContent = '✗';
+        matchIcon.style.color = '#ef4444';
+        matchText.textContent = 'Passwords do not match';
+        matchText.style.color = '#ef4444';
+        confirmPasswordInput.style.borderColor = '#ef4444';
+      }
+    }
+
+    if (newPasswordInput) {
+      newPasswordInput.addEventListener('input', checkPasswordMatch);
+    }
+    if (confirmPasswordInput) {
+      confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+    }
 
     function notifyPasswordResult(type, message) {
       const title = type === 'success' ? 'Password updated' : 'Password update failed';
@@ -191,11 +247,20 @@
 
         const submitBtn = passwordForm.querySelector('button[type="submit"]');
         const originalText = submitBtn ? submitBtn.textContent : '';
+        
+        // Client-side validation for password matching
+        const newPwd = passwordForm.newPassword.value;
+        const confirmPwd = passwordForm.confirmPassword.value;
+        
+        if (newPwd !== confirmPwd) {
+          notifyPasswordResult('error', 'Passwords do not match. Please make sure both password fields are identical.');
+          return;
+        }
 
         const payload = {
           currentPassword: passwordForm.currentPassword.value,
-          newPassword: passwordForm.newPassword.value,
-          confirmPassword: passwordForm.confirmPassword.value
+          newPassword: newPwd,
+          confirmPassword: confirmPwd
         };
 
         if (submitBtn) {
@@ -341,10 +406,10 @@
   <!-- Connected Accounts -->
   <div class="settings-card">
     <h2 class="settings-card-title">Connected Accounts</h2>
-    <p class="settings-note">Link your social accounts for faster sign-in.</p>
+    <p class="settings-note" style="color:#4b5563;margin-bottom:16px;">Link your social accounts for faster sign-in.</p>
     <div style="display:flex;flex-direction:column;gap:12px;">
-      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">
-        <div>Google</div>
+      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;padding:8px 0;">
+        <div style="font-weight:500;color:#111827;font-size:0.95rem;">Google</div>
         <div>
           <% if (linked && linked.google) { %>
             <form action="/settings/connections/unlink" method="POST" style="display:inline;">
@@ -359,8 +424,8 @@
           <% } %>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">
-        <div>Microsoft</div>
+      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;padding:8px 0;">
+        <div style="font-weight:500;color:#111827;font-size:0.95rem;">Microsoft</div>
         <div>
           <% if (linked && linked.microsoft) { %>
             <form action="/settings/connections/unlink" method="POST" style="display:inline;">
@@ -380,8 +445,8 @@
           <% } %>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">
-        <div>Apple</div>
+      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;padding:8px 0;">
+        <div style="font-weight:500;color:#111827;font-size:0.95rem;">Apple</div>
         <div>
           <% if (linked && linked.apple) { %>
             <form action="/settings/connections/unlink" method="POST" style="display:inline;">
@@ -398,8 +463,8 @@
           <% } %>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;">
-        <div>X (Twitter)</div>
+      <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;padding:8px 0;">
+        <div style="font-weight:500;color:#111827;font-size:0.95rem;">X (Twitter)</div>
         <div>
           <% if (linked && linked.twitter) { %>
             <form action="/settings/connections/unlink" method="POST" style="display:inline;">
@@ -959,27 +1024,6 @@
     #deleteAccountModal { display: none; }
     #deleteAccountModal[style*="display:flex"], #deleteAccountModal[style*="display: flex"] { display: flex !important; }
   </style>
-
-  <!-- Your Passions Section -->
-  <div class="settings-card">
-    <h2 class="settings-card-title" style="text-transform:uppercase;font-size:0.875rem;font-weight:700;letter-spacing:0.05em;color:#374151;margin-bottom:16px;">YOUR PASSIONS</h2>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
-      <% 
-        const row = getUserById ? (typeof getUserById === 'function' ? getUserById(authUser.id) : null) : null;
-        const userPassions = row && row.categories ? JSON.parse(row.categories) : [];
-        if (userPassions.length > 0) {
-          userPassions.forEach(function(passion) {
-      %>
-        <span style="padding:8px 20px;border-radius:24px;background:white;border:2px solid #e5e7eb;color:#374151;font-weight:600;font-size:0.9rem;"><%= passion %></span>
-      <% 
-          });
-        } else {
-      %>
-        <span style="color:#6b7280;font-size:0.9rem;">No passions selected yet</span>
-      <% } %>
-    </div>
-    <a href="/profile/edit" class="settings-link" style="color:#ec4899;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">Manage passions →</a>
-  </div>
 </section>
 
 <%- include('partials/footer') %>

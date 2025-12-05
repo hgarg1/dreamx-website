@@ -38,8 +38,8 @@ function ensureAuthenticated(req, res, next) {
 }
 
 async function handlePasswordChange({ userId, currentPassword, newPassword, confirmPassword }) {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-        return { ok: false, message: 'All password fields required' };
+    if (!newPassword || !confirmPassword) {
+        return { ok: false, message: 'New password and confirmation required' };
     }
 
     if (newPassword !== confirmPassword) {
@@ -58,24 +58,24 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
 
     const linkedAccounts = getLinkedAccountsForUser(userId) || [];
     const hasLinkedAccounts = linkedAccounts.length > 0;
+    const hasPassword = !!(user.password_hash);
     
-    if (!user.password_hash) {
-        return { ok: false, message: 'No password set for this account. Please set a password first.' };
+    // If user has a password set, verify current password
+    if (hasPassword) {
+        if (!currentPassword) {
+            return { ok: false, message: 'Current password is required when changing an existing password' };
+        }
+        const passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!passwordValid) {
+            return { ok: false, message: 'Current password incorrect' };
+        }
     }
-    
-    const passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
-    
-    if (!passwordValid && hasLinkedAccounts) {
-        return { ok: false, message: 'Password changes are not available for SSO-only accounts. Your account is managed through SSO. Please use your SSO provider to sign in.' };
-    }
-    
-    if (!passwordValid) {
-        return { ok: false, message: 'Current password incorrect' };
-    }
+    // If user has no password (SSO-only account), allow setting password without current password
+    // This enables SSO users to add password authentication to their account
 
     const hash = await bcrypt.hash(newPassword, 10);
     updatePassword({ userId, passwordHash: hash });
-    return { ok: true, message: 'Password changed successfully' };
+    return { ok: true, message: hasPassword ? 'Password changed successfully' : 'Password set successfully. You can now sign in with email and password.' };
 }
 
 // Initialize router with dependencies
@@ -111,11 +111,17 @@ function initSettingsRoutes() {
             bank_account_country: row.bank_account_country,
             bank_account_number: row.bank_account_number
         };
-        const linked = { google: false, microsoft: false, apple: false };
+        const linked = { google: false, microsoft: false, apple: false, twitter: false };
         try {
             const accounts = getLinkedAccountsForUser(req.session.userId) || [];
-            accounts.forEach(a => { if (a.provider && linked.hasOwnProperty(a.provider)) linked[a.provider] = true; });
-        } catch (e) { }
+            accounts.forEach(a => { 
+                if (a.provider && linked.hasOwnProperty(a.provider)) {
+                    linked[a.provider] = true;
+                }
+            });
+        } catch (e) { 
+            console.error('Error fetching linked accounts:', e);
+        }
 
         const linkedAccounts = getLinkedAccountsForUser(req.session.userId) || [];
         const hasLinkedAccounts = linkedAccounts.length > 0;
@@ -132,6 +138,7 @@ function initSettingsRoutes() {
         res.render('settings', {
             title: 'Settings - Dream X',
             currentPage: 'settings',
+            user: authUser,
             authUser,
             linked,
             hasPassword,

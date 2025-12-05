@@ -539,40 +539,11 @@
 
             <div class="update-engagement">
               <button class="engagement-btn" onclick="reactToUpdate(<%= update.id %>, 'like')">
-                👍 <span><%= update.reaction_count || 0 %></span>
+                👍 <span id="reaction-count-<%= update.id %>"><%= update.reactions && update.reactions.like ? update.reactions.like : 0 %></span>
               </button>
-              <button class="engagement-btn" onclick="toggleCommentSection(this, <%= update.id %>)">
-                💬 <span><%= update.comment_count || 0 %></span>
+              <button class="engagement-btn" onclick="scrollToProjectComments()">
+                💬 Comments
               </button>
-            </div>
-
-            <!-- Comments Section -->
-            <div class="update-comments-section" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-              <!-- Comment Form -->
-              <% if (project.visibility === 'public' || isOwner) { %>
-              <div class="comment-form" style="margin-bottom: 16px;">
-                <textarea 
-                  class="comment-input" 
-                  placeholder="Add a comment..." 
-                  style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 0.9rem; resize: vertical;"
-                ></textarea>
-                <div style="display: flex; gap: 8px; margin-top: 8px;">
-                  <button onclick="submitComment(this, <%= update.id %>)" style="flex: 1; padding: 8px 12px; background: #ec4899; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    Post Comment
-                  </button>
-                  <label style="padding: 8px 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 6px;">
-                    📎 Attach File
-                    <input type="file" style="display: none;" class="comment-file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png,.gif,.webp,.mp4,.webm,.zip">
-                  </label>
-                </div>
-                <div class="attached-files" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;"></div>
-              </div>
-              <% } %>
-
-              <!-- Comments List -->
-              <div class="comments-list" style="max-height: 400px; overflow-y: auto;">
-                <!-- Comments will be loaded here -->
-              </div>
             </div>
           </div>
         <% }); %>
@@ -665,7 +636,18 @@
       </div>
     <% } %>
   </aside>
+  
 </div>
+
+<!-- Project Comments (full width below layout) -->
+<section id="project-comments" style="margin: 32px auto; max-width: 1100px; padding: 0 24px;">
+  <h2 class="gradient-text" style="margin-bottom: 12px;">Project Comments</h2>
+  <p style="color: #6b7280; margin-bottom: 16px;">Discuss this project with the community.</p>
+  <%- include('partials/project-comments', {
+    projectId: project.id,
+    canComment: project.visibility === 'public' || isOwner
+  }) %>
+</section>
 
 <script>
   function switchTab(button, tabId) {
@@ -701,120 +683,18 @@
     .catch(err => console.error('Error:', err));
   }
 
-  // Toggle comment section visibility
-  function toggleCommentSection(button, updateId) {
-    const section = button.closest('.update-card').querySelector('.update-comments-section');
-    if (section) {
-      const isVisible = section.style.display !== 'none';
-      section.style.display = isVisible ? 'none' : 'block';
-      if (!isVisible) {
-        loadComments(updateId);
-      }
+  function scrollToProjectComments() {
+    const section = document.getElementById('project-comments');
+    if (!section) return;
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Initialize project-level comments on load
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof loadComments === 'function') {
+      loadComments(<%= project.id %>);
     }
-  }
-
-  // Load comments for an update
-  function loadComments(updateId) {
-    fetch(`/api/projects/<%= project.id %>/updates/${updateId}/comments`, {
-      method: 'GET'
-    })
-    .then(res => res.json())
-    .then(data => {
-      const section = document.querySelector(`[data-update-id="${updateId}"] .comments-list`);
-      if (section && data.comments) {
-        section.innerHTML = data.comments.map(comment => `
-          <div class="comment-item" style="padding: 12px; background: #f9fafb; border-radius: 8px; margin-bottom: 8px;">
-            <div style="display: flex; gap: 8px;">
-              <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;">
-                ${comment.full_name.charAt(0)}
-              </div>
-              <div style="flex: 1;">
-                <div style="font-weight: 600; font-size: 0.9rem;">${comment.full_name}</div>
-                <div style="font-size: 0.85rem; color: #6b7280;">${new Date(comment.created_at).toLocaleString()}</div>
-                <div style="margin-top: 6px; color: #374151;">${comment.content}</div>
-                ${comment.files && comment.files.length > 0 ? `
-                  <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
-                    ${comment.files.map(file => `
-                      <a href="${file.file_url}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.85rem; color: #ec4899; text-decoration: none;">
-                        📎 ${file.file_name}
-                      </a>
-                    `).join('')}
-                  </div>
-                ` : ''}
-                <div style="margin-top: 8px; display: flex; gap: 8px;">
-                  <button onclick="starComment(${comment.id}, ${updateId})" style="padding: 4px 8px; background: none; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
-                    ⭐ Star
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
-    })
-    .catch(err => console.error('Error loading comments:', err));
-  }
-
-  // Submit a new comment
-  function submitComment(button, updateId) {
-    const form = button.closest('.comment-form');
-    const textarea = form.querySelector('.comment-input');
-    const fileInput = form.querySelector('.comment-file-input');
-    const content = textarea.value.trim();
-    
-    if (!content) {
-      alert('Please enter a comment');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('content', content);
-    
-    // Add files if selected
-    if (fileInput && fileInput.files && fileInput.files.length > 0) {
-      for (let file of fileInput.files) {
-        formData.append('files', file);
-      }
-    }
-
-    fetch(`/api/projects/<%= project.id %>/updates/${updateId}/comments`, {
-      method: 'POST',
-      body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        textarea.value = '';
-        if (fileInput) fileInput.value = '';
-        form.querySelector('.attached-files').innerHTML = '';
-        loadComments(updateId);
-      } else {
-        alert('Error: ' + (data.error || 'Failed to post comment'));
-      }
-    })
-    .catch(err => {
-      console.error('Error posting comment:', err);
-      alert('Error posting comment');
-    });
-  }
-
-  // Star a comment
-  function starComment(commentId, updateId) {
-    fetch(`/api/projects/<%= project.id %>/updates/${updateId}/comments/${commentId}/react`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ type: 'star' })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        loadComments(updateId);
-      }
-    })
-    .catch(err => console.error('Error starring comment:', err));
-  }
+  });
 
 </script>
 

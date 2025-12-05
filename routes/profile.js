@@ -9,6 +9,7 @@ const {
     getFollowerCount,
     getFollowingCount,
     getUserServices,
+    getUserSubscription,
     updateUserProfile,
     updateOnboarding,
     updateProfilePicture,
@@ -56,6 +57,7 @@ function initProfileRoutes({ upload, io }) {
             const passions = safeParseArray(row.categories);
             const goals = safeParseArray(row.goals);
             const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
+            // Filter out reels only - reposts are already excluded by getUserPosts
             let userPosts = getUserPosts(req.session.userId).filter(p => !p.is_reel);
 
             userPosts = userPosts.map(p => {
@@ -70,6 +72,12 @@ function initProfileRoutes({ upload, io }) {
             const followingCount = getFollowingCount(req.session.userId);
             const userServices = getUserServices(req.session.userId);
             const isSeller = userServices && userServices.length > 0;
+            
+            // Check subscription to determine if user can list services
+            const subscription = getUserSubscription(req.session.userId);
+            const tier = subscription ? subscription.tier : 'free';
+            const canListServices = tier !== 'free' && tier !== 'pro-buyer';
+            const sessionsCount = canListServices ? (userServices ? userServices.length : 0) : '-';
 
             const user = {
                 displayName: row.full_name,
@@ -77,7 +85,7 @@ function initProfileRoutes({ upload, io }) {
                 bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
                 passions,
                 skills: skillsList,
-                stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: userServices ? userServices.length : 0 },
+                stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: sessionsCount },
                 isSeller,
                 bannerImage: row.banner_image,
                 onboarding: {
@@ -106,14 +114,30 @@ function initProfileRoutes({ upload, io }) {
                 userReposts = getUserReposts(req.session.userId) || [];
                 userReposts = userReposts.map(p => {
                     try {
-                        p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-                        p.reactions = p.reactions || {};
-                        // Get repost info
+                        // Get repost info first
                         const repostInfo = getRepostInfo(p.id);
                         if (repostInfo) {
                             p.repost_info = repostInfo;
+                            // For reposts, get reactions and comments from the ORIGINAL post
+                            const originalPostId = repostInfo.original_post_id;
+                            p.user_reaction = getUserReactionForPost({ postId: originalPostId, userId: req.session.userId });
+                            p.reactions = getPostReactionsSummary(originalPostId);
+                            // Get original post's comment count
+                            const originalPost = db.prepare('SELECT (SELECT COUNT(*) FROM post_comments WHERE post_id = ?) as comments_count FROM posts WHERE id = ?').get(originalPostId, originalPostId);
+                            if (originalPost) {
+                                p.comments_count = originalPost.comments_count;
+                            }
+                            // Get original post's repost count
+                            const repostCountResult = db.prepare('SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?').get(originalPostId);
+                            p.repost_count = repostCountResult ? repostCountResult.c : 0;
+                        } else {
+                            // Fallback if no repost info
+                            p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                            p.reactions = getPostReactionsSummary(p.id);
                         }
-                    } catch (e) { }
+                    } catch (e) { 
+                        console.error('Error loading repost data:', e);
+                    }
                     return p;
                 });
             } catch (error) {
@@ -160,6 +184,7 @@ function initProfileRoutes({ upload, io }) {
             const passions = safeParseArray(row.categories);
             const goals = safeParseArray(row.goals);
             const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
+            // Filter out reels only - reposts are already excluded by getUserPosts
             let userPosts = getUserPosts(uid).filter(p => !p.is_reel);
             userPosts = userPosts.map(p => {
                 try {
@@ -178,14 +203,30 @@ function initProfileRoutes({ upload, io }) {
                 userReposts = getUserReposts(uid) || [];
                 userReposts = userReposts.map(p => {
                     try {
-                        p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
-                        p.reactions = p.reactions || {};
-                        // Get repost info
+                        // Get repost info first
                         const repostInfo = getRepostInfo(p.id);
                         if (repostInfo) {
                             p.repost_info = repostInfo;
+                            // For reposts, get reactions and comments from the ORIGINAL post
+                            const originalPostId = repostInfo.original_post_id;
+                            p.user_reaction = getUserReactionForPost({ postId: originalPostId, userId: req.session.userId });
+                            p.reactions = getPostReactionsSummary(originalPostId);
+                            // Get original post's comment count
+                            const originalPost = db.prepare('SELECT (SELECT COUNT(*) FROM post_comments WHERE post_id = ?) as comments_count FROM posts WHERE id = ?').get(originalPostId, originalPostId);
+                            if (originalPost) {
+                                p.comments_count = originalPost.comments_count;
+                            }
+                            // Get original post's repost count
+                            const repostCountResult = db.prepare('SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?').get(originalPostId);
+                            p.repost_count = repostCountResult ? repostCountResult.c : 0;
+                        } else {
+                            // Fallback if no repost info
+                            p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
+                            p.reactions = getPostReactionsSummary(p.id);
                         }
-                    } catch (e) { }
+                    } catch (e) { 
+                        console.error('Error loading repost data:', e);
+                    }
                     return p;
                 });
             } catch (error) {
@@ -198,6 +239,12 @@ function initProfileRoutes({ upload, io }) {
             const isFollowingUser = isFollowing({ followerId: req.session.userId, followingId: uid });
             const services = getUserServices(uid);
             const isSeller = services && services.length > 0;
+            
+            // Check subscription to determine if user can list services
+            const subscription = getUserSubscription(uid);
+            const tier = subscription ? subscription.tier : 'free';
+            const canListServices = tier !== 'free' && tier !== 'pro-buyer';
+            const sessionsCount = canListServices ? (services ? services.length : 0) : '-';
 
             const user = {
                 displayName: row.full_name,
@@ -205,7 +252,7 @@ function initProfileRoutes({ upload, io }) {
                 bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
                 passions,
                 skills: skillsList,
-                stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: services ? services.length : 0 },
+                stats: { posts: userPosts.length, followers: followerCount, following: followingCount, sessions: sessionsCount },
                 isSeller,
                 bannerImage: row.banner_image,
                 onboarding: {

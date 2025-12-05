@@ -780,31 +780,19 @@ async function handleOAuthCallback(req, res, provider) {
 router.get('/auth/google', (req, res, next) => {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return res.status(503).send('Google OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    console.log('🔵 [Google] Initiating OAuth flow - Mode:', mode);
-    console.log('🔵 [Google] Request Host:', req.get('host'));
-    console.log('🔵 [Google] Protocol:', req.protocol);
-    passport.authenticate('google', { state: mode, scope: ['profile', 'email'] })(req, res, next);
+    req.session.oauthMode = mode;
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
 router.get('/auth/google/callback', (req, res, next) => {
-    console.log('🟢 [Google Callback] Received callback with query:', req.query);
-    console.log('🟢 [Google Callback] Session exists:', !!req.session);
-    console.log('🟢 [Google Callback] Session userId:', req.session?.userId);
-    
-    // Don't use failureRedirect with custom callback - it won't work as expected
-    // Instead, handle auth in a proper middleware style
     passport.authenticate('google', (err, user, info) => {
-        console.log('🟢 [Google Callback] Passport.authenticate callback - err:', err?.message);
-        console.log('🟢 [Google Callback] Passport.authenticate callback - user:', user?.id);
-        console.log('🟢 [Google Callback] Passport.authenticate callback - info:', info);
-        
         if (err) {
-            console.error('❌ Google Passport authentication error:', err);
+            console.error('❌ [Google] Passport authentication error:', err);
             return res.redirect('/login');
         }
         
         if (!user) {
-            console.warn('⚠️ Google callback: Passport returned no user');
+            console.warn('⚠️ [Google] No user returned from Passport');
             return res.redirect('/login');
         }
         
@@ -812,15 +800,16 @@ router.get('/auth/google/callback', (req, res, next) => {
         req.user = user;
         req.authInfo = info;
         
-        console.log('🟢 [Google Callback] About to handle OAuth callback');
-        // Now handle the OAuth callback logic
+        // Handle the OAuth callback logic
         handleOAuthCallback(req, res, 'google');
     })(req, res, next);
 });
 
 async function handleOAuthCallback(req, res, provider) {
     try {
-        const mode = req.query.state;
+        // Use mode from session (stored before OAuth redirect) instead of URL state parameter
+        // (state is reserved for Passport's CSRF protection)
+        const mode = req.session.oauthMode || 'login';
         
         // Handle account linking mode
         if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
@@ -885,21 +874,19 @@ async function handleOAuthCallback(req, res, provider) {
 router.get('/auth/microsoft', (req, res, next) => {
     if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) return res.status(503).send('Microsoft OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    // Note: Microsoft uses static callback URL from strategy initialization
-    passport.authenticate('microsoft', { state: mode })(req, res, next);
+    req.session.oauthMode = mode;
+    passport.authenticate('microsoft')(req, res, next);
 });
 
 router.get('/auth/microsoft/callback', (req, res, next) => {
-    // Don't use failureRedirect with custom callback - it won't work as expected
-    // Instead, handle auth in a proper middleware style
     passport.authenticate('microsoft', (err, user, info) => {
         if (err) {
-            console.error('❌ Microsoft Passport authentication error:', err);
+            console.error('❌ [Microsoft] Passport authentication error:', err);
             return res.redirect('/login');
         }
         
         if (!user) {
-            console.warn('⚠️ Microsoft callback: Passport returned no user');
+            console.warn('⚠️ [Microsoft] No user returned from Passport');
             return res.redirect('/login');
         }
         
@@ -907,7 +894,7 @@ router.get('/auth/microsoft/callback', (req, res, next) => {
         req.user = user;
         req.authInfo = info;
         
-        // Now handle the OAuth callback logic
+        // Handle the OAuth callback logic
         handleOAuthCallback(req, res, 'microsoft');
     })(req, res, next);
 });
@@ -915,21 +902,20 @@ router.get('/auth/microsoft/callback', (req, res, next) => {
 router.get('/auth/apple', (req, res, next) => {
     if (!process.env.APPLE_CLIENT_ID || !process.env.APPLE_TEAM_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY) return res.status(503).send('Apple Sign-In not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
+    req.session.oauthMode = mode;
     const callbackURL = getCallbackURLFromRequest(req, '/auth/apple/callback');
-    passport.authenticate('apple', { state: mode, callbackURL: callbackURL })(req, res, next);
+    passport.authenticate('apple', { callbackURL: callbackURL })(req, res, next);
 });
 
 router.post('/auth/apple/callback', (req, res, next) => {
-    // Don't use failureRedirect with custom callback - it won't work as expected
-    // Instead, handle auth in a proper middleware style
     passport.authenticate('apple', (err, user, info) => {
         if (err) {
-            console.error('❌ Apple Passport authentication error:', err);
+            console.error('❌ [Apple] Passport authentication error:', err);
             return res.redirect('/login');
         }
         
         if (!user) {
-            console.warn('⚠️ Apple callback: Passport returned no user');
+            console.warn('⚠️ [Apple] No user returned from Passport');
             return res.redirect('/login');
         }
         
@@ -937,7 +923,7 @@ router.post('/auth/apple/callback', (req, res, next) => {
         req.user = user;
         req.authInfo = info;
         
-        // Now handle the OAuth callback logic
+        // Handle the OAuth callback logic
         handleOAuthCallback(req, res, 'apple');
     })(req, res, next);
 });
@@ -945,34 +931,26 @@ router.post('/auth/apple/callback', (req, res, next) => {
 router.get('/auth/x', (req, res, next) => {
     if (!process.env.TWITTER_CLIENT_ID || !process.env.TWITTER_CLIENT_SECRET) return res.status(503).send('X (Twitter) OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'login';
-    console.log('🔵 [Twitter] Initiating OAuth flow - Mode:', mode);
-    console.log('🔵 [Twitter] Request Host:', req.get('host'));
-    console.log('🔵 [Twitter] Protocol:', req.protocol);
-    console.log('🔵 [Twitter] Client ID:', process.env.TWITTER_CLIENT_ID.substring(0, 10) + '...');
-    console.log('🔵 [Twitter] Callback URL being used: http://localhost/auth/x/callback (from strategy config)');
-    console.log('🔵 [Twitter] Make sure this callback URL is registered in Twitter Developer Console!');
-    passport.authenticate('twitter', { state: mode })(req, res, next);
+    // Store mode in session for use in callback - don't override state (Passport needs to handle that)
+    req.session.oauthMode = mode;
+    passport.authenticate('twitter')(req, res, next);
 });
 
 router.get('/auth/x/callback', (req, res, next) => {
-    console.log('🟢 [Twitter Callback] Received callback with query:', req.query);
-    console.log('🟢 [Twitter Callback] Session exists:', !!req.session);
-    console.log('🟢 [Twitter Callback] Session userId:', req.session?.userId);
+    // If we got an error from Twitter before the callback, handle it
+    if (req.query.error) {
+        console.error('❌ [Twitter] OAuth error from Twitter:', req.query.error);
+        return res.redirect('/login?error=twitter_oauth_failed');
+    }
     
-    // Don't use failureRedirect with custom callback - it won't work as expected
-    // Instead, handle auth in a proper middleware style
     passport.authenticate('twitter', (err, user, info) => {
-        console.log('🟢 [Twitter Callback] Passport.authenticate callback - err:', err?.message);
-        console.log('🟢 [Twitter Callback] Passport.authenticate callback - user:', user?.id);
-        console.log('🟢 [Twitter Callback] Passport.authenticate callback - info:', info);
-        
         if (err) {
-            console.error('❌ Twitter Passport authentication error:', err);
+            console.error('❌ [Twitter] Passport authentication error:', err);
             return res.redirect('/login');
         }
         
         if (!user) {
-            console.warn('⚠️ Twitter callback: Passport returned no user');
+            console.warn('⚠️ [Twitter] No user returned from Passport');
             return res.redirect('/login');
         }
         
@@ -980,8 +958,7 @@ router.get('/auth/x/callback', (req, res, next) => {
         req.user = user;
         req.authInfo = info;
         
-        console.log('🟢 [Twitter Callback] About to handle OAuth callback');
-        // Now handle the OAuth callback logic
+        // Handle the OAuth callback logic
         handleOAuthCallback(req, res, 'twitter');
     })(req, res, next);
 });

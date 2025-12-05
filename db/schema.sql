@@ -881,16 +881,52 @@ CREATE INDEX idx_reactions_type ON project_reactions(reaction_type);
 -- Project comments
 CREATE TABLE project_comments (
   id INT IDENTITY(1,1) PRIMARY KEY,
-  update_id INT NOT NULL,
+  project_id INT NOT NULL,
+  update_id INT,
   user_id INT NOT NULL,
-  parent_id INT,
+  parent_id INT,                                -- For threaded replies
   content NVARCHAR(MAX) NOT NULL,
+  is_pinned BIT DEFAULT 0,                      -- Admin/owner can pin comments
+  is_hidden BIT DEFAULT 0,                      -- Admin/owner can hide comments
+  edited_at DATETIME2,                          -- Track if comment was edited
   created_at DATETIME2 DEFAULT GETDATE(),
-  FOREIGN KEY (update_id) REFERENCES project_updates(id) ON DELETE CASCADE,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (update_id) REFERENCES project_updates(id) ON DELETE SET NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE NO ACTION,
   FOREIGN KEY (parent_id) REFERENCES project_comments(id) ON DELETE NO ACTION
 );
 
 CREATE INDEX idx_comments_update ON project_comments(update_id);
+CREATE INDEX idx_comments_project ON project_comments(project_id);
 CREATE INDEX idx_comments_parent ON project_comments(parent_id);
+CREATE INDEX idx_comments_pinned ON project_comments(is_pinned, created_at);
+
+-- Project comment files (attachments)
+CREATE TABLE project_comment_files (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  comment_id INT NOT NULL,
+  file_url NVARCHAR(500) NOT NULL,
+  file_name NVARCHAR(255) NOT NULL,
+  file_type NVARCHAR(100) NOT NULL,
+  file_size BIGINT NOT NULL,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (comment_id) REFERENCES project_comments(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_comment_files_comment ON project_comment_files(comment_id);
+
+-- Project comment reactions (stars)
+CREATE TABLE project_comment_reactions (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  comment_id INT NOT NULL,
+  user_id INT NOT NULL,
+  reaction_type NVARCHAR(50) DEFAULT 'star',    -- 'star', 'helpful', etc.
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (comment_id) REFERENCES project_comments(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE NO ACTION,
+  UNIQUE(comment_id, user_id, reaction_type)
+);
+
+CREATE INDEX idx_comment_reactions_comment ON project_comment_reactions(comment_id);
+CREATE INDEX idx_comment_reactions_user ON project_comment_reactions(user_id);
 

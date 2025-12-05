@@ -1,0 +1,1258 @@
+<style>
+  .comments-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 3px solid transparent;
+    border-image: linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6) 1;
+    position: relative;
+  }
+
+  .comments-section::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6);
+    opacity: 0.3;
+    filter: blur(4px);
+  }
+
+  .comment-form {
+    margin-bottom: 24px;
+    background: linear-gradient(135deg, #ffffff, #fdf4ff);
+    border-radius: 16px;
+    padding: 20px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .comment-form::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 16px;
+    padding: 2px;
+    background: linear-gradient(135deg, #ec4899, #8b5cf6, #3b82f6);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+
+  .comment-form:focus-within::before {
+    opacity: 1;
+  }
+
+  .comment-form:focus-within {
+    background: white;
+    box-shadow: 0 8px 32px rgba(236, 72, 153, 0.15), 0 0 0 1px rgba(236, 72, 153, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .comment-input {
+    width: 100%;
+    min-height: 90px;
+    padding: 14px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.95rem;
+    resize: vertical;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
+    line-height: 1.5;
+  }
+
+  .comment-input:focus {
+    outline: none;
+    border-color: #ec4899;
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+  }
+
+  .comment-input::placeholder {
+    color: #9ca3af;
+    font-style: italic;
+  }
+
+  .comment-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .comment-submit-btn {
+    flex: 1;
+    min-width: 140px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
+    background-size: 200% 200%;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.25);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .comment-submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.6s ease;
+  }
+
+  .comment-submit-btn:hover::before {
+    left: 100%;
+  }
+
+  .comment-submit-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 12px 24px rgba(236, 72, 153, 0.35);
+    background-position: 100% 0;
+  }
+
+  .comment-submit-btn:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .comment-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 0.8; }
+  }
+
+  .comment-attach-btn {
+    padding: 12px 20px;
+    background: #ffffff;
+    border: 2px solid #d1d5db;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .comment-attach-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #fdf2f8, #f3e8ff);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .comment-attach-btn:hover::before {
+    opacity: 1;
+  }
+
+  .comment-attach-btn:hover {
+    border-color: #ec4899;
+    color: #ec4899;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(236, 72, 153, 0.2);
+  }
+
+  .comment-attach-btn span {
+    position: relative;
+    z-index: 1;
+  }
+
+  .attached-files-preview {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .attached-file-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    max-width: 220px;
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  .attached-file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #0f172a;
+  }
+
+  .remove-file-btn {
+    background: none;
+    border: none;
+    color: #dc2626;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+
+  .comments-list {
+    max-height: 600px;
+    overflow-y: auto;
+  }
+
+  .comment-item {
+    padding: 20px;
+    background: white;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    border: 2px solid #f3f4f6;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: visible;
+    word-break: break-word;
+  }
+
+  .comment-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.03), transparent);
+    transition: left 0.6s ease;
+  }
+
+  .comment-item:hover::before {
+    left: 100%;
+  }
+
+  .comment-item:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(236, 72, 153, 0.1);
+    border-color: rgba(236, 72, 153, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .comment-item.pinned {
+    border: 2px solid #fbbf24;
+    background: linear-gradient(135deg, #fffbeb 0%, white 100%);
+    box-shadow: 0 4px 16px rgba(251, 191, 36, 0.15);
+  }
+
+  .comment-item.pinned::after {
+    content: '📌';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 1.5rem;
+    opacity: 0.3;
+    animation: pinBounce 2s ease-in-out infinite;
+  }
+
+  @keyframes pinBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  .comment-item.hidden {
+    opacity: 0.6;
+    background: linear-gradient(135deg, #fef2f2 0%, white 100%);
+    border: 2px solid #fca5a5;
+    filter: grayscale(0.3);
+  }
+
+  .comment-reply {
+    margin-left: 48px;
+    padding: 14px;
+    background: linear-gradient(135deg, #fdf4ff, #f3f4f6);
+    border-left: 4px solid transparent;
+    border-image: linear-gradient(to bottom, #ec4899, #8b5cf6) 1;
+    border-radius: 0 12px 12px 0;
+  }
+
+  .comment-header {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .comment-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .comment-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 3px solid white;
+    box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .comment-avatar:hover {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .comment-avatar-placeholder {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1), 0 4px 12px rgba(236, 72, 153, 0.2);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+  }
+
+  .comment-avatar-placeholder:hover {
+    transform: scale(1.1) rotate(-5deg);
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.2), 0 6px 16px rgba(236, 72, 153, 0.3);
+  }
+
+  .comment-content-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .comment-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .comment-author-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .comment-author {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #111827;
+  }
+
+  .comment-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .comment-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .badge-admin {
+    background: linear-gradient(135deg, #fee2e2, #fca5a5);
+    color: #991b1b;
+    border: 1px solid #f87171;
+  }
+
+  .badge-owner {
+    background: linear-gradient(135deg, #dbeafe, #93c5fd);
+    color: #1e40af;
+    border: 1px solid #60a5fa;
+  }
+
+  .badge-pinned {
+    background: linear-gradient(135deg, #fef3c7, #fde047);
+    color: #b45309;
+    border: 1px solid #facc15;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .badge-hidden {
+    background: linear-gradient(135deg, #fee2e2, #fca5a5);
+    color: #dc2626;
+    border: 1px solid #f87171;
+  }
+
+  .comment-date {
+    color: #6b7280;
+    font-size: 0.85rem;
+  }
+
+  .comment-edited {
+    color: #9ca3af;
+    font-size: 0.75rem;
+    font-style: italic;
+  }
+
+  .comment-text {
+    color: #374151;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    word-wrap: break-word;
+  }
+
+  .comment-files {
+    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .comment-file-preview {
+    max-width: 200px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #d1d5db;
+  }
+
+  .comment-file-preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .comment-file-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, white, #fdf4ff);
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    color: #ec4899;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 220px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .comment-file-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.1), transparent);
+    transition: left 0.5s ease;
+  }
+
+  .comment-file-link:hover::before {
+    left: 100%;
+  }
+
+  .comment-file-link:hover {
+    background: linear-gradient(135deg, #fdf2f8, #fae8ff);
+    border-color: #ec4899;
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 6px 16px rgba(236, 72, 153, 0.2);
+  }
+
+  .comment-file-link:active {
+    transform: translateY(-1px) scale(0.98);
+  }
+
+  .file-icon {
+    font-size: 1.2rem;
+  }
+
+  .file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .comment-footer {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .comment-action-btn {
+    background: white;
+    border: 2px solid #f3f4f6;
+    cursor: pointer;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 10px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .comment-action-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(236, 72, 153, 0.1);
+    transform: translate(-50%, -50%);
+    transition: width 0.4s ease, height 0.4s ease;
+  }
+
+  .comment-action-btn:hover::before {
+    width: 200px;
+    height: 200px;
+  }
+
+  .comment-action-btn:hover {
+    background: white;
+    color: #ec4899;
+    border-color: #ec4899;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+  }
+
+  .comment-action-btn:active {
+    transform: translateY(0) scale(0.95);
+  }
+
+  .comment-action-btn.active {
+    color: #ec4899;
+    background: linear-gradient(135deg, #fdf2f8, #fae8ff);
+    border-color: #ec4899;
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+    animation: activeGlow 2s ease-in-out infinite;
+  }
+
+  @keyframes activeGlow {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1); }
+    50% { box-shadow: 0 0 0 5px rgba(236, 72, 153, 0.2); }
+  }
+
+  .comment-action-btn span {
+    position: relative;
+    z-index: 1;
+  }
+
+  .comment-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 6px;
+    border-radius: 6px;
+    font-size: 1.2rem;
+    line-height: 1;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  .comment-menu-btn:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .comment-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    min-width: 160px;
+    z-index: 1000;
+    display: none;
+  }
+
+  .comment-dropdown.active {
+    display: block;
+  }
+
+  .comment-dropdown-item {
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #374151;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .comment-dropdown-item:hover {
+    background: #f3f4f6;
+  }
+
+  .comment-dropdown-item.danger {
+    color: #dc2626;
+  }
+
+  .comment-dropdown-item.danger:hover {
+    background: #fef2f2;
+  }
+
+  .reply-form {
+    margin-top: 12px;
+    margin-left: 52px;
+    display: none;
+  }
+
+  .reply-form.active {
+    display: block;
+  }
+
+  .replies-section {
+    margin-top: 12px;
+    margin-left: 40px;
+    border-left: 2px solid #e5e7eb;
+    padding-left: 12px;
+  }
+
+  .load-more-replies {
+    padding: 8px 16px;
+    background: #f9fafb;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6b7280;
+    transition: all 0.3s ease;
+    width: 100%;
+  }
+
+  .load-more-replies:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .comment-item {
+      padding: 12px;
+    }
+
+    .comment-reply {
+      margin-left: 20px;
+      padding: 8px;
+    }
+
+    .replies-section {
+      margin-left: 20px;
+      padding-left: 8px;
+    }
+
+    .comment-actions {
+      flex-direction: column;
+    }
+
+    .comment-submit-btn,
+    .comment-attach-btn {
+      width: 100%;
+    }
+
+    .comment-footer {
+      font-size: 0.85rem;
+    }
+
+    .comment-avatar,
+    .comment-avatar-placeholder {
+      width: 32px;
+      height: 32px;
+      font-size: 0.9rem;
+    }
+
+    .reply-form {
+      margin-left: 20px;
+    }
+  }
+
+  /* Smooth animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .comment-item {
+    animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .comment-reply {
+    animation: slideInLeft 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .comment-badge {
+    animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Gradient text effect */
+  .gradient-text {
+    background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 800;
+  }
+
+  /* Loading skeleton */
+  @keyframes shimmerSkeleton {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: shimmerSkeleton 1.5s infinite;
+  }
+</style>
+
+<div class="comments-section" id="comments-section-<%= projectId %>">
+  <!-- Comment Form -->
+  <% if (canComment) { %>
+  <div class="comment-form">
+    <textarea 
+      class="comment-input" 
+      placeholder="Share your thoughts..."
+      data-project-id="<%= projectId %>"
+    ></textarea>
+    <div class="comment-actions">
+      <button 
+        class="comment-submit-btn" 
+        onclick="submitComment(<%= projectId %>)"
+      >
+        💬 Post Comment
+      </button>
+      <label class="comment-attach-btn">
+        📎 Attach Files
+        <input 
+          type="file" 
+          style="display: none;" 
+          class="comment-file-input" 
+          data-project-id="<%= projectId %>"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+          multiple
+          onchange="handleFileSelect(this, <%= projectId %>)"
+        >
+      </label>
+    </div>
+    <div class="attached-files-preview" id="attached-files-<%= projectId %>"></div>
+  </div>
+  <% } %>
+
+  <!-- Comments List -->
+  <div class="comments-list" id="comments-list-<%= projectId %>">
+    <!-- Comments will be loaded here dynamically -->
+  </div>
+</div>
+
+<script>
+// File management for comments
+const commentFiles = new Map();
+
+function handleFileSelect(input, projectId) {
+  const files = Array.from(input.files);
+  if (!commentFiles.has(projectId)) {
+    commentFiles.set(projectId, []);
+  }
+  commentFiles.get(projectId).push(...files);
+  renderAttachedFiles(projectId);
+}
+
+function removeAttachedFile(projectId, index) {
+  const files = commentFiles.get(projectId) || [];
+  files.splice(index, 1);
+  commentFiles.set(projectId, files);
+  renderAttachedFiles(projectId);
+}
+
+function renderAttachedFiles(projectId) {
+  const container = document.getElementById(`attached-files-${projectId}`);
+  const files = commentFiles.get(projectId) || [];
+  
+  container.innerHTML = files.map((file, index) => `
+    <div class="attached-file-item">
+      <span class="attached-file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+      <button class="remove-file-btn" onclick="removeAttachedFile(${projectId}, ${index})">×</button>
+    </div>
+  `).join('');
+}
+
+function getFileIcon(mimeType) {
+  if (mimeType.startsWith('image/')) return '🖼️';
+  if (mimeType.startsWith('video/')) return '🎥';
+  if (mimeType.startsWith('audio/')) return '🎵';
+  if (mimeType.includes('pdf')) return '📄';
+  if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
+  if (mimeType.includes('zip') || mimeType.includes('compress')) return '📦';
+  return '📎';
+}
+
+function canPreviewFile(mimeType) {
+  return mimeType.startsWith('image/');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = now - date;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
+function submitComment(projectId, parentId = null) {
+  const section = document.getElementById(`comments-section-${projectId}`);
+  const textarea = parentId 
+    ? section.querySelector(`#reply-input-${parentId}`)
+    : section.querySelector(`.comment-input[data-project-id="${projectId}"]`);
+  
+  const content = textarea.value.trim();
+  
+  if (!content && (!commentFiles.has(projectId) || commentFiles.get(projectId).length === 0)) {
+    alert('Please enter a comment or attach a file');
+    return;
+  }
+
+  const formData = new FormData();
+  if (content) formData.append('content', content);
+  if (parentId) formData.append('parentId', parentId);
+  
+  const files = commentFiles.get(projectId) || [];
+  files.forEach(file => formData.append('files', file));
+
+  const submitBtn = parentId
+    ? section.querySelector(`#reply-submit-${parentId}`)
+    : section.querySelector('.comment-submit-btn');
+    
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ Posting...';
+
+  fetch(`/api/projects/<%= projectId %>/comments`, {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      textarea.value = '';
+      commentFiles.delete(projectId);
+      renderAttachedFiles(projectId);
+      
+      if (parentId) {
+        const replyForm = document.getElementById(`reply-form-${parentId}`);
+        if (replyForm) replyForm.classList.remove('active');
+      }
+      
+      loadComments(projectId);
+    } else {
+      alert('Error: ' + (data.error || 'Failed to post comment'));
+    }
+  })
+  .catch(err => {
+    console.error('Error posting comment:', err);
+    alert('Error posting comment');
+  })
+  .finally(() => {
+    submitBtn.disabled = false;
+    submitBtn.textContent = parentId ? '💬 Reply' : '💬 Post Comment';
+  });
+}
+
+function loadComments(projectId) {
+  fetch(`/api/projects/<%= projectId %>/comments`)
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      renderComments(projectId, data.comments);
+    }
+  })
+  .catch(err => console.error('Error loading comments:', err));
+}
+
+function renderComments(projectId, comments) {
+  const container = document.getElementById(`comments-list-${projectId}`);
+  
+  if (!comments || comments.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 32px; color: #9ca3af;">
+        <p style="margin: 0;">No comments yet. Be the first to comment!</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = comments.map(comment => renderComment(comment, projectId)).join('');
+}
+
+function renderComment(comment, projectId) {
+  const starCount = comment.reactions.find(r => r.reaction_type === 'star')?.count || 0;
+  const hasStarred = comment.userReaction === 'star';
+  
+  const badges = [];
+  if (comment.is_pinned) badges.push('<span class="comment-badge badge-pinned">📌 Pinned</span>');
+  if (comment.is_hidden) badges.push('<span class="comment-badge badge-hidden">👁️ Hidden</span>');
+  if (comment.role === 'admin' || comment.role === 'super_admin') {
+    badges.push('<span class="comment-badge badge-admin">Admin</span>');
+  }
+
+  const files = comment.files || [];
+  const filesHtml = files.length > 0 ? `
+    <div class="comment-files">
+      ${files.map(file => {
+        if (canPreviewFile(file.file_type)) {
+          return `
+            <a href="${file.file_url}" target="_blank" class="comment-file-preview">
+              <img src="${file.file_url}" alt="${escapeHtml(file.file_name)}">
+            </a>
+          `;
+        } else {
+          return `
+            <a href="${file.file_url}" target="_blank" class="comment-file-link" download>
+              <span class="file-icon">${getFileIcon(file.file_type)}</span>
+              <span class="file-name">${escapeHtml(file.file_name)}</span>
+            </a>
+          `;
+        }
+      }).join('')}
+    </div>
+  ` : '';
+
+  return `
+    <div class="comment-item ${comment.is_pinned ? 'pinned' : ''} ${comment.is_hidden ? 'hidden' : ''}" id="comment-${comment.id}">
+      <div class="comment-header">
+        ${comment.profile_picture 
+          ? `<img src="/uploads/${comment.profile_picture}" alt="${escapeHtml(comment.full_name)}" class="comment-avatar">`
+          : `<div class="comment-avatar-placeholder">${comment.full_name.charAt(0).toUpperCase()}</div>`
+        }
+        
+        <div class="comment-content-wrapper">
+          <div class="comment-meta">
+            <div class="comment-author-info">
+              <span class="comment-author">${escapeHtml(comment.full_name)}</span>
+              ${badges.join('')}
+              <span class="comment-date">${formatDate(comment.created_at)}</span>
+              ${comment.edited_at ? '<span class="comment-edited">(edited)</span>' : ''}
+            </div>
+            
+            ${comment.permissions && (comment.permissions.canEdit || comment.permissions.canDelete || comment.permissions.canPin || comment.permissions.canHide) ? `
+              <div style="position: relative;">
+                <button class="comment-menu-btn" onclick="toggleCommentMenu(${comment.id})">⋯</button>
+                <div class="comment-dropdown" id="comment-menu-${comment.id}">
+                  ${comment.permissions.canEdit ? `
+                    <button class="comment-dropdown-item" onclick="editComment(${comment.id}, ${projectId})">
+                      ✏️ Edit
+                    </button>
+                  ` : ''}
+                  ${comment.permissions.canPin ? `
+                    <button class="comment-dropdown-item" onclick="togglePin(${comment.id}, ${projectId}, ${!comment.is_pinned})">
+                      ${comment.is_pinned ? '📌 Unpin' : '📌 Pin'}
+                    </button>
+                  ` : ''}
+                  ${comment.permissions.canHide ? `
+                    <button class="comment-dropdown-item" onclick="toggleHide(${comment.id}, ${projectId}, ${!comment.is_hidden})">
+                      ${comment.is_hidden ? '👁️ Unhide' : '🚫 Hide'}
+                    </button>
+                  ` : ''}
+                  ${comment.permissions.canDelete ? `
+                    <button class="comment-dropdown-item danger" onclick="deleteComment(${comment.id}, ${projectId})">
+                      🗑️ Delete
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="comment-text">${escapeHtml(comment.content)}</div>
+          
+          ${filesHtml}
+          
+          <div class="comment-footer">
+            <button class="comment-action-btn ${hasStarred ? 'active' : ''}" onclick="toggleStar(${comment.id}, ${projectId})">
+              ⭐ ${starCount > 0 ? starCount : ''} Star
+            </button>
+            ${comment.permissions && comment.permissions.canReply ? `
+              <button class="comment-action-btn" onclick="toggleReplyForm(${comment.id})">
+                💬 Reply ${comment.replyCount > 0 ? `(${comment.replyCount})` : ''}
+              </button>
+            ` : ''}
+            ${comment.replyCount > 0 ? `
+              <button class="comment-action-btn" onclick="loadReplies(${comment.id}, ${projectId})">
+                👁️ View Replies
+              </button>
+            ` : ''}
+          </div>
+          
+          <!-- Reply Form -->
+          <div class="reply-form" id="reply-form-${comment.id}">
+            <div class="comment-form" style="margin: 0;">
+              <textarea 
+                class="comment-input" 
+                id="reply-input-${comment.id}"
+                placeholder="Write a reply..."
+                style="min-height: 60px;"
+              ></textarea>
+              <div class="comment-actions">
+                <button class="comment-submit-btn" id="reply-submit-${comment.id}" onclick="submitComment(${projectId}, ${comment.id})">
+                  💬 Reply
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Replies Section -->
+          <div class="replies-section" id="replies-${comment.id}" style="display: none;"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleCommentMenu(commentId) {
+  const menu = document.getElementById(`comment-menu-${commentId}`);
+  const allMenus = document.querySelectorAll('.comment-dropdown');
+  allMenus.forEach(m => {
+    if (m !== menu) m.classList.remove('active');
+  });
+  menu.classList.toggle('active');
+}
+
+function toggleReplyForm(commentId) {
+  const form = document.getElementById(`reply-form-${commentId}`);
+  form.classList.toggle('active');
+  if (form.classList.contains('active')) {
+    document.getElementById(`reply-input-${commentId}`).focus();
+  }
+}
+
+function toggleStar(commentId, projectId) {
+  fetch(`/api/projects/<%= projectId %>/comments/${commentId}/react`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'star' })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      loadComments(projectId);
+    }
+  })
+  .catch(err => console.error('Error starring comment:', err));
+}
+
+function editComment(commentId, projectId) {
+  const commentEl = document.getElementById(`comment-${commentId}`);
+  const textEl = commentEl.querySelector('.comment-text');
+  const currentText = textEl.textContent;
+  
+  const newText = prompt('Edit comment:', currentText);
+  if (newText && newText.trim() && newText !== currentText) {
+    fetch(`/api/projects/<%= projectId %>/comments/${commentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: newText.trim() })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        loadComments(projectId);
+      } else {
+        alert('Error: ' + (data.error || 'Failed to edit comment'));
+      }
+    })
+    .catch(err => {
+      console.error('Error editing comment:', err);
+      alert('Error editing comment');
+    });
+  }
+}
+
+function deleteComment(commentId, projectId) {
+  if (!confirm('Are you sure you want to delete this comment?')) return;
+  
+  fetch(`/api/projects/<%= projectId %>/comments/${commentId}`, {
+    method: 'DELETE'
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      loadComments(projectId);
+    } else {
+      alert('Error: ' + (data.error || 'Failed to delete comment'));
+    }
+  })
+  .catch(err => {
+    console.error('Error deleting comment:', err);
+    alert('Error deleting comment');
+  });
+}
+
+function togglePin(commentId, projectId, isPinned) {
+  fetch(`/api/projects/<%= projectId %>/comments/${commentId}/pin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isPinned })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      loadComments(projectId);
+    }
+  })
+  .catch(err => console.error('Error pinning comment:', err));
+}
+
+function toggleHide(commentId, projectId, isHidden) {
+  fetch(`/api/projects/<%= projectId %>/comments/${commentId}/hide`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isHidden })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      loadComments(projectId);
+    }
+  })
+  .catch(err => console.error('Error hiding comment:', err));
+}
+
+function loadReplies(commentId, projectId) {
+  const repliesSection = document.getElementById(`replies-${commentId}`);
+  
+  if (repliesSection.style.display === 'block') {
+    repliesSection.style.display = 'none';
+    return;
+  }
+  
+  fetch(`/api/projects/<%= projectId %>/comments/${commentId}/replies`)
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      repliesSection.innerHTML = data.replies.map(reply => renderComment(reply, projectId)).join('');
+      repliesSection.style.display = 'block';
+    }
+  })
+  .catch(err => console.error('Error loading replies:', err));
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.comment-menu-btn') && !e.target.closest('.comment-dropdown')) {
+    document.querySelectorAll('.comment-dropdown').forEach(m => m.classList.remove('active'));
+  }
+});
+</script>

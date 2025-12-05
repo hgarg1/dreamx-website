@@ -442,6 +442,59 @@ const templates = {
         `
     }),
 
+    projectComment: (owner, commenter, content, projectId, baseUrl) => ({
+        subject: 'New comment on your project - Dream X',
+        html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #0B0A14 0%, #141022 100%); }
+                    .container { max-width: 600px; margin: 40px auto; background: #0f172a; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border: 1px solid rgba(59, 130, 246, 0.2); }
+                    .header { background: linear-gradient(135deg, #3B82F6, #8B5CF6); padding: 36px 32px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 28px; font-weight: 900; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+                    .content { padding: 32px; color: #e2e8f0; }
+                    .greeting { font-size: 18px; margin: 0 0 16px; font-weight: 700; color: #fff; }
+                    .message { line-height: 1.7; margin: 0 0 24px; color: #cbd5e1; font-size: 16px; }
+                    .commenter-name { color: #60a5fa; font-weight: 700; }
+                    .comment-box { background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12)); border-left: 4px solid #3B82F6; padding: 20px; border-radius: 12px; margin: 24px 0; color: #e2e8f0; font-style: italic; line-height: 1.6; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15); }
+                    .cta { text-align: center; margin: 32px 0; }
+                    .button { display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #3B82F6, #8B5CF6); color: #fff; border-radius: 14px; font-weight: 800; letter-spacing: 0.3px; text-decoration: none; box-shadow: 0 12px 30px rgba(59, 130, 246, 0.35); transition: transform 0.2s; }
+                    .button:hover { transform: translateY(-2px); }
+                    .footer { background: #0b1223; padding: 24px; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.08); color: #94a3b8; font-size: 13px; }
+                    .footer hr { border: none; border-top: 1px solid rgba(255, 255, 255, 0.08); margin: 20px 0; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>💬 New Project Comment</h1>
+                    </div>
+                    <div class="content">
+                        <p class="greeting">Hi ${owner.full_name}! 👋</p>
+                        <p class="message">
+                            <span class="commenter-name">${commenter.full_name}</span> commented on your project.
+                        </p>
+                        <div class="comment-box">
+                            ${content}
+                        </div>
+                        <div class="cta">
+                            <a class="button" href="${baseUrl}/project/${projectId}#comments">View Project</a>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <p>Dream X · Addicted to growth.</p>
+                        <hr />
+                        <p>You're receiving this email because you have notifications enabled.<br>Dream X © 2025</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `
+    }),
+
     commentReply: (parentAuthor, commenter, content, postId, baseUrl) => ({
         subject: 'New reply to your comment - Dream X',
         html: `
@@ -693,6 +746,12 @@ const emailService = {
         if (!author.email) return { success: false, error: 'No email address' };
         const template = templates.postComment(author, commenter, content, postId, baseUrl);
         return await sendEmail(author.email, template.subject, template.html, null, req);
+    },
+
+    sendProjectCommentEmail: async (owner, commenter, content, projectId, baseUrl = 'https://localhost', req) => {
+        if (!owner?.email) return { success: false, error: 'No email address' };
+        const template = templates.projectComment(owner, commenter, content, projectId, baseUrl);
+        return await sendEmail(owner.email, template.subject, template.html, null, req);
     },
 
     sendCommentReplyEmail: async (parentAuthor, commenter, content, postId, baseUrl = 'https://localhost', req) => {
