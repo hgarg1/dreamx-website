@@ -1,5 +1,6 @@
 const path = require('path');
 const { initSync, isProduction, getDatabaseSync, getDatabase, initDatabase } = require('./adapter');
+const sqlCompat = require('./sql-compat');
 
 // Initialize database based on environment
 let db = null;
@@ -1844,7 +1845,10 @@ module.exports = {
     db.prepare(`UPDATE users SET email_verified = 1 WHERE id = ?`).run(userId);
   },
   deleteExpiredVerificationCodes: () => {
-    db.prepare(`DELETE FROM email_verification_codes WHERE expires_at < datetime('now') AND verified = 0`).run();
+    const sql = isProduction 
+      ? `DELETE FROM email_verification_codes WHERE expires_at < GETDATE() AND verified = 0`
+      : `DELETE FROM email_verification_codes WHERE expires_at < datetime('now') AND verified = 0`;
+    db.prepare(sql).run();
   },
 
   // Password resets
@@ -1860,7 +1864,10 @@ module.exports = {
     db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE id = ?`).run(id);
   },
   deleteExpiredPasswordResetTokens: () => {
-    db.prepare(`DELETE FROM password_reset_tokens WHERE expires_at < datetime('now') OR used = 1`).run();
+    const sql = isProduction
+      ? `DELETE FROM password_reset_tokens WHERE expires_at < GETDATE() OR used = 1`
+      : `DELETE FROM password_reset_tokens WHERE expires_at < datetime('now') OR used = 1`;
+    db.prepare(sql).run();
   },
   invalidateUserResetTokens: ({ userId }) => {
     db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?`).run(userId);
@@ -1882,7 +1889,10 @@ module.exports = {
     db.prepare(`UPDATE auth_tokens SET revoked = 1 WHERE user_id = ? AND revoked = 0`).run(userId);
   },
   cleanupExpiredTokens: () => {
-    db.prepare(`DELETE FROM auth_tokens WHERE expires_at < datetime('now') OR revoked = 1`).run();
+    const sql = isProduction
+      ? `DELETE FROM auth_tokens WHERE expires_at < GETDATE() OR revoked = 1`
+      : `DELETE FROM auth_tokens WHERE expires_at < datetime('now') OR revoked = 1`;
+    db.prepare(sql).run();
   },
 
   getAllUsers: () => db.prepare(`SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC`).all(),
@@ -1955,7 +1965,16 @@ module.exports = {
     // Back-compat: also store on users table if columns exist
     try { db.prepare(`UPDATE users SET provider = ?, provider_id = ? WHERE id = ?`).run(provider, providerId, userId); } catch (e) { }
     // Preferred: link in oauth_accounts
-    db.prepare(`INSERT OR IGNORE INTO oauth_accounts (user_id, provider, provider_id) VALUES (?,?,?)`).run(userId, provider, providerId);
+    if (isProduction) {
+      // SQL Server: INSERT with WHERE NOT EXISTS
+      db.prepare(`
+        INSERT INTO oauth_accounts (user_id, provider, provider_id)
+        SELECT ?, ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM oauth_accounts WHERE user_id = ? AND provider = ? AND provider_id = ?)
+      `).run(userId, provider, providerId, userId, provider, providerId);
+    } else {
+      db.prepare(`INSERT OR IGNORE INTO oauth_accounts (user_id, provider, provider_id) VALUES (?,?,?)`).run(userId, provider, providerId);
+    }
   },
   unlinkProvider: ({ userId, provider }) => {
     db.prepare(`DELETE FROM oauth_accounts WHERE user_id = ? AND provider = ?`).run(userId, provider);
@@ -2088,9 +2107,22 @@ module.exports = {
     const stmt = db.prepare(`INSERT INTO conversations (user1_id, user2_id, is_group, group_name) VALUES (?,?,1,?)`);
     const info = stmt.run(creatorId, creatorId, groupName || 'Group Chat');
     const convId = info.lastInsertRowid;
-    const addStmt = db.prepare(`INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id) VALUES (?,?)`);
-    addStmt.run(convId, creatorId);
-    participantIds.forEach(uid => addStmt.run(convId, uid));
+    
+    // Add participants - use appropriate syntax for database type
+    if (isProduction) {
+      // SQL Server: INSERT with WHERE NOT EXISTS
+      const addStmt = db.prepare(`
+        INSERT INTO conversation_participants (conversation_id, user_id)
+        SELECT ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?)
+      `);
+      addStmt.run(convId, creatorId, convId, creatorId);
+      participantIds.forEach(uid => addStmt.run(convId, uid, convId, uid));
+    } else {
+      const addStmt = db.prepare(`INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id) VALUES (?,?)`);
+      addStmt.run(convId, creatorId);
+      participantIds.forEach(uid => addStmt.run(convId, uid));
+    }
     return db.prepare('SELECT * FROM conversations WHERE id = ?').get(convId);
   },
   getConversationParticipants: (conversationId) => {
@@ -2467,8 +2499,21 @@ module.exports = {
     const normalizedRpId = normalizeRpId(rpId);
     const normalizedCounter = Number.isInteger(counter) ? counter : 0;
 
-    db.prepare(`INSERT OR REPLACE INTO webauthn_credentials (user_id, credential_id, public_key, counter, transports, rp_id) VALUES (?,?,?,?,?,?)`)
-      .run(userId, normalizedCredentialId, normalizedPublicKey, normalizedCounter, transports || null, normalizedRpId);
+    if (isProduction) {
+      // SQL Server: MERGE statement for upsert
+      db.prepare(`
+        MERGE INTO webauthn_credentials AS target
+        USING (SELECT ? AS user_id, ? AS credential_id, ? AS public_key, ? AS counter, ? AS transports, ? AS rp_id) AS source
+        ON target.credential_id = source.credential_id
+        WHEN MATCHED THEN
+          UPDATE SET user_id = source.user_id, public_key = source.public_key, counter = source.counter, transports = source.transports, rp_id = source.rp_id
+        WHEN NOT MATCHED THEN
+          INSERT (user_id, credential_id, public_key, counter, transports, rp_id) VALUES (source.user_id, source.credential_id, source.public_key, source.counter, source.transports, source.rp_id);
+      `).run(userId, normalizedCredentialId, normalizedPublicKey, normalizedCounter, transports || null, normalizedRpId);
+    } else {
+      db.prepare(`INSERT OR REPLACE INTO webauthn_credentials (user_id, credential_id, public_key, counter, transports, rp_id) VALUES (?,?,?,?,?,?)`)
+        .run(userId, normalizedCredentialId, normalizedPublicKey, normalizedCounter, transports || null, normalizedRpId);
+    }
   },
   getCredentialsForUser: (userId, rpId = null) => {
     // Normalize RP ID: remove www prefix and convert to lowercase
@@ -2664,7 +2709,16 @@ module.exports = {
   },
   // Follow helpers
   followUser: ({ followerId, followingId }) => {
-    db.prepare(`INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`).run(followerId, followingId);
+    if (isProduction) {
+      // SQL Server: INSERT with WHERE NOT EXISTS
+      db.prepare(`
+        INSERT INTO follows (follower_id, following_id)
+        SELECT ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?)
+      `).run(followerId, followingId, followerId, followingId);
+    } else {
+      db.prepare(`INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`).run(followerId, followingId);
+    }
   },
   unfollowUser: ({ followerId, followingId }) => {
     db.prepare(`DELETE FROM follows WHERE follower_id = ? AND following_id = ?`).run(followerId, followingId);
@@ -3355,8 +3409,20 @@ module.exports = {
     if (modRow && modRow.block_functionality_locked === 1) {
       throw new Error('Block functionality is locked for this user');
     }
-    const stmt = db.prepare(`INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id, reason) VALUES (?,?,?)`);
-    const result = stmt.run(blockerId, blockedId, reason || null);
+    
+    let result;
+    if (isProduction) {
+      // SQL Server: INSERT with WHERE NOT EXISTS
+      const stmt = db.prepare(`
+        INSERT INTO user_blocks (blocker_id, blocked_id, reason)
+        SELECT ?, ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?)
+      `);
+      result = stmt.run(blockerId, blockedId, reason || null, blockerId, blockedId);
+    } else {
+      const stmt = db.prepare(`INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id, reason) VALUES (?,?,?)`);
+      result = stmt.run(blockerId, blockedId, reason || null);
+    }
     // Log the action
     db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       blockerId,
@@ -3435,10 +3501,23 @@ module.exports = {
 
   // User moderation (block functionality lock)
   lockUserBlockFunctionality: ({ userId, reason, lockedBy }) => {
-    db.prepare(`
-      INSERT OR REPLACE INTO user_moderation (user_id, block_functionality_locked, lock_reason, locked_by, locked_at)
-      VALUES (?, 1, ?, ?, CURRENT_TIMESTAMP)
-    `).run(userId, reason || null, lockedBy);
+    if (isProduction) {
+      // SQL Server: MERGE statement for upsert
+      db.prepare(`
+        MERGE INTO user_moderation AS target
+        USING (SELECT ? AS user_id, 1 AS block_functionality_locked, ? AS lock_reason, ? AS locked_by, GETDATE() AS locked_at) AS source
+        ON target.user_id = source.user_id
+        WHEN MATCHED THEN
+          UPDATE SET block_functionality_locked = source.block_functionality_locked, lock_reason = source.lock_reason, locked_by = source.locked_by, locked_at = source.locked_at
+        WHEN NOT MATCHED THEN
+          INSERT (user_id, block_functionality_locked, lock_reason, locked_by, locked_at) VALUES (source.user_id, source.block_functionality_locked, source.lock_reason, source.locked_by, source.locked_at);
+      `).run(userId, reason || null, lockedBy);
+    } else {
+      db.prepare(`
+        INSERT OR REPLACE INTO user_moderation (user_id, block_functionality_locked, lock_reason, locked_by, locked_at)
+        VALUES (?, 1, ?, ?, CURRENT_TIMESTAMP)
+      `).run(userId, reason || null, lockedBy);
+    }
     db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       lockedBy,
       'lock_block_functionality',
@@ -4301,12 +4380,24 @@ module.exports = {
   // ============ PROJECT REACTIONS ============
 
   setProjectReaction: (updateId, userId, reactionType = 'like') => {
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO project_reactions (update_id, user_id, reaction_type)
-      VALUES (?, ?, ?)
-    `);
-
-    stmt.run(updateId, userId, reactionType);
+    if (isProduction) {
+      // SQL Server: MERGE statement for upsert
+      db.prepare(`
+        MERGE INTO project_reactions AS target
+        USING (SELECT ? AS update_id, ? AS user_id, ? AS reaction_type) AS source
+        ON target.update_id = source.update_id AND target.user_id = source.user_id
+        WHEN MATCHED THEN
+          UPDATE SET reaction_type = source.reaction_type
+        WHEN NOT MATCHED THEN
+          INSERT (update_id, user_id, reaction_type) VALUES (source.update_id, source.user_id, source.reaction_type);
+      `).run(updateId, userId, reactionType);
+    } else {
+      const stmt = db.prepare(`
+        INSERT OR REPLACE INTO project_reactions (update_id, user_id, reaction_type)
+        VALUES (?, ?, ?)
+      `);
+      stmt.run(updateId, userId, reactionType);
+    }
 
     const countStmt = db.prepare(`
       SELECT COUNT(*) as count FROM project_reactions WHERE update_id = ? AND reaction_type = ?
@@ -4461,11 +4552,24 @@ module.exports = {
 
   // Project comment reactions (stars)
   setProjectCommentReaction: (commentId, userId, reactionType = 'star') => {
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO project_comment_reactions (comment_id, user_id, reaction_type)
-      VALUES (?, ?, ?)
-    `);
-    return stmt.run(commentId, userId, reactionType);
+    if (isProduction) {
+      // SQL Server: MERGE statement for upsert
+      return db.prepare(`
+        MERGE INTO project_comment_reactions AS target
+        USING (SELECT ? AS comment_id, ? AS user_id, ? AS reaction_type) AS source
+        ON target.comment_id = source.comment_id AND target.user_id = source.user_id
+        WHEN MATCHED THEN
+          UPDATE SET reaction_type = source.reaction_type
+        WHEN NOT MATCHED THEN
+          INSERT (comment_id, user_id, reaction_type) VALUES (source.comment_id, source.user_id, source.reaction_type);
+      `).run(commentId, userId, reactionType);
+    } else {
+      const stmt = db.prepare(`
+        INSERT OR REPLACE INTO project_comment_reactions (comment_id, user_id, reaction_type)
+        VALUES (?, ?, ?)
+      `);
+      return stmt.run(commentId, userId, reactionType);
+    }
   },
 
   removeProjectCommentReaction: (commentId, userId, reactionType = 'star') => {
