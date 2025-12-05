@@ -1775,7 +1775,8 @@ function showSalesStep(step) {
         const stepEl = document.getElementById(`salesStep${i}`);
         if (stepEl) stepEl.style.display = 'none';
     }
-    document.getElementById('salesStepSuccess')?.style.display === 'none';
+    const successEl = document.getElementById('salesStepSuccess');
+    if (successEl) successEl.style.display = 'none';
     
     // Show current step
     const currentStepEl = document.getElementById(`salesStep${step}`);

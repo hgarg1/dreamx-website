@@ -66,9 +66,22 @@ const hasBusinessPermission = (user, permission) => {
     return permissions.includes(permission);
 };
 
+// Middleware to attach user to request and check business admin access
+const attachUser = (req, res, next) => {
+    if (!req.businessUser && req.session.userId) {
+        req.businessUser = getUserById(req.session.userId);
+    }
+    next();
+};
+
 // Middleware
 const requireBusinessAdmin = (req, res, next) => {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    const user = req.businessUser || (req.session.userId ? getUserById(req.session.userId) : null);
+    if (!user) {
+        req.businessUser = null;
+    } else {
+        req.businessUser = user;
+    }
     if (!isBusinessAdmin(user) && !isSuperAdmin(user) && !isGlobalAdmin(user)) {
         return res.redirect('/?error=Access+denied');
     }
@@ -76,7 +89,7 @@ const requireBusinessAdmin = (req, res, next) => {
 };
 
 const requireBusinessPermission = (permission) => (req, res, next) => {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    const user = req.businessUser || (req.session.userId ? getUserById(req.session.userId) : null);
     if (!hasBusinessPermission(user, permission)) {
         if (req.headers.accept?.includes('application/json')) {
             return res.status(403).json({ error: 'Insufficient permissions' });
@@ -90,7 +103,7 @@ function initBusinessRoutes({ emailService }) {
 
     // Business Admin Dashboard
     router.get('/business', requireBusinessAdmin, (req, res) => {
-        const user = getUserById(req.session.userId);
+        const user = req.businessUser;
         const stats = getSalesInquiryStats();
         const { permissions, scopes } = parseBusinessMeta(user);
         
@@ -128,7 +141,7 @@ function initBusinessRoutes({ emailService }) {
 
     // Sales Inquiries List Page
     router.get('/business/sales', requireBusinessAdmin, requireBusinessPermission('sales_inquiries_view'), (req, res) => {
-        const user = getUserById(req.session.userId);
+        const user = req.businessUser;
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
         const pageSize = 20;
         const offset = (page - 1) * pageSize;
@@ -172,7 +185,7 @@ function initBusinessRoutes({ emailService }) {
 
     // Single Sales Inquiry Detail
     router.get('/business/sales/:id', requireBusinessAdmin, requireBusinessPermission('sales_inquiries_view'), (req, res) => {
-        const user = getUserById(req.session.userId);
+        const user = req.businessUser;
         const inquiryId = parseInt(req.params.id, 10);
         const inquiry = getSalesInquiry(inquiryId);
         
@@ -327,7 +340,7 @@ function initBusinessRoutes({ emailService }) {
 
     // Business Team Management Page
     router.get('/business/team', requireBusinessAdmin, requireBusinessPermission('business_team_view'), (req, res) => {
-        const user = getUserById(req.session.userId);
+        const user = req.businessUser;
         const teamMembers = getBusinessAdminAssignments(req.session.userId);
         const parentAdmin = getBusinessAdminParent(req.session.userId);
         const allBusinessAdmins = getAllBusinessAdmins();

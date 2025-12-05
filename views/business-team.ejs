@@ -849,12 +849,27 @@ async function searchUsers(query) {
             
             const resultsDiv = document.getElementById('userSearchResults');
             if (data.users && data.users.length > 0) {
-                resultsDiv.innerHTML = data.users.map(user => `
-                    <div class="search-result-item" onclick="selectUser(${user.id}, '${user.full_name}', '${user.email}')">
-                        <span>${user.full_name}</span>
-                        <span style="color: #6b7280; font-size: 0.85rem;">${user.email}</span>
-                    </div>
-                `).join('');
+                resultsDiv.innerHTML = data.users.map(user => {
+                    // Escape user data to prevent XSS
+                    const safeName = escapeHtml(user.full_name || '');
+                    const safeEmail = escapeHtml(user.email || '');
+                    return `
+                        <div class="search-result-item" data-user-id="${user.id}" data-user-name="${safeName}" data-user-email="${safeEmail}">
+                            <span>${safeName}</span>
+                            <span style="color: #6b7280; font-size: 0.85rem;">${safeEmail}</span>
+                        </div>
+                    `;
+                }).join('');
+                // Add click handlers via event delegation
+                resultsDiv.querySelectorAll('.search-result-item[data-user-id]').forEach(item => {
+                    item.addEventListener('click', () => {
+                        selectUser(
+                            parseInt(item.dataset.userId, 10),
+                            item.dataset.userName,
+                            item.dataset.userEmail
+                        );
+                    });
+                });
                 resultsDiv.classList.add('active');
             } else {
                 resultsDiv.innerHTML = '<div class="search-result-item">No users found</div>';
@@ -864,6 +879,13 @@ async function searchUsers(query) {
             console.error('Search error:', err);
         }
     }, 300);
+}
+
+// HTML escape helper to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function selectUser(id, name, email) {
