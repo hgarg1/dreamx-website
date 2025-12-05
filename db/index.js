@@ -121,7 +121,7 @@ async function seedDatabase() {
           'revenue_reports',
           'customer_success'
         ]);
-        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, admin_permissions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, admin_permissions, email_verified, onboarding_completed, needs_onboarding, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 0, CURRENT_TIMESTAMP)`)
           .run('Business Administrator', 'business@dreamx.local', businessPassword, 'business_admin', 'active', 'Business Administrator - Sales & Enterprise Management', businessPermissions);
         console.log('✅ Business Admin account created: business@dreamx.local / DreamXBusiness2025!');
       } else {

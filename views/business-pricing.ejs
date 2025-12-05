@@ -637,7 +637,7 @@
     display: block;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #374151;
+    color: #1f2937;
 }
 
 .required {
@@ -651,6 +651,8 @@
     border: 2px solid #e5e7eb;
     border-radius: 10px;
     font-size: 1rem;
+    color: #1f2937;
+    background: white;
     transition: border-color 0.2s;
 }
 
@@ -788,7 +790,7 @@
 
 <script>
 // Tiers data sanitized for client-side usage
-const tiersData = JSON.parse('<%= JSON.stringify(tiers).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/</g, "\\u003c").replace(/>/g, "\\u003e") %>');
+const tiersData = <%- JSON.stringify(tiers || []) %>;
 let isEditMode = false;
 let currentEditTierId = null;
 

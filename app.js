@@ -6873,10 +6873,10 @@ async function startServer() {
         if (process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'sqlserver') {
             await initializeDatabase();
             console.log('✅ Database initialized for production');
-            
-            // Seed built-in accounts after database is initialized
-            await seedDatabase();
         }
+        
+        // Seed built-in accounts (admin, HR, business admin) - always run
+        await seedDatabase();
         
         // Seed data and initialize processors after database is ready
         await seedAdminUser();

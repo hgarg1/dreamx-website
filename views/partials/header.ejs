@@ -251,7 +251,11 @@
                 <ul class="dropdown-menu" role="menu">
                   <li><a href="/profile">Profile</a></li>
                   <li><a href="/settings">Settings</a></li>
-                  <% if (authUser.role==='admin' || authUser.role==='super_admin' || authUser.role==='global_admin' ) {
+                  <% if (authUser.role==='business_admin' || authUser.role==='super_admin' || authUser.role==='global_admin' ) {
+                    %>
+                    <li><a href="/business">Business Dashboard</a></li>
+                    <% } %>
+                      <% if (authUser.role==='admin' || authUser.role==='super_admin' || authUser.role==='global_admin' ) {
                     %>
                     <li><a href="/admin">Admin</a></li>
                     <% } %>
