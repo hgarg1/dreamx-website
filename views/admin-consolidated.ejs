@@ -141,6 +141,13 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3M9 16h6M7 9h10"></path></svg>
           Refund Requests
         </button>
+        <button class="tab-btn" data-tab="sales-inquiries">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Sales Inquiries
+          <% if (salesInquiryStats && salesInquiryStats.new > 0) { %>
+          <span class="badge-count sales-badge"><%= salesInquiryStats.new %></span>
+          <% } %>
+        </button>
       </div>
     </div>
     <% if (authUser && (authUser.role === 'super_admin' || authUser.role === 'global_admin')) { %>
@@ -2008,7 +2015,210 @@
         });
       }
     </script>
+  </section>
 
+  <!-- Sales Inquiries Section -->
+  <section class="admin-panel tab-panel" data-tab="sales-inquiries" style="display:none;">
+    <style>
+      .sales-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+      .sales-stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      }
+      .sales-stat-card.urgent {
+        background: linear-gradient(135deg, #fef2f2, #fee2e2);
+        border: 2px solid #fca5a5;
+      }
+      .sales-stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #1f2937;
+      }
+      .sales-stat-card.urgent .sales-stat-value {
+        color: #dc2626;
+      }
+      .sales-stat-label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-top: 4px;
+      }
+      .sales-inquiry-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: all 0.2s;
+      }
+      .sales-inquiry-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      }
+      .sales-inquiry-card.urgent-row {
+        background: #fef2f2;
+        border-left: 4px solid #ef4444;
+      }
+      .sales-company-info {
+        flex: 1;
+      }
+      .sales-company-name {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #1f2937;
+        margin-bottom: 4px;
+      }
+      .sales-company-meta {
+        font-size: 0.85rem;
+        color: #6b7280;
+      }
+      .sales-contact-info {
+        flex: 1;
+      }
+      .sales-contact-name {
+        font-weight: 600;
+        color: #374151;
+      }
+      .sales-contact-email {
+        font-size: 0.85rem;
+        color: #6b7280;
+      }
+      .sales-status-badge {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .sales-status-new { background: #dbeafe; color: #1d4ed8; }
+      .sales-status-contacted { background: #ede9fe; color: #7c3aed; }
+      .sales-status-in_progress { background: #fef3c7; color: #d97706; }
+      .sales-status-qualified { background: #d1fae5; color: #059669; }
+      .sales-priority-urgent {
+        background: #fee2e2;
+        color: #dc2626;
+        margin-left: 8px;
+      }
+      .sales-action-btn {
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #14b8a6, #0f766e);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s;
+      }
+      .sales-action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+      }
+      .badge-count.sales-badge {
+        background: linear-gradient(135deg, #14b8a6, #0f766e);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        margin-left: 8px;
+      }
+      @media (max-width: 768px) {
+        .sales-stats-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .sales-inquiry-card {
+          flex-direction: column;
+          text-align: center;
+        }
+      }
+    </style>
+
+    <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
+      <div>
+        <h2 class="admin-panel-title" style="font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,#14b8a6,#0f766e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">Enterprise Sales Inquiries</h2>
+        <p class="admin-panel-subtitle" style="color:#6b7280;font-size:0.95rem;">Monitor and manage enterprise sales leads</p>
+      </div>
+      <a href="/business/sales" class="sales-action-btn">
+        Open Full Dashboard →
+      </a>
+    </header>
+
+    <!-- Stats Grid -->
+    <div class="sales-stats-grid">
+      <div class="sales-stat-card">
+        <div class="sales-stat-value"><%= salesInquiryStats.total || 0 %></div>
+        <div class="sales-stat-label">Total Inquiries</div>
+      </div>
+      <div class="sales-stat-card">
+        <div class="sales-stat-value"><%= salesInquiryStats.new || 0 %></div>
+        <div class="sales-stat-label">New</div>
+      </div>
+      <div class="sales-stat-card">
+        <div class="sales-stat-value"><%= salesInquiryStats.contacted || 0 %></div>
+        <div class="sales-stat-label">Contacted</div>
+      </div>
+      <div class="sales-stat-card">
+        <div class="sales-stat-value"><%= salesInquiryStats.qualified || 0 %></div>
+        <div class="sales-stat-label">Qualified</div>
+      </div>
+      <div class="sales-stat-card urgent">
+        <div class="sales-stat-value"><%= salesInquiryStats.urgent || 0 %></div>
+        <div class="sales-stat-label">🔥 Urgent</div>
+      </div>
+    </div>
+
+    <!-- Recent Inquiries -->
+    <h3 style="font-size:1.15rem;font-weight:700;color:#374151;margin-bottom:16px;">Recent New Inquiries</h3>
+    
+    <% if (typeof recentSalesInquiries !== 'undefined' && recentSalesInquiries && recentSalesInquiries.length > 0) { %>
+      <% recentSalesInquiries.forEach(function(inquiry) { %>
+        <div class="sales-inquiry-card <%= inquiry.priority === 'urgent' ? 'urgent-row' : '' %>">
+          <div class="sales-company-info">
+            <div class="sales-company-name"><%= inquiry.company_name %></div>
+            <div class="sales-company-meta"><%= inquiry.industry %> • <%= inquiry.company_size %></div>
+          </div>
+          <div class="sales-contact-info">
+            <div class="sales-contact-name"><%= inquiry.contact_name %></div>
+            <div class="sales-contact-email"><%= inquiry.contact_email %></div>
+          </div>
+          <div>
+            <span class="sales-status-badge sales-status-<%= inquiry.status %>"><%= inquiry.status.replace('_', ' ') %></span>
+            <% if (inquiry.priority === 'urgent') { %>
+              <span class="sales-status-badge sales-priority-urgent">🔥 Urgent</span>
+            <% } %>
+          </div>
+          <div style="color:#9ca3af;font-size:0.85rem;">
+            <%= new Date(inquiry.created_at).toLocaleDateString() %>
+          </div>
+          <a href="/business/sales/<%= inquiry.id %>" class="sales-action-btn" style="padding:8px 16px;font-size:0.9rem;">View</a>
+        </div>
+      <% }); %>
+      
+      <div style="text-align:center;margin-top:24px;">
+        <a href="/business/sales" class="sales-action-btn">
+          View All Sales Inquiries →
+        </a>
+      </div>
+    <% } else { %>
+      <div style="text-align:center;padding:60px 20px;background:white;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <div style="font-size:3rem;margin-bottom:16px;">📭</div>
+        <h3 style="font-size:1.4rem;font-weight:700;color:#374151;margin-bottom:8px;">No New Inquiries</h3>
+        <p style="color:#6b7280;font-size:0.95rem;">Enterprise sales inquiries will appear here when submitted through the pricing page.</p>
+        <a href="/business" style="display:inline-block;margin-top:20px;padding:12px 24px;background:linear-gradient(135deg,#14b8a6,#0f766e);color:white;text-decoration:none;border-radius:10px;font-weight:600;">Go to Business Dashboard</a>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="admin-panel tab-panel" data-tab="rbac" style="display:none;">
     <script>
       const rbacPermissions = <%- JSON.stringify(adminPermissions || []) %>;
 

@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUserById, getUserSubscription, saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation, getUnreadMessageCount, getPublicCareerJobs, db } = require('../db');
+const { getUserById, getUserSubscription, saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation, getUnreadMessageCount, getPublicCareerJobs, db, createSalesInquiry, addAuditLog } = require('../db');
 
 const router = express.Router();
 
@@ -260,6 +260,132 @@ function initMiscRoutes() {
             currentPage: 'downloads',
             authUser: res.locals.authUser
         });
+    });
+
+    // Sales Inquiry API Endpoint
+    router.post('/api/sales/inquiry', async (req, res) => {
+        try {
+            const {
+                // Company Info
+                companyName,
+                industry,
+                companySize,
+                companyWebsite,
+                companyCity,
+                companyCountry,
+                // Contact Info
+                contactName,
+                contactEmail,
+                contactPhone,
+                contactJobTitle,
+                contactDepartment,
+                preferredContactMethod,
+                preferredContactTime,
+                // Requirements
+                useCase,
+                expectedUsers,
+                timeline,
+                budgetRange,
+                currentSolution,
+                integrationNeeds,
+                howHeardAboutUs,
+                // Additional
+                additionalInfo,
+                subscribeNewsletter
+            } = req.body;
+
+            // Validation
+            if (!companyName || !industry || !companySize) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Company name, industry, and size are required.' 
+                });
+            }
+            if (!contactName || !contactEmail || !contactJobTitle) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Contact name, email, and job title are required.' 
+                });
+            }
+            if (!useCase) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Primary use case is required.' 
+                });
+            }
+
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(contactEmail)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Please provide a valid email address.' 
+                });
+            }
+
+            // Create the inquiry
+            const inquiryId = createSalesInquiry({
+                companyName: companyName.trim(),
+                industry,
+                companySize,
+                companyWebsite: companyWebsite?.trim() || null,
+                companyCity: companyCity?.trim() || null,
+                companyCountry,
+                contactName: contactName.trim(),
+                contactEmail: contactEmail.trim().toLowerCase(),
+                contactPhone: contactPhone?.trim() || null,
+                contactJobTitle: contactJobTitle.trim(),
+                contactDepartment: contactDepartment || null,
+                preferredContactMethod: preferredContactMethod || 'email',
+                preferredContactTime: preferredContactTime || null,
+                useCase,
+                expectedUsers: expectedUsers || null,
+                timeline: timeline || null,
+                budgetRange: budgetRange || null,
+                currentSolution: currentSolution?.trim() || null,
+                integrationNeeds: integrationNeeds?.trim() || null,
+                howHeardAboutUs: howHeardAboutUs || null,
+                additionalInfo: additionalInfo?.trim() || null
+            });
+
+            // Add audit log
+            try {
+                addAuditLog({
+                    userId: req.session?.userId || null,
+                    action: 'sales_inquiry_submitted',
+                    details: JSON.stringify({
+                        inquiryId,
+                        companyName,
+                        contactEmail,
+                        useCase
+                    })
+                });
+            } catch (auditErr) {
+                console.warn('Audit log failed:', auditErr.message);
+            }
+
+            // Generate reference ID
+            const referenceId = `ENT-${Date.now().toString(36).toUpperCase()}-${inquiryId}`;
+
+            // TODO: Send confirmation email to contact
+            // TODO: Send notification email to sales team
+
+            console.log(`✅ New sales inquiry #${inquiryId} from ${contactEmail} for ${companyName}`);
+
+            res.json({
+                success: true,
+                message: 'Your inquiry has been submitted successfully. Our team will reach out within 1-2 business days.',
+                referenceId,
+                inquiryId
+            });
+
+        } catch (error) {
+            console.error('Sales inquiry error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to submit inquiry. Please try again or contact support@dreamx.app.'
+            });
+        }
     });
 
     return router;

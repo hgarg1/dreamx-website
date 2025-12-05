@@ -1,0 +1,1103 @@
+<%- include('partials/header') %>
+
+<section class="business-page">
+    <div class="page-header compact">
+        <div class="page-header-content">
+            <div class="breadcrumb">
+                <a href="/business">Dashboard</a>
+                <span class="separator">→</span>
+                <a href="/business/sales">Sales Inquiries</a>
+                <span class="separator">→</span>
+                <span class="current">#<%= inquiry.id %></span>
+            </div>
+            <div class="header-row">
+                <div>
+                    <h1 class="page-title"><%= inquiry.company_name %></h1>
+                    <div class="header-badges">
+                        <span class="status-badge status-<%= inquiry.status %>"><%= inquiry.status.replace('_', ' ') %></span>
+                        <% if (inquiry.priority === 'urgent') { %>
+                        <span class="priority-badge urgent">🔥 Urgent</span>
+                        <% } else if (inquiry.priority === 'high') { %>
+                        <span class="priority-badge high">⬆️ High Priority</span>
+                        <% } %>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <% if (hasPermission('sales_inquiries_contact')) { %>
+                    <button onclick="openEmailModal()" class="action-btn primary">
+                        <span class="btn-icon">📧</span> Send Email
+                    </button>
+                    <% } %>
+                    <% if (hasPermission('sales_inquiries_manage') && inquiry.status !== 'closed') { %>
+                    <button onclick="openCloseModal()" class="action-btn secondary">
+                        <span class="btn-icon">✅</span> Close Inquiry
+                    </button>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success"><%= success %></div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <div class="detail-layout">
+        <!-- Main Content -->
+        <div class="detail-main">
+            <!-- Company Information -->
+            <div class="detail-card">
+                <h2 class="card-title"><span class="title-icon">🏢</span> Company Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Company Name</span>
+                        <span class="info-value"><%= inquiry.company_name %></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Industry</span>
+                        <span class="info-value"><%= inquiry.industry %></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Company Size</span>
+                        <span class="info-value"><%= inquiry.company_size %> employees</span>
+                    </div>
+                    <% if (inquiry.company_website) { %>
+                    <div class="info-item">
+                        <span class="info-label">Website</span>
+                        <a href="<%= inquiry.company_website %>" target="_blank" class="info-link"><%= inquiry.company_website %></a>
+                    </div>
+                    <% } %>
+                    <% if (inquiry.company_city || inquiry.company_country) { %>
+                    <div class="info-item">
+                        <span class="info-label">Location</span>
+                        <span class="info-value"><%= [inquiry.company_city, inquiry.company_country].filter(Boolean).join(', ') %></span>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Contact Information -->
+            <div class="detail-card">
+                <h2 class="card-title"><span class="title-icon">👤</span> Contact Information</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Name</span>
+                        <span class="info-value"><%= inquiry.contact_name %></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Email</span>
+                        <a href="mailto:<%= inquiry.contact_email %>" class="info-link"><%= inquiry.contact_email %></a>
+                    </div>
+                    <% if (inquiry.contact_phone) { %>
+                    <div class="info-item">
+                        <span class="info-label">Phone</span>
+                        <a href="tel:<%= inquiry.contact_phone %>" class="info-link"><%= inquiry.contact_phone %></a>
+                    </div>
+                    <% } %>
+                    <% if (inquiry.contact_job_title) { %>
+                    <div class="info-item">
+                        <span class="info-label">Job Title</span>
+                        <span class="info-value"><%= inquiry.contact_job_title %></span>
+                    </div>
+                    <% } %>
+                    <% if (inquiry.contact_department) { %>
+                    <div class="info-item">
+                        <span class="info-label">Department</span>
+                        <span class="info-value"><%= inquiry.contact_department %></span>
+                    </div>
+                    <% } %>
+                    <% if (inquiry.preferred_contact_method) { %>
+                    <div class="info-item">
+                        <span class="info-label">Preferred Contact</span>
+                        <span class="info-value"><%= inquiry.preferred_contact_method %></span>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Requirements -->
+            <div class="detail-card">
+                <h2 class="card-title"><span class="title-icon">📋</span> Requirements</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Primary Use Case</span>
+                        <span class="info-value highlight"><%= inquiry.use_case ? inquiry.use_case.replace(/_/g, ' ') : '-' %></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Expected Users</span>
+                        <span class="info-value"><%= inquiry.expected_users || '-' %></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Timeline</span>
+                        <span class="info-value"><%= inquiry.timeline ? inquiry.timeline.replace(/_/g, ' ') : '-' %></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Budget Range</span>
+                        <span class="info-value"><%= inquiry.budget_range ? inquiry.budget_range.replace(/_/g, ' ') : '-' %></span>
+                    </div>
+                    <% if (inquiry.current_solution) { %>
+                    <div class="info-item full">
+                        <span class="info-label">Current Solution</span>
+                        <span class="info-value"><%= inquiry.current_solution %></span>
+                    </div>
+                    <% } %>
+                    <% if (inquiry.integration_needs) { %>
+                    <div class="info-item full">
+                        <span class="info-label">Integration Needs</span>
+                        <span class="info-value"><%= inquiry.integration_needs %></span>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Additional Info -->
+            <% if (inquiry.additional_info) { %>
+            <div class="detail-card">
+                <h2 class="card-title"><span class="title-icon">📝</span> Additional Information</h2>
+                <p class="additional-text"><%= inquiry.additional_info %></p>
+            </div>
+            <% } %>
+
+            <!-- Communication History -->
+            <div class="detail-card">
+                <h2 class="card-title">
+                    <span class="title-icon">💬</span> Communication History
+                    <% if (hasPermission('sales_inquiries_manage')) { %>
+                    <button onclick="openNoteModal()" class="add-note-btn">+ Add Note</button>
+                    <% } %>
+                </h2>
+                <div class="communications-list">
+                    <% if (communications && communications.length > 0) { %>
+                    <% communications.forEach(function(comm) { %>
+                    <div class="comm-item comm-<%= comm.communication_type %>">
+                        <div class="comm-header">
+                            <span class="comm-type">
+                                <% if (comm.communication_type === 'email') { %>📧 Email<% } else { %>📝 Internal Note<% } %>
+                            </span>
+                            <span class="comm-date"><%= new Date(comm.created_at).toLocaleString() %></span>
+                        </div>
+                        <% if (comm.subject) { %>
+                        <div class="comm-subject"><%= comm.subject %></div>
+                        <% } %>
+                        <div class="comm-content"><%= comm.content %></div>
+                        <div class="comm-footer">
+                            <span class="comm-sender">By: <%= comm.sender_name %></span>
+                            <% if (comm.recipient_email) { %>
+                            <span class="comm-recipient">To: <%= comm.recipient_email %></span>
+                            <% } %>
+                        </div>
+                    </div>
+                    <% }); %>
+                    <% } else { %>
+                    <div class="empty-comms">
+                        <p>No communications yet. Send an email or add a note to get started.</p>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="detail-sidebar">
+            <!-- Status Management -->
+            <% if (hasPermission('sales_inquiries_manage')) { %>
+            <div class="sidebar-card">
+                <h3 class="sidebar-title">Update Status</h3>
+                <form id="statusForm" class="status-form">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status" id="statusSelect">
+                            <option value="new" <%= inquiry.status === 'new' ? 'selected' : '' %>>New</option>
+                            <option value="contacted" <%= inquiry.status === 'contacted' ? 'selected' : '' %>>Contacted</option>
+                            <option value="in_progress" <%= inquiry.status === 'in_progress' ? 'selected' : '' %>>In Progress</option>
+                            <option value="qualified" <%= inquiry.status === 'qualified' ? 'selected' : '' %>>Qualified</option>
+                            <option value="closed" <%= inquiry.status === 'closed' ? 'selected' : '' %>>Closed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select name="priority" id="prioritySelect">
+                            <option value="low" <%= inquiry.priority === 'low' ? 'selected' : '' %>>Low</option>
+                            <option value="normal" <%= inquiry.priority === 'normal' ? 'selected' : '' %>>Normal</option>
+                            <option value="high" <%= inquiry.priority === 'high' ? 'selected' : '' %>>High</option>
+                            <option value="urgent" <%= inquiry.priority === 'urgent' ? 'selected' : '' %>>🔥 Urgent</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="submit-btn">Update</button>
+                </form>
+            </div>
+
+            <!-- Assignment -->
+            <div class="sidebar-card">
+                <h3 class="sidebar-title">Assignment</h3>
+                <form id="assignForm" class="assign-form">
+                    <div class="form-group">
+                        <label>Assigned To</label>
+                        <select name="assignedTo" id="assignedToSelect">
+                            <option value="">Unassigned</option>
+                            <% businessAdmins.forEach(function(admin) { %>
+                            <option value="<%= admin.id %>" <%= inquiry.assigned_to == admin.id ? 'selected' : '' %>><%= admin.full_name %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <button type="submit" class="submit-btn">Assign</button>
+                </form>
+            </div>
+            <% } %>
+
+            <!-- Metadata -->
+            <div class="sidebar-card">
+                <h3 class="sidebar-title">Details</h3>
+                <div class="metadata-list">
+                    <div class="metadata-item">
+                        <span class="meta-label">Created</span>
+                        <span class="meta-value"><%= new Date(inquiry.created_at).toLocaleString() %></span>
+                    </div>
+                    <% if (inquiry.last_contacted_at) { %>
+                    <div class="metadata-item">
+                        <span class="meta-label">Last Contacted</span>
+                        <span class="meta-value"><%= new Date(inquiry.last_contacted_at).toLocaleString() %></span>
+                    </div>
+                    <% } %>
+                    <% if (inquiry.how_heard_about_us) { %>
+                    <div class="metadata-item">
+                        <span class="meta-label">Source</span>
+                        <span class="meta-value"><%= inquiry.how_heard_about_us.replace(/_/g, ' ') %></span>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Email Modal -->
+<div id="emailModal" class="modal">
+    <div class="modal-overlay" onclick="closeEmailModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Send Follow-up Email</h2>
+            <button onclick="closeEmailModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="emailForm" class="modal-form">
+            <div class="form-group">
+                <label>To</label>
+                <input type="text" value="<%= inquiry.contact_email %>" disabled class="readonly-input">
+            </div>
+            <div class="form-group">
+                <label>Subject</label>
+                <input type="text" name="subject" id="emailSubject" required placeholder="Enter email subject...">
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea name="content" id="emailContent" rows="8" required placeholder="Write your message..."></textarea>
+            </div>
+            <div class="quick-templates">
+                <span class="templates-label">Quick Templates:</span>
+                <button type="button" class="template-btn" onclick="useTemplate('intro')">Initial Outreach</button>
+                <button type="button" class="template-btn" onclick="useTemplate('demo')">Schedule Demo</button>
+                <button type="button" class="template-btn" onclick="useTemplate('followup')">Follow-up</button>
+            </div>
+            <div class="modal-actions">
+                <button type="button" onclick="closeEmailModal()" class="cancel-btn">Cancel</button>
+                <button type="submit" class="send-btn">
+                    <span class="btn-text">Send Email</span>
+                    <span class="btn-loader" style="display: none;">Sending...</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Note Modal -->
+<div id="noteModal" class="modal">
+    <div class="modal-overlay" onclick="closeNoteModal()"></div>
+    <div class="modal-content small">
+        <div class="modal-header">
+            <h2>Add Internal Note</h2>
+            <button onclick="closeNoteModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="noteForm" class="modal-form">
+            <div class="form-group">
+                <label>Note</label>
+                <textarea name="content" id="noteContent" rows="5" required placeholder="Add your internal note..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" onclick="closeNoteModal()" class="cancel-btn">Cancel</button>
+                <button type="submit" class="send-btn">Add Note</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Close Inquiry Modal -->
+<div id="closeModal" class="modal">
+    <div class="modal-overlay" onclick="closeCloseModal()"></div>
+    <div class="modal-content small">
+        <div class="modal-header">
+            <h2>Close Inquiry</h2>
+            <button onclick="closeCloseModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="closeForm" class="modal-form">
+            <div class="form-group">
+                <label>Outcome</label>
+                <select name="outcome" id="closeOutcome" required>
+                    <option value="">Select outcome...</option>
+                    <option value="won">✅ Won - Converted to Customer</option>
+                    <option value="lost_competitor">❌ Lost to Competitor</option>
+                    <option value="lost_budget">❌ Lost - Budget Issues</option>
+                    <option value="lost_timing">❌ Lost - Timing Not Right</option>
+                    <option value="lost_no_response">❌ Lost - No Response</option>
+                    <option value="disqualified">⚠️ Disqualified</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" id="closeNotes" rows="3" placeholder="Optional closing notes..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" onclick="closeCloseModal()" class="cancel-btn">Cancel</button>
+                <button type="submit" class="close-btn">Close Inquiry</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* Page Styles */
+.business-page {
+    min-height: 100vh;
+    background: #f8fafc;
+    padding-bottom: 60px;
+}
+
+.page-header.compact {
+    padding: 32px;
+}
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    margin: 0;
+}
+
+.header-badges {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.status-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-new { background: #dbeafe; color: #1d4ed8; }
+.status-contacted { background: #ede9fe; color: #7c3aed; }
+.status-in_progress { background: #fef3c7; color: #d97706; }
+.status-qualified { background: #d1fae5; color: #059669; }
+.status-closed { background: #f3f4f6; color: #6b7280; }
+
+.priority-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.priority-badge.urgent { background: #fee2e2; color: #dc2626; }
+.priority-badge.high { background: #ffedd5; color: #ea580c; }
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.action-btn {
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.action-btn.primary {
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+}
+
+.action-btn.secondary {
+    background: white;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Alert */
+.alert {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 16px 24px;
+    border-radius: 12px;
+}
+
+.alert-success { background: #d1fae5; color: #065f46; }
+.alert-error { background: #fee2e2; color: #991b1b; }
+
+/* Detail Layout */
+.detail-layout {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 32px;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+}
+
+/* Detail Cards */
+.detail-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1f2937;
+}
+
+.add-note-btn {
+    margin-left: auto;
+    padding: 6px 14px;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-note-btn:hover {
+    background: #e5e7eb;
+}
+
+/* Info Grid */
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-item.full {
+    grid-column: span 2;
+}
+
+.info-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 1rem;
+    color: #1f2937;
+    font-weight: 500;
+}
+
+.info-value.highlight {
+    color: #14b8a6;
+    font-weight: 600;
+}
+
+.info-link {
+    color: #14b8a6;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.info-link:hover {
+    text-decoration: underline;
+}
+
+.additional-text {
+    color: #374151;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+/* Communications */
+.communications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.comm-item {
+    padding: 16px;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.comm-email {
+    border-left: 4px solid #14b8a6;
+}
+
+.comm-note {
+    border-left: 4px solid #8b5cf6;
+}
+
+.comm-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.comm-type {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.comm-date {
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.comm-subject {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 8px;
+}
+
+.comm-content {
+    color: #374151;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.comm-footer {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.empty-comms {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+}
+
+/* Sidebar */
+.detail-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sidebar-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.sidebar-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin: 0 0 16px;
+    color: #374151;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+
+.form-group select,
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+}
+
+.form-group select:focus,
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #14b8a6;
+}
+
+.readonly-input {
+    background: #f3f4f6;
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+}
+
+/* Metadata */
+.metadata-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.metadata-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.meta-label {
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.meta-value {
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content.small {
+    max-width: 480px;
+}
+
+.modal-header {
+    padding: 24px 28px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #9ca3af;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #374151;
+}
+
+.modal-form {
+    padding: 24px 28px 28px;
+}
+
+.quick-templates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.templates-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.template-btn {
+    padding: 6px 12px;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.template-btn:hover {
+    background: #e5e7eb;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.cancel-btn {
+    padding: 12px 24px;
+    background: #f3f4f6;
+    color: #374151;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.send-btn,
+.close-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #14b8a6, #0f766e);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.close-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.send-btn:hover,
+.close-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 1024px) {
+    .detail-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .info-item.full {
+        grid-column: span 1;
+    }
+}
+</style>
+
+<script>
+const inquiryId = <%= inquiry.id %>;
+
+// Status Form
+document.getElementById('statusForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = document.getElementById('statusSelect').value;
+    const priority = document.getElementById('prioritySelect').value;
+    
+    try {
+        const res = await fetch(`/api/business/sales/${inquiryId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, priority })
+        });
+        
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to update status');
+        }
+    } catch (err) {
+        alert('Error updating status');
+    }
+});
+
+// Assign Form
+document.getElementById('assignForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const assignedTo = document.getElementById('assignedToSelect').value;
+    
+    try {
+        const res = await fetch(`/api/business/sales/${inquiryId}/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignedTo })
+        });
+        
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to assign inquiry');
+        }
+    } catch (err) {
+        alert('Error assigning inquiry');
+    }
+});
+
+// Email Modal
+function openEmailModal() {
+    document.getElementById('emailModal').classList.add('active');
+}
+
+function closeEmailModal() {
+    document.getElementById('emailModal').classList.remove('active');
+}
+
+// Email Templates
+const templates = {
+    intro: {
+        subject: 'Dream X Enterprise - Let\'s Explore Your Needs',
+        content: `Hi <%= inquiry.contact_name.split(' ')[0] %>,
+
+Thank you for your interest in Dream X Enterprise! I'd love to learn more about your organization and how we can help you achieve your goals.
+
+Based on your inquiry, it looks like you're interested in <%= inquiry.use_case ? inquiry.use_case.replace(/_/g, ' ') : 'our enterprise solutions' %>. I'd be happy to schedule a call to discuss your specific requirements and show you how Dream X can benefit <%= inquiry.company_name %>.
+
+Would you be available for a 30-minute call this week? Please let me know what times work best for you.
+
+Best regards,
+Dream X Enterprise Team`
+    },
+    demo: {
+        subject: 'Schedule Your Dream X Demo',
+        content: `Hi <%= inquiry.contact_name.split(' ')[0] %>,
+
+I hope this email finds you well! Following up on your interest in Dream X Enterprise.
+
+I'd love to schedule a personalized demo where I can walk you through:
+• How Dream X can support your <%= inquiry.use_case ? inquiry.use_case.replace(/_/g, ' ') : 'business needs' %>
+• Key features tailored for organizations like <%= inquiry.company_name %>
+• Our enterprise pricing and support options
+
+Please let me know your availability this week, and I'll send over a calendar invite.
+
+Looking forward to connecting!
+
+Best regards,
+Dream X Enterprise Team`
+    },
+    followup: {
+        subject: 'Following Up - Dream X Enterprise',
+        content: `Hi <%= inquiry.contact_name.split(' ')[0] %>,
+
+I wanted to follow up on our previous conversation about Dream X Enterprise.
+
+Is there anything else you'd like to know, or any questions I can answer for you? I'm happy to provide additional information or connect you with our technical team if needed.
+
+Looking forward to hearing from you!
+
+Best regards,
+Dream X Enterprise Team`
+    }
+};
+
+function useTemplate(type) {
+    const template = templates[type];
+    if (template) {
+        document.getElementById('emailSubject').value = template.subject;
+        document.getElementById('emailContent').value = template.content;
+    }
+}
+
+// Email Form
+document.getElementById('emailForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const subject = document.getElementById('emailSubject').value;
+    const content = document.getElementById('emailContent').value;
+    const btn = e.target.querySelector('.send-btn');
+    const btnText = btn.querySelector('.btn-text');
+    const btnLoader = btn.querySelector('.btn-loader');
+    
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'inline';
+    
+    try {
+        const res = await fetch(`/api/business/sales/${inquiryId}/email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subject, content })
+        });
+        
+        if (res.ok) {
+            closeEmailModal();
+            window.location.reload();
+        } else {
+            alert('Failed to send email');
+            btn.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoader.style.display = 'none';
+        }
+    } catch (err) {
+        alert('Error sending email');
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoader.style.display = 'none';
+    }
+});
+
+// Note Modal
+function openNoteModal() {
+    document.getElementById('noteModal').classList.add('active');
+}
+
+function closeNoteModal() {
+    document.getElementById('noteModal').classList.remove('active');
+}
+
+document.getElementById('noteForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const content = document.getElementById('noteContent').value;
+    
+    try {
+        const res = await fetch(`/api/business/sales/${inquiryId}/note`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        });
+        
+        if (res.ok) {
+            closeNoteModal();
+            window.location.reload();
+        } else {
+            alert('Failed to add note');
+        }
+    } catch (err) {
+        alert('Error adding note');
+    }
+});
+
+// Close Modal
+function openCloseModal() {
+    document.getElementById('closeModal').classList.add('active');
+}
+
+function closeCloseModal() {
+    document.getElementById('closeModal').classList.remove('active');
+}
+
+document.getElementById('closeForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const outcome = document.getElementById('closeOutcome').value;
+    const notes = document.getElementById('closeNotes').value;
+    
+    try {
+        const res = await fetch(`/api/business/sales/${inquiryId}/close`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ outcome, notes })
+        });
+        
+        if (res.ok) {
+            closeCloseModal();
+            window.location.href = '/business/sales?success=Inquiry+closed+successfully';
+        } else {
+            alert('Failed to close inquiry');
+        }
+    } catch (err) {
+        alert('Error closing inquiry');
+    }
+});
+
+// Close modals on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeEmailModal();
+        closeNoteModal();
+        closeCloseModal();
+    }
+});
+</script>
+
+<%- include('partials/footer') %>
