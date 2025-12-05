@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .filters-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .filters-bar select, .filters-bar input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    .filters-bar button { padding: 8px 16px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    .audit-table { width: 100%; border-collapse: collapse; }
+    .audit-table th, .audit-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+    .audit-table th { font-weight: 500; color: #666; background: #f9fafb; }
+    .audit-table tr:hover { background: #f9fafb; }
+    .action-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; }
+    .action-badge.create { background: #d1fae5; color: #059669; }
+    .action-badge.update { background: #e0e7ff; color: #4f46e5; }
+    .action-badge.delete { background: #fee2e2; color: #dc2626; }
+    .action-badge.grant { background: #d1fae5; color: #059669; }
+    .action-badge.revoke { background: #fef3c7; color: #d97706; }
+    .action-badge.denied { background: #fee2e2; color: #dc2626; }
+    .meta-cell { font-size: 12px; color: #888; }
+    .meta-cell code { background: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
+    .expand-btn { cursor: pointer; color: #6366f1; font-size: 12px; }
+    .details-row { display: none; background: #f9fafb; }
+    .details-row.expanded { display: table-row; }
+    .details-content { padding: 15px; font-size: 13px; }
+    .details-content pre { background: #f5f5f5; padding: 10px; border-radius: 6px; overflow-x: auto; }
+    .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 20px; }
+    .pagination a { padding: 8px 12px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; }
+    .pagination a.active { background: #6366f1; color: white; }
+    .empty-state { text-align: center; padding: 40px; color: #888; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>📋 RBAC Audit Logs</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/permissions">Permissions</a>
+        <a href="/rbac/users">Users</a>
+        <a href="/rbac/audit" class="active">Audit Logs</a>
+      </nav>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Audit Trail</h2>
+        <button class="btn btn-secondary" onclick="exportLogs()">Export CSV</button>
+      </div>
+      
+      <form method="get" class="filters-bar">
+        <select name="action">
+          <option value="">All Actions</option>
+          <% uniqueActions.forEach(action => { %>
+          <option value="<%= action %>" <%= filters.action === action ? 'selected' : '' %>><%= action %></option>
+          <% }) %>
+        </select>
+        <select name="targetType">
+          <option value="">All Types</option>
+          <option value="role" <%= filters.targetType === 'role' ? 'selected' : '' %>>Roles</option>
+          <option value="permission" <%= filters.targetType === 'permission' ? 'selected' : '' %>>Permissions</option>
+          <option value="user" <%= filters.targetType === 'user' ? 'selected' : '' %>>Users</option>
+        </select>
+        <input type="date" name="startDate" value="<%= filters.startDate || '' %>" placeholder="Start Date">
+        <input type="date" name="endDate" value="<%= filters.endDate || '' %>" placeholder="End Date">
+        <button type="submit">Filter</button>
+        <a href="/rbac/audit" style="padding: 8px 16px; color: #666;">Clear</a>
+      </form>
+      
+      <% if (logs && logs.length > 0) { %>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Action</th>
+            <th>Target</th>
+            <th>Actor</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% logs.forEach((log, idx) => { %>
+          <tr>
+            <td>
+              <div><%= new Date(log.created_at).toLocaleDateString() %></div>
+              <div class="meta-cell"><%= new Date(log.created_at).toLocaleTimeString() %></div>
+            </td>
+            <td>
+              <span class="action-badge <%= log.action.includes('create') ? 'create' : '' %> <%= log.action.includes('update') ? 'update' : '' %> <%= log.action.includes('delete') ? 'delete' : '' %> <%= log.action.includes('grant') ? 'grant' : '' %> <%= log.action.includes('revoke') ? 'revoke' : '' %> <%= log.action.includes('denied') ? 'denied' : '' %>">
+                <%= log.action %>
+              </span>
+            </td>
+            <td>
+              <% if (log.target_type) { %>
+              <code><%= log.target_type %></code>
+              <% if (log.target_name) { %>: <%= log.target_name %><% } %>
+              <% if (log.target_id) { %><span class="meta-cell">#<%= log.target_id %></span><% } %>
+              <% } else { %>
+              —
+              <% } %>
+            </td>
+            <td>
+              <% if (log.actor_id) { %>
+              User #<%= log.actor_id %>
+              <% if (log.actor_name) { %><div class="meta-cell"><%= log.actor_name %></div><% } %>
+              <% } else { %>
+              System
+              <% } %>
+            </td>
+            <td>
+              <% if (log.metadata || log.old_value || log.new_value) { %>
+              <span class="expand-btn" onclick="toggleDetails(<%= idx %>)">Show Details</span>
+              <% } else { %>
+              —
+              <% } %>
+            </td>
+          </tr>
+          <% if (log.metadata || log.old_value || log.new_value) { %>
+          <tr class="details-row" id="details-<%= idx %>">
+            <td colspan="5">
+              <div class="details-content">
+                <% if (log.old_value) { %>
+                <strong>Before:</strong>
+                <pre><%= JSON.stringify(JSON.parse(log.old_value), null, 2) %></pre>
+                <% } %>
+                <% if (log.new_value) { %>
+                <strong>After:</strong>
+                <pre><%= JSON.stringify(JSON.parse(log.new_value), null, 2) %></pre>
+                <% } %>
+                <% if (log.metadata) { %>
+                <strong>Metadata:</strong>
+                <pre><%= JSON.stringify(JSON.parse(log.metadata), null, 2) %></pre>
+                <% } %>
+                <% if (log.ip_address) { %>
+                <div class="meta-cell" style="margin-top: 10px;">
+                  IP: <%= log.ip_address %>
+                  <% if (log.user_agent) { %> | UA: <%= log.user_agent.substring(0, 50) %>...<% } %>
+                </div>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+          <% } %>
+          <% }) %>
+        </tbody>
+      </table>
+      
+      <div class="pagination">
+        <% if (pagination.page > 1) { %>
+        <a href="?page=<%= pagination.page - 1 %>&action=<%= filters.action || '' %>">← Previous</a>
+        <% } %>
+        <span style="padding: 8px 12px; color: #666;">Page <%= pagination.page %></span>
+        <a href="?page=<%= pagination.page + 1 %>&action=<%= filters.action || '' %>">Next →</a>
+      </div>
+      
+      <% } else { %>
+      <div class="empty-state">
+        <p>No audit logs found</p>
+      </div>
+      <% } %>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    function toggleDetails(idx) {
+      const row = document.getElementById('details-' + idx);
+      row.classList.toggle('expanded');
+    }
+    
+    function exportLogs() {
+      const params = new URLSearchParams(window.location.search);
+      params.set('format', 'csv');
+      window.location.href = '/rbac/audit?' + params.toString();
+    }
+  </script>
+</body>
+</html>

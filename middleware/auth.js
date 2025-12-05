@@ -96,6 +96,8 @@ const ADMIN_PERMISSION_KEYS = new Set([
 const isAdmin = (user) => user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin');
 const isHR = (user) => user && ['hr', 'super_hr', 'global_hr'].includes(user.role);
 const isSuperAdmin = (user) => user && (user.role === 'super_admin' || user.role === 'global_admin');
+const isGlobalAdmin = (user) => user && user.role === 'global_admin';
+const isBusinessAdmin = (user) => user && user.role === 'business_admin';
 
 const parseAdminMeta = (user) => {
   try {
@@ -133,6 +135,8 @@ module.exports = {
   isAdmin,
   isHR,
   isSuperAdmin,
+  isGlobalAdmin,
+  isBusinessAdmin,
   hasPermission,
   parseAdminMeta,
   roleRank

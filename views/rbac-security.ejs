@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .alert-card { padding: 15px; border-radius: 8px; margin-bottom: 12px; display: flex; gap: 12px; }
+    .alert-card.critical { background: #fee2e2; border-left: 4px solid #dc2626; }
+    .alert-card.warning { background: #fef3c7; border-left: 4px solid #f59e0b; }
+    .alert-card.info { background: #e0e7ff; border-left: 4px solid #6366f1; }
+    .alert-icon { font-size: 20px; }
+    .alert-content h4 { margin: 0 0 5px 0; font-size: 14px; }
+    .alert-content p { margin: 0; font-size: 13px; opacity: 0.8; }
+    .suggestion-card { padding: 15px; background: #f9fafb; border-radius: 8px; margin-bottom: 12px; }
+    .suggestion-card h4 { margin: 0 0 8px 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .suggestion-card p { margin: 0 0 10px 0; font-size: 13px; color: #666; }
+    .suggestion-card .files { font-size: 12px; color: #888; }
+    .priority-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .priority-badge.high { background: #fee2e2; color: #dc2626; }
+    .priority-badge.medium { background: #fef3c7; color: #d97706; }
+    .priority-badge.low { background: #e5e7eb; color: #666; }
+    .stats-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+    .stat-box { padding: 15px 20px; background: #f9fafb; border-radius: 8px; text-align: center; min-width: 120px; }
+    .stat-box .value { font-size: 24px; font-weight: 700; color: #333; }
+    .stat-box .label { font-size: 12px; color: #888; }
+    .permission-list { max-height: 300px; overflow-y: auto; }
+    .permission-item { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .empty-state { text-align: center; padding: 30px; color: #888; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>🛡️ Security & Analytics</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/audit">Audit Logs</a>
+        <a href="/rbac/security" class="active">Security</a>
+      </nav>
+    </div>
+    
+    <!-- Security Alerts -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🚨 Security Alerts</h2>
+      </div>
+      
+      <% if (alerts && alerts.length > 0) { %>
+        <% alerts.forEach(alert => { %>
+        <div class="alert-card <%= alert.severity %>">
+          <div class="alert-icon">
+            <% if (alert.severity === 'critical') { %>⚠️<% } %>
+            <% if (alert.severity === 'warning') { %>⚡<% } %>
+            <% if (alert.severity === 'info') { %>ℹ️<% } %>
+          </div>
+          <div class="alert-content">
+            <h4><%= alert.message %></h4>
+            <p>Type: <%= alert.type %><% if (alert.timestamp) { %> • <%= new Date(alert.timestamp).toLocaleString() %><% } %></p>
+          </div>
+        </div>
+        <% }) %>
+      <% } else { %>
+      <div class="empty-state">
+        <p>✅ No security alerts</p>
+      </div>
+      <% } %>
+    </div>
+    
+    <% if (suggestions) { %>
+    <div class="grid-2">
+      <!-- Unused Permissions -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Unused Permissions</h2>
+          <span class="priority-badge low"><%= suggestions.unusedPermissions?.length || 0 %></span>
+        </div>
+        
+        <% if (suggestions.unusedPermissions && suggestions.unusedPermissions.length > 0) { %>
+        <div class="permission-list">
+          <% suggestions.unusedPermissions.forEach(p => { %>
+          <div class="permission-item">
+            <code><%= p.name %></code>
+            <span style="float: right; color: #888; font-size: 12px;"><%= p.module || 'No module' %></span>
+          </div>
+          <% }) %>
+        </div>
+        <% } else { %>
+        <div class="empty-state"><p>All permissions are in use</p></div>
+        <% } %>
+      </div>
+      
+      <!-- Expired Grants -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Expired Grants</h2>
+          <span class="priority-badge medium"><%= suggestions.expiredGrants?.length || 0 %></span>
+        </div>
+        
+        <% if (suggestions.expiredGrants && suggestions.expiredGrants.length > 0) { %>
+        <div class="permission-list">
+          <% suggestions.expiredGrants.forEach(g => { %>
+          <div class="permission-item">
+            <%= g.permission_name || g.name %>
+            <span style="float: right; color: #dc2626; font-size: 12px;">Expired</span>
+          </div>
+          <% }) %>
+        </div>
+        <% } else { %>
+        <div class="empty-state"><p>No expired grants</p></div>
+        <% } %>
+      </div>
+    </div>
+    
+    <!-- Role Simplification Suggestions -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>💡 Role Optimization Suggestions</h2>
+      </div>
+      
+      <% if (suggestions.roleSimplification && suggestions.roleSimplification.length > 0) { %>
+        <% suggestions.roleSimplification.forEach(s => { %>
+        <div class="suggestion-card">
+          <h4>
+            <span class="priority-badge <%= s.type === 'duplicate' ? 'high' : 'medium' %>"><%= s.type %></span>
+            <%= s.roles.join(' & ') %>
+          </h4>
+          <p><%= s.message %></p>
+        </div>
+        <% }) %>
+      <% } else { %>
+      <div class="empty-state"><p>No optimization suggestions</p></div>
+      <% } %>
+    </div>
+    
+    <!-- Permission Coverage -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📊 Permission Coverage</h2>
+      </div>
+      
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="value"><%= suggestions.coverage?.covered?.length || 0 %></div>
+          <div class="label">Covered</div>
+        </div>
+        <div class="stat-box">
+          <div class="value"><%= suggestions.coverage?.uncovered?.length || 0 %></div>
+          <div class="label">Uncovered</div>
+        </div>
+      </div>
+      
+      <% if (suggestions.coverage?.uncovered && suggestions.coverage.uncovered.length > 0) { %>
+      <p style="font-size: 14px; color: #666; margin-bottom: 10px;">Missing standard actions:</p>
+      <div class="permission-list" style="max-height: 200px;">
+        <% suggestions.coverage.uncovered.slice(0, 20).forEach(u => { %>
+        <div class="permission-item">
+          <%= u.module %>/<%= u.resource %>:<%= u.action %>
+        </div>
+        <% }) %>
+        <% if (suggestions.coverage.uncovered.length > 20) { %>
+        <div class="permission-item" style="color: #888;">... and <%= suggestions.coverage.uncovered.length - 20 %> more</div>
+        <% } %>
+      </div>
+      <% } %>
+    </div>
+    <% } %>
+  </main>
+  
+  <%- include('partials/footer') %>
+</body>
+</html>

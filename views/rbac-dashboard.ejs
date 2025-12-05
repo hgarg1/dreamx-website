@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .rbac-dashboard {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .rbac-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    
+    .rbac-header h1 {
+      color: #333;
+      margin: 0;
+    }
+    
+    .rbac-nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .rbac-nav a {
+      padding: 8px 16px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      color: #333;
+      text-decoration: none;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .rbac-nav a:hover, .rbac-nav a.active {
+      background: #6366f1;
+      color: white;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .stat-card h3 {
+      font-size: 14px;
+      color: #666;
+      margin: 0 0 8px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #333;
+    }
+    
+    .stat-card .subtext {
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+    }
+    
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+    
+    @media (max-width: 1024px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .panel {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .panel-header h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #333;
+    }
+    
+    .panel-header a {
+      font-size: 14px;
+      color: #6366f1;
+      text-decoration: none;
+    }
+    
+    /* Role Tree Visualization */
+    .role-tree {
+      font-family: monospace;
+    }
+    
+    .role-tree ul {
+      list-style: none;
+      padding-left: 20px;
+      margin: 0;
+    }
+    
+    .role-tree > ul {
+      padding-left: 0;
+    }
+    
+    .role-tree li {
+      position: relative;
+      padding: 5px 0;
+    }
+    
+    .role-tree li::before {
+      content: '├── ';
+      color: #999;
+    }
+    
+    .role-tree li:last-child::before {
+      content: '└── ';
+    }
+    
+    .role-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    
+    .role-item.system {
+      background: #e8f4ff;
+      color: #0066cc;
+    }
+    
+    .role-item .priority {
+      font-size: 11px;
+      color: #888;
+    }
+    
+    /* Alerts */
+    .alerts-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .alert-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    
+    .alert-item.critical {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    
+    .alert-item.warning {
+      background: #fef3c7;
+      color: #d97706;
+    }
+    
+    .alert-item.info {
+      background: #e0e7ff;
+      color: #4f46e5;
+    }
+    
+    .alert-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    
+    .alert-content {
+      flex: 1;
+    }
+    
+    .alert-content .message {
+      font-weight: 500;
+    }
+    
+    .alert-content .meta {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+    
+    /* Audit Log */
+    .audit-log {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .log-entry {
+      display: flex;
+      gap: 15px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+    
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    
+    .log-time {
+      color: #888;
+      font-size: 12px;
+      white-space: nowrap;
+      width: 80px;
+      flex-shrink: 0;
+    }
+    
+    .log-action {
+      flex: 1;
+    }
+    
+    .log-action .action-type {
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .log-action .details {
+      color: #666;
+      font-size: 13px;
+      margin-top: 2px;
+    }
+    
+    .log-actor {
+      color: #6366f1;
+      font-size: 13px;
+    }
+    
+    /* Cache Stats */
+    .cache-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+    
+    .cache-stat {
+      padding: 10px;
+      background: #f9fafb;
+      border-radius: 6px;
+      text-align: center;
+    }
+    
+    .cache-stat .label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    
+    .cache-stat .value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin-top: 5px;
+    }
+    
+    /* Quick Actions */
+    .quick-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .quick-action {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 15px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #333;
+      transition: all 0.2s;
+    }
+    
+    .quick-action:hover {
+      background: #e5e7eb;
+    }
+    
+    .quick-action .icon {
+      font-size: 20px;
+    }
+    
+    .quick-action .text {
+      flex: 1;
+    }
+    
+    .quick-action .text h4 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .quick-action .text p {
+      margin: 3px 0 0 0;
+      font-size: 12px;
+      color: #666;
+    }
+    
+    .quick-action .arrow {
+      color: #999;
+    }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 30px;
+      color: #888;
+    }
+    
+    .empty-state .icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+    
+    /* Permission Groups */
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    
+    .group-card {
+      padding: 15px;
+      background: #f9fafb;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #333;
+      transition: all 0.2s;
+    }
+    
+    .group-card:hover {
+      background: #e5e7eb;
+    }
+    
+    .group-card h4 {
+      margin: 0 0 5px 0;
+      font-size: 14px;
+    }
+    
+    .group-card .count {
+      font-size: 24px;
+      font-weight: 600;
+      color: #6366f1;
+    }
+    
+    .group-card .label {
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-dashboard">
+    <div class="rbac-header">
+      <h1>🔐 RBAC Dashboard</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard" class="active">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/permissions">Permissions</a>
+        <a href="/rbac/users">Users</a>
+        <a href="/rbac/overrides">Overrides</a>
+        <a href="/rbac/audit">Audit Logs</a>
+        <a href="/rbac/security">Security</a>
+        <a href="/rbac/docs">Docs</a>
+        <% if (canManage) { %>
+        <a href="/rbac/migration">Migration</a>
+        <a href="/rbac/devtools">Dev Tools</a>
+        <% } %>
+      </nav>
+    </div>
+    
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Roles</h3>
+        <div class="value"><%= stats.roles %></div>
+        <div class="subtext"><%= stats.enabledRoles || stats.roles %> enabled</div>
+      </div>
+      <div class="stat-card">
+        <h3>Permissions</h3>
+        <div class="value"><%= stats.permissions %></div>
+        <div class="subtext"><%= stats.permissionGroups || 0 %> groups</div>
+      </div>
+      <div class="stat-card">
+        <h3>User Assignments</h3>
+        <div class="value"><%= stats.userRoleAssignments %></div>
+        <div class="subtext">Active role assignments</div>
+      </div>
+      <div class="stat-card">
+        <h3>Active Overrides</h3>
+        <div class="value"><%= stats.activeOverrides || 0 %></div>
+        <div class="subtext"><%= stats.temporaryOverrides || 0 %> temporary</div>
+      </div>
+    </div>
+    
+    <div class="dashboard-grid">
+      <div class="left-column">
+        <!-- Security Alerts -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>🚨 Security Alerts</h2>
+            <a href="/rbac/security">View All →</a>
+          </div>
+          <% if (alerts && alerts.length > 0) { %>
+          <div class="alerts-list">
+            <% alerts.slice(0, 5).forEach(alert => { %>
+            <div class="alert-item <%= alert.severity %>">
+              <span class="alert-icon">
+                <% if (alert.severity === 'critical') { %>⚠️<% } %>
+                <% if (alert.severity === 'warning') { %>⚡<% } %>
+                <% if (alert.severity === 'info') { %>ℹ️<% } %>
+              </span>
+              <div class="alert-content">
+                <div class="message"><%= alert.message %></div>
+                <div class="meta"><%= alert.type %></div>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+          <% } else { %>
+          <div class="empty-state">
+            <div class="icon">✅</div>
+            <p>No security alerts</p>
+          </div>
+          <% } %>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="panel" style="margin-top: 20px;">
+          <div class="panel-header">
+            <h2>📋 Recent Activity</h2>
+            <a href="/rbac/audit">View All →</a>
+          </div>
+          <% if (recentLogs && recentLogs.length > 0) { %>
+          <div class="audit-log">
+            <% recentLogs.slice(0, 10).forEach(log => { %>
+            <div class="log-entry">
+              <div class="log-time">
+                <%= new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) %>
+              </div>
+              <div class="log-action">
+                <div class="action-type"><%= log.action %></div>
+                <% if (log.target_name) { %>
+                <div class="details"><%= log.target_type %>: <%= log.target_name %></div>
+                <% } %>
+              </div>
+              <% if (log.actor_id) { %>
+              <div class="log-actor">User #<%= log.actor_id %></div>
+              <% } %>
+            </div>
+            <% }) %>
+          </div>
+          <% } else { %>
+          <div class="empty-state">
+            <div class="icon">📭</div>
+            <p>No recent activity</p>
+          </div>
+          <% } %>
+        </div>
+        
+        <!-- Role Hierarchy -->
+        <div class="panel" style="margin-top: 20px;">
+          <div class="panel-header">
+            <h2>🌳 Role Hierarchy</h2>
+            <a href="/rbac/roles">Manage Roles →</a>
+          </div>
+          <div class="role-tree">
+            <ul>
+              <% function renderRoleTree(roles, parentId = null) { %>
+                <% 
+                  const children = roles.filter(r => r.parent_role_id === parentId);
+                  children.forEach(role => { 
+                %>
+                <li>
+                  <span class="role-item <%= role.is_system_role ? 'system' : '' %>">
+                    <%= role.display_name || role.name %>
+                    <span class="priority">(P<%= role.priority %>)</span>
+                  </span>
+                  <% const grandchildren = roles.filter(r => r.parent_role_id === role.id); %>
+                  <% if (grandchildren.length > 0) { %>
+                  <ul>
+                    <% renderRoleTree(roles, role.id); %>
+                  </ul>
+                  <% } %>
+                </li>
+                <% }); %>
+              <% } %>
+              <% renderRoleTree(roles); %>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div class="right-column">
+        <!-- Quick Actions -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>⚡ Quick Actions</h2>
+          </div>
+          <div class="quick-actions">
+            <a href="/rbac/roles#new" class="quick-action">
+              <span class="icon">➕</span>
+              <div class="text">
+                <h4>Create Role</h4>
+                <p>Add a new role with permissions</p>
+              </div>
+              <span class="arrow">→</span>
+            </a>
+            <a href="/rbac/users" class="quick-action">
+              <span class="icon">👤</span>
+              <div class="text">
+                <h4>Assign Roles</h4>
+                <p>Manage user role assignments</p>
+              </div>
+              <span class="arrow">→</span>
+            </a>
+            <a href="/rbac/overrides" class="quick-action">
+              <span class="icon">🔓</span>
+              <div class="text">
+                <h4>Permission Overrides</h4>
+                <p>Grant or deny specific permissions</p>
+              </div>
+              <span class="arrow">→</span>
+            </a>
+            <a href="/rbac/history" class="quick-action">
+              <span class="icon">📜</span>
+              <div class="text">
+                <h4>Version History</h4>
+                <p>View changes over time</p>
+              </div>
+              <span class="arrow">→</span>
+            </a>
+          </div>
+        </div>
+        
+        <!-- Permission Groups -->
+        <div class="panel" style="margin-top: 20px;">
+          <div class="panel-header">
+            <h2>📁 Permission Groups</h2>
+            <a href="/rbac/permissions">View All →</a>
+          </div>
+          <div class="groups-grid">
+            <% groups.forEach(group => { %>
+            <a href="/rbac/permissions?groupId=<%= group.id %>" class="group-card">
+              <h4><%= group.display_name || group.name %></h4>
+              <div class="count"><%= group.permission_count || '—' %></div>
+              <div class="label">permissions</div>
+            </a>
+            <% }) %>
+          </div>
+        </div>
+        
+        <!-- Cache Stats -->
+        <% if (cacheStats) { %>
+        <div class="panel" style="margin-top: 20px;">
+          <div class="panel-header">
+            <h2>💾 Cache Stats</h2>
+          </div>
+          <div class="cache-stats">
+            <div class="cache-stat">
+              <div class="label">Hit Rate</div>
+              <div class="value"><%= cacheStats.hitRate %></div>
+            </div>
+            <div class="cache-stat">
+              <div class="label">Entries</div>
+              <div class="value"><%= cacheStats.totalSize %></div>
+            </div>
+            <div class="cache-stat">
+              <div class="label">Hits</div>
+              <div class="value"><%= cacheStats.cacheHits %></div>
+            </div>
+            <div class="cache-stat">
+              <div class="label">Misses</div>
+              <div class="value"><%= cacheStats.cacheMisses %></div>
+            </div>
+          </div>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+</body>
+</html>

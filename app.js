@@ -537,6 +537,10 @@ app.use('/', apiRoutes);
 const rbacRoutes = require('./routes/rbac');
 app.use('/api/rbac', rbacRoutes);
 
+// RBAC Admin Dashboard routes
+const rbacDashboardRoutes = require('./routes/rbac-dashboard');
+app.use('/rbac', rbacDashboardRoutes);
+
 // Mobile API authentication routes (token-based)
 const apiAuthRoutes = require('./routes/api-auth');
 app.use('/', apiAuthRoutes);

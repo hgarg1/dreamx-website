@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .sidebar-layout { display: grid; grid-template-columns: 250px 1fr; gap: 20px; }
+    @media (max-width: 900px) { .sidebar-layout { grid-template-columns: 1fr; } }
+    .sidebar { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); height: fit-content; }
+    .sidebar h3 { margin: 0 0 15px 0; font-size: 14px; color: #666; text-transform: uppercase; }
+    .sidebar ul { list-style: none; padding: 0; margin: 0; }
+    .sidebar li a { display: block; padding: 10px 12px; color: #333; text-decoration: none; border-radius: 6px; margin-bottom: 5px; }
+    .sidebar li a:hover, .sidebar li a.active { background: #f3f4f6; }
+    .sidebar li a .count { float: right; background: #e5e7eb; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+    .search-bar input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 8px; }
+    .search-bar button { padding: 10px 20px; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .permissions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+    .permission-card { background: #f9fafb; border-radius: 8px; padding: 15px; transition: all 0.2s; }
+    .permission-card:hover { background: #f3f4f6; }
+    .permission-card h4 { margin: 0 0 5px 0; font-size: 14px; font-family: monospace; color: #333; }
+    .permission-card .display-name { font-size: 13px; color: #666; margin-bottom: 10px; }
+    .permission-card .meta { display: flex; gap: 10px; font-size: 12px; color: #888; }
+    .permission-card .meta span { display: flex; align-items: center; gap: 4px; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+    .badge-module { background: #e8f4ff; color: #0066cc; }
+    .badge-resource { background: #fef3c7; color: #d97706; }
+    .badge-action { background: #d1fae5; color: #059669; }
+    .btn { padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; text-decoration: none; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #333; }
+    .empty-state { text-align: center; padding: 40px; color: #888; }
+    .filters { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .filters label { display: flex; align-items: center; gap: 5px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>🔑 Permission Management</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/permissions" class="active">Permissions</a>
+        <a href="/rbac/users">Users</a>
+        <a href="/rbac/audit">Audit Logs</a>
+      </nav>
+    </div>
+    
+    <div class="sidebar-layout">
+      <!-- Groups Sidebar -->
+      <div class="sidebar">
+        <h3>Permission Groups</h3>
+        <ul>
+          <li><a href="/rbac/permissions" class="<%= !filters.groupId ? 'active' : '' %>">All Permissions <span class="count"><%= permissions.length %></span></a></li>
+          <% groups.forEach(group => { %>
+          <li>
+            <a href="/rbac/permissions?groupId=<%= group.id %>" class="<%= filters.groupId == group.id ? 'active' : '' %>">
+              <%= group.display_name || group.name %>
+              <span class="count"><%= group.permission_count || 0 %></span>
+            </a>
+          </li>
+          <% }) %>
+        </ul>
+        
+        <h3 style="margin-top: 20px;">Modules</h3>
+        <ul>
+          <% modules.forEach(mod => { %>
+          <li>
+            <a href="/rbac/permissions?module=<%= encodeURIComponent(mod) %>" class="<%= filters.module === mod ? 'active' : '' %>">
+              <%= mod %>
+            </a>
+          </li>
+          <% }) %>
+        </ul>
+      </div>
+      
+      <!-- Permissions Content -->
+      <div>
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Permissions (<%= permissions.length %>)</h2>
+            <% if (canManage) { %>
+            <button class="btn btn-primary" onclick="openCreateModal()">+ Create Permission</button>
+            <% } %>
+          </div>
+          
+          <form method="get" class="search-bar">
+            <input type="hidden" name="groupId" value="<%= filters.groupId || '' %>">
+            <input type="hidden" name="module" value="<%= filters.module || '' %>">
+            <input type="text" name="search" placeholder="Search permissions..." value="<%= filters.search || '' %>">
+            <button type="submit">Search</button>
+          </form>
+          
+          <div class="filters">
+            <label>
+              <input type="checkbox" name="includeDisabled" <%= filters.includeDisabled ? 'checked' : '' %> onchange="this.form.submit()">
+              Show disabled
+            </label>
+          </div>
+          
+          <% if (permissions && permissions.length > 0) { %>
+          <div class="permissions-grid">
+            <% permissions.forEach(perm => { %>
+            <div class="permission-card">
+              <h4><%= perm.name %></h4>
+              <div class="display-name"><%= perm.display_name || 'No display name' %></div>
+              <div class="meta">
+                <% if (perm.module) { %>
+                <span><span class="badge badge-module"><%= perm.module %></span></span>
+                <% } %>
+                <% if (perm.resource) { %>
+                <span><span class="badge badge-resource"><%= perm.resource %></span></span>
+                <% } %>
+                <% if (perm.action) { %>
+                <span><span class="badge badge-action"><%= perm.action %></span></span>
+                <% } %>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+          <% } else { %>
+          <div class="empty-state">
+            <p>No permissions found</p>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    function openCreateModal() {
+      alert('Permission creation coming soon');
+    }
+  </script>
+</body>
+</html>

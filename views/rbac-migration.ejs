@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; text-decoration: none; display: inline-block; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #333; }
+    .btn-danger { background: #ef4444; color: white; }
+    .progress-bar { height: 24px; background: #e5e7eb; border-radius: 12px; overflow: hidden; margin: 20px 0; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 500; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+    @media (max-width: 800px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { padding: 20px; background: #f9fafb; border-radius: 8px; text-align: center; }
+    .stat-card .value { font-size: 28px; font-weight: 700; color: #333; }
+    .stat-card .label { font-size: 12px; color: #888; margin-top: 5px; }
+    .users-table { width: 100%; border-collapse: collapse; }
+    .users-table th, .users-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+    .users-table th { font-weight: 500; color: #666; background: #f9fafb; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    .badge-success { background: #d1fae5; color: #059669; }
+    .badge-warning { background: #fef3c7; color: #d97706; }
+    .badge-error { background: #fee2e2; color: #dc2626; }
+    .recommendation { padding: 15px; background: #f9fafb; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #6366f1; }
+    .recommendation h4 { margin: 0 0 8px 0; display: flex; align-items: center; gap: 10px; }
+    .recommendation p { margin: 0 0 10px 0; font-size: 13px; color: #666; }
+    .recommendation .files { font-size: 12px; color: #888; font-family: monospace; }
+    .priority-tag { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .priority-tag.high { background: #fee2e2; color: #dc2626; }
+    .priority-tag.medium { background: #fef3c7; color: #d97706; }
+    .priority-tag.low { background: #e5e7eb; color: #666; }
+    .code-block { background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; overflow-x: auto; }
+    .empty-state { text-align: center; padding: 40px; color: #888; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>🔄 RBAC Migration</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/migration" class="active">Migration</a>
+        <a href="/rbac/devtools">Dev Tools</a>
+      </nav>
+    </div>
+    
+    <% if (migrationReport) { %>
+    <!-- Migration Progress -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Migration Progress</h2>
+        <span><%= migrationReport.statistics.migrationProgress %> Complete</span>
+      </div>
+      
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: <%= migrationReport.statistics.migrationProgress %>">
+          <%= migrationReport.statistics.migrationProgress %>
+        </div>
+      </div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="value"><%= migrationReport.statistics.totalAdminUsers %></div>
+          <div class="label">Total Admin Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="value"><%= migrationReport.statistics.migratedUsers %></div>
+          <div class="label">Migrated to RBAC</div>
+        </div>
+        <div class="stat-card">
+          <div class="value"><%= migrationReport.statistics.unmigratedUsers %></div>
+          <div class="label">Pending Migration</div>
+        </div>
+        <div class="stat-card">
+          <div class="value"><%= migrationReport.legacyMappings.length %></div>
+          <div class="label">Role Mappings</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Unmigrated Users -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Unmigrated Users (<%= migrationReport.unmigratedUsers.length %>)</h2>
+        <% if (migrationReport.unmigratedUsers.length > 0) { %>
+        <button class="btn btn-primary" onclick="migrateAll()">Migrate All</button>
+        <% } %>
+      </div>
+      
+      <% if (migrationReport.unmigratedUsers && migrationReport.unmigratedUsers.length > 0) { %>
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Legacy Role</th>
+            <th>Legacy Permissions</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% migrationReport.unmigratedUsers.forEach(user => { %>
+          <tr>
+            <td>
+              <div><%= user.full_name || 'Unknown' %></div>
+              <div style="font-size: 12px; color: #888;"><%= user.email %></div>
+            </td>
+            <td><span class="badge badge-warning"><%= user.role %></span></td>
+            <td style="font-size: 12px; font-family: monospace;">
+              <% try { 
+                const perms = user.admin_permissions ? JSON.parse(user.admin_permissions) : [];
+                %><%= perms.slice(0, 3).join(', ') %><% if (perms.length > 3) { %> +<%= perms.length - 3 %><% } %>
+              <% } catch(e) { %>—<% } %>
+            </td>
+            <td>
+              <button class="btn btn-secondary" onclick="migrateUser(<%= user.id %>)">Migrate</button>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <% } else { %>
+      <div class="empty-state">
+        <p>✅ All users have been migrated to RBAC</p>
+      </div>
+      <% } %>
+    </div>
+    <% } %>
+    
+    <!-- Code Scan -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🔍 Legacy Code Scanner</h2>
+        <% if (!scanRequested) { %>
+        <a href="?scan=true" class="btn btn-secondary">Run Scan</a>
+        <% } %>
+      </div>
+      
+      <% if (scanRequested && codeScanResults) { %>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="value"><%= codeScanResults.filesScanned %></div>
+          <div class="label">Files Scanned</div>
+        </div>
+        <div class="stat-card">
+          <div class="value"><%= codeScanResults.findings.length %></div>
+          <div class="label">Findings</div>
+        </div>
+        <div class="stat-card">
+          <div class="value"><%= codeScanResults.summary.hardcodedRoles || 0 %></div>
+          <div class="label">Hardcoded Roles</div>
+        </div>
+        <div class="stat-card">
+          <div class="value"><%= codeScanResults.summary.legacyMiddleware || 0 %></div>
+          <div class="label">Legacy Middleware</div>
+        </div>
+      </div>
+      
+      <% if (recommendations && recommendations.length > 0) { %>
+      <h3 style="margin: 20px 0 15px;">Recommendations</h3>
+      <% recommendations.forEach(rec => { %>
+      <div class="recommendation">
+        <h4>
+          <span class="priority-tag <%= rec.priority %>"><%= rec.priority.toUpperCase() %></span>
+          <%= rec.title %>
+        </h4>
+        <p><%= rec.description %></p>
+        <% if (rec.files) { %>
+        <div class="files">Files: <%= rec.files.slice(0, 5).join(', ') %><% if (rec.files.length > 5) { %> +<%= rec.files.length - 5 %> more<% } %></div>
+        <% } %>
+        <% if (rec.example) { %>
+        <div class="code-block" style="margin-top: 10px;">
+          <div style="color: #f44;">- <%= rec.example.before %></div>
+          <div style="color: #4f4;">+ <%= rec.example.after %></div>
+        </div>
+        <% } %>
+      </div>
+      <% }) %>
+      <% } %>
+      
+      <% } else if (!scanRequested) { %>
+      <div class="empty-state">
+        <p>Click "Run Scan" to analyze the codebase for legacy permission patterns</p>
+      </div>
+      <% } %>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    async function migrateUser(userId) {
+      if (!confirm('Migrate this user to the new RBAC system?')) return;
+      
+      try {
+        const res = await fetch('/rbac/migration/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('User migrated successfully: ' + data.assignedRole);
+          window.location.reload();
+        } else {
+          alert('Migration failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Error during migration');
+      }
+    }
+    
+    async function migrateAll() {
+      if (!confirm('Migrate ALL unmigrated users to the new RBAC system?')) return;
+      
+      try {
+        const res = await fetch('/rbac/migration/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        alert(`Migration complete: ${data.success} succeeded, ${data.failed} failed`);
+        window.location.reload();
+      } catch (e) {
+        alert('Error during migration');
+      }
+    }
+  </script>
+</body>
+</html>

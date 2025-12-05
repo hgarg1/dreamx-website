@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+    .search-bar input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 8px; }
+    .search-bar button { padding: 10px 20px; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .users-table { width: 100%; border-collapse: collapse; }
+    .users-table th, .users-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+    .users-table th { font-weight: 500; color: #666; font-size: 13px; background: #f9fafb; }
+    .users-table tr:hover { background: #f9fafb; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: #e5e7eb; display: flex; align-items: center; justify-content: center; font-weight: 500; color: #666; }
+    .user-name { font-weight: 500; }
+    .user-email { font-size: 13px; color: #888; }
+    .role-badge { display: inline-block; padding: 4px 10px; background: #e5e7eb; border-radius: 20px; font-size: 12px; margin: 2px; }
+    .role-badge.primary { background: #6366f1; color: white; }
+    .btn { padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; text-decoration: none; display: inline-block; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #333; }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
+    .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 20px; }
+    .pagination a { padding: 8px 12px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; }
+    .pagination a.active { background: #6366f1; color: white; }
+    .bulk-actions { display: flex; gap: 10px; padding: 15px; background: #f9fafb; border-radius: 8px; margin-bottom: 20px; }
+    .bulk-actions select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .modal.active { display: flex; align-items: center; justify-content: center; }
+    .modal-content { background: white; padding: 30px; border-radius: 16px; max-width: 500px; width: 100%; max-height: 80vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-header h2 { margin: 0; }
+    .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; }
+    .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+    .checkbox-list { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 10px; }
+    .checkbox-list label { display: flex; align-items: center; gap: 8px; padding: 8px; cursor: pointer; }
+    .checkbox-list label:hover { background: #f5f5f5; border-radius: 4px; }
+    .empty-state { text-align: center; padding: 40px; color: #888; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>👤 User-Role Assignment</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/permissions">Permissions</a>
+        <a href="/rbac/users" class="active">Users</a>
+        <a href="/rbac/overrides">Overrides</a>
+      </nav>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Users (<%= pagination.total %>)</h2>
+      </div>
+      
+      <form method="get" class="search-bar">
+        <input type="text" name="search" placeholder="Search by name or email..." value="<%= filters.search || '' %>">
+        <button type="submit">Search</button>
+      </form>
+      
+      <% if (canManage) { %>
+      <div class="bulk-actions">
+        <select id="selectedRole">
+          <option value="">Select role to assign...</option>
+          <% allRoles.forEach(role => { %>
+          <option value="<%= role.id %>"><%= role.display_name || role.name %></option>
+          <% }) %>
+        </select>
+        <button class="btn btn-primary" onclick="bulkAssignRole()">Assign to Selected</button>
+        <button class="btn btn-secondary" onclick="bulkRevokeRole()">Revoke from Selected</button>
+        <span style="margin-left: auto; color: #888; font-size: 13px;">
+          <span id="selectedCount">0</span> selected
+        </span>
+      </div>
+      <% } %>
+      
+      <% if (users && users.length > 0) { %>
+      <table class="users-table">
+        <thead>
+          <tr>
+            <% if (canManage) { %><th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th><% } %>
+            <th>User</th>
+            <th>Legacy Role</th>
+            <th>RBAC Roles</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% users.forEach(user => { %>
+          <tr>
+            <% if (canManage) { %>
+            <td><input type="checkbox" class="user-checkbox" data-user-id="<%= user.id %>" onchange="updateSelectedCount()"></td>
+            <% } %>
+            <td>
+              <div class="user-info">
+                <div class="user-avatar"><%= (user.full_name || 'U').charAt(0).toUpperCase() %></div>
+                <div>
+                  <div class="user-name"><%= user.full_name || 'Unknown' %></div>
+                  <div class="user-email"><%= user.email %></div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="role-badge"><%= user.legacy_role || 'user' %></span>
+            </td>
+            <td>
+              <% if (user.rbacRoles && user.rbacRoles.length > 0) { %>
+                <% user.rbacRoles.forEach(role => { %>
+                <span class="role-badge <%= role.is_primary ? 'primary' : '' %>">
+                  <%= role.display_name || role.name %>
+                </span>
+                <% }) %>
+              <% } else { %>
+                <span style="color: #888; font-size: 13px;">No RBAC roles</span>
+              <% } %>
+            </td>
+            <td>
+              <% if (canManage) { %>
+              <button class="btn btn-sm btn-secondary" onclick="openAssignModal(<%= user.id %>, '<%= user.email %>')">
+                Manage
+              </button>
+              <% } %>
+              <a href="/profile/<%= user.id %>" class="btn btn-sm btn-secondary">View</a>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      
+      <!-- Pagination -->
+      <% if (pagination.totalPages > 1) { %>
+      <div class="pagination">
+        <% if (pagination.page > 1) { %>
+        <a href="?page=<%= pagination.page - 1 %>&search=<%= filters.search || '' %>">← Previous</a>
+        <% } %>
+        
+        <% for (let i = Math.max(1, pagination.page - 2); i <= Math.min(pagination.totalPages, pagination.page + 2); i++) { %>
+        <a href="?page=<%= i %>&search=<%= filters.search || '' %>" class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
+        <% } %>
+        
+        <% if (pagination.page < pagination.totalPages) { %>
+        <a href="?page=<%= pagination.page + 1 %>&search=<%= filters.search || '' %>">Next →</a>
+        <% } %>
+      </div>
+      <% } %>
+      
+      <% } else { %>
+      <div class="empty-state">
+        <p>No users found</p>
+      </div>
+      <% } %>
+    </div>
+  </main>
+  
+  <!-- Assign Role Modal -->
+  <div id="assignModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Manage Roles for <span id="modalUserEmail"></span></h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <input type="hidden" id="modalUserId">
+      
+      <div class="form-group">
+        <label>Assign Roles</label>
+        <div class="checkbox-list">
+          <% allRoles.forEach(role => { %>
+          <label>
+            <input type="checkbox" class="role-checkbox" value="<%= role.id %>">
+            <%= role.display_name || role.name %>
+            <% if (role.description) { %>
+            <span style="color: #888; font-size: 12px; margin-left: 10px;">(<%= role.description.substring(0, 50) %>...)</span>
+            <% } %>
+          </label>
+          <% }) %>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary" onclick="saveRoles()">Save Roles</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    let allRoles = <%- JSON.stringify(allRoles) %>;
+    
+    function toggleSelectAll() {
+      const checked = document.getElementById('selectAll').checked;
+      document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = checked);
+      updateSelectedCount();
+    }
+    
+    function updateSelectedCount() {
+      const count = document.querySelectorAll('.user-checkbox:checked').length;
+      document.getElementById('selectedCount').textContent = count;
+    }
+    
+    function getSelectedUserIds() {
+      return Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => parseInt(cb.dataset.userId));
+    }
+    
+    async function bulkAssignRole() {
+      const userIds = getSelectedUserIds();
+      const roleId = document.getElementById('selectedRole').value;
+      
+      if (userIds.length === 0) {
+        alert('Please select at least one user');
+        return;
+      }
+      if (!roleId) {
+        alert('Please select a role');
+        return;
+      }
+      
+      if (!confirm(`Assign role to ${userIds.length} user(s)?`)) return;
+      
+      try {
+        const res = await fetch('/rbac/api/bulk/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operation: 'assign_role',
+            targets: userIds,
+            data: { roleId: parseInt(roleId) }
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Successfully assigned role to ${data.results.success} user(s)`);
+          window.location.reload();
+        } else {
+          alert(data.error || 'Operation failed');
+        }
+      } catch (e) {
+        alert('Error performing bulk operation');
+      }
+    }
+    
+    async function bulkRevokeRole() {
+      const userIds = getSelectedUserIds();
+      const roleId = document.getElementById('selectedRole').value;
+      
+      if (userIds.length === 0) {
+        alert('Please select at least one user');
+        return;
+      }
+      if (!roleId) {
+        alert('Please select a role');
+        return;
+      }
+      
+      if (!confirm(`Revoke role from ${userIds.length} user(s)?`)) return;
+      
+      try {
+        const res = await fetch('/rbac/api/bulk/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operation: 'revoke_role',
+            targets: userIds,
+            data: { roleId: parseInt(roleId) }
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Successfully revoked role from ${data.results.success} user(s)`);
+          window.location.reload();
+        } else {
+          alert(data.error || 'Operation failed');
+        }
+      } catch (e) {
+        alert('Error performing bulk operation');
+      }
+    }
+    
+    function openAssignModal(userId, email) {
+      document.getElementById('modalUserId').value = userId;
+      document.getElementById('modalUserEmail').textContent = email;
+      
+      // Load user's current roles
+      fetch(`/api/rbac/users/${userId}/roles`)
+        .then(res => res.json())
+        .then(data => {
+          const roleIds = (data.roles || []).map(r => r.id);
+          document.querySelectorAll('.role-checkbox').forEach(cb => {
+            cb.checked = roleIds.includes(parseInt(cb.value));
+          });
+        });
+      
+      document.getElementById('assignModal').classList.add('active');
+    }
+    
+    function closeModal() {
+      document.getElementById('assignModal').classList.remove('active');
+    }
+    
+    async function saveRoles() {
+      const userId = document.getElementById('modalUserId').value;
+      const selectedRoles = Array.from(document.querySelectorAll('.role-checkbox:checked')).map(cb => parseInt(cb.value));
+      
+      try {
+        const res = await fetch(`/api/rbac/users/${userId}/roles`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roleIds: selectedRoles })
+        });
+        const data = await res.json();
+        if (data.success) {
+          window.location.reload();
+        } else {
+          alert(data.error || 'Failed to update roles');
+        }
+      } catch (e) {
+        alert('Error updating roles');
+      }
+    }
+  </script>
+</body>
+</html>
