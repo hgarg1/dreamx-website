@@ -1,0 +1,235 @@
+<%- include('partials/header') %>
+
+<main class="rbac-dashboard">
+  <div class="rbac-header">
+    <h1>🔐 RBAC Dashboard</h1>
+    <nav class="rbac-nav">
+      <a href="/rbac/dashboard" class="active">Dashboard</a>
+      <a href="/rbac/roles">Roles</a>
+      <a href="/rbac/permissions">Permissions</a>
+      <a href="/rbac/users">Users</a>
+      <% if (canManage) { %>
+      <a href="/rbac/overrides">Overrides</a>
+      <a href="/rbac/audit">Audit Logs</a>
+      <a href="/rbac/security">Security</a>
+      <% } %>
+      <a href="/rbac/docs">Docs</a>
+      <% if (canManage) { %>
+      <a href="/rbac/migration">Migration</a>
+      <a href="/rbac/devtools">Dev Tools</a>
+      <% } %>
+    </nav>
+  </div>
+    
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Roles</h3>
+        <div class="value"><%= stats.roles %></div>
+        <div class="subtext"><%= stats.enabledRoles || stats.roles %> enabled</div>
+      </div>
+      <div class="stat-card">
+        <h3>Permissions</h3>
+        <div class="value"><%= stats.permissions %></div>
+        <div class="subtext"><%= stats.permissionGroups || 0 %> groups</div>
+      </div>
+      <div class="stat-card">
+        <h3>User Assignments</h3>
+        <div class="value"><%= stats.userRoleAssignments %></div>
+        <div class="subtext">Active role assignments</div>
+      </div>
+      <div class="stat-card">
+        <h3>Active Overrides</h3>
+        <div class="value"><%= stats.activeOverrides || 0 %></div>
+        <div class="subtext"><%= stats.temporaryOverrides || 0 %> temporary</div>
+      </div>
+    </div>
+    
+    <div class="dashboard-grid">
+      <div class="left-column">
+        <!-- Security Alerts -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>🚨 Security Alerts</h2>
+            <a href="/rbac/security">View All →</a>
+          </div>
+          <% if (alerts && alerts.length > 0) { %>
+          <div class="alerts-list">
+            <% alerts.slice(0, 5).forEach(alert => { %>
+            <div class="alert-item <%= alert.severity %>">
+              <span class="alert-icon">
+                <% if (alert.severity === 'critical') { %>⚠️<% } %>
+                <% if (alert.severity === 'warning') { %>⚡<% } %>
+                <% if (alert.severity === 'info') { %>ℹ️<% } %>
+              </span>
+              <div class="alert-content">
+                <div class="message"><%= alert.message %></div>
+                <div class="meta"><%= alert.type %></div>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+          <% } else { %>
+          <div class="empty-state">
+            <div class="icon">✅</div>
+            <p>No security alerts</p>
+          </div>
+          <% } %>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="panel" style="margin-top: 20px;">
+          <div class="panel-header">
+            <h2>📋 Recent Activity</h2>
+            <a href="/rbac/audit">View All →</a>
+          </div>
+          <% if (recentLogs && recentLogs.length > 0) { %>
+          <div class="audit-log">
+            <% recentLogs.slice(0, 10).forEach(log => { %>
+            <div class="log-entry">
+              <div class="log-time">
+                <%= new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) %>
+              </div>
+              <div class="log-action">
+                <div class="action-type"><%= log.action %></div>
+                <% if (log.target_name) { %>
+                <div class="details"><%= log.target_type %>: <%= log.target_name %></div>
+                <% } %>
+              </div>
+              <% if (log.actor_id) { %>
+              <div class="log-actor">User #<%= log.actor_id %></div>
+              <% } %>
+            </div>
+            <% }) %>
+          </div>
+          <% } else { %>
+          <div class="empty-state">
+            <div class="icon">📭</div>
+            <p>No recent activity</p>
+          </div>
+          <% } %>
+        </div>
+        
+        <!-- Role Hierarchy -->
+        <div class="panel" style="margin-top: 20px;">
+          <div class="panel-header">
+            <h2>🌳 Role Hierarchy</h2>
+            <a href="/rbac/roles">Manage Roles →</a>
+          </div>
+          <div class="role-tree">
+            <ul>
+              <% function renderRoleTree(roles, parentId = null) { %>
+                <% 
+                  const children = roles.filter(r => r.parent_role_id === parentId);
+                  children.forEach(role => { 
+                %>
+                <li>
+                  <span class="role-item <%= role.is_system_role ? 'system' : '' %>">
+                    <%= role.display_name || role.name %>
+                    <span class="priority">(P<%= role.priority %>)</span>
+                  </span>
+                  <% const grandchildren = roles.filter(r => r.parent_role_id === role.id); %>
+                  <% if (grandchildren.length > 0) { %>
+                  <ul>
+                    <% renderRoleTree(roles, role.id); %>
+                  </ul>
+                  <% } %>
+                </li>
+                <% }); %>
+              <% } %>
+              <% renderRoleTree(roles); %>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div class="right-column">
+        <!-- Quick Actions -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>⚡ Quick Actions</h2>
+          </div>
+          <div class="quick-actions">
+            <a href="/rbac/roles#new" class="quick-action">
+              <span class="icon">➕</span>
+              <div class="text">
+                <h4>Create Role</h4>
+                <p>Add a new role with permissions</p>
+              </div>
+              <span class="arrow">→</span>
+            </a>
+            <a href="/rbac/users" class="quick-action">
+              <span class="icon">👤</span>
+              <div class="text">
+                <h4>Assign Roles</h4>
+                <p>Manage user role assignments</p>
+              </div>
+              <span class="arrow">→</span>
+            </a>
+            <a href="/rbac/overrides" class="quick-action">
+              <span class="icon">🔓</span>
+              <div class="text">
+                <h4>Permission Overrides</h4>
+                <p>Grant or deny specific permissions</p>
+              </div>
+              <span class="arrow">→</span>
+            </a>
+            <a href="/rbac/history" class="quick-action">
+              <span class="icon">📜</span>
+              <div class="text">
+                <h4>Version History</h4>
+                <p>View changes over time</p>
+              </div>
+              <span class="arrow">→</span>
+            </a>
+          </div>
+        </div>
+        
+        <!-- Permission Groups -->
+        <div class="panel" style="margin-top: 20px;">
+          <div class="panel-header">
+            <h2>📁 Permission Groups</h2>
+            <a href="/rbac/permissions">View All →</a>
+          </div>
+          <div class="groups-grid">
+            <% groups.forEach(group => { %>
+            <a href="/rbac/permissions?groupId=<%= group.id %>" class="group-card">
+              <h4><%= group.display_name || group.name %></h4>
+              <div class="count"><%= group.permission_count || '—' %></div>
+              <div class="label">permissions</div>
+            </a>
+            <% }) %>
+          </div>
+        </div>
+        
+        <!-- Cache Stats -->
+        <% if (cacheStats) { %>
+        <div class="panel" style="margin-top: 20px;">
+          <div class="panel-header">
+            <h2>💾 Cache Stats</h2>
+          </div>
+          <div class="cache-stats">
+            <div class="cache-stat">
+              <div class="label">Hit Rate</div>
+              <div class="value"><%= cacheStats.hitRate %></div>
+            </div>
+            <div class="cache-stat">
+              <div class="label">Entries</div>
+              <div class="value"><%= cacheStats.totalSize %></div>
+            </div>
+            <div class="cache-stat">
+              <div class="label">Hits</div>
+              <div class="value"><%= cacheStats.cacheHits %></div>
+            </div>
+            <div class="cache-stat">
+              <div class="label">Misses</div>
+              <div class="value"><%= cacheStats.cacheMisses %></div>
+            </div>
+          </div>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+
+<%- include('partials/footer') %>

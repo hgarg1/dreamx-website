@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/rbac.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; transition: all 0.2s; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; text-decoration: none; display: inline-block; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-secondary { background: #e5e7eb; color: #333; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+    .role-info { display: flex; flex-direction: column; gap: 15px; }
+    .role-info .label { font-size: 12px; color: #888; text-transform: uppercase; }
+    .role-info .value { font-size: 16px; color: #333; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .badge-system { background: #e8f4ff; color: #0066cc; }
+    .badge-enabled { background: #d1fae5; color: #059669; }
+    .badge-disabled { background: #fee2e2; color: #dc2626; }
+    .inheritance-chain { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .inheritance-chain .role-pill { padding: 6px 12px; background: #f5f5f5; border-radius: 20px; font-size: 13px; }
+    .inheritance-chain .arrow { color: #999; }
+    .permissions-section { margin-top: 20px; }
+    .permissions-table { width: 100%; border-collapse: collapse; }
+    .permissions-table th, .permissions-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+    .permissions-table th { font-weight: 500; color: #666; font-size: 13px; }
+    .permissions-table tr:hover { background: #f9fafb; }
+    .permission-name { font-family: monospace; font-size: 13px; }
+    .permission-source { font-size: 12px; color: #888; }
+    .permission-source.inherited { color: #6366f1; }
+    .permission-source.direct { color: #059669; }
+    .users-list { display: flex; flex-wrap: wrap; gap: 10px; }
+    .user-chip { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f5f5f5; border-radius: 20px; font-size: 13px; }
+    .user-chip .avatar { width: 24px; height: 24px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+    .history-list { max-height: 300px; overflow-y: auto; }
+    .history-item { display: flex; gap: 15px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+    .history-item:last-child { border-bottom: none; }
+    .history-time { font-size: 12px; color: #888; white-space: nowrap; }
+    .history-content { flex: 1; }
+    .history-action { font-weight: 500; color: #333; }
+    .history-details { font-size: 13px; color: #666; margin-top: 3px; }
+    .form-inline { display: flex; gap: 10px; align-items: center; }
+    .form-inline select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    .empty-state { text-align: center; padding: 30px; color: #888; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>
+        <a href="/rbac/roles" style="color: #666; text-decoration: none;">Roles</a> / 
+        <%= role.display_name || role.name %>
+      </h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles" class="active">Roles</a>
+        <a href="/rbac/permissions">Permissions</a>
+        <a href="/rbac/users">Users</a>
+      </nav>
+    </div>
+    
+    <div class="grid-2">
+      <!-- Role Details -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Role Details</h2>
+          <div>
+            <% if (role.is_system_role) { %><span class="badge badge-system">System</span><% } %>
+            <span class="badge <%= role.is_enabled ? 'badge-enabled' : 'badge-disabled' %>">
+              <%= role.is_enabled ? 'Enabled' : 'Disabled' %>
+            </span>
+          </div>
+        </div>
+        
+        <div class="role-info">
+          <div>
+            <div class="label">Name</div>
+            <div class="value"><code><%= role.name %></code></div>
+          </div>
+          <div>
+            <div class="label">Display Name</div>
+            <div class="value"><%= role.display_name || '—' %></div>
+          </div>
+          <div>
+            <div class="label">Description</div>
+            <div class="value"><%= role.description || 'No description provided' %></div>
+          </div>
+          <div>
+            <div class="label">Priority</div>
+            <div class="value"><%= role.priority %></div>
+          </div>
+          <div>
+            <div class="label">Created</div>
+            <div class="value"><%= new Date(role.created_at).toLocaleString() %></div>
+          </div>
+        </div>
+        
+        <% if (canManage && !role.is_system_role) { %>
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+          <button class="btn btn-secondary" onclick="toggleEdit()">Edit Role</button>
+          <% if (role.is_enabled) { %>
+          <button class="btn btn-secondary" onclick="toggleStatus(false)">Disable</button>
+          <% } else { %>
+          <button class="btn btn-primary" onclick="toggleStatus(true)">Enable</button>
+          <% } %>
+        </div>
+        <% } %>
+      </div>
+      
+      <!-- Inheritance Chain -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Inheritance Chain</h2>
+        </div>
+        
+        <% if (inheritanceChain && inheritanceChain.length > 1) { %>
+        <div class="inheritance-chain">
+          <% inheritanceChain.forEach((r, i) => { %>
+            <span class="role-pill" <%= i === 0 ? 'style="background: #6366f1; color: white;"' : '' %>>
+              <%= r.display_name || r.name %>
+            </span>
+            <% if (i < inheritanceChain.length - 1) { %>
+            <span class="arrow">→</span>
+            <% } %>
+          <% }) %>
+        </div>
+        <p style="margin-top: 15px; font-size: 13px; color: #666;">
+          This role inherits permissions from <%= inheritanceChain.length - 1 %> parent role(s).
+        </p>
+        <% } else { %>
+        <div class="empty-state">
+          <p>This role does not inherit from any other roles</p>
+        </div>
+        <% } %>
+      </div>
+    </div>
+    
+    <!-- Permissions -->
+    <div class="panel permissions-section">
+      <div class="panel-header">
+        <h2>Permissions (<%= permissions.length %>)</h2>
+        <% if (canManage) { %>
+        <div class="form-inline">
+          <select id="addPermissionSelect">
+            <option value="">Add permission...</option>
+            <% allPermissions.filter(p => !permissions.some(ep => ep.id === p.id)).forEach(p => { %>
+            <option value="<%= p.id %>"><%= p.name %></option>
+            <% }) %>
+          </select>
+          <button class="btn btn-sm btn-primary" onclick="addPermission()">Add</button>
+        </div>
+        <% } %>
+      </div>
+      
+      <% if (permissions && permissions.length > 0) { %>
+      <table class="permissions-table">
+        <thead>
+          <tr>
+            <th>Permission</th>
+            <th>Display Name</th>
+            <th>Module</th>
+            <th>Source</th>
+            <% if (canManage) { %><th>Actions</th><% } %>
+          </tr>
+        </thead>
+        <tbody>
+          <% permissions.forEach(perm => { 
+            const isDirect = directPermissions.some(dp => dp.id === perm.id);
+          %>
+          <tr>
+            <td><span class="permission-name"><%= perm.name %></span></td>
+            <td><%= perm.display_name || '—' %></td>
+            <td><%= perm.module || '—' %></td>
+            <td>
+              <span class="permission-source <%= isDirect ? 'direct' : 'inherited' %>">
+                <%= isDirect ? 'Direct' : 'Inherited' %>
+              </span>
+            </td>
+            <% if (canManage) { %>
+            <td>
+              <% if (isDirect) { %>
+              <button class="btn btn-sm btn-danger" onclick="removePermission(<%= perm.id %>)">Remove</button>
+              <% } %>
+            </td>
+            <% } %>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <% } else { %>
+      <div class="empty-state">
+        <p>No permissions assigned to this role</p>
+      </div>
+      <% } %>
+    </div>
+    
+    <div class="grid-2">
+      <!-- Users with this role -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Users with this Role (<%= usersWithRole.length %>)</h2>
+          <a href="/rbac/users?role=<%= role.id %>" class="btn btn-sm btn-secondary">View All</a>
+        </div>
+        
+        <% if (usersWithRole && usersWithRole.length > 0) { %>
+        <div class="users-list">
+          <% usersWithRole.slice(0, 20).forEach(user => { %>
+          <a href="/profile/<%= user.id %>" class="user-chip">
+            <span class="avatar"><%= (user.full_name || 'U').charAt(0).toUpperCase() %></span>
+            <%= user.full_name || user.email %>
+          </a>
+          <% }) %>
+          <% if (usersWithRole.length > 20) { %>
+          <span class="user-chip" style="background: #e5e7eb;">+<%= usersWithRole.length - 20 %> more</span>
+          <% } %>
+        </div>
+        <% } else { %>
+        <div class="empty-state">
+          <p>No users have this role</p>
+        </div>
+        <% } %>
+      </div>
+      
+      <!-- Version History -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Version History</h2>
+          <a href="/rbac/history?entityType=role&entityId=<%= role.id %>" class="btn btn-sm btn-secondary">View All</a>
+        </div>
+        
+        <% if (history && history.length > 0) { %>
+        <div class="history-list">
+          <% history.slice(0, 10).forEach(h => { %>
+          <div class="history-item">
+            <div class="history-time">
+              <%= new Date(h.created_at).toLocaleDateString() %>
+            </div>
+            <div class="history-content">
+              <div class="history-action"><%= h.change_type %></div>
+              <% if (h.change_reason) { %>
+              <div class="history-details"><%= h.change_reason %></div>
+              <% } %>
+            </div>
+          </div>
+          <% }) %>
+        </div>
+        <% } else { %>
+        <div class="empty-state">
+          <p>No history available</p>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    const roleId = <%= role.id %>;
+    
+    async function addPermission() {
+      const select = document.getElementById('addPermissionSelect');
+      const permId = select.value;
+      if (!permId) return;
+      
+      try {
+        const res = await fetch(`/api/rbac/roles/${roleId}/permissions/${permId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.success) {
+          window.location.reload();
+        } else {
+          alert(data.error || 'Failed to add permission');
+        }
+      } catch (e) {
+        alert('Error adding permission');
+      }
+    }
+    
+    async function removePermission(permId) {
+      if (!confirm('Remove this permission from the role?')) return;
+      
+      try {
+        const res = await fetch(`/api/rbac/roles/${roleId}/permissions/${permId}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          window.location.reload();
+        } else {
+          alert(data.error || 'Failed to remove permission');
+        }
+      } catch (e) {
+        alert('Error removing permission');
+      }
+    }
+    
+    async function toggleStatus(enable) {
+      try {
+        const res = await fetch(`/api/rbac/roles/${roleId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isEnabled: enable })
+        });
+        const data = await res.json();
+        if (data.success) {
+          window.location.reload();
+        } else {
+          alert(data.error || 'Failed to update role');
+        }
+      } catch (e) {
+        alert('Error updating role');
+      }
+    }
+    
+    function toggleEdit() {
+      window.location.hash = 'edit';
+      // Could implement inline editing here
+      alert('Edit functionality coming soon');
+    }
+  </script>
+</body>
+</html>

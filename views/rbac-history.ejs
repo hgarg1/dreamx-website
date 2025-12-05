@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/rbac.css">
+  <style>
+    .rbac-page { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .rbac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+    .rbac-header h1 { color: #333; margin: 0; }
+    .rbac-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rbac-nav a { padding: 8px 16px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; font-size: 14px; }
+    .rbac-nav a:hover, .rbac-nav a.active { background: #6366f1; color: white; }
+    .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    .panel-header h2 { margin: 0; font-size: 18px; color: #333; }
+    .filters-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .filters-bar select, .filters-bar input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+    .filters-bar button { padding: 8px 16px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    .history-table { width: 100%; border-collapse: collapse; }
+    .history-table th, .history-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+    .history-table th { font-weight: 500; color: #666; background: #f9fafb; }
+    .history-table tr:hover { background: #f9fafb; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    .badge-create { background: #d1fae5; color: #059669; }
+    .badge-update { background: #e0e7ff; color: #4f46e5; }
+    .badge-delete { background: #fee2e2; color: #dc2626; }
+    .diff-view { display: none; background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 10px; }
+    .diff-view.active { display: block; }
+    .diff-view pre { background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+    .diff-add { color: #4ade80; }
+    .diff-remove { color: #f87171; }
+    .expand-btn { cursor: pointer; color: #6366f1; font-size: 12px; }
+    .meta { font-size: 12px; color: #888; }
+    .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 20px; }
+    .pagination a { padding: 8px 12px; background: #f5f5f5; border-radius: 6px; color: #333; text-decoration: none; }
+    .pagination a.active { background: #6366f1; color: white; }
+    .empty-state { text-align: center; padding: 40px; color: #888; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main class="rbac-page">
+    <div class="rbac-header">
+      <h1>📜 Version History</h1>
+      <nav class="rbac-nav">
+        <a href="/rbac/dashboard">Dashboard</a>
+        <a href="/rbac/roles">Roles</a>
+        <a href="/rbac/permissions">Permissions</a>
+        <a href="/rbac/history" class="active">History</a>
+      </nav>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">
+        <h2>RBAC Change History</h2>
+      </div>
+      
+      <form method="get" class="filters-bar">
+        <select name="entityType">
+          <option value="">All Types</option>
+          <option value="role" <%= filters.entityType === 'role' ? 'selected' : '' %>>Roles</option>
+          <option value="permission" <%= filters.entityType === 'permission' ? 'selected' : '' %>>Permissions</option>
+          <option value="user_role" <%= filters.entityType === 'user_role' ? 'selected' : '' %>>User Roles</option>
+          <option value="override" <%= filters.entityType === 'override' ? 'selected' : '' %>>Overrides</option>
+        </select>
+        <input type="text" name="entityId" placeholder="Entity ID" value="<%= filters.entityId || '' %>">
+        <button type="submit">Filter</button>
+        <a href="/rbac/history" style="padding: 8px 16px; color: #666;">Clear</a>
+      </form>
+      
+      <% if (history && history.length > 0) { %>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Entity</th>
+            <th>Change Type</th>
+            <th>Changed By</th>
+            <th>Reason</th>
+            <th>Diff</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% history.forEach((h, idx) => { %>
+          <tr>
+            <td>
+              <div><%= new Date(h.created_at).toLocaleDateString() %></div>
+              <div class="meta"><%= new Date(h.created_at).toLocaleTimeString() %></div>
+            </td>
+            <td>
+              <code><%= h.entity_type %></code>
+              <span class="meta">#<%= h.entity_id %></span>
+            </td>
+            <td>
+              <span class="badge badge-<%= h.change_type === 'create' ? 'create' : (h.change_type === 'delete' ? 'delete' : 'update') %>">
+                <%= h.change_type %>
+              </span>
+            </td>
+            <td>
+              <% if (h.changed_by) { %>
+              User #<%= h.changed_by %>
+              <% if (h.changed_by_name) { %><div class="meta"><%= h.changed_by_name %></div><% } %>
+              <% } else { %>
+              System
+              <% } %>
+            </td>
+            <td>
+              <span class="meta"><%= h.change_reason || '—' %></span>
+            </td>
+            <td>
+              <% if (h.snapshot) { %>
+              <span class="expand-btn" onclick="toggleDiff(<%= idx %>)">View</span>
+              <% } else { %>
+              —
+              <% } %>
+            </td>
+          </tr>
+          <% if (h.snapshot) { %>
+          <tr>
+            <td colspan="6">
+              <div class="diff-view" id="diff-<%= idx %>">
+                <pre><%- JSON.stringify(JSON.parse(h.snapshot), null, 2) %></pre>
+              </div>
+            </td>
+          </tr>
+          <% } %>
+          <% }) %>
+        </tbody>
+      </table>
+      
+      <div class="pagination">
+        <% if (pagination.page > 1) { %>
+        <a href="?page=<%= pagination.page - 1 %>&entityType=<%= filters.entityType || '' %>">← Previous</a>
+        <% } %>
+        <span style="padding: 8px 12px; color: #666;">Page <%= pagination.page %></span>
+        <a href="?page=<%= pagination.page + 1 %>&entityType=<%= filters.entityType || '' %>">Next →</a>
+      </div>
+      
+      <% } else { %>
+      <div class="empty-state">
+        <p>No version history found</p>
+      </div>
+      <% } %>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script>
+    function toggleDiff(idx) {
+      const diffView = document.getElementById('diff-' + idx);
+      diffView.classList.toggle('active');
+    }
+  </script>
+</body>
+</html>
