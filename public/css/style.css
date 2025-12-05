@@ -791,9 +791,47 @@ html {
     list-style: none;
     margin: 0;
     z-index: 1300;
+    margin-left: 8px;
+    animation: slideInRight 0.2s ease forwards;
+    transform-origin: left center;
+}
+
+.dropdown-submenu-content.right-aligned {
+    left: auto;
+    right: 100%;
+    margin-left: 0;
+    margin-right: 8px;
+    animation: slideInLeft 0.2s ease forwards;
+    transform-origin: right center;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .dropdown-submenu:hover .dropdown-submenu-content {
+    display: block;
+}
+
+.dropdown-submenu.open .dropdown-submenu-content {
     display: block;
 }
 
@@ -829,6 +867,13 @@ html {
         background: #f9fafb;
         border-radius: 8px;
         margin: 0.5rem 0;
+        animation: none;
+    }
+    
+    .dropdown-submenu-content.right-aligned {
+        right: auto;
+        margin-right: 0;
+        animation: none;
     }
     
     .dropdown-submenu-content a {

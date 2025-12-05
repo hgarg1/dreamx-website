@@ -130,6 +130,14 @@ function initDropdowns() {
             dd.classList.toggle('open');
             const expanded = dd.classList.contains('open');
             toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            
+            // If dropdown is being opened, handle submenu positioning
+            if (expanded) {
+                const submenus = dd.querySelectorAll('.dropdown-submenu');
+                submenus.forEach(submenu => {
+                    adjustSubmenuPosition(submenu);
+                });
+            }
         });
         
         // Ensure dropdown menu links work properly
@@ -140,14 +148,65 @@ function initDropdowns() {
                 // Let the link navigate normally
             });
         });
+        
+        // Add click handler to submenu items to toggle submenu visibility
+        const submenus = dd.querySelectorAll('.dropdown-submenu');
+        submenus.forEach(submenu => {
+            const submenuLink = submenu.querySelector('a');
+            if (submenuLink) {
+                submenuLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    submenu.classList.toggle('open');
+                    adjustSubmenuPosition(submenu);
+                });
+            }
+            
+            // Close submenu when a submenu item is clicked
+            const submenuItems = submenu.querySelectorAll('.dropdown-submenu-content a');
+            submenuItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            });
+        });
     });
+    
     // Close when clicking outside
     document.addEventListener('click', () => {
         document.querySelectorAll('.dropdown.open').forEach(dd => {
             dd.classList.remove('open');
             const t = dd.querySelector('.dropdown-toggle');
             if (t) t.setAttribute('aria-expanded', 'false');
+            
+            // Close submenus
+            dd.querySelectorAll('.dropdown-submenu.open').forEach(submenu => {
+                submenu.classList.remove('open');
+            });
         });
+    });
+}
+
+/**
+ * Adjust submenu position based on available screen space
+ */
+function adjustSubmenuPosition(submenu) {
+    const submenuContent = submenu.querySelector('.dropdown-submenu-content');
+    if (!submenuContent) return;
+    
+    // Remove any existing alignment class
+    submenuContent.classList.remove('right-aligned');
+    
+    // Use requestAnimationFrame to ensure the element is rendered before measuring
+    requestAnimationFrame(() => {
+        const rect = submenuContent.getBoundingClientRect();
+        const windowWidth = window.innerWidth;
+        
+        // Check if submenu goes off the right edge of the screen
+        if (rect.right > windowWidth) {
+            // Not enough space on the right, align to the left
+            submenuContent.classList.add('right-aligned');
+        }
     });
 }
 
