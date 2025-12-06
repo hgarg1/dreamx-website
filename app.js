@@ -461,9 +461,14 @@ const simpleWebAuthnBundlePath = path.join(
 app.use('/webauthn', express.static(simpleWebAuthnBundlePath));
 
 // Import route modules
-const initStaticRoutes = require('./routes/static/static');
-const staticRoutes = initStaticRoutes();
+const staticRoutes = require('./routes/static/static');
 const webauthnRoutes = require('./routes/auth/webauthn');
+
+// Mount static routes (manifest, service worker, sitemap)
+app.use('/', staticRoutes);
+
+// Mount WebAuthn routes (passkey registration/authentication)
+app.use('/passkey', webauthnRoutes);
 
 // Serve static files from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
@@ -498,9 +503,8 @@ app.use(passport.session());
 // Route initializations are handled below to avoid redeclaration
 
 // RBAC Admin API routes
-const initRbacRoutes = require('./routes/admin/rbac');
-const rbacRoutes = initRbacRoutes(app);
-// Note: RBAC API routes are mounted directly on app, not as a router
+const rbacApiRoutes = require('./routes/admin/rbac');
+app.use('/admin/rbac', rbacApiRoutes);
 
 // RBAC Admin Dashboard routes
 const rbacDashboardRoutes = require('./routes/admin/rbac-dashboard');

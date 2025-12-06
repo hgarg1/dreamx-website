@@ -25,7 +25,7 @@ const {
     createPricingTier,
     deletePricingTier,
     db
-} = require('../db');
+} = require('../../db');
 
 // Business Admin Permission Definitions
 const BUSINESS_ADMIN_PERMISSION_DEFINITIONS = [
