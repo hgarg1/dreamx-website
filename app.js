@@ -506,6 +506,77 @@ const rbacRoutes = initRbacRoutes(app);
 const rbacDashboardRoutes = require('./routes/admin/rbac-dashboard');
 app.use('/rbac', rbacDashboardRoutes);
 
+// =============================================================================
+// ROUTE IMPORTS & MOUNTING
+// All routes are now organized in subfolders under /routes
+// =============================================================================
+
+// Auth routes (login, register, OAuth, password reset, email verification)
+const authRoutes = require('./routes/auth/auth');
+app.use('/', authRoutes);
+
+// Mobile API authentication routes (token-based)
+const apiAuthRoutes = require('./routes/auth/api-auth');
+app.use('/api/auth', apiAuthRoutes);
+
+// WebAuthn/Passkey authentication routes
+app.use('/webauthn', webauthnRoutes);
+
+// Admin routes (user management, moderation, refunds, etc.)
+const adminRoutes = require('./routes/admin/admin');
+app.use('/', adminRoutes);
+
+// HR routes (career jobs, applications, team management)
+const initHrRoutes = require('./routes/hr/hr');
+const hrRoutes = initHrRoutes({ emailService, careerAssetUpload });
+app.use('/', hrRoutes);
+
+// Feed routes (posts, comments, reactions, search)
+const feedRoutes = require('./routes/feed/feed');
+app.use('/', feedRoutes);
+
+// Profile routes (view, edit, follow/unfollow, block/report)
+const profileRoutes = require('./routes/profile/profile');
+app.use('/', profileRoutes);
+
+// Messages routes (DMs, group chats, reactions)
+const messagesRoutes = require('./routes/messages/messages');
+app.use('/', messagesRoutes);
+
+// Services routes (marketplace, reviews, bookings)
+const servicesRoutes = require('./routes/services/services');
+app.use('/', servicesRoutes);
+
+// Settings routes (account, privacy, billing, notifications)
+const settingsRoutes = require('./routes/settings/settings');
+app.use('/', settingsRoutes);
+
+// Onboarding routes
+const initOnboardingRoutes = require('./routes/onboarding/onboarding');
+const onboardingRoutes = initOnboardingRoutes({ upload });
+app.use('/', onboardingRoutes);
+
+// Projects routes (if using project system)
+const projectsRoutes = require('./routes/projects/projects');
+app.use('/projects', projectsRoutes);
+
+// API routes (notifications, push subscriptions, career applications)
+const initApiRoutes = require('./routes/api');
+const apiRoutes = initApiRoutes({ io, careerUpload });
+app.use('/', apiRoutes);
+
+// Miscellaneous routes (map, pricing, static pages, etc.)
+const initMiscRoutes = require('./routes/misc');
+const miscRoutes = initMiscRoutes();
+app.use('/', miscRoutes);
+
+// Business routes (sales inquiries, pricing tiers, business admin)
+const businessRoutes = require('./routes/business');
+app.use('/', businessRoutes);
+
+// Static routes (manifest, sitemap, service worker)
+app.use('/', staticRoutes);
+
 // Mobile API authentication routes (token-based)
 
 // Minimal serialize/deserialize (not strictly used since we set req.session.userId)
