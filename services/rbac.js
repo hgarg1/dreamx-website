@@ -75,22 +75,23 @@ function runRbacMigrations() {
       // Replace dbo. schema prefix with nothing
       .replace(/\bdbo\./g, '')
       // Replace SQL Server data types with SQLite equivalents
+      // Note: More specific patterns (BIGINT IDENTITY) must come before general patterns (BIGINT)
       .replace(/\bBIGINT\s+IDENTITY\(1,1\)/gi, 'INTEGER')
-      .replace(/\bBIGINT\b/gi, 'INTEGER')  // Replace remaining BIGINT
-      .replace(/\bINT\b/gi, 'INTEGER')     // Replace INT with INTEGER
+      .replace(/\bBIGINT\b/gi, 'INTEGER')
+      .replace(/\bINT\b/gi, 'INTEGER')
       .replace(/\bNVARCHAR\((\d+)\)/gi, 'TEXT')
       .replace(/\bNVARCHAR\(MAX\)/gi, 'TEXT')
       .replace(/\bDATETIME2/gi, 'TEXT')
       .replace(/\bBIT\b/gi, 'INTEGER')
-      .replace(/\bSYSUTCDATETIME\(\)/gi, "CURRENT_TIMESTAMP")
-      // Replace SQL Server constraint syntax
+      .replace(/\bSYSUTCDATETIME\(\)/gi, 'CURRENT_TIMESTAMP')
+      // Replace SQL Server constraint syntax - removes named constraints as SQLite doesn't require them
       .replace(/CONSTRAINT\s+(\w+)\s+DEFAULT/gi, 'DEFAULT')
       // Handle foreign key syntax differences
       .replace(/REFERENCES\s+dbo\./gi, 'REFERENCES ')
-      // Remove ON DELETE CASCADE for SQLite (SQLite handles this differently)
-      // SQLite supports it, so we can keep it
-      // Handle filtered indexes (WHERE clause in CREATE INDEX) - SQLite supports this
-      // Remove CREATE UNIQUE INDEX with WHERE clause for now as it might cause issues
+      // Note: SQLite supports both ON DELETE CASCADE and filtered indexes (WHERE clause),
+      // so we keep them as-is
+      // Remove CREATE UNIQUE INDEX with WHERE clause as they may cause compatibility issues
+      // in some SQLite versions. Tables will still work, just without the filtered unique constraint.
       .replace(/CREATE\s+UNIQUE\s+INDEX\s+\w+\s+ON\s+(\w+)\([^)]+\)\s+WHERE\s+[^;]+;/gi, '');
     
     // Split by semicolons
