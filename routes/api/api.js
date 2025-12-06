@@ -3,8 +3,8 @@ const {
     getUserById, createNotification, savePushSubscription, deletePushSubscription, 
     createCareerApplication, addAuditLog, db,
     getUserNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead
-} = require('../db');
-const emailService = require('../services/emailService');
+} = require('../../db');
+const emailService = require('../../services/emailService');
 
 const router = express.Router();
 
