@@ -25,10 +25,10 @@ const {
     revokeRefreshToken,
     revokeAllUserTokens,
     cleanupExpiredTokens
-} = require('../db');
-const emailService = require('../services/emailService');
-const { generateAccessToken, generateRefreshToken, hashRefreshToken, verifyAccessToken, getRefreshTokenExpiry } = require('../utils/auth-tokens');
-const { getRequestBaseUrl, validatePasswordComplexity } = require('./utils');
+} = require('../../db');
+const emailService = require('../../services/emailService');
+const { generateAccessToken, generateRefreshToken, hashRefreshToken, verifyAccessToken, getRefreshTokenExpiry } = require('../../utils/auth-tokens');
+const { getRequestBaseUrl, validatePasswordComplexity } = require('../../utils/route-helpers');
 
 const router = express.Router();
 
