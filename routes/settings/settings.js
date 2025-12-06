@@ -1,5 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const {
     getUserById,
     getUserByHandle,
@@ -23,8 +26,38 @@ const {
     createOrUpdateSubscription,
     createInvoice,
     addAuditLog,
+    getUserRefundRequests,
+    createRefundRequest,
     db
 } = require('../../db');
+
+// Multer config for refund screenshots
+const refundUploadDir = path.join(__dirname, '..', '..', 'public', 'uploads', 'refunds');
+if (!fs.existsSync(refundUploadDir)) {
+    fs.mkdirSync(refundUploadDir, { recursive: true });
+}
+
+const refundStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, refundUploadDir),
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `refund-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+});
+
+const refundUpload = multer({
+    storage: refundStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif|webp|pdf/;
+        const ext = path.extname(file.originalname).toLowerCase();
+        const mime = file.mimetype;
+        if (allowedTypes.test(ext) && (mime.startsWith('image/') || mime === 'application/pdf')) {
+            return cb(null, true);
+        }
+        cb(new Error('Only image and PDF files are allowed'));
+    }
+});
 const emailService = require('../../services/emailService');
 const { validatePasswordComplexity } = require('../../utils/route-helpers');
 
@@ -644,6 +677,117 @@ function initSettingsRoutes() {
         } catch (error) {
             console.error('Account deletion error:', error);
             res.redirect('/settings?error=Failed+to+delete+account');
+        }
+    });
+
+    // Refund Request page
+    router.get('/refund-request', async (req, res) => {
+        if (!req.session.userId) {
+            return res.redirect('/login');
+        }
+
+        try {
+            const charges = getUserCharges({
+                userId: req.session.userId,
+                limit: 100,
+                offset: 0
+            }) || [];
+
+            const recentRefunds = getUserRefundRequests(req.session.userId) || [];
+
+            const fiveDaysAgo = new Date();
+            fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
+            charges.forEach(charge => {
+                const recentRefund = recentRefunds.find(refund => {
+                    const refundDate = new Date(refund.created_at);
+                    return refund.charge_id === charge.id && refundDate > fiveDaysAgo;
+                });
+                charge.hasRecentRefund = !!recentRefund;
+                charge.refundStatus = recentRefund?.status;
+            });
+
+            const user = getUserById(req.session.userId);
+
+            res.render('user/refund-request', {
+                title: 'Refund Request - Dream X',
+                currentPage: 'refund-request',
+                charges: charges,
+                recentRefunds: recentRefunds,
+                user: user
+            });
+        } catch (error) {
+            console.error('Error loading refund request page:', error);
+            res.status(500).send('Error loading refund request page');
+        }
+    });
+
+    // Handle refund request submission
+    router.post('/refund-request', refundUpload.single('screenshot'), (req, res) => {
+        if (!req.session.userId) {
+            return res.status(401).json({ success: false, error: 'Not authenticated' });
+        }
+
+        const {
+            charge_id, chargeId, amount, reason, description,
+            order_date, orderDate, transaction_id, transactionId,
+            preferred_method, preferredMethod, account_email, accountEmail,
+            account_last_four, accountLastFour
+        } = req.body;
+
+        const finalChargeId = (charge_id || chargeId) ? parseInt(charge_id || chargeId) : null;
+        const finalTransactionId = transaction_id || transactionId;
+
+        try {
+            const recentRefunds = getUserRefundRequests(req.session.userId);
+            const fiveDaysAgo = new Date();
+            fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
+            const duplicateRefund = recentRefunds.find(refund => {
+                const refundDate = new Date(refund.created_at);
+                const isRecent = refundDate > fiveDaysAgo;
+                if (isRecent) {
+                    if (finalChargeId && refund.charge_id === finalChargeId) return true;
+                    if (finalTransactionId && refund.transaction_id === finalTransactionId) return true;
+                }
+                return false;
+            });
+
+            if (duplicateRefund) {
+                const daysSince = Math.ceil((new Date() - new Date(duplicateRefund.created_at)) / (1000 * 60 * 60 * 24));
+                const daysRemaining = 5 - daysSince;
+                return res.status(429).json({
+                    success: false,
+                    error: `You have already submitted a refund request for this transaction. Please wait ${daysRemaining} more day(s) before submitting another request.`,
+                    waitDays: daysRemaining
+                });
+            }
+
+            let screenshotPath = null;
+            if (req.file) {
+                screenshotPath = req.file.path || `refunds/${req.file.filename}`;
+            }
+
+            const refundRequestId = createRefundRequest({
+                userId: req.session.userId,
+                chargeId: finalChargeId,
+                amount: parseFloat(amount),
+                reason: reason,
+                description: description,
+                orderDate: order_date || orderDate,
+                transactionId: finalTransactionId,
+                preferredMethod: preferred_method || preferredMethod,
+                accountEmail: account_email || accountEmail || null,
+                accountLastFour: account_last_four || accountLastFour || null,
+                screenshot: screenshotPath
+            });
+
+            console.log('✅ Refund request created:', refundRequestId);
+
+            res.json({ success: true, message: 'Refund request submitted successfully', requestId: refundRequestId });
+        } catch (error) {
+            console.error('Error creating refund request:', error);
+            res.status(500).json({ success: false, error: 'Failed to submit refund request. Please try again.' });
         }
     });
 
