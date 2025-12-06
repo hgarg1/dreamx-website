@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUserById, getUserSubscription, saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation, getUnreadMessageCount, getPublicCareerJobs, db, createSalesInquiry, addAuditLog, getPricingTiers } = require('../../db');
+const { getUserById, getUserSubscription, saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation, getUnreadMessageCount, getPublicCareerJobs, db, createSalesInquiry, addAuditLog, getPricingTiers, checkAccountStatus, createContentAppeal, createAccountAppeal, getUserCharges, getUserRefundRequests, createRefundRequest } = require('../../db');
 
 const router = express.Router();
 
@@ -284,6 +284,63 @@ function initMiscRoutes() {
         });
     });
 
+    // Privacy Policy page
+    router.get('/privacy', preventCache, (req, res) => {
+        res.render('static/privacy', {
+            title: 'Privacy Policy - Dream X',
+            currentPage: 'privacy'
+        });
+    });
+
+    // Terms of Service page
+    router.get('/terms', preventCache, (req, res) => {
+        res.render('static/terms', {
+            title: 'Terms of Service - Dream X',
+            currentPage: 'terms',
+            authUser: req.session.userId ? getUserById(req.session.userId) : null
+        });
+    });
+
+    // Community Guidelines page
+    router.get('/community-guidelines', preventCache, (req, res) => {
+        res.render('static/community-guidelines', {
+            title: 'Community Guidelines - Dream X',
+            currentPage: 'community-guidelines',
+            authUser: req.session.userId ? getUserById(req.session.userId) : null
+        });
+    });
+
+    // Content Appeal page
+    router.get('/content-appeal', preventCache, (req, res) => {
+        res.render('appeals/content-appeal', {
+            title: 'Content Appeal - Dream X',
+            currentPage: 'content-appeal'
+        });
+    });
+
+    // Account Appeal page
+    router.get('/account-appeal', preventCache, (req, res) => {
+        res.render('appeals/account-appeal', {
+            title: 'Account Appeal - Dream X',
+            currentPage: 'account-appeal'
+        });
+    });
+
+    // Account status page
+    router.get('/account-status', preventCache, (req, res) => {
+        const userId = parseInt(req.query.userId, 10);
+        if (!userId) return res.redirect('/login');
+        const accountStatus = checkAccountStatus(userId);
+        const user = getUserById(userId);
+        res.render('user/account-status', {
+            title: 'Account Status - Dream X',
+            currentPage: 'account-status',
+            accountStatus,
+            user,
+            authUser: null
+        });
+    });
+
     // Sales Inquiry API Endpoint
     router.post('/api/sales/inquiry', async (req, res) => {
         try {
@@ -407,6 +464,38 @@ function initMiscRoutes() {
                 success: false,
                 error: 'Failed to submit inquiry. Please try again or contact support@dreamx.app.'
             });
+        }
+    });
+
+    // Submit content appeal
+    router.post('/api/appeals/content', (req, res) => {
+        try {
+            const { email, contentType, contentUrl, removalReason, description, appealReason, additionalInfo } = req.body;
+            if (!email || !contentType || !appealReason) {
+                return res.status(400).json({ error: 'Missing required fields' });
+            }
+            const id = createContentAppeal({ email, contentType, contentUrl, removalReason, description, appealReason, additionalInfo });
+            try { addAuditLog({ userId: req.session.userId || null, action: 'content_appeal_submitted', details: JSON.stringify({ id, email }) }); } catch (e) { }
+            res.json({ success: true, message: 'Your appeal has been submitted. You will receive a response within 3-5 business days.', caseNumber: `CA-${id}` });
+        } catch (error) {
+            console.error('Error processing content appeal:', error);
+            res.status(500).json({ error: 'Failed to submit appeal' });
+        }
+    });
+
+    // Submit account appeal
+    router.post('/api/appeals/account', (req, res) => {
+        try {
+            const { email, username, accountAction, actionDate, violationReason, appealReason, preventionPlan, additionalInfo, contactEmail } = req.body;
+            if (!email || !username || !accountAction || !appealReason) {
+                return res.status(400).json({ error: 'Missing required fields' });
+            }
+            const id = createAccountAppeal({ email, username, accountAction, actionDate, violationReason, appealReason, preventionPlan, additionalInfo, contactEmail });
+            try { addAuditLog({ userId: req.session.userId || null, action: 'account_appeal_submitted', details: JSON.stringify({ id, email }) }); } catch (e) { }
+            res.json({ success: true, message: 'Your account appeal has been submitted. You will receive a decision within 3-5 business days.', caseNumber: `AA-${id}` });
+        } catch (error) {
+            console.error('Error processing account appeal:', error);
+            res.status(500).json({ error: 'Failed to submit appeal' });
         }
     });
 
