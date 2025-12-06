@@ -45,19 +45,60 @@ function runRbacMigrations() {
     return;
   }
   
-  const schema = fs.readFileSync(schemaPath, 'utf8');
+  let schema = fs.readFileSync(schemaPath, 'utf8');
   
-  // Remove SQL comments before splitting
+  // Remove SQL comments (lines starting with --)
   const cleanSchema = schema
     .split('\n')
     .filter(line => !line.trim().startsWith('--'))
     .join('\n');
   
-  // Split by semicolons and execute each statement
-  const statements = cleanSchema
-    .split(';')
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
+  let statements;
+  
+  if (isProduction) {
+    // SQL Server: split by GO batch separator and filter out SET commands
+    statements = cleanSchema
+      .split(/\bGO\b/i)
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .filter(s => !s.match(/^SET\s+(ANSI_NULLS|QUOTED_IDENTIFIER)/i));
+  } else {
+    // SQLite: adapt SQL Server syntax to SQLite
+    let sqliteSchema = cleanSchema
+      // Remove SET commands
+      .replace(/SET\s+ANSI_NULLS\s+(ON|OFF)\s*/gi, '')
+      .replace(/SET\s+QUOTED_IDENTIFIER\s+(ON|OFF)\s*/gi, '')
+      // Remove GO statements
+      .replace(/\bGO\b/gi, '')
+      // Remove SQL Server specific IF OBJECT_ID checks and DROP statements
+      .replace(/IF\s+OBJECT_ID\s*\([^)]+\)\s+IS\s+NOT\s+NULL\s+DROP\s+TABLE\s+dbo\.\w+;?\s*/gi, '')
+      // Replace dbo. schema prefix with nothing
+      .replace(/\bdbo\./g, '')
+      // Replace SQL Server data types with SQLite equivalents
+      .replace(/\bBIGINT\s+IDENTITY\(1,1\)/gi, 'INTEGER')
+      .replace(/\bBIGINT\b/gi, 'INTEGER')  // Replace remaining BIGINT
+      .replace(/\bINT\b/gi, 'INTEGER')     // Replace INT with INTEGER
+      .replace(/\bNVARCHAR\((\d+)\)/gi, 'TEXT')
+      .replace(/\bNVARCHAR\(MAX\)/gi, 'TEXT')
+      .replace(/\bDATETIME2/gi, 'TEXT')
+      .replace(/\bBIT\b/gi, 'INTEGER')
+      .replace(/\bSYSUTCDATETIME\(\)/gi, "CURRENT_TIMESTAMP")
+      // Replace SQL Server constraint syntax
+      .replace(/CONSTRAINT\s+(\w+)\s+DEFAULT/gi, 'DEFAULT')
+      // Handle foreign key syntax differences
+      .replace(/REFERENCES\s+dbo\./gi, 'REFERENCES ')
+      // Remove ON DELETE CASCADE for SQLite (SQLite handles this differently)
+      // SQLite supports it, so we can keep it
+      // Handle filtered indexes (WHERE clause in CREATE INDEX) - SQLite supports this
+      // Remove CREATE UNIQUE INDEX with WHERE clause for now as it might cause issues
+      .replace(/CREATE\s+UNIQUE\s+INDEX\s+\w+\s+ON\s+(\w+)\([^)]+\)\s+WHERE\s+[^;]+;/gi, '');
+    
+    // Split by semicolons
+    statements = sqliteSchema
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  }
   
   for (const statement of statements) {
     try {
@@ -66,7 +107,8 @@ function runRbacMigrations() {
       }
     } catch (error) {
       // Ignore "already exists" errors
-      if (!error.message.includes('already exists')) {
+      if (!error.message.includes('already exists') && 
+          !error.message.includes('There is already an object')) {
         console.warn('RBAC migration statement failed:', error.message);
       }
     }
