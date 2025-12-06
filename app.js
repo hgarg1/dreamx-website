@@ -463,6 +463,20 @@ app.use('/webauthn', express.static(simpleWebAuthnBundlePath));
 // Import route modules
 const staticRoutes = require('./routes/static/static');
 const webauthnRoutes = require('./routes/auth/webauthn');
+const authRoutes = require('./routes/auth/auth');
+const apiAuthRoutes = require('./routes/api/api-auth');
+const initAdminRoutes = require('./routes/admin/admin');
+const initFeedRoutes = require('./routes/feed/feed');
+const initProfileRoutes = require('./routes/profile/profile');
+const initMessagesRoutes = require('./routes/messages/messages');
+const initSettingsRoutes = require('./routes/settings/settings');
+const initServicesRoutes = require('./routes/services/services');
+const initHrRoutes = require('./routes/hr/hr');
+const initOnboardingRoutes = require('./routes/onboarding/onboarding');
+const initBusinessRoutes = require('./routes/business/business');
+const projectRoutes = require('./routes/projects/projects');
+const initApiRoutes = require('./routes/api/api');
+const initMiscRoutes = require('./routes/feed/misc');
 
 // Mount static routes (manifest, service worker, sitemap)
 app.use('/', staticRoutes);
@@ -509,6 +523,15 @@ app.use('/admin/rbac', rbacApiRoutes);
 // RBAC Admin Dashboard routes
 const rbacDashboardRoutes = require('./routes/admin/rbac-dashboard');
 app.use('/rbac', rbacDashboardRoutes);
+
+// Mount authentication routes (login, register, OAuth, password reset, email verification)
+app.use('/', authRoutes);
+
+// Mount mobile API authentication routes (token-based)
+app.use('/', apiAuthRoutes);
+
+// Mount project routes
+app.use('/', projectRoutes);
 
 // Mobile API authentication routes (token-based)
 
@@ -1052,33 +1075,7 @@ const resolvePostAuthRedirect = (user) => {
     return '/feed';
 };
 
-// Onboarding reminder page (sets session flag so we don't loop in same session)
-app.get('/onboarding-empty', (req, res) => {
-    // Prevent caching to ensure fresh session data
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    if (!req.session.userId) return res.redirect('/login');
-    const user = getUserById(req.session.userId);
-    if (!user) return res.redirect('/login');
-    // If they already finished, just go to feed
-    if (!userNeedsOnboarding(user)) return res.redirect('/feed');
-    req.session.seenOnboardingPrompt = true;
-    res.render('user/onboarding-empty', {
-        title: 'Onboarding - Let\'s Get Started | Dream X',
-        currentPage: 'onboarding-empty',
-        authUser: res.locals.authUser || user
-    });
-});
-
-app.post('/onboarding/start', (req, res) => {
-    if (!req.session.userId) return res.redirect('/login');
-    const user = getUserById(req.session.userId);
-    if (!user) return res.redirect('/login');
-    if (!userNeedsOnboarding(user)) return res.redirect('/feed');
-    req.session.seenOnboardingPrompt = true;
-    return res.redirect('/onboarding');
-});
+// Onboarding routes are now in routes/onboarding/onboarding.js
 
 // RBAC helpers
 const ADMIN_PERMISSION_DEFINITIONS = [
@@ -1210,23 +1207,53 @@ const requireBusinessAdminPermission = (permission) => (req, res, next) => {
 };
 
 // ===== ROUTES =====
-// Routes are now organized in the routes/ directory:
-// - routes/static.js: Static files (manifest, service-worker, sitemap)
-// - routes/webauthn.js: WebAuthn/Passkey routes
-// Additional route files should be created for:
-// - routes/auth.js: Authentication routes (login, register, OAuth, password reset)
-// - routes/settings.js: Settings routes
-// - routes/feed.js: Feed and post routes
-// - routes/profile.js: Profile routes
-// - routes/messages.js: Messages routes
-// - routes/services.js: Services routes
-// - routes/admin.js: Admin routes
-// - routes/hr.js: HR routes
-// - routes/api.js: API routes
+// Routes are now organized in the routes/ directory.
+// Each route module is initialized with the necessary dependencies and mounted below.
 
-// WebAuthn routes are now in routes/webauthn.js
+// Initialize and mount route modules that require dependencies
+// Admin routes
+const adminRoutes = initAdminRoutes({ io, webpush });
+app.use('/', adminRoutes);
 
-// OAuth routes are now in routes/auth.js
+// Feed routes (posts, search, hashtags, reels, reactions, comments)
+const feedRoutes = initFeedRoutes({ postUpload, io });
+app.use('/', feedRoutes);
+
+// Profile routes
+const profileRoutes = initProfileRoutes({ upload, io });
+app.use('/', profileRoutes);
+
+// Messages routes
+const messagesRoutes = initMessagesRoutes({ chatUpload, io });
+app.use('/', messagesRoutes);
+
+// Settings routes
+const settingsRoutes = initSettingsRoutes();
+app.use('/', settingsRoutes);
+
+// Services routes
+const servicesRoutes = initServicesRoutes({ io });
+app.use('/', servicesRoutes);
+
+// HR routes
+const hrRoutes = initHrRoutes({ emailService, careerAssetUpload });
+app.use('/', hrRoutes);
+
+// Onboarding routes
+const onboardingRoutes = initOnboardingRoutes({ upload });
+app.use('/', onboardingRoutes);
+
+// Business routes
+const businessRoutes = initBusinessRoutes({ emailService });
+app.use('/', businessRoutes);
+
+// API routes
+const apiRoutes = initApiRoutes({ io, careerUpload });
+app.use('/', apiRoutes);
+
+// Misc routes (map, location, pricing, etc.)
+const miscRoutes = initMiscRoutes();
+app.use('/', miscRoutes);
 
 // Home page
 app.get('/', (req, res) => {
@@ -1278,6 +1305,14 @@ const defaultPermissionsForRole = (role) => {
     if (role === 'admin') return ['manage_users', 'moderate_content', 'billing', 'services_moderation', 'refunds', 'careers', 'appeals'];
     return [];
 };
+
+// =====================================================================
+// DEPRECATED INLINE ROUTES - DO NOT MODIFY
+// The routes below are DUPLICATES that are now handled by route modules
+// mounted above (routes/admin, routes/feed, routes/profile, etc.).
+// These inline routes are shadowed by the route modules and will be
+// removed in a future cleanup. Do not add new routes in this section.
+// =====================================================================
 
 // Admin dashboard with pagination, audit logs, and queues
 app.get('/admin', requireAdmin, (req, res) => {
