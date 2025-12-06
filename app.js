@@ -1,3 +1,4 @@
+// ...existing code...
 // Import required modules
 const express = require('express');
 const passport = require('passport');
@@ -460,8 +461,9 @@ const simpleWebAuthnBundlePath = path.join(
 app.use('/webauthn', express.static(simpleWebAuthnBundlePath));
 
 // Import route modules
-const staticRoutes = require('./routes/static');
-const webauthnRoutes = require('./routes/webauthn');
+const initStaticRoutes = require('./routes/static/static');
+const staticRoutes = initStaticRoutes();
+const webauthnRoutes = require('./routes/auth/webauthn');
 
 // Serve static files from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
@@ -493,57 +495,18 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Use route modules - MUST be after session middleware
-app.use('/', staticRoutes);
-app.use('/webauthn', webauthnRoutes);
-const authRoutes = require('./routes/auth');
-app.use('/', authRoutes);
-const initFeedRoutes = require('./routes/feed');
-const feedRoutes = initFeedRoutes({ postUpload, io });
-app.use('/', feedRoutes);
-const initProfileRoutes = require('./routes/profile');
-const profileRoutes = initProfileRoutes({ upload, io });
-app.use('/', profileRoutes);
-const initMessagesRoutes = require('./routes/messages');
-const messagesRoutes = initMessagesRoutes({ chatUpload, io });
-app.use('/', messagesRoutes);
-const initServicesRoutes = require('./routes/services');
-const servicesRoutes = initServicesRoutes({ io });
-app.use('/', servicesRoutes);
-const initAdminRoutes = require('./routes/admin');
-const adminRoutes = initAdminRoutes({ io, webpush });
-app.use('/', adminRoutes);
-const initHrRoutes = require('./routes/hr');
-const hrRoutes = initHrRoutes({ emailService, careerAssetUpload });
-app.use('/', hrRoutes);
-const initBusinessRoutes = require('./routes/business');
-const businessRoutes = initBusinessRoutes({ emailService });
-app.use('/', businessRoutes);
-const initSettingsRoutes = require('./routes/settings');
-const settingsRoutes = initSettingsRoutes();
-app.use('/', settingsRoutes);
-const initOnboardingRoutes = require('./routes/onboarding');
-const onboardingRoutes = initOnboardingRoutes({ upload });
-app.use('/', onboardingRoutes);
-const initMiscRoutes = require('./routes/misc');
-const miscRoutes = initMiscRoutes();
-app.use('/', miscRoutes);
-const projectRoutes = require('./routes/projects');
-app.use('/', projectRoutes);
-const initApiRoutes = require('./routes/api');
-const apiRoutes = initApiRoutes({ io, careerUpload });
-app.use('/', apiRoutes);
+// Route initializations are handled below to avoid redeclaration
 
 // RBAC Admin API routes
-const rbacRoutes = require('./routes/rbac');
-app.use('/api/rbac', rbacRoutes);
+const initRbacRoutes = require('./routes/admin/rbac');
+const rbacRoutes = initRbacRoutes(app);
+// Note: RBAC API routes are mounted directly on app, not as a router
 
 // RBAC Admin Dashboard routes
-const rbacDashboardRoutes = require('./routes/rbac-dashboard');
+const rbacDashboardRoutes = require('./routes/admin/rbac-dashboard');
 app.use('/rbac', rbacDashboardRoutes);
 
 // Mobile API authentication routes (token-based)
-const apiAuthRoutes = require('./routes/api-auth');
-app.use('/', apiAuthRoutes);
 
 // Minimal serialize/deserialize (not strictly used since we set req.session.userId)
 passport.serializeUser((user, done) => done(null, user.id));
@@ -2623,7 +2586,7 @@ app.get('/search', (req, res) => {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
-        return res.status(200).render('search-zero-results', {
+        return res.status(200).render('feed/search-zero-results', {
             title: 'Search - Dream X',
             currentPage: 'search',
             authUser,
@@ -5562,7 +5525,7 @@ app.get('/help-center', (req, res) => {
         { q: 'How does the marketplace work?', a: 'Pro Seller and Elite Seller tiers can create service listings for tutoring, coaching, or consultations. Buyers can browse, book sessions, and pay directly through the platform. Dream X handles scheduling, payments, and invoicing.' },
         { q: 'What payment methods are accepted?', a: 'We accept major credit cards, debit cards, and digital wallets through our secure payment processor. Sellers receive payouts via bank transfer or PayPal on a regular schedule.' }
     ];
-    res.render('help-center', {
+    res.render('static/help-center', {
         title: 'Help Center - Dream X',
         currentPage: 'help-center',
         faqs
@@ -5761,7 +5724,7 @@ app.get('/onboarding', (req, res) => {
     const user = getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
     if (!userNeedsOnboarding(user)) return res.redirect(resolvePostAuthRedirect(user));
-    res.render('onboarding', {
+    res.render('user/onboarding', {
         title: 'Start with your passions',
         currentPage: 'onboarding'
     });
@@ -5853,7 +5816,7 @@ const persistOnboarding = (req, res, { respondWithJson } = { respondWithJson: fa
         console.error('Failed to save onboarding data', err);
         return respondWithJson
             ? res.status(500).json({ success: false, error: 'Unable to save onboarding data' })
-            : res.status(500).render('onboarding', { title: 'Start with your passions', currentPage: 'onboarding', error: 'Unable to save onboarding data' });
+            : res.status(500).render('user/onboarding', { title: 'Start with your passions', currentPage: 'onboarding', error: 'Unable to save onboarding data' });
     }
 };
 
@@ -6805,7 +6768,7 @@ app.post('/api/livestream/:streamId/chat', (req, res) => {
 
 // Error handler for 503 errors
 app.use((req, res, next) => {
-    res.status(503).render('503', { title: 'Service Unavailable - Dream X' });
+    res.status(503).render('errors/503', { title: 'Service Unavailable - Dream X' });
 });
 
 // Error handler for 500 errors
@@ -6814,12 +6777,12 @@ app.use((err, req, res, next) => {
     console.error('Error Stack:', err.stack);
     console.error('Request Path:', req.path);
     console.error('Request Method:', req.method);
-    res.status(500).render('500', { title: 'Server Error - Dream X' });
+    res.status(500).render('errors/500', { title: 'Server Error - Dream X' });
 });
 
 // 404 handler - must be last route
 app.use((req, res) => {
-    res.status(404).render('404', { title: 'Page Not Found - Dream X' });
+    res.status(404).render('errors/404', { title: 'Page Not Found - Dream X' });
 });
 
 // Socket.IO for real-time messaging and notifications

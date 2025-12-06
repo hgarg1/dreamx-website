@@ -19,7 +19,7 @@ function errorHandler(err, req, res, next) {
   // Don't expose internal error details in production
   const isDevelopment = process.env.NODE_ENV !== 'Production';
   
-  res.status(statusCode).render('error', {
+  res.status(statusCode).render('errors/500', {
     title: 'Error - Dream X',
     currentPage: 'error',
     statusCode,

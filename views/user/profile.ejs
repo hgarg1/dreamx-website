@@ -1,4 +1,4 @@
-<%- include('partials/header') %>
+<%- include('../partials/header') %>
 
 <div class="profile-page <%= isBlockedByViewer ? 'is-blocked-view' : '' %>">
 <div class="profile-banner">
@@ -529,11 +529,11 @@
 
     <!-- Posts Panel -->
     <div class="tab-panel <%= (Array.isArray(userPosts) && userPosts.length > 0) ? 'active' : '' %>" id="posts">
-      <%- include('partials/post-helpers') %>
+      <%- include('../partials/post-helpers') %>
       <section class="posts-stream" style="max-width:900px;margin:0 auto;">
         <% if (Array.isArray(userPosts) && userPosts.length > 0) { %>
           <% userPosts.forEach(function(post){ %>
-            <%- include('partials/post-card', { post }) %>
+            <%- include('../partials/post-card', { post }) %>
           <% }); %>
         <% } else { %>
           <div style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;">
@@ -559,7 +559,7 @@
 
     <!-- Reposts Panel -->
     <div class="tab-panel" id="reposts">
-      <%- include('partials/post-helpers') %>
+      <%- include('../partials/post-helpers') %>
       <section class="posts-stream" style="max-width:900px;margin:0 auto;">
         <% if (Array.isArray(userReposts) && userReposts.length > 0) { %>
           <% userReposts.forEach(function(post){ 
@@ -569,7 +569,7 @@
                  post.user_reaction = null;
                }
           %>
-            <%- include('partials/post-card', { post }) %>
+            <%- include('../partials/post-card', { post }) %>
           <% }); %>
         <% } else { %>
           <div style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;">
@@ -946,7 +946,7 @@
   })();
 </script>
 
-<%- include('partials/reels-overlay') %>
+<%- include('../partials/reels-overlay') %>
 
 <script>
   // Tabs dropdown functionality (mobile)
@@ -1688,4 +1688,5 @@
 </script>
 
 </div>
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>
+

@@ -1,4 +1,4 @@
-<%- include('partials/header') %>
+<%- include('../partials/header') %>
 
 <style>
   .project-detail-layout {
@@ -643,7 +643,7 @@
 <section id="project-comments" style="margin: 32px auto; max-width: 1100px; padding: 0 24px;">
   <h2 class="gradient-text" style="margin-bottom: 12px;">Project Comments</h2>
   <p style="color: #6b7280; margin-bottom: 16px;">Discuss this project with the community.</p>
-  <%- include('partials/project-comments', {
+  <%- include('../partials/project-comments', {
     projectId: project.id,
     canComment: project.visibility === 'public' || isOwner
   }) %>
@@ -698,4 +698,5 @@
 
 </script>
 
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>
+

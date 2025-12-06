@@ -1,4 +1,4 @@
-<%- include('partials/header') %>
+<%- include('../partials/header') %>
 
 <!-- Feed Premium Styles -->
 <link rel="stylesheet" href="/css/feed.css?v=20251118">
@@ -2075,13 +2075,13 @@
       });
     </script>
 
-    <%- include('partials/post-helpers') %>
+    <%- include('../partials/post-helpers') %>
 
     <!-- Posts -->
     <section class="posts-stream">
       <% if (posts && posts.length > 0) { %>
         <% posts.forEach(function(post){ %>
-          <%- include('partials/post-card', { post }) %>
+          <%- include('../partials/post-card', { post }) %>
         <% }); %>
       <% } else { %>
         <div style="background:white;border-radius:16px;padding:48px;text-align:center;color:#6b7280;">
@@ -2351,4 +2351,5 @@
 <!-- Feed Advanced Animations -->
 <script src="/js/feed-animations.js"></script>
 
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>
+

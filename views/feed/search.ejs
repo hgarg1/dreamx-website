@@ -1,4 +1,4 @@
-<%- include('partials/header') %>
+<%- include('../partials/header') %>
 
 <section class="container" style="max-width:980px;margin:24px auto;padding:0 16px;">
   <form action="/search" method="get" style="display:flex;gap:8px;margin-bottom:16px;">
@@ -32,8 +32,9 @@
       <% }); %>
     </ul>
   <% } else { %>
-    <%- include('partials/search-zero-results', { query: q }) %>
+    <%- include('../partials/search-zero-results', { query: q }) %>
   <% } %>
 </section>
 
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>
+

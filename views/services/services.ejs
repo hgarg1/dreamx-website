@@ -1,4 +1,4 @@
-<%- include('partials/header') %>
+<%- include('../partials/header') %>
 
 <section class="services-hero">
   <div class="services-hero-inner">
@@ -116,7 +116,7 @@
         </div>
       <% }); %>
     <% } else { %>
-      <%- include('partials/search-zero-results', { query: (typeof q !== 'undefined' ? q : '') }) %>
+      <%- include('../partials/search-zero-results', { query: (typeof q !== 'undefined' ? q : '') }) %>
     <% } %>
   </div>
 </section>
@@ -166,4 +166,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>
+
