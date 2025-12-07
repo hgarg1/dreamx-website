@@ -40,6 +40,16 @@ const DeviceFingerprintService = require('../../services/deviceFingerprintServic
 const AltAccountDetectionService = require('../../services/altAccountDetectionService');
 const rateLimitService = require('../../services/rateLimitService');
 
+// Import security middleware
+const {
+    authLimiter,
+    passwordResetLimiter,
+    registrationLimiter
+} = require('../../middleware/security');
+
+// Import account lockout service
+const accountLockout = require('../../services/accountLockoutService');
+
 const router = express.Router();
 
 // Helper functions
@@ -148,7 +158,7 @@ router.get('/register', (req, res) => {
 });
 
 // Handle registration
-router.post('/register', async (req, res) => {
+router.post('/register', registrationLimiter, async (req, res) => {
     const { fullName, email, password, confirmPassword, handle } = req.body;
     if (!fullName || !email || !password || !confirmPassword) {
         return res.status(400).render('auth/register', {
@@ -463,7 +473,7 @@ router.get('/forgot-password', (req, res) => {
     });
 });
 
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
     const email = (req.body.email || '').trim().toLowerCase();
     const baseUrl = getRequestBaseUrl(req);
     const successMessage = 'If an account exists for that email, we\'ve sent reset instructions to your inbox.';
@@ -565,7 +575,7 @@ router.get('/reset-password', (req, res) => {
     });
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', passwordResetLimiter, async (req, res) => {
     const { token, password, confirmPassword } = req.body;
     if (!token) {
         return res.status(400).render('auth/reset-password', {
@@ -666,21 +676,54 @@ router.get('/login', (req, res) => {
 });
 
 // Handle login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLockout.applyProgressiveDelay, async (req, res) => {
     const { email, password } = req.body;
-    const user = getUserByEmail((email || '').trim().toLowerCase());
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const user = getUserByEmail(normalizedEmail);
     const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
     const microsoftEnabled = !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
     const appleEnabled = !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY && process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://'));
     const twitterEnabled = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET);
     const providers = { googleEnabled, microsoftEnabled, appleEnabled, twitterEnabled };
+    
     if (!user) {
+        // Record failed attempt even for non-existent users to prevent user enumeration
+        accountLockout.recordFailedAttempt(normalizedEmail, req.ip);
         return res.status(400).render('auth/login', { title: 'Login - Dream X', currentPage: 'auth/login', error: 'Invalid credentials.', providers });
     }
+    
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) {
-        return res.status(400).render('auth/login', { title: 'Login - Dream X', currentPage: 'auth/login', error: 'Invalid credentials.', providers });
+        // Record failed login attempt
+        const lockoutStatus = accountLockout.recordFailedAttempt(normalizedEmail, req.ip);
+        
+        // Log security event
+        addAuditLog({
+            userId: user.id,
+            action: 'failed_login',
+            details: JSON.stringify({ ip: req.ip, userAgent: req.get('user-agent') })
+        });
+        
+        if (lockoutStatus.locked) {
+            return res.status(429).render('auth/login', {
+                title: 'Login - Dream X',
+                currentPage: 'auth/login',
+                error: `Account temporarily locked due to multiple failed login attempts. Please try again in ${Math.ceil((lockoutStatus.lockoutEndsAt - Date.now()) / 60000)} minute(s).`,
+                providers
+            });
+        }
+        
+        return res.status(400).render('auth/login', { 
+            title: 'Login - Dream X', 
+            currentPage: 'auth/login', 
+            error: 'Invalid credentials.', 
+            providers 
+        });
     }
+    
+    // Reset failed attempts on successful login
+    accountLockout.resetFailedAttempts(normalizedEmail);
+    
     const accountStatus = checkAccountStatus(user.id);
     if (accountStatus.status === 'banned') {
         return res.redirect(`/account-status?userId=${user.id}`);

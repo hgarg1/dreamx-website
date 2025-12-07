@@ -6,6 +6,9 @@ const {
 } = require('../../db');
 const emailService = require('../../services/emailService');
 
+// Import security middleware
+const { apiLimiter, uploadLimiter } = require('../../middleware/security');
+
 const router = express.Router();
 
 // Initialize router with dependencies
