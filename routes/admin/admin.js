@@ -1194,9 +1194,7 @@ function initAdminRoutes({ io, webpush }) {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const postId = parseInt(req.params.id, 10);
         try {
-            try {
-                db.exec(`ALTER TABLE posts ADD COLUMN hidden INTEGER DEFAULT 0;`);
-            } catch (e) { /* Column exists */ }
+            // Note: hidden column is now added via migrations in db/index.js
             db.prepare(`UPDATE posts SET hidden = 1 WHERE id = ?`).run(postId);
             addAuditLog({
                 userId: req.session.userId,

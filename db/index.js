@@ -292,6 +292,29 @@ async function seedDatabase() {
   }
 }
 
+// Helper function to check if a column exists in a table
+function columnExists(tableName, columnName) {
+  try {
+    const cols = db.prepare(`PRAGMA table_info('${tableName}')`).all();
+    return cols.some(c => c.name === columnName);
+  } catch (e) {
+    // If table doesn't exist, column doesn't exist
+    return false;
+  }
+}
+
+// Helper function to add column if it doesn't exist (idempotent)
+function addColumnIfNotExists(tableName, columnName, columnDefinition) {
+  if (!columnExists(tableName, columnName)) {
+    try {
+      db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition};`);
+      console.log(`✅ Added column ${tableName}.${columnName}`);
+    } catch (e) {
+      console.warn(`Failed to add column ${tableName}.${columnName}:`, e.message);
+    }
+  }
+}
+
 // Run database migrations (works for both SQLite and SQL Server)
 async function runMigrations() {
   // Only run migrations in SQLite (development) mode
@@ -303,13 +326,11 @@ async function runMigrations() {
     return;
   }
 
+  console.log('🔄 Running database migrations...');
+
   try {
     // Ensure new WebAuthn column exists without breaking older databases
-    const webauthnColumns = db.prepare('PRAGMA table_info(webauthn_credentials);').all();
-    const hasRpId = webauthnColumns.some((c) => c.name === 'rp_id');
-    if (!hasRpId) {
-      db.exec(`ALTER TABLE webauthn_credentials ADD COLUMN rp_id TEXT;`);
-    }
+    addColumnIfNotExists('webauthn_credentials', 'rp_id', 'TEXT');
     db.exec('CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_rp ON webauthn_credentials(user_id, rp_id);');
   } catch (err) {
     console.error('Failed to ensure WebAuthn rp_id column exists', err);
@@ -317,17 +338,9 @@ async function runMigrations() {
 
   // Lightweight migrations for existing databases (ensure new columns exist)
   try {
-    const cols = db.prepare("PRAGMA table_info('users')").all();
-    const names = new Set(cols.map(c => c.name));
-    if (!names.has('email_verified')) {
-      db.prepare("ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0").run();
-    }
-    if (!names.has('verification_code')) {
-      db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run();
-    }
-    if (!names.has('verification_code_expires')) {
-      db.prepare("ALTER TABLE users ADD COLUMN verification_code_expires DATETIME").run();
-    }
+    addColumnIfNotExists('users', 'email_verified', 'INTEGER DEFAULT 0');
+    addColumnIfNotExists('users', 'verification_code', 'TEXT');
+    addColumnIfNotExists('users', 'verification_code_expires', 'DATETIME');
   } catch (e) {
     console.warn('Migration check failed (likely already applied):', e.message);
   }
@@ -335,54 +348,58 @@ async function runMigrations() {
   // Ensure project_comments supports project-level fields
   try {
     const commentCols = db.prepare("PRAGMA table_info('project_comments')").all();
-    const commentNames = new Set(commentCols.map(c => c.name));
-    const updateIdCol = commentCols.find(c => c.name === 'update_id');
-    const needsRebuild = (
-      !commentNames.has('project_id') ||
-      !commentNames.has('is_pinned') ||
-      !commentNames.has('is_hidden') ||
-      !commentNames.has('edited_at') ||
-      (updateIdCol && updateIdCol.notnull === 1)
-    );
+    if (commentCols.length > 0) {
+      const commentNames = new Set(commentCols.map(c => c.name));
+      const updateIdCol = commentCols.find(c => c.name === 'update_id');
+      const needsRebuild = (
+        !commentNames.has('project_id') ||
+        !commentNames.has('is_pinned') ||
+        !commentNames.has('is_hidden') ||
+        !commentNames.has('edited_at') ||
+        (updateIdCol && updateIdCol.notnull === 1)
+      );
 
-    if (needsRebuild) {
-      db.exec(`
-        CREATE TABLE project_comments_new (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          project_id INTEGER,
-          update_id INTEGER,
-          user_id INTEGER NOT NULL,
-          parent_id INTEGER,
-          content TEXT NOT NULL,
-          is_pinned INTEGER DEFAULT 0,
-          is_hidden INTEGER DEFAULT 0,
-          edited_at DATETIME,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-      `);
+      if (needsRebuild) {
+        console.log('🔄 Rebuilding project_comments table...');
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS project_comments_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER,
+            update_id INTEGER,
+            user_id INTEGER NOT NULL,
+            parent_id INTEGER,
+            content TEXT NOT NULL,
+            is_pinned INTEGER DEFAULT 0,
+            is_hidden INTEGER DEFAULT 0,
+            edited_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
 
-      db.exec(`
-        INSERT INTO project_comments_new (
-          id, project_id, update_id, user_id, parent_id, content, is_pinned, is_hidden, edited_at, created_at
-        )
-        SELECT
-          id,
-          COALESCE(project_id, (
-            SELECT project_id FROM project_updates pu WHERE pu.id = pc.update_id
-          )),
-          update_id,
-          user_id,
-          parent_id,
-          content,
-          COALESCE(is_pinned, 0),
-          COALESCE(is_hidden, 0),
-          edited_at,
-          created_at
-        FROM project_comments pc;
-      `);
+        db.exec(`
+          INSERT INTO project_comments_new (
+            id, project_id, update_id, user_id, parent_id, content, is_pinned, is_hidden, edited_at, created_at
+          )
+          SELECT
+            id,
+            COALESCE(project_id, (
+              SELECT project_id FROM project_updates pu WHERE pu.id = pc.update_id
+            )),
+            update_id,
+            user_id,
+            parent_id,
+            content,
+            COALESCE(is_pinned, 0),
+            COALESCE(is_hidden, 0),
+            edited_at,
+            created_at
+          FROM project_comments pc;
+        `);
 
-      db.exec('DROP TABLE project_comments;');
-      db.exec('ALTER TABLE project_comments_new RENAME TO project_comments;');
+        db.exec('DROP TABLE project_comments;');
+        db.exec('ALTER TABLE project_comments_new RENAME TO project_comments;');
+        console.log('✅ project_comments table rebuilt');
+      }
     }
 
     db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_project ON project_comments(project_id);");
@@ -391,6 +408,8 @@ async function runMigrations() {
   } catch (e) {
     console.error('Failed to ensure project_comments migration', e.message);
   }
+  
+  console.log('✅ Database migrations completed');
 }
 
 // Initialize schema if not exists (SQLite only - SQL Server uses schema.sql)
@@ -691,95 +710,27 @@ try {
   `);
 } catch (e) { /* table may already exist */ }
 
-// Migration: Add new columns if they don't exist
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN profile_picture TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN account_status TEXT DEFAULT 'active';`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN admin_permissions TEXT DEFAULT '[]';`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN admin_scopes TEXT DEFAULT '[]';`);
-} catch (e) {
-  // Column already exists, ignore
-}
+// Migration: Add new columns if they don't exist (using helper function for idempotency)
+addColumnIfNotExists('users', 'profile_picture', 'TEXT');
+addColumnIfNotExists('users', 'account_status', "TEXT DEFAULT 'active'");
+addColumnIfNotExists('users', 'admin_permissions', "TEXT DEFAULT '[]'");
+addColumnIfNotExists('users', 'admin_scopes', "TEXT DEFAULT '[]'");
 // NOTE: Seeding moved to seedDatabase() function - called after initializeDatabase()
 // This prevents "Database not initialized" errors in production mode
 
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN suspension_until DATETIME;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN seller_privileges_frozen INTEGER DEFAULT 0;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN bank_account_country TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN bank_account_number TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN bank_routing_number TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN suspension_reason TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user';`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN bio TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN location TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN skills TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN email_notifications INTEGER DEFAULT 1;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN provider TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN provider_id TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
+addColumnIfNotExists('users', 'suspension_until', 'DATETIME');
+addColumnIfNotExists('users', 'seller_privileges_frozen', 'INTEGER DEFAULT 0');
+addColumnIfNotExists('users', 'bank_account_country', 'TEXT');
+addColumnIfNotExists('users', 'bank_account_number', 'TEXT');
+addColumnIfNotExists('users', 'bank_routing_number', 'TEXT');
+addColumnIfNotExists('users', 'suspension_reason', 'TEXT');
+addColumnIfNotExists('users', 'role', "TEXT DEFAULT 'user'");
+addColumnIfNotExists('users', 'bio', 'TEXT');
+addColumnIfNotExists('users', 'location', 'TEXT');
+addColumnIfNotExists('users', 'skills', 'TEXT');
+addColumnIfNotExists('users', 'email_notifications', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'provider', 'TEXT');
+addColumnIfNotExists('users', 'provider_id', 'TEXT');
 // Ensure oauth_accounts table exists (idempotent)
 db.exec(`CREATE TABLE IF NOT EXISTS oauth_accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -790,78 +741,61 @@ db.exec(`CREATE TABLE IF NOT EXISTS oauth_accounts (
   UNIQUE(provider, provider_id),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );`);
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN push_notifications INTEGER DEFAULT 1;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN message_notifications INTEGER DEFAULT 1;`);
-} catch (e) {
-  // Column already exists, ignore
-}
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN banner_image TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
+
+addColumnIfNotExists('users', 'push_notifications', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'message_notifications', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'banner_image', 'TEXT');
 // Normalize any previously stored absolute upload paths
 try {
   // Strip leading '/uploads/' to keep DB paths relative
-  db.exec(`UPDATE users SET profile_picture = substr(profile_picture, 10) WHERE profile_picture LIKE '/uploads/%';`);
-  db.exec(`UPDATE users SET banner_image = substr(banner_image, 10) WHERE banner_image LIKE '/uploads/%';`);
+  if (isProduction) {
+    // SQL Server uses SUBSTRING()
+    db.exec(`UPDATE users SET profile_picture = SUBSTRING(profile_picture, 10, LEN(profile_picture)) WHERE profile_picture LIKE '/uploads/%';`);
+    db.exec(`UPDATE users SET banner_image = SUBSTRING(banner_image, 10, LEN(banner_image)) WHERE banner_image LIKE '/uploads/%';`);
+  } else {
+    // SQLite uses substr()
+    db.exec(`UPDATE users SET profile_picture = substr(profile_picture, 10) WHERE profile_picture LIKE '/uploads/%';`);
+    db.exec(`UPDATE users SET banner_image = substr(banner_image, 10) WHERE banner_image LIKE '/uploads/%';`);
+  }
 } catch (e) {
   // ignore
 }
+
 // Posts reels support migration (idempotent)
-try { db.exec(`ALTER TABLE posts ADD COLUMN is_reel INTEGER DEFAULT 0;`); } catch (e) { }
+addColumnIfNotExists('posts', 'is_reel', 'INTEGER DEFAULT 0');
 // Posts audio support migration (idempotent)
-try { db.exec(`ALTER TABLE posts ADD COLUMN audio_url TEXT;`); } catch (e) { }
+addColumnIfNotExists('posts', 'audio_url', 'TEXT');
 // Post title migration (idempotent)
-try { db.exec(`ALTER TABLE posts ADD COLUMN title TEXT;`); } catch (e) { }
+addColumnIfNotExists('posts', 'title', 'TEXT');
+
 // Privacy settings migrations (idempotent)
-try { db.exec(`ALTER TABLE users ADD COLUMN profile_visibility TEXT DEFAULT 'public';`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN allow_messages_from TEXT DEFAULT 'everyone';`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN discoverable_by_email INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN show_online_status INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN read_receipts INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN chat_privileges_frozen INTEGER DEFAULT 0;`); } catch (e) { }
+addColumnIfNotExists('users', 'profile_visibility', "TEXT DEFAULT 'public'");
+addColumnIfNotExists('users', 'allow_messages_from', "TEXT DEFAULT 'everyone'");
+addColumnIfNotExists('users', 'discoverable_by_email', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'show_online_status', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'read_receipts', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'chat_privileges_frozen', 'INTEGER DEFAULT 0');
+
 // Messages attachments migration (idempotent)
-try {
-  db.exec(`ALTER TABLE messages ADD COLUMN attachment_url TEXT;`);
-} catch (e) {
-  // Column exists
-}
-try {
-  db.exec(`ALTER TABLE messages ADD COLUMN attachment_mime TEXT;`);
-} catch (e) {
-  // Column exists
-}
+addColumnIfNotExists('messages', 'attachment_url', 'TEXT');
+addColumnIfNotExists('messages', 'attachment_mime', 'TEXT');
+
 // Message replies (idempotent)
-try {
-  db.exec(`ALTER TABLE messages ADD COLUMN reply_to_message_id INTEGER;`);
-} catch (e) {
-  // Column exists
-}
-// Group conversations migration
-try {
-  db.exec(`ALTER TABLE conversations ADD COLUMN is_group INTEGER DEFAULT 0;`);
-} catch (e) { }
-try {
-  db.exec(`ALTER TABLE conversations ADD COLUMN group_name TEXT;`);
-} catch (e) { }
+addColumnIfNotExists('messages', 'reply_to_message_id', 'INTEGER');
+
+// Group conversations migration (idempotent)
+addColumnIfNotExists('conversations', 'is_group', 'INTEGER DEFAULT 0');
+addColumnIfNotExists('conversations', 'group_name', 'TEXT');
 // Handle column migration (can't add UNIQUE directly in ALTER TABLE)
-try {
-  db.exec(`ALTER TABLE users ADD COLUMN handle TEXT;`);
-} catch (e) {
-  // Column already exists, ignore
-}
+addColumnIfNotExists('users', 'handle', 'TEXT');
+
 // Create unique index for handle if it doesn't exist
 try {
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users(handle);`);
 } catch (e) {
   // Index already exists, ignore
 }
+
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS conversation_participants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -875,35 +809,38 @@ try {
 } catch (e) { }
 
 // Comments replies migration (idempotent)
-try { db.exec(`ALTER TABLE post_comments ADD COLUMN parent_id INTEGER;`); } catch (e) { }
+addColumnIfNotExists('post_comments', 'parent_id', 'INTEGER');
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_post_comments_parent ON post_comments(parent_id);`); } catch (e) { }
 
-// Comment moderation columns
-try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_hidden INTEGER DEFAULT 0;`); } catch (e) { }
-try { db.exec(`ALTER TABLE post_comments ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) { }
+// Comment moderation columns (idempotent)
+addColumnIfNotExists('post_comments', 'is_hidden', 'INTEGER DEFAULT 0');
+addColumnIfNotExists('post_comments', 'is_deleted', 'INTEGER DEFAULT 0');
 
 // Onboarding enhancements migration (idempotent)
-try { db.exec(`ALTER TABLE users ADD COLUMN daily_time_commitment TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN best_time TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN reminder_frequency TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN accountability_style TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN progress_visibility TEXT DEFAULT 'public';`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN content_preferences TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN content_format_preference TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN open_to_mentoring TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN first_goal TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_date TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_metric TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN first_goal_public INTEGER DEFAULT 0;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_followers INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_likes_comments INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_milestones INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_inspiration INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_community INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_weekly_summary INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN notify_method TEXT DEFAULT 'both';`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0;`); } catch (e) { }
-try { db.exec(`ALTER TABLE users ADD COLUMN needs_onboarding INTEGER DEFAULT 1;`); } catch (e) { }
+addColumnIfNotExists('users', 'daily_time_commitment', 'TEXT');
+addColumnIfNotExists('users', 'best_time', 'TEXT');
+addColumnIfNotExists('users', 'reminder_frequency', 'TEXT');
+addColumnIfNotExists('users', 'accountability_style', 'TEXT');
+addColumnIfNotExists('users', 'progress_visibility', "TEXT DEFAULT 'public'");
+addColumnIfNotExists('users', 'content_preferences', 'TEXT');
+addColumnIfNotExists('users', 'content_format_preference', 'TEXT');
+addColumnIfNotExists('users', 'open_to_mentoring', 'TEXT');
+addColumnIfNotExists('users', 'first_goal', 'TEXT');
+addColumnIfNotExists('users', 'first_goal_date', 'TEXT');
+addColumnIfNotExists('users', 'first_goal_metric', 'TEXT');
+addColumnIfNotExists('users', 'first_goal_public', 'INTEGER DEFAULT 0');
+addColumnIfNotExists('users', 'notify_followers', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'notify_likes_comments', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'notify_milestones', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'notify_inspiration', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'notify_community', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'notify_weekly_summary', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'notify_method', "TEXT DEFAULT 'both'");
+addColumnIfNotExists('users', 'onboarding_completed', 'INTEGER DEFAULT 0');
+addColumnIfNotExists('users', 'needs_onboarding', 'INTEGER DEFAULT 1');
+
+// Posts moderation columns (idempotent)
+addColumnIfNotExists('posts', 'hidden', 'INTEGER DEFAULT 0');
 
 // Backfill needs_onboarding where missing to align with onboarding completion state
 try {
@@ -1014,20 +951,76 @@ function normalizeTagValue(name = '') {
     .slice(0, 40);
 }
 
-const upsertHashtagStmt = db.prepare(`
-  INSERT INTO hashtags (name, usage_count)
-  VALUES (?, 1)
-  ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
-  RETURNING id, name
-`);
-const upsertTagStmt = db.prepare(`
-  INSERT INTO tags (name, usage_count)
-  VALUES (?, 1)
-  ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
-  RETURNING id, name
-`);
-const linkHashtagStmt = db.prepare(`INSERT OR IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?);`);
-const linkTagStmt = db.prepare(`INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?);`);
+// Hashtag and tag upsert statements (different syntax for SQLite vs SQL Server)
+let upsertHashtagStmt, upsertTagStmt, linkHashtagStmt, linkTagStmt;
+
+if (isProduction) {
+  // SQL Server doesn't support ON CONFLICT or RETURNING, so we use different approach
+  upsertHashtagStmt = {
+    get: function(name) {
+      // First try to get existing
+      let existing = db.prepare(`SELECT id, name FROM hashtags WHERE name = ?`).get(name);
+      if (existing) {
+        // Update count
+        db.prepare(`UPDATE hashtags SET usage_count = usage_count + 1 WHERE name = ?`).run(name);
+        return existing;
+      }
+      // Insert new
+      const result = db.prepare(`INSERT INTO hashtags (name, usage_count) VALUES (?, 1)`).run(name);
+      return { id: result.lastInsertRowid, name: name };
+    }
+  };
+  upsertTagStmt = {
+    get: function(name) {
+      // First try to get existing
+      let existing = db.prepare(`SELECT id, name FROM tags WHERE name = ?`).get(name);
+      if (existing) {
+        // Update count
+        db.prepare(`UPDATE tags SET usage_count = usage_count + 1 WHERE name = ?`).run(name);
+        return existing;
+      }
+      // Insert new
+      const result = db.prepare(`INSERT INTO tags (name, usage_count) VALUES (?, 1)`).run(name);
+      return { id: result.lastInsertRowid, name: name };
+    }
+  };
+  linkHashtagStmt = {
+    run: function(postId, hashtagId) {
+      db.prepare(`
+        IF NOT EXISTS (SELECT 1 FROM post_hashtags WHERE post_id = ? AND hashtag_id = ?)
+        BEGIN
+          INSERT INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?)
+        END
+      `).run(postId, hashtagId, postId, hashtagId);
+    }
+  };
+  linkTagStmt = {
+    run: function(postId, tagId) {
+      db.prepare(`
+        IF NOT EXISTS (SELECT 1 FROM post_tags WHERE post_id = ? AND tag_id = ?)
+        BEGIN
+          INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?)
+        END
+      `).run(postId, tagId, postId, tagId);
+    }
+  };
+} else {
+  // SQLite with ON CONFLICT and RETURNING support
+  upsertHashtagStmt = db.prepare(`
+    INSERT INTO hashtags (name, usage_count)
+    VALUES (?, 1)
+    ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
+    RETURNING id, name
+  `);
+  upsertTagStmt = db.prepare(`
+    INSERT INTO tags (name, usage_count)
+    VALUES (?, 1)
+    ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
+    RETURNING id, name
+  `);
+  linkHashtagStmt = db.prepare(`INSERT OR IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?);`);
+  linkTagStmt = db.prepare(`INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?);`);
+}
 const getPostHashtagListStmt = db.prepare(`
   SELECT h.name
   FROM hashtags h
@@ -1321,13 +1314,14 @@ CREATE INDEX IF NOT EXISTS idx_career_jobs_live ON career_jobs(go_live_at);
 `);
 
 // Backfill new career job columns if schema pre-existed
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_min REAL`); } catch (_) { }
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_max REAL`); } catch (_) { }
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN salary_currency TEXT`); } catch (_) { }
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN apply_url TEXT`); } catch (_) { }
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN workplace_type TEXT`); } catch (_) { }
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN visibility TEXT DEFAULT 'public'`); } catch (_) { }
-try { db.exec(`ALTER TABLE career_jobs ADD COLUMN priority TEXT`); } catch (_) { }
+// Career jobs table column additions (idempotent)
+addColumnIfNotExists('career_jobs', 'salary_min', 'REAL');
+addColumnIfNotExists('career_jobs', 'salary_max', 'REAL');
+addColumnIfNotExists('career_jobs', 'salary_currency', 'TEXT');
+addColumnIfNotExists('career_jobs', 'apply_url', 'TEXT');
+addColumnIfNotExists('career_jobs', 'workplace_type', 'TEXT');
+addColumnIfNotExists('career_jobs', 'visibility', "TEXT DEFAULT 'public'");
+addColumnIfNotExists('career_jobs', 'priority', 'TEXT');
 
 // Assets attached to job postings (downloadable by applicants)
 db.exec(`CREATE TABLE IF NOT EXISTS career_job_assets (
@@ -2607,12 +2601,25 @@ module.exports = {
     stmt.run(notificationId);
   },
   savePushSubscription: ({ userId, endpoint, p256dh, auth }) => {
-    const stmt = db.prepare(`
-      INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth
-    `);
-    stmt.run(userId, endpoint, p256dh, auth);
+    if (isProduction) {
+      // SQL Server: Use MERGE
+      db.prepare(`
+        MERGE INTO push_subscriptions AS target
+        USING (SELECT ? AS user_id, ? AS endpoint, ? AS p256dh, ? AS auth) AS source
+        ON target.endpoint = source.endpoint
+        WHEN MATCHED THEN
+          UPDATE SET p256dh = source.p256dh, auth = source.auth
+        WHEN NOT MATCHED THEN
+          INSERT (user_id, endpoint, p256dh, auth) VALUES (source.user_id, source.endpoint, source.p256dh, source.auth);
+      `).run(userId, endpoint, p256dh, auth);
+    } else {
+      // SQLite: Use ON CONFLICT
+      db.prepare(`
+        INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth
+      `).run(userId, endpoint, p256dh, auth);
+    }
   },
   getPushSubscriptions: (userId) => {
     const stmt = db.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`);
@@ -2694,14 +2701,27 @@ module.exports = {
     return stmt.get(userId, provider);
   },
   createPaymentCustomer: ({ userId, provider, providerCustomerId }) => {
-    const stmt = db.prepare(`
-      INSERT INTO payment_customers (user_id, payment_provider, provider_customer_id, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id, payment_provider) DO UPDATE SET 
-        provider_customer_id = excluded.provider_customer_id,
-        updated_at = CURRENT_TIMESTAMP
-    `);
-    stmt.run(userId, provider, providerCustomerId);
+    if (isProduction) {
+      // SQL Server: Use MERGE
+      db.prepare(`
+        MERGE INTO payment_customers AS target
+        USING (SELECT ? AS user_id, ? AS payment_provider, ? AS provider_customer_id) AS source
+        ON target.user_id = source.user_id AND target.payment_provider = source.payment_provider
+        WHEN MATCHED THEN
+          UPDATE SET provider_customer_id = source.provider_customer_id, updated_at = CURRENT_TIMESTAMP
+        WHEN NOT MATCHED THEN
+          INSERT (user_id, payment_provider, provider_customer_id, updated_at) VALUES (source.user_id, source.payment_provider, source.provider_customer_id, CURRENT_TIMESTAMP);
+      `).run(userId, provider, providerCustomerId);
+    } else {
+      // SQLite: Use ON CONFLICT
+      db.prepare(`
+        INSERT INTO payment_customers (user_id, payment_provider, provider_customer_id, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, payment_provider) DO UPDATE SET 
+          provider_customer_id = excluded.provider_customer_id,
+          updated_at = CURRENT_TIMESTAMP
+      `).run(userId, provider, providerCustomerId);
+    }
   },
   getAllPaymentCustomers: (userId) => {
     const stmt = db.prepare(`SELECT * FROM payment_customers WHERE user_id = ?`);
@@ -2755,8 +2775,11 @@ module.exports = {
   },
   // Active reel count (last 48 hours)
   getActiveReelCount: (userId) => {
-    // Assuming created_at stored in UTC; we use SQLite datetime subtraction
-    const row = db.prepare(`SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours')`).get(userId);
+    // Use different date functions for SQL Server vs SQLite
+    const query = isProduction
+      ? `SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= DATEADD(hour, -48, GETDATE())`
+      : `SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours')`;
+    const row = db.prepare(query).get(userId);
     return row ? row.cnt : 0;
   },
   // Account moderation helpers
@@ -3043,13 +3066,22 @@ module.exports = {
     });
 
     // Get recent profile updates (we'll check for recent updates based on created_at being close to current time)
-    const recentUpdates = db.prepare(`
+    const recentUpdatesQuery = isProduction
+      ? `
+      SELECT created_at, full_name
+      FROM users
+      WHERE created_at >= DATEADD(day, -1, GETDATE())
+      ORDER BY created_at DESC
+      LIMIT ?
+    `
+      : `
       SELECT created_at, full_name
       FROM users
       WHERE datetime(created_at) >= datetime('now', '-1 day')
       ORDER BY created_at DESC
       LIMIT ?
-    `).all(limit);
+    `;
+    const recentUpdates = db.prepare(recentUpdatesQuery).all(limit);
 
     recentUpdates.forEach(update => {
       activities.push({
@@ -3388,14 +3420,27 @@ module.exports = {
     return stmt.get(userId, provider);
   },
   createPaymentCustomer: ({ userId, provider, providerCustomerId }) => {
-    const stmt = db.prepare(`
-      INSERT INTO payment_customers (user_id, payment_provider, provider_customer_id, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id, payment_provider) DO UPDATE SET 
-        provider_customer_id = excluded.provider_customer_id,
-        updated_at = CURRENT_TIMESTAMP
-    `);
-    stmt.run(userId, provider, providerCustomerId);
+    if (isProduction) {
+      // SQL Server: Use MERGE
+      db.prepare(`
+        MERGE INTO payment_customers AS target
+        USING (SELECT ? AS user_id, ? AS payment_provider, ? AS provider_customer_id) AS source
+        ON target.user_id = source.user_id AND target.payment_provider = source.payment_provider
+        WHEN MATCHED THEN
+          UPDATE SET provider_customer_id = source.provider_customer_id, updated_at = CURRENT_TIMESTAMP
+        WHEN NOT MATCHED THEN
+          INSERT (user_id, payment_provider, provider_customer_id, updated_at) VALUES (source.user_id, source.payment_provider, source.provider_customer_id, CURRENT_TIMESTAMP);
+      `).run(userId, provider, providerCustomerId);
+    } else {
+      // SQLite: Use ON CONFLICT
+      db.prepare(`
+        INSERT INTO payment_customers (user_id, payment_provider, provider_customer_id, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, payment_provider) DO UPDATE SET 
+          provider_customer_id = excluded.provider_customer_id,
+          updated_at = CURRENT_TIMESTAMP
+      `).run(userId, provider, providerCustomerId);
+    }
   },
   getAllPaymentCustomers: (userId) => {
     const stmt = db.prepare(`SELECT * FROM payment_customers WHERE user_id = ?`);

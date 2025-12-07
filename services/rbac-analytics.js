@@ -10,6 +10,9 @@
 
 const path = require('path');
 
+// Detect production environment for SQL Server compatibility
+const isProduction = process.env.NODE_ENV === 'Production' && process.env.DB_TYPE === 'sqlserver';
+
 // Lazy load database and rbac service
 let db = null;
 let rbacService = null;
@@ -366,7 +369,17 @@ class SecurityAlertSystem {
       }
 
       // Check for long-running overrides
-      const longOverrides = db.prepare(`
+      const longOverridesQuery = isProduction
+        ? `
+        SELECT uo.*, p.name as permission_name, u.email
+        FROM rbac_user_overrides uo
+        JOIN rbac_permissions p ON p.id = uo.permission_id
+        JOIN users u ON u.id = uo.user_id
+        WHERE uo.is_temporary = 1
+        AND (uo.expires_at IS NULL OR uo.expires_at > DATEADD(day, 30, GETDATE()))
+        AND uo.granted_at < DATEADD(day, -7, GETDATE())
+      `
+        : `
         SELECT uo.*, p.name as permission_name, u.email
         FROM rbac_user_overrides uo
         JOIN rbac_permissions p ON p.id = uo.permission_id
@@ -374,7 +387,8 @@ class SecurityAlertSystem {
         WHERE uo.is_temporary = 1
         AND (uo.expires_at IS NULL OR uo.expires_at > datetime('now', '+30 days'))
         AND uo.granted_at < datetime('now', '-7 days')
-      `).all();
+      `;
+      const longOverrides = db.prepare(longOverridesQuery).all();
 
       for (const lo of longOverrides) {
         alerts.push({

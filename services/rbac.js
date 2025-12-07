@@ -128,6 +128,12 @@ function runRbacMigrations() {
 function createRole({ name, displayName, description, isSystemRole = false, priority = 0, parentRoleId = null, metadata = null, createdBy = null }) {
   if (!isInitialized) throw new Error('RBAC service not initialized');
   
+  // Check if role already exists
+  const existing = getRoleByName(name);
+  if (existing) {
+    return existing.id;
+  }
+  
   const stmt = db.prepare(`
     INSERT INTO rbac_roles (name, display_name, description, is_system_role, priority, parent_role_id, metadata)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -380,6 +386,12 @@ function getRoleInheritanceChain(roleId, visited = new Set()) {
 function createPermission({ name, displayName, description, groupId = null, module = null, resource = null, action = null, isSystemPermission = false, requiresPermissions = null, metadata = null, createdBy = null }) {
   if (!isInitialized) throw new Error('RBAC service not initialized');
   
+  // Check if permission already exists
+  const existing = getPermissionByName(name);
+  if (existing) {
+    return existing.id;
+  }
+  
   const stmt = db.prepare(`
     INSERT INTO rbac_permissions (name, display_name, description, group_id, module, resource, action, is_system_permission, requires_permissions, metadata)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -612,6 +624,12 @@ function restorePermission(permissionId, restoredBy = null) {
  */
 function createPermissionGroup({ name, displayName, description, module = null, parentGroupId = null, displayOrder = 0, createdBy = null }) {
   if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  // Check if group already exists
+  const existing = db.prepare(`SELECT id FROM rbac_permission_groups WHERE name = ? AND deleted_at IS NULL`).get(name);
+  if (existing) {
+    return existing.id;
+  }
   
   const stmt = db.prepare(`
     INSERT INTO rbac_permission_groups (name, display_name, description, module, parent_group_id, display_order)
