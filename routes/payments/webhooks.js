@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const paymentService = require('../../services/payments');
+const { csrfExempt } = require('../../middleware/security');
 
-// Stripe webhook endpoint
-router.post('/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+// Stripe webhook endpoint - Exempt from CSRF protection (uses signature verification)
+router.post('/webhooks/stripe', csrfExempt, express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
 
     try {
@@ -57,8 +58,8 @@ router.post('/webhooks/stripe', express.raw({ type: 'application/json' }), async
     }
 });
 
-// Lemon Squeezy webhook endpoint
-router.post('/webhooks/lemonsqueezy', express.json(), async (req, res) => {
+// Lemon Squeezy webhook endpoint - Exempt from CSRF protection (uses signature verification)
+router.post('/webhooks/lemonsqueezy', csrfExempt, express.json(), async (req, res) => {
     const signature = req.headers['x-signature'];
 
     try {
@@ -118,8 +119,8 @@ router.post('/webhooks/lemonsqueezy', express.json(), async (req, res) => {
     }
 });
 
-// Square webhook endpoint
-router.post('/webhooks/square', express.json(), async (req, res) => {
+// Square webhook endpoint - Exempt from CSRF protection (uses signature verification)
+router.post('/webhooks/square', csrfExempt, express.json(), async (req, res) => {
     const signature = req.headers['x-square-signature'];
     const webhookUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
 

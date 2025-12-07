@@ -21,6 +21,25 @@ const http = require('http');
 const robots = require('express-robots-txt');
 const { SitemapStream, streamToPromise } = require('sitemap');
 
+// Import security middleware
+const {
+    configureHelmet,
+    authLimiter,
+    passwordResetLimiter,
+    apiLimiter,
+    uploadLimiter,
+    registrationLimiter,
+    sensitiveLimiter,
+    configureHpp,
+    configureSanitizer,
+    additionalSecurityHeaders,
+    sanitizeRequest,
+    validateFileUpload,
+    blockSuspiciousUrls,
+    csrfProtection,
+    csrfExempt
+} = require('./middleware/security');
+
 
 if(process.env.NODE_ENV !== 'Production'){
     require('dotenv').config();
@@ -306,6 +325,22 @@ const app = express();
 // Trust proxy headers (needed on Render/other proxies for correct host/proto)
 app.set('trust proxy', 1);
 
+// ===== SECURITY MIDDLEWARE =====
+// Apply security headers first
+app.use(configureHelmet());
+app.use(additionalSecurityHeaders);
+app.use(blockSuspiciousUrls);
+
+// HTTP Parameter Pollution protection
+app.use(configureHpp());
+
+// NoSQL injection prevention
+app.use(configureSanitizer());
+
+// Request size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
 /*app.use((req, res, next) => {
   if (!req.secure) {
     return res.redirect('https://' + req.headers.host + req.url);
@@ -496,26 +531,34 @@ app.use(robots({
   Sitemap: 'https://dream-x.app/sitemap.xml'
 }));
 
-// Parse URL-encoded bodies (for form submissions) - MUST be before session middleware
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+// Note: express.json() and express.urlencoded() are already configured above with security middleware
+
+// Input sanitization middleware (applied after parsing)
+app.use(sanitizeRequest);
 
 // Session configuration (SQLiteStore for production safety) - MUST be before routes
 app.use(session({
     store: new SQLiteStore({ db: 'sessions.sqlite3', dir: './data' }),
-    secret: process.env.SESSION_SECRET || 'your secret',
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
+    name: 'sessionId', // Rename session cookie to prevent fingerprinting
     cookie: {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
         httpOnly: true,
         // Secure cookies in production or when BASE_URL is https
         secure: (process.env.NODE_ENV === 'production') || (process.env.BASE_URL || '').startsWith('https://'),
         sameSite: 'lax'
-    }
+    },
+    rolling: true, // Reset session expiration on each request
+    unset: 'destroy' // Destroy session when unset
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// CSRF Protection - Applied after session middleware
+// Generates tokens for GET requests and validates on POST/PUT/DELETE
+app.use(csrfProtection);
 
 // Use route modules - MUST be after session middleware
 // Route initializations are handled below to avoid redeclaration
