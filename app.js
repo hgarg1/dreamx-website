@@ -35,7 +35,9 @@ const {
     additionalSecurityHeaders,
     sanitizeRequest,
     validateFileUpload,
-    blockSuspiciousUrls
+    blockSuspiciousUrls,
+    csrfProtection,
+    csrfExempt
 } = require('./middleware/security');
 
 
@@ -553,6 +555,10 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// CSRF Protection - Applied after session middleware
+// Generates tokens for GET requests and validates on POST/PUT/DELETE
+app.use(csrfProtection);
 
 // Use route modules - MUST be after session middleware
 // Route initializations are handled below to avoid redeclaration

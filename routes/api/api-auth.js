@@ -29,8 +29,12 @@ const {
 const emailService = require('../../services/emailService');
 const { generateAccessToken, generateRefreshToken, hashRefreshToken, verifyAccessToken, getRefreshTokenExpiry } = require('../../utils/auth-tokens');
 const { getRequestBaseUrl, validatePasswordComplexity } = require('../../utils/route-helpers');
+const { csrfExempt } = require('../../middleware/security');
 
 const router = express.Router();
+
+// API routes are exempt from CSRF protection (use token-based authentication)
+router.use(csrfExempt);
 
 // CORS not needed for Android native apps (CORS is a browser security feature)
 // Uncomment below if you need to test from a web browser or enable for web clients:
