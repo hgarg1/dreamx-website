@@ -29,12 +29,9 @@ const {
 const emailService = require('../../services/emailService');
 const { generateAccessToken, generateRefreshToken, hashRefreshToken, verifyAccessToken, getRefreshTokenExpiry } = require('../../utils/auth-tokens');
 const { getRequestBaseUrl, validatePasswordComplexity } = require('../../utils/route-helpers');
-const { csrfExempt } = require('../../middleware/security');
+const { generateCsrfToken, csrfExempt } = require('../../middleware/security');
 
 const router = express.Router();
-
-// API routes are exempt from CSRF protection (use token-based authentication)
-router.use(csrfExempt);
 
 // CORS not needed for Android native apps (CORS is a browser security feature)
 // Uncomment below if you need to test from a web browser or enable for web clients:
@@ -591,6 +588,21 @@ router.post('/api/auth/resend-verification', authenticateToken, express.json(), 
     } catch (error) {
         console.error('Resend verification error:', error);
         return sendResponse(res, false, null, 'Failed to send email. Please try again.', 500);
+    }
+});
+
+// GET /api/csrf-token - Fetch CSRF token for Android app on startup
+router.get('/api/csrf-token', csrfExempt, (req, res) => {
+    try {
+        // Generate and store token in session if not already present
+        if (!req.session.csrfToken) {
+            req.session.csrfToken = generateCsrfToken();
+        }
+        // Return token to client for use in subsequent requests
+        return sendResponse(res, true, { csrfToken: req.session.csrfToken });
+    } catch (error) {
+        console.error('Error generating CSRF token:', error);
+        return sendResponse(res, false, null, 'Failed to generate CSRF token', 500);
     }
 });
 
