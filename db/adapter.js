@@ -37,7 +37,7 @@ async function initDatabase() {
     
     const config = {
       server: process.env.SQL_DB_URL || 'dream-x.database.windows.net',
-      database: process.env.SQL_DB_NAME || 'Dream X',
+      database: process.env.SQL_DB_NAME || 'DreamX',
       user: process.env.SQL_DB_UNAME || 'DreamX',
       password: process.env.SQL_DB_PWORD || '',
       options: {
