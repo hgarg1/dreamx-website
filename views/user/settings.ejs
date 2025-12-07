@@ -74,9 +74,26 @@
       <% } %>
     </p>
     <form action="/settings/password" method="POST" id="passwordForm">
+      <% if (ssoBootstrapActive) { %>
+        <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);color:#312e81;padding:12px 14px;border-radius:12px;margin-bottom:16px;font-size:0.9rem;">
+          <strong>SSO verified:</strong> You recently signed in with <%= (ssoBootstrapProvider ? ssoBootstrapProvider.charAt(0).toUpperCase() + ssoBootstrapProvider.slice(1) : 'an SSO provider') %>, so you can leave the current password field blank this time.
+        </div>
+      <% } %>
       <div class="settings-field-group">
-        <label class="settings-label" for="currentPassword">Current Password <% if (!hasPassword) { %><span style="color:#6b7280;font-weight:400;">(Not required - you haven't set a password yet)</span><% } %></label>
-        <input id="currentPassword" name="currentPassword" type="password" class="settings-input" <%= hasPassword ? 'required' : '' %> autocomplete="current-password" <% if (!hasPassword) { %>placeholder="Leave blank if setting password for first time"<% } %> />
+        <label class="settings-label" for="currentPassword">
+          Current Password
+          <% if (!hasPassword) { %>
+            <span style="color:#6b7280;font-weight:400;">(Not required - you haven't set a password yet)</span>
+          <% } else if (ssoBootstrapActive) { %>
+            <span style="color:#6b7280;font-weight:400;">(Optional right now thanks to your recent SSO login)</span>
+          <% } %>
+        </label>
+        <input id="currentPassword" name="currentPassword" type="password" class="settings-input" <%= hasPassword && !ssoBootstrapActive ? 'required' : '' %> autocomplete="current-password" 
+          <% if (!hasPassword) { %>
+            placeholder="Leave blank if setting password for first time"
+          <% } else if (ssoBootstrapActive) { %>
+            placeholder="Optional while your SSO session is still fresh"
+          <% } %> />
       </div>
       <div class="settings-field-group">
         <label class="settings-label" for="newPassword">New Password</label>

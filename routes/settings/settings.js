@@ -67,6 +67,14 @@ const emailService = require('../../services/emailService');
 const { validatePasswordComplexity } = require('../../utils/route-helpers');
 
 const router = express.Router();
+const SSO_BOOTSTRAP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function isSsoBootstrapActive(session, userId) {
+    if (!session || !session.ssoPasswordBootstrap) return false;
+    const { userId: bootstrapUserId, grantedAt } = session.ssoPasswordBootstrap;
+    if (bootstrapUserId !== userId) return false;
+    return (Date.now() - (grantedAt || 0)) < SSO_BOOTSTRAP_WINDOW_MS;
+}
 
 function ensureAuthenticated(req, res, next) {
     if (!req.session || !req.session.userId) {
@@ -75,7 +83,7 @@ function ensureAuthenticated(req, res, next) {
     next();
 }
 
-async function handlePasswordChange({ userId, currentPassword, newPassword, confirmPassword }) {
+async function handlePasswordChange({ userId, currentPassword, newPassword, confirmPassword, session }) {
     if (!newPassword || !confirmPassword) {
         return { ok: false, message: 'New password and confirmation required' };
     }
@@ -97,22 +105,26 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
     const linkedAccounts = getLinkedAccountsForUser(userId) || [];
     const hasLinkedAccounts = linkedAccounts.length > 0;
     const hasPassword = !!(user.password_hash);
+    const bootstrapActive = hasLinkedAccounts && isSsoBootstrapActive(session, userId);
+    const providedCurrent = typeof currentPassword === 'string' && currentPassword.length > 0;
     
-    // If user has a password set, verify current password
+    // If user has a password set, verify current password unless SSO bootstrap is active
     if (hasPassword) {
-        if (!currentPassword) {
+        if (providedCurrent) {
+            const passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
+            if (!passwordValid) {
+                return { ok: false, message: 'Current password incorrect' };
+            }
+        } else if (!bootstrapActive) {
             return { ok: false, message: 'Current password is required when changing an existing password' };
         }
-        const passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
-        if (!passwordValid) {
-            return { ok: false, message: 'Current password incorrect' };
-        }
     }
-    // If user has no password (SSO-only account), allow setting password without current password
-    // This enables SSO users to add password authentication to their account
 
     const hash = await bcrypt.hash(newPassword, 10);
     updatePassword({ userId, passwordHash: hash });
+    if (session && session.ssoPasswordBootstrap) {
+        session.ssoPasswordBootstrap = null;
+    }
     return { ok: true, message: hasPassword ? 'Password changed successfully' : 'Password set successfully. You can now sign in with email and password.' };
 }
 
@@ -165,6 +177,10 @@ function initSettingsRoutes() {
         const hasLinkedAccounts = linkedAccounts.length > 0;
         const hasPassword = !!(row.password_hash);
         const isSSOOnly = hasLinkedAccounts && !hasPassword;
+        const ssoBootstrapActive = hasLinkedAccounts && isSsoBootstrapActive(req.session, req.session.userId);
+        const ssoBootstrapProvider = ssoBootstrapActive && req.session && req.session.ssoPasswordBootstrap
+            ? req.session.ssoPasswordBootstrap.provider
+            : null;
 
         const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
         const paymentMethods = getPaymentMethods(req.session.userId) || [];
@@ -181,6 +197,8 @@ function initSettingsRoutes() {
             linked,
             hasPassword,
             isSSOOnly,
+            ssoBootstrapActive,
+            ssoBootstrapProvider,
             getUserById,
             subscription,
             paymentMethods,
@@ -259,7 +277,8 @@ function initSettingsRoutes() {
                 userId: req.session.userId,
                 currentPassword,
                 newPassword,
-                confirmPassword
+                confirmPassword,
+                session: req.session
             });
 
             if (!result.ok) {
@@ -282,7 +301,8 @@ function initSettingsRoutes() {
                 userId: req.session.userId,
                 currentPassword,
                 newPassword,
-                confirmPassword
+                confirmPassword,
+                session: req.session
             });
 
             if (!result.ok) {
