@@ -3,6 +3,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
+const crypto = require('crypto');
 
 /**
  * Configure Helmet for HTTP security headers
@@ -361,12 +362,83 @@ function timingSafeCompare(a, b) {
     return crypto.timingSafeEqual(bufA, bufB);
 }
 
+/**
+ * CSRF Protection - Custom implementation using double submit cookie pattern
+ */
+
+/**
+ * Generate CSRF token
+ */
+function generateCsrfToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+/**
+ * Middleware to generate and attach CSRF token to session and response locals
+ */
+function csrfProtection(req, res, next) {
+    // Skip CSRF for safe methods (GET, HEAD, OPTIONS)
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        // Generate token for use in forms
+        if (req.session && !req.session.csrfToken) {
+            req.session.csrfToken = generateCsrfToken();
+        }
+        // Make token available to templates
+        res.locals.csrfToken = req.session?.csrfToken || '';
+        return next();
+    }
+
+    // For state-changing methods, verify CSRF token
+    const sessionToken = req.session?.csrfToken;
+    const requestToken = req.body?._csrf || req.headers['x-csrf-token'] || req.headers['csrf-token'];
+
+    if (!sessionToken || !requestToken) {
+        logSecurityEvent('CSRF_TOKEN_MISSING', { 
+            method: req.method, 
+            path: req.path 
+        }, req);
+        return res.status(403).json({ error: 'CSRF token missing' });
+    }
+
+    // Use timing-safe comparison
+    if (!timingSafeCompare(sessionToken, requestToken)) {
+        logSecurityEvent('CSRF_TOKEN_INVALID', { 
+            method: req.method, 
+            path: req.path 
+        }, req);
+        return res.status(403).json({ error: 'Invalid CSRF token' });
+    }
+
+    // Token is valid
+    res.locals.csrfToken = sessionToken;
+    next();
+}
+
+/**
+ * Middleware to exempt specific routes from CSRF protection
+ */
+function csrfExempt(req, res, next) {
+    req.csrfExempt = true;
+    next();
+}
+
+/**
+ * Conditional CSRF protection (checks for exemption)
+ */
+function conditionalCsrfProtection(req, res, next) {
+    if (req.csrfExempt) {
+        return next();
+    }
+    return csrfProtection(req, res, next);
+}
+
 module.exports = {
     configureHelmet,
     authLimiter,
     passwordResetLimiter,
     apiLimiter,
     uploadLimiter,
+
     registrationLimiter,
     sensitiveLimiter,
     configureHpp,
@@ -377,5 +449,9 @@ module.exports = {
     validateFileUpload,
     logSecurityEvent,
     blockSuspiciousUrls,
-    timingSafeCompare
+    timingSafeCompare,
+    generateCsrfToken,
+    csrfProtection,
+    csrfExempt,
+    conditionalCsrfProtection
 };
