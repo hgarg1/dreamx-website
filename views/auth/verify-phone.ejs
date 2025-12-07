@@ -1,0 +1,502 @@
+<%- include('../partials/header') %>
+
+<style>
+  .verify-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0b1020 0%, #1a1f3a 50%, #667eea 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .verify-container::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(102, 126, 234, 0.15) 0%, transparent 70%);
+    animation: float 20s ease-in-out infinite;
+  }
+  
+  .verify-container::after {
+    content: '';
+    position: absolute;
+    bottom: -50%;
+    left: -50%;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(118, 75, 162, 0.15) 0%, transparent 70%);
+    animation: float 25s ease-in-out infinite reverse;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(30px, -30px) rotate(120deg); }
+    66% { transform: translate(-20px, 20px) rotate(240deg); }
+  }
+  
+  .verify-card {
+    max-width: 480px;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 32px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    position: relative;
+    z-index: 1;
+    animation: slideIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  
+  .verify-header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 48px 40px;
+    text-align: center;
+    position: relative;
+  }
+  
+  .verify-icon {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    margin: 0 auto 20px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255, 255, 255, 0); }
+  }
+  
+  .verify-header h1 {
+    color: white;
+    font-size: 32px;
+    font-weight: 900;
+    margin: 0 0 12px;
+  }
+  
+  .verify-header p {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    margin: 0;
+    line-height: 1.6;
+  }
+  
+  .verify-body {
+    padding: 40px;
+  }
+  
+  .phone-display {
+    text-align: center;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 32px;
+  }
+  
+  .phone-display p {
+    color: #cbd5e1;
+    font-size: 14px;
+    margin: 0 0 8px;
+  }
+  
+  .phone-number {
+    color: #667eea;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  
+  .verify-instructions {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border-left: 4px solid #667eea;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 32px;
+  }
+  
+  .verify-instructions p {
+    color: #cbd5e1;
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  
+  .code-input-container {
+    margin-bottom: 24px;
+  }
+  
+  .code-label {
+    display: block;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  
+  .code-input-wrapper {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  
+  .code-input {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    background: rgba(30, 41, 59, 0.8);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+    color: #e5e7eb;
+    transition: all 0.3s ease;
+  }
+  
+  .code-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  
+  .code-input::-webkit-outer-spin-button,
+  .code-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  .code-input[type=number] {
+    appearance: textfield;
+  }
+  
+  .verify-button {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+  }
+  
+  .verify-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+  }
+  
+  .verify-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .resend-section {
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .resend-text {
+    color: #94a3b8;
+    font-size: 14px;
+    margin: 0 0 12px;
+  }
+  
+  .resend-button {
+    color: #667eea;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 0;
+    transition: color 0.3s ease;
+  }
+  
+  .resend-button:hover {
+    color: #764ba2;
+  }
+  
+  .resend-button:disabled {
+    color: #64748b;
+    cursor: not-allowed;
+  }
+  
+  .rate-limit-warning {
+    display: none;
+    background: rgba(249, 115, 22, 0.1);
+    border-left: 4px solid #f97316;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    color: #fed7aa;
+    font-size: 14px;
+  }
+  
+  .rate-limit-warning.show {
+    display: block;
+  }
+  
+  .rate-limit-warning strong {
+    color: #f97316;
+  }
+</style>
+
+<div class="verify-container">
+  <div class="verify-card">
+    <!-- Header -->
+    <div class="verify-header">
+      <div class="verify-icon">📱</div>
+      <h1>Verify Your Phone</h1>
+      <p>Enter the 6-digit code we sent to your phone</p>
+    </div>
+    
+    <!-- Body -->
+    <div class="verify-body">
+      <div class="phone-display">
+        <p>Code sent to:</p>
+        <div class="phone-number"><%= phoneNumber %></div>
+      </div>
+      
+      <div class="verify-instructions">
+        <p>Please enter the verification code you received via SMS. The code expires in 15 minutes.</p>
+      </div>
+      
+      <div id="rateLimitWarning" class="rate-limit-warning"></div>
+      <div id="errorMessage" class="error-message"></div>
+      <div id="successMessage" class="success-message"></div>
+      
+      <form id="phoneVerifyForm">
+        <div class="code-input-container">
+          <label class="code-label">Verification Code</label>
+          <div class="code-input-wrapper">
+            <input type="text" class="code-input" id="code1" maxlength="1" inputmode="numeric" placeholder="0">
+            <input type="text" class="code-input" id="code2" maxlength="1" inputmode="numeric" placeholder="0">
+            <input type="text" class="code-input" id="code3" maxlength="1" inputmode="numeric" placeholder="0">
+            <input type="text" class="code-input" id="code4" maxlength="1" inputmode="numeric" placeholder="0">
+            <input type="text" class="code-input" id="code5" maxlength="1" inputmode="numeric" placeholder="0">
+            <input type="text" class="code-input" id="code6" maxlength="1" inputmode="numeric" placeholder="0">
+          </div>
+        </div>
+        
+        <button type="submit" class="verify-button" id="verifyBtn">Verify Phone Number</button>
+      </form>
+      
+      <div class="resend-section">
+        <p class="resend-text">Didn't receive a code?</p>
+        <button type="button" class="resend-button" id="resendBtn" onclick="resendCode()">Send another code</button>
+        <div id="resendTimer" style="color: #64748b; font-size: 13px; margin-top: 8px; display: none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Auto-focus logic for code inputs
+  const codeInputs = document.querySelectorAll('.code-input');
+  
+  codeInputs.forEach((input, index) => {
+    input.addEventListener('input', (e) => {
+      // Only allow digits
+      input.value = input.value.replace(/[^0-9]/g, '');
+      
+      // Auto-move to next input
+      if (input.value.length === 1 && index < codeInputs.length - 1) {
+        codeInputs[index + 1].focus();
+      }
+    });
+    
+    input.addEventListener('keydown', (e) => {
+      // Handle backspace
+      if (e.key === 'Backspace' && input.value === '' && index > 0) {
+        codeInputs[index - 1].focus();
+      }
+    });
+    
+    input.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const paste = (e.clipboardData || window.clipboardData).getData('text');
+      const digits = paste.replace(/[^0-9]/g, '');
+      
+      digits.split('').forEach((digit, i) => {
+        if (i < codeInputs.length) {
+          codeInputs[i].value = digit;
+        }
+      });
+      
+      if (digits.length >= 6) {
+        codeInputs[5].focus();
+      }
+    });
+  });
+  
+  // Form submission
+  document.getElementById('phoneVerifyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const code = Array.from(codeInputs).map(input => input.value).join('');
+    
+    if (code.length !== 6) {
+      showError('Please enter all 6 digits');
+      return;
+    }
+    
+    const verifyBtn = document.getElementById('verifyBtn');
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = 'Verifying...';
+    
+    try {
+      const response = await fetch('/verify-phone', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ code })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        showSuccess('Phone verified successfully! Redirecting...');
+        setTimeout(() => {
+          window.location.href = data.redirect || '/dashboard';
+        }, 1500);
+      } else {
+        showError(data.error || 'Verification failed');
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = 'Verify Phone Number';
+      }
+    } catch (error) {
+      showError('Network error. Please try again.');
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Verify Phone Number';
+    }
+  });
+  
+  async function resendCode() {
+    const resendBtn = document.getElementById('resendBtn');
+    resendBtn.disabled = true;
+    
+    try {
+      const response = await fetch('/resend-phone-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        clearRateLimitWarning();
+        showSuccess('New code sent to your phone');
+        startResendTimer();
+      } else if (data.rateLimited) {
+        // Handle rate limiting
+        const waitSeconds = Math.ceil(data.waitSeconds || 60);
+        const remaining = data.remaining || 0;
+        showRateLimitWarning(waitSeconds, remaining);
+        startResendTimer();
+        showError(`Too many attempts. Try again in ${waitSeconds} seconds.`);
+      } else {
+        showError(data.error || 'Failed to resend code');
+        resendBtn.disabled = false;
+      }
+    } catch (error) {
+      showError('Network error. Please try again.');
+      resendBtn.disabled = false;
+    }
+  }
+  
+  function showRateLimitWarning(waitSeconds, remaining) {
+    const warningDiv = document.getElementById('rateLimitWarning');
+    warningDiv.innerHTML = `
+      <strong>⏱️ Rate limit exceeded</strong><br/>
+      You've reached the SMS limit. Try again in <span id="rate-limit-counter">${waitSeconds}</span>s
+      (${remaining} attempts remaining)
+    `;
+    warningDiv.classList.add('show');
+    
+    // Countdown timer
+    let seconds = waitSeconds;
+    const countdownInterval = setInterval(() => {
+      seconds--;
+      const counterEl = document.getElementById('rate-limit-counter');
+      if (counterEl) counterEl.textContent = seconds;
+      if (seconds <= 0) {
+        clearInterval(countdownInterval);
+        clearRateLimitWarning();
+      }
+    }, 1000);
+  }
+  
+  function clearRateLimitWarning() {
+    const warningDiv = document.getElementById('rateLimitWarning');
+    if (warningDiv) {
+      warningDiv.classList.remove('show');
+      warningDiv.innerHTML = '';
+    }
+  }
+  
+  function startResendTimer() {
+    const resendBtn = document.getElementById('resendBtn');
+    const timerDiv = document.getElementById('resendTimer');
+    let seconds = 60;
+    
+    timerDiv.style.display = 'block';
+    resendBtn.style.display = 'none';
+    
+    const timer = setInterval(() => {
+      seconds--;
+      timerDiv.textContent = `Resend available in ${seconds}s`;
+      
+      if (seconds <= 0) {
+        clearInterval(timer);
+        timerDiv.style.display = 'none';
+        resendBtn.style.display = 'inline-block';
+        resendBtn.disabled = false;
+      }
+    }, 1000);
+  }
+  
+  function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.classList.add('show');
+    
+    setTimeout(() => {
+      errorDiv.classList.remove('show');
+    }, 5000);
+  }
+  
+  function showSuccess(message) {
+    const successDiv = document.getElementById('successMessage');
+    successDiv.textContent = message;
+    successDiv.classList.add('show');
+  }
+</script>
+
+<%- include('../partials/footer') %>

@@ -195,7 +195,24 @@
                         autocomplete="new-password"
                     >
                 </div>
-                            <button type="submit" class="btn btn-primary btn-full">Create Account & Continue</button>
+
+                <!-- Phone Number (Optional) -->
+                <div class="form-group">
+                    <label for="phoneNumber">Phone Number (Optional)</label>
+                    <input 
+                        type="tel" 
+                        id="phoneNumber" 
+                        name="phoneNumber" 
+                        placeholder="+1 (555) 123-4567" 
+                        autocomplete="tel"
+                        value="<%= typeof formData !== 'undefined' && formData ? (formData.phoneNumber || '') : '' %>"
+                    >
+                    <small style="color:#6b7280;font-size:0.8rem;margin-top:4px;display:block;">
+                        We'll use this to help detect unauthorized account access. Include country code (e.g., +1 for US).
+                    </small>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">Create Account & Continue</button>
                         </form>
 
             <!-- Footer Links -->
@@ -207,3 +224,4 @@
 </section>
 
 <%- include('../partials/footer') %>
+

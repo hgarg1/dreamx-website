@@ -13,6 +13,7 @@
 
 const path = require('path');
 const { isProduction } = require('../db/adapter');
+const { convertLimitOffset } = require('../db/sql-compat');
 
 // Import database module - will be initialized after db is ready
 let db = null;
@@ -226,9 +227,12 @@ function getRoles({ includeDisabled = false, includeDeleted = false, search = nu
   }
   
   sql += ' ORDER BY r.priority DESC, r.name ASC LIMIT ? OFFSET ?';
-  params.push(limit, offset);
   
-  return db.prepare(sql).all(...params);
+  // Convert SQL syntax for SQL Server compatibility
+  const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = convertLimitOffset(sql, limit, offset);
+  params.push(offsetVal, fetchVal);
+  
+  return db.prepare(convertedSql).all(...params);
 }
 
 /**
@@ -497,9 +501,12 @@ function getPermissions({ groupId = null, module = null, resource = null, includ
   }
   
   sql += ' ORDER BY p.module, p.resource, p.name LIMIT ? OFFSET ?';
-  params.push(limit, offset);
   
-  return db.prepare(sql).all(...params);
+  // Convert SQL syntax for SQL Server compatibility
+  const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = convertLimitOffset(sql, limit, offset);
+  params.push(offsetVal, fetchVal);
+  
+  return db.prepare(convertedSql).all(...params);
 }
 
 /**
@@ -1319,9 +1326,12 @@ function getAuditLogs({ action = null, actorId = null, targetType = null, target
   }
   
   sql += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
-  params.push(limit, offset);
   
-  return db.prepare(sql).all(...params);
+  // Convert SQL syntax for SQL Server compatibility
+  const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = convertLimitOffset(sql, limit, offset);
+  params.push(offsetVal, fetchVal);
+  
+  return db.prepare(convertedSql).all(...params);
 }
 
 /**
@@ -1330,14 +1340,19 @@ function getAuditLogs({ action = null, actorId = null, targetType = null, target
 function getVersionHistory(entityType, entityId, { limit = 50, offset = 0 } = {}) {
   if (!isInitialized) throw new Error('RBAC service not initialized');
   
-  return db.prepare(`
+  let sql = `
     SELECT v.*, u.full_name as changed_by_name, u.email as changed_by_email
     FROM rbac_versions v
     LEFT JOIN users u ON u.id = v.changed_by
     WHERE v.entity_type = ? AND v.entity_id = ?
     ORDER BY v.version DESC
     LIMIT ? OFFSET ?
-  `).all(entityType, entityId, limit, offset);
+  `;
+  
+  // Convert SQL syntax for SQL Server compatibility
+  const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = convertLimitOffset(sql, limit, offset);
+  
+  return db.prepare(convertedSql).all(entityType, entityId, offsetVal, fetchVal);
 }
 
 // =============================================================================

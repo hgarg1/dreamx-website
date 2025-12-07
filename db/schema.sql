@@ -63,6 +63,9 @@ CREATE TABLE users (
   notify_community BIT DEFAULT 1,
   notify_weekly_summary BIT DEFAULT 1,
   notify_method NVARCHAR(50) DEFAULT 'both',
+  phone_number NVARCHAR(20),
+  phone_verified BIT DEFAULT 0,
+  phone_verified_at DATETIME2,
   onboarding_completed BIT DEFAULT 0,
   needs_onboarding BIT DEFAULT 1
 );
@@ -82,6 +85,22 @@ CREATE TABLE email_verification_codes (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Phone verification codes
+CREATE TABLE phone_verification_codes (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  user_id INT NOT NULL,
+  phone_number NVARCHAR(20) NOT NULL,
+  code NVARCHAR(6) NOT NULL,
+  expires_at DATETIME2 NOT NULL,
+  verified BIT DEFAULT 0,
+  attempt_count INT DEFAULT 0,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_phone_verification_user ON phone_verification_codes(user_id);
+CREATE INDEX idx_phone_verification_phone ON phone_verification_codes(phone_number);
+
 -- Password reset tokens
 CREATE TABLE password_reset_tokens (
   id INT IDENTITY(1,1) PRIMARY KEY,
@@ -95,6 +114,61 @@ CREATE TABLE password_reset_tokens (
 );
 
 CREATE UNIQUE INDEX idx_password_reset_token_hash ON password_reset_tokens(token_hash);
+
+-- Device fingerprints for alt account detection
+CREATE TABLE device_fingerprints (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  user_id INT NOT NULL,
+  fingerprint_hash NVARCHAR(255) NOT NULL,
+  user_agent NVARCHAR(MAX),
+  ip_address NVARCHAR(50),
+  country NVARCHAR(50),
+  device_type NVARCHAR(50),
+  browser NVARCHAR(100),
+  os NVARCHAR(100),
+  created_at DATETIME2 DEFAULT GETDATE(),
+  last_used_at DATETIME2,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE(fingerprint_hash)
+);
+
+CREATE INDEX idx_device_fingerprints_user ON device_fingerprints(user_id);
+CREATE INDEX idx_device_fingerprints_fingerprint ON device_fingerprints(fingerprint_hash);
+CREATE INDEX idx_device_fingerprints_ip ON device_fingerprints(ip_address);
+
+-- Alt account detection logs
+CREATE TABLE alt_account_detections (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  user_id INT,
+  detection_type NVARCHAR(50) NOT NULL,  -- 'phone_match', 'device_match', 'ip_cluster', 'email_pattern', 'name_pattern'
+  confidence_score FLOAT DEFAULT 0.5,     -- 0.0 to 1.0
+  matched_user_ids NVARCHAR(MAX),         -- JSON array of matched user IDs
+  details NVARCHAR(MAX),                  -- JSON object with detection details
+  action NVARCHAR(50),                    -- 'flagged', 'suspended', 'reviewed'
+  resolved BIT DEFAULT 0,
+  resolved_at DATETIME2,
+  resolution_notes NVARCHAR(MAX),
+  created_at DATETIME2 DEFAULT GETDATE(),
+  updated_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_alt_detection_user ON alt_account_detections(user_id);
+CREATE INDEX idx_alt_detection_type ON alt_account_detections(detection_type);
+CREATE INDEX idx_alt_detection_resolved ON alt_account_detections(resolved);
+
+-- Rate Limit Logs
+CREATE TABLE rate_limit_logs (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  user_id INT NOT NULL,
+  action NVARCHAR(50) NOT NULL,  -- 'phone_verification', 'email_verification', 'password_reset'
+  metadata NVARCHAR(MAX),         -- JSON object with additional context
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_rate_limit_user_action ON rate_limit_logs(user_id, action, created_at);
+CREATE INDEX idx_rate_limit_created ON rate_limit_logs(created_at);
 
 -- Auth tokens
 CREATE TABLE auth_tokens (

@@ -1,0 +1,831 @@
+<!-- Phone Verification Modal -->
+<div id="phoneVerificationModal" class="modal-overlay" style="display: none;">
+  <div class="modal-content phone-modal">
+    <!-- Close Button -->
+    <button class="modal-close" id="phoneModalClose" type="button" aria-label="Close">×</button>
+    
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-icon">📱</div>
+      <h2>Add Phone Number</h2>
+      <p>Secure your account with phone verification</p>
+    </div>
+    
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Phone Input Step -->
+      <div id="phoneInputStep" class="modal-step">
+        <div class="step-indicator">
+          <div class="step active">1</div>
+          <div class="step-line"></div>
+          <div class="step">2</div>
+          <div class="step-line"></div>
+          <div class="step">3</div>
+        </div>
+        <form id="phoneInputForm">
+          <div class="form-group">
+            <label for="phoneModalInput">Phone Number</label>
+            <input 
+              type="tel" 
+              id="phoneModalInput" 
+              class="form-control" 
+              placeholder="+1 (555) 000-0000"
+              autocomplete="tel"
+              pattern="[0-9\-\+\s\(\)]{10,}"
+              required
+            />
+            <small>We'll send you a 6-digit verification code via SMS</small>
+          </div>
+          
+          <div id="phoneInputError" class="alert alert-danger" style="display: none;"></div>
+          <div id="phoneInputSuccess" class="alert alert-success" style="display: none;"></div>
+          <div id="phoneInputRateLimit" class="alert alert-warning" style="display: none;"></div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="phoneModalCancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="phoneInputSubmit">Send Code</button>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Verification Code Step -->
+      <div id="phoneCodeStep" class="modal-step" style="display: none;">
+        <div class="phone-display-mini">
+          <p>Code sent to:</p>
+          <p id="phoneDisplayNumber" class="phone-number-display"></p>
+        </div>
+        
+        <form id="phoneCodeForm">
+          <div class="form-group">
+            <label>Verification Code</label>
+            <div class="code-input-row">
+              <input type="text" class="code-digit" id="code1" maxlength="1" inputmode="numeric" placeholder="0">
+              <input type="text" class="code-digit" id="code2" maxlength="1" inputmode="numeric" placeholder="0">
+              <input type="text" class="code-digit" id="code3" maxlength="1" inputmode="numeric" placeholder="0">
+              <input type="text" class="code-digit" id="code4" maxlength="1" inputmode="numeric" placeholder="0">
+              <input type="text" class="code-digit" id="code5" maxlength="1" inputmode="numeric" placeholder="0">
+              <input type="text" class="code-digit" id="code6" maxlength="1" inputmode="numeric" placeholder="0">
+            </div>
+            <small>Enter the 6-digit code we sent to your phone</small>
+          </div>
+          
+          <div id="phoneCodeError" class="alert alert-danger" style="display: none;"></div>
+          <div id="phoneCodeRateLimit" class="alert alert-warning" style="display: none;"></div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="phoneCodeBack">Back</button>
+            <button type="submit" class="btn btn-primary" id="phoneCodeSubmit">Verify</button>
+          </div>
+          
+          <div class="resend-wrapper">
+            <p class="resend-text">Didn't receive a code?</p>
+            <button type="button" class="btn-link" id="phoneCodeResend">Resend Code</button>
+            <div id="resendCountdown" class="countdown" style="display: none;"></div>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Success Step -->
+      <div id="phoneSuccessStep" class="modal-step" style="display: none;">
+        <div class="success-icon">✅</div>
+        <h3>Phone Verified!</h3>
+        <p>Your phone number has been verified successfully</p>
+        <button type="button" class="btn btn-primary" id="phoneSuccessClose" style="width: 100%;">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Modal Overlay */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Modal Content */
+  .modal-content {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 480px;
+    width: 90%;
+    position: relative;
+    animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(30px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  /* Modal Close Button */
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
+    font-size: 32px;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+    z-index: 10;
+  }
+
+  .modal-close:hover {
+    color: #1e293b;
+  }
+
+  /* Modal Header */
+  .modal-header {
+    padding: 40px 32px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: center;
+  }
+
+  .modal-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  /* Step Indicator */
+  .step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .step {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  }
+
+  .step.active {
+    background: #667eea;
+    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  .step-line {
+    width: 24px;
+    height: 2px;
+    background: #e2e8f0;
+    transition: background 0.3s ease;
+  }
+
+  .step-line.active {
+    background: #667eea;
+  }
+
+  .modal-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 8px;
+  }
+
+  .modal-header p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+  }
+
+  /* Modal Body */
+  .modal-body {
+    padding: 32px;
+  }
+
+  .modal-step {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  /* Form Group */
+  .form-group {
+    margin-bottom: 24px;
+  }
+
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    color: #1e293b;
+    margin-bottom: 8px;
+  }
+
+  .form-group small {
+    display: block;
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 6px;
+  }
+
+  /* Form Controls */
+  .form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 16px;
+    color: #1e293b;
+    transition: all 0.3s ease;
+    font-family: inherit;
+  }
+
+  .form-control:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  /* Phone Display */
+  .phone-display-mini {
+    background: linear-gradient(135deg, #f0f4ff 0%, #f8fafc 100%);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 28px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .phone-display-mini p {
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+
+  .phone-number-display {
+    font-size: 18px;
+    font-weight: 700;
+    color: #667eea;
+    margin-top: 8px;
+    font-family: 'Monaco', 'Menlo', monospace;
+  }
+  }
+
+  /* Code Input Row */
+  .code-input-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .code-digit {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    color: #1e293b;
+    background: #f8fafc;
+    transition: all 0.3s ease;
+    font-family: 'Monaco', 'Menlo', monospace;
+  }
+
+  .code-digit:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    transform: scale(1.08);
+  }
+
+  .code-digit.filled {
+    border-color: #667eea;
+    background: #f0f4ff;
+  }
+
+  .code-digit::-webkit-outer-spin-button,
+  .code-digit::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .code-digit[type=number] {
+    appearance: textfield;
+  }
+
+  /* Alerts */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 16px;
+    display: none;
+    animation: slideDown 0.2s ease-out;
+  }
+
+  @keyframes slideDown {
+    from { 
+      opacity: 0; 
+      transform: translateY(-10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 4px solid #ef4444;
+    color: #991b1b;
+  }
+
+  .alert-success {
+    background: rgba(34, 197, 94, 0.1);
+    border-left: 4px solid #22c55e;
+    color: #15803d;
+  }
+
+  .alert-warning {
+    background: rgba(249, 115, 22, 0.1);
+    border-left: 4px solid #f97316;
+    color: #92400e;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5568d3 0%, #6a4195 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(102, 126, 234, 0.35);
+  }
+
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-primary.loading::after {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  .btn-secondary {
+    background: #f1f5f9;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
+  }
+
+  .btn-secondary:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+  }
+
+  .btn-link {
+    background: none;
+    color: #667eea;
+    padding: 0;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .btn-link:hover {
+    color: #5568d3;
+  }
+
+  .btn-link:disabled {
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  /* Modal Footer */
+  .modal-footer {
+    display: flex;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .modal-footer .btn {
+    flex: 1;
+  }
+
+  .modal-footer .btn-secondary {
+    flex: 0 0 auto;
+    padding: 12px 20px;
+  }
+
+  /* Resend Wrapper */
+  .resend-wrapper {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .resend-text {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0 0 8px;
+  }
+
+  .countdown {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 8px;
+  }
+
+  /* Success */
+  .success-icon {
+    font-size: 64px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .modal-body h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e293b;
+    text-align: center;
+    margin: 0 0 8px;
+  }
+
+  .modal-body > .success-icon ~ p {
+    text-align: center;
+    color: #64748b;
+    margin-bottom: 24px;
+  }
+
+  /* Phone Modal Specific */
+  .phone-modal {
+    max-width: 480px;
+  }
+</style>
+
+<script>
+  // Initialize phone verification modal
+  (function() {
+    const modal = document.getElementById('phoneVerificationModal');
+    const closeBtn = document.getElementById('phoneModalClose');
+    const cancelBtn = document.getElementById('phoneModalCancel');
+    const backBtn = document.getElementById('phoneCodeBack');
+    const successCloseBtn = document.getElementById('phoneSuccessClose');
+    
+    const phoneInputStep = document.getElementById('phoneInputStep');
+    const phoneCodeStep = document.getElementById('phoneCodeStep');
+    const phoneSuccessStep = document.getElementById('phoneSuccessStep');
+    
+    const phoneInputForm = document.getElementById('phoneInputForm');
+    const phoneCodeForm = document.getElementById('phoneCodeForm');
+    const codeDigits = document.querySelectorAll('.code-digit');
+    
+    // Open modal function
+    window.openPhoneVerificationModal = function() {
+      modal.classList.add('is-open');
+      resetModal();
+      updateStepIndicator(1);
+      document.getElementById('phoneModalInput').focus();
+    };
+    
+    // Close modal function
+    function closeModal() {
+      modal.classList.remove('is-open');
+      resetModal();
+    }
+    
+    // Update step indicator
+    function updateStepIndicator(stepNum) {
+      const steps = modal.querySelectorAll('.step');
+      const stepLines = modal.querySelectorAll('.step-line');
+      
+      steps.forEach((step, index) => {
+        if (index < stepNum) {
+          step.classList.add('active');
+        } else {
+          step.classList.remove('active');
+        }
+      });
+      
+      stepLines.forEach((line, index) => {
+        if (index < stepNum - 1) {
+          line.classList.add('active');
+        } else {
+          line.classList.remove('active');
+        }
+      });
+    }
+    
+    // Reset modal to initial state
+    function resetModal() {
+      phoneInputStep.style.display = 'block';
+      phoneCodeStep.style.display = 'none';
+      phoneSuccessStep.style.display = 'none';
+      
+      clearAllErrors();
+      phoneInputForm.reset();
+      phoneCodeForm.reset();
+      codeDigits.forEach(digit => digit.classList.remove('filled'));
+    }
+    
+    function clearAllErrors() {
+      document.getElementById('phoneInputError').style.display = 'none';
+      document.getElementById('phoneInputSuccess').style.display = 'none';
+      document.getElementById('phoneInputRateLimit').style.display = 'none';
+      document.getElementById('phoneCodeError').style.display = 'none';
+      document.getElementById('phoneCodeRateLimit').style.display = 'none';
+    }
+    
+    // Close button handlers
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    successCloseBtn.addEventListener('click', closeModal);
+    backBtn.addEventListener('click', () => {
+      phoneCodeStep.style.display = 'none';
+      phoneInputStep.style.display = 'block';
+      clearAllErrors();
+    });
+    
+    // Close on backdrop click (only if clicking directly on overlay, not content)
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal && e.target.id === 'phoneVerificationModal') closeModal();
+    });
+    
+    // Code digit auto-advance
+    codeDigits.forEach((input, index) => {
+      input.addEventListener('input', (e) => {
+        input.value = input.value.replace(/[^0-9]/g, '');
+        input.classList.toggle('filled', input.value.length > 0);
+        if (input.value.length === 1 && index < codeDigits.length - 1) {
+          codeDigits[index + 1].focus();
+        }
+      });
+      
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && input.value === '' && index > 0) {
+          codeDigits[index - 1].focus();
+        }
+      });
+      
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const paste = (e.clipboardData || window.clipboardData).getData('text');
+        const digits = paste.replace(/[^0-9]/g, '');
+        digits.split('').forEach((digit, i) => {
+          if (i < codeDigits.length) codeDigits[i].value = digit;
+        });
+        if (digits.length >= 6) codeDigits[5].focus();
+      });
+    });
+    
+    // Phone input form submission
+    phoneInputForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const phoneNumber = document.getElementById('phoneModalInput').value.trim();
+      
+      // Validate phone number
+      if (!phoneNumber) {
+        showError('phoneInputError', 'Please enter a phone number');
+        return;
+      }
+      
+      // Extract digits only for validation
+      const digitsOnly = phoneNumber.replace(/\D/g, '');
+      
+      // Check for valid phone number length (10-15 digits for international)
+      if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+        showError('phoneInputError', 'Please enter a valid phone number (10-15 digits)');
+        return;
+      }
+      
+      const submitBtn = document.getElementById('phoneInputSubmit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      clearAllErrors();
+      
+      try {
+        const response = await fetch('/settings/phone/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumber })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          document.getElementById('phoneDisplayNumber').textContent = data.phoneNumber;
+          phoneInputStep.style.display = 'none';
+          phoneCodeStep.style.display = 'block';
+          updateStepIndicator(2);
+          codeDigits[0].focus();
+        } else if (data.rateLimited) {
+          const waitSeconds = Math.ceil(data.waitSeconds || 60);
+          const remaining = data.remaining || 0;
+          showRateLimit('phoneInputRateLimit', waitSeconds, remaining);
+        } else {
+          showError('phoneInputError', data.error || 'Failed to send code');
+        }
+      } catch (error) {
+        showError('phoneInputError', 'Network error. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Code';
+      }
+    });
+    
+    // Phone code form submission
+    phoneCodeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = Array.from(codeDigits).map(input => input.value).join('');
+      
+      if (code.length !== 6) {
+        showError('phoneCodeError', 'Please enter all 6 digits');
+        return;
+      }
+      
+      const submitBtn = document.getElementById('phoneCodeSubmit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying...';
+      clearAllErrors();
+      
+      try {
+        const response = await fetch('/settings/phone/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          phoneCodeStep.style.display = 'none';
+          phoneSuccessStep.style.display = 'block';
+          updateStepIndicator(3);
+          setTimeout(() => closeModal(), 3000);
+        } else if (data.rateLimited) {
+          const waitSeconds = Math.ceil(data.waitSeconds || 60);
+          showError('phoneCodeRateLimit', `Too many attempts. Try again in ${waitSeconds} seconds.`);
+        } else {
+          showError('phoneCodeError', data.error || 'Verification failed');
+        }
+      } catch (error) {
+        showError('phoneCodeError', 'Network error. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Verify';
+      }
+    });
+    
+    // Resend code button
+    document.getElementById('phoneCodeResend').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const resendBtn = document.getElementById('phoneCodeResend');
+      resendBtn.disabled = true;
+      clearAllErrors();
+      
+      try {
+        const response = await fetch('/settings/phone/resend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          codeDigits.forEach(digit => digit.value = '');
+          codeDigits[0].focus();
+          startResendTimer();
+        } else if (data.rateLimited) {
+          const waitSeconds = Math.ceil(data.waitSeconds || 60);
+          const remaining = data.remaining || 0;
+          showRateLimit('phoneCodeRateLimit', waitSeconds, remaining);
+        } else {
+          showError('phoneCodeError', data.error || 'Failed to resend code');
+          resendBtn.disabled = false;
+        }
+      } catch (error) {
+        showError('phoneCodeError', 'Network error. Please try again.');
+        resendBtn.disabled = false;
+      }
+    });
+    
+    function startResendTimer() {
+      const resendBtn = document.getElementById('phoneCodeResend');
+      const countdown = document.getElementById('resendCountdown');
+      let seconds = 60;
+      
+      countdown.style.display = 'block';
+      countdown.textContent = `Resend available in ${seconds}s`;
+      
+      const timer = setInterval(() => {
+        seconds--;
+        countdown.textContent = `Resend available in ${seconds}s`;
+        
+        if (seconds <= 0) {
+          clearInterval(timer);
+          countdown.style.display = 'none';
+          resendBtn.disabled = false;
+        }
+      }, 1000);
+    }
+    
+    function showError(elementId, message) {
+      const element = document.getElementById(elementId);
+      element.textContent = message;
+      element.style.display = 'block';
+    }
+    
+    function showRateLimit(elementId, waitSeconds, remaining) {
+      const element = document.getElementById(elementId);
+      element.innerHTML = `
+        <strong>⏱️ Rate limit exceeded</strong><br/>
+        You've reached the SMS limit. Try again in <span id="limit-countdown">${waitSeconds}</span>s
+        (${remaining} attempts remaining)
+      `;
+      element.style.display = 'block';
+      
+      let seconds = waitSeconds;
+      const countdownInterval = setInterval(() => {
+        seconds--;
+        const countEl = document.getElementById('limit-countdown');
+        if (countEl) countEl.textContent = seconds;
+        if (seconds <= 0) {
+          clearInterval(countdownInterval);
+          element.style.display = 'none';
+        }
+      }, 1000);
+    }
+  })();
+</script>

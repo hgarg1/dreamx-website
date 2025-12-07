@@ -57,6 +57,9 @@
     "socket.io": "^4.8.1",
     "square": "^43.2.0",
     "stripe": "^19.3.1",
+    "twilio": "^4.10.0",
+    "libphonenumber-js": "^1.10.54",
+    "ua-parser-js": "^1.0.37",
     "web-push": "^3.6.6"
   },
   "devDependencies": {

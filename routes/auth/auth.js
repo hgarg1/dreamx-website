@@ -23,10 +23,22 @@ const {
     invalidateUserResetTokens,
     createOrUpdateSubscription,
     addAuditLog,
+    createPhoneVerificationCode,
+    getPhoneVerificationCode,
+    getLatestPhoneVerificationCode,
+    markPhoneCodeAsVerified,
+    markPhoneAsVerified,
+    updateUserPhoneNumber,
+    deleteExpiredPhoneVerificationCodes,
+    createDeviceFingerprint,
     db
 } = require('../../db');
 const { resolvePostAuthRedirect, getRequestBaseUrl, validatePasswordComplexity } = require('../../utils/route-helpers');
 const emailService = require('../../services/emailService');
+const phoneService = require('../../services/phoneService');
+const DeviceFingerprintService = require('../../services/deviceFingerprintService');
+const AltAccountDetectionService = require('../../services/altAccountDetectionService');
+const rateLimitService = require('../../services/rateLimitService');
 
 const router = express.Router();
 
@@ -177,40 +189,52 @@ router.post('/register', async (req, res) => {
         });
     }
 
-    // Alt account detection
-    const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
-    const emailDomain = email.split('@')[1];
-    const emailUsername = email.split('@')[0];
-    try {
-        const suspiciousUsers = db.prepare(`
-            SELECT u.id, u.email, u.full_name, u.account_status, u.created_at,
-                   am.ban_reason, am.suspended_until
-            FROM users u
-            LEFT JOIN account_moderation am ON am.user_id = u.id
-            WHERE (am.status IN ('banned', 'suspended') OR u.account_status IN ('banned', 'suspended'))
-                AND (u.email LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)
-            ORDER BY u.created_at DESC
-            LIMIT 1
-        `).get(`%${emailUsername}%@${emailDomain}`, `%${fullName}%`, `${emailUsername}%@%`);
-        if (suspiciousUsers) {
-            console.warn(`[ALT ACCOUNT DETECTION] Potential alt account signup detected: ${email} (${fullName})`);
-            try {
-                addAuditLog({
-                    userId: null,
-                    action: 'suspicious_signup_detected',
-                    details: JSON.stringify({
-                        newEmail: email,
-                        newName: fullName,
-                        matchedUserId: suspiciousUsers.id,
-                        matchedEmail: suspiciousUsers.email,
-                        matchedStatus: suspiciousUsers.account_status,
-                        ip: clientIp
-                    })
-                });
-            } catch (e) { }
+    // Enhanced alt account detection with multiple signals
+    const clientIp = DeviceFingerprintService.getClientIP(req);
+    const { hash: fingerprintHash, details: fingerprintDetails } = DeviceFingerprintService.generateFingerprint(req);
+    const phoneNumber = req.body.phoneNumber ? req.body.phoneNumber.trim() : null;
+
+    let normalizedPhone = null;
+    if (phoneNumber) {
+        const phoneValidation = phoneService.validatePhoneNumber(phoneNumber);
+        if (phoneValidation.valid) {
+            normalizedPhone = phoneValidation.e164;
         }
-    } catch (e) {
-        console.warn('Alt account detection failed:', e.message);
+    }
+
+    let altAccountAnalysis = { isAltAccount: false, riskLevel: 'low', detections: [] };
+    try {
+        altAccountAnalysis = await AltAccountDetectionService.analyzeSignup({
+            email: email.trim().toLowerCase(),
+            fullName,
+            phoneNumber: normalizedPhone,
+            ipAddress: clientIp,
+            fingerprintHash,
+            req
+        });
+
+        if (altAccountAnalysis.shouldFlagForReview || altAccountAnalysis.isAltAccount) {
+            console.warn(`[ALT ACCOUNT DETECTION] ${altAccountAnalysis.recommendation}:`, {
+                email,
+                fullName,
+                riskLevel: altAccountAnalysis.riskLevel,
+                detections: altAccountAnalysis.detections.map(d => ({ type: d.type, severity: d.severity }))
+            });
+
+            // Block high-risk signups
+            if (altAccountAnalysis.isAltAccount) {
+                return res.status(403).render('auth/register', {
+                    title: 'Register - Dream X',
+                    currentPage: 'auth/register',
+                    error: 'Unable to complete registration. Please contact support if you believe this is an error.',
+                    suggestedHandles: null,
+                    formData: req.body
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Alt account detection error:', error);
+        // Don't block signup if detection fails, but log it
     }
 
     // Handle validation
@@ -248,12 +272,37 @@ router.post('/register', async (req, res) => {
             fullName,
             email: email.trim().toLowerCase(),
             passwordHash: hash,
-            handle: userHandle
+            handle: userHandle,
+            phoneNumber: normalizedPhone || null
         });
+
         try {
             createOrUpdateSubscription({ userId, tier: 'free', status: 'active' });
         } catch (subErr) {
             console.warn('Failed to initialize free subscription for user', userId, subErr.message);
+        }
+
+        // Store device fingerprint
+        try {
+            createDeviceFingerprint({
+                userId,
+                fingerprintHash,
+                userAgent: req.headers['user-agent'] || '',
+                ipAddress: clientIp,
+                country: fingerprintDetails.country || 'unknown',
+                deviceType: fingerprintDetails.deviceType || 'desktop',
+                browser: fingerprintDetails.browser || 'unknown',
+                os: fingerprintDetails.os || 'unknown'
+            });
+        } catch (fpError) {
+            console.warn('Failed to store device fingerprint:', fpError.message);
+        }
+
+        // Log alt account detection if suspicious
+        if (altAccountAnalysis.detections.length > 0) {
+            altAccountAnalysis.detections.forEach(detection => {
+                AltAccountDetectionService.logDetection(userId, detection);
+            });
         }
 
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -264,6 +313,28 @@ router.post('/register', async (req, res) => {
             code: verificationCode,
             expiresAt
         });
+
+        // If phone provided, initiate phone verification
+        let phoneVerificationRequired = false;
+        if (normalizedPhone) {
+            phoneVerificationRequired = true;
+            const phoneCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const phoneExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+            createPhoneVerificationCode({
+                userId,
+                phoneNumber: normalizedPhone,
+                code: phoneCode,
+                expiresAt: phoneExpiresAt
+            });
+
+            // Send SMS if Twilio is configured
+            if (phoneService.isConfigured()) {
+                const smsResult = await phoneService.sendOTPMessage(normalizedPhone, phoneCode);
+                if (!smsResult.success) {
+                    console.warn('Failed to send phone verification SMS:', smsResult.error);
+                }
+            }
+        }
 
         const user = getUserById(userId);
         try {
@@ -961,6 +1032,181 @@ router.get('/auth/x/callback', (req, res, next) => {
         // Handle the OAuth callback logic
         handleOAuthCallback(req, res, 'twitter');
     })(req, res, next);
+});
+
+// Phone Verification Routes
+router.get('/verify-phone', (req, res) => {
+    if (!req.session || !req.session.userId) return res.redirect('/login');
+    const user = getUserById(req.session.userId);
+    if (!user) return res.redirect('/login');
+    if (user.phone_verified === 1) return res.redirect(resolvePostAuthRedirect(user));
+    
+    const latestCode = getLatestPhoneVerificationCode(req.session.userId);
+    if (!latestCode) {
+        return res.redirect('/settings?error=No phone verification in progress');
+    }
+
+    res.render('auth/verify-phone', {
+        title: 'Verify Your Phone - Dream X',
+        currentPage: 'verify-phone',
+        user,
+        phoneNumber: latestCode.phone_number,
+        error: null,
+        success: null
+    });
+});
+
+router.post('/verify-phone', async (req, res) => {
+    if (!req.session || !req.session.userId) {
+        return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
+    const user = getUserById(req.session.userId);
+    if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (user.phone_verified === 1) {
+        return res.json({ success: true, redirect: resolvePostAuthRedirect(user) });
+    }
+
+    const { code } = req.body;
+    if (!code || code.length !== 6) {
+        return res.status(400).json({ success: false, error: 'Please enter a valid 6-digit code' });
+    }
+
+    // Check rate limit for verification attempts: 10 per 15 minutes
+    const verifyRateLimit = rateLimitService.checkRateLimit(user.id, 'phone_verification_attempt', {
+        maxAttempts: 10,
+        windowMinutes: 15
+    });
+
+    if (!verifyRateLimit.allowed) {
+        rateLimitService.recordAttempt(user.id, 'phone_verification_attempt', {
+            action: 'verify_code',
+            blocked: true,
+            ip: req.ip
+        });
+        return res.status(429).json({
+            success: false,
+            error: 'Too many verification attempts. Please try again later.',
+            rateLimited: true,
+            waitSeconds: verifyRateLimit.waitSeconds
+        });
+    }
+
+    try {
+        deleteExpiredPhoneVerificationCodes();
+    } catch (e) {
+        console.warn('Failed to cleanup phone codes:', e);
+    }
+
+    const verificationRecord = getPhoneVerificationCode({ userId: user.id, code });
+    if (!verificationRecord) {
+        rateLimitService.recordAttempt(user.id, 'phone_verification_attempt', {
+            action: 'verify_code',
+            result: 'invalid_code',
+            ip: req.ip
+        });
+        return res.status(400).json({ success: false, error: 'Invalid or expired code. Please try again.' });
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(verificationRecord.expires_at);
+    if (now > expiresAt) {
+        rateLimitService.recordAttempt(user.id, 'phone_verification_attempt', {
+            action: 'verify_code',
+            result: 'expired_code',
+            ip: req.ip
+        });
+        return res.status(400).json({ success: false, error: 'Code expired. Request a new one.' });
+    }
+
+    try {
+        markPhoneCodeAsVerified(verificationRecord.id);
+        markPhoneAsVerified({ userId: user.id, phoneNumber: verificationRecord.phone_number });
+        console.log(`✅ Phone verified for user ${user.id} (${verificationRecord.phone_number})`);
+        
+        const updatedUser = { ...user, phone_verified: 1 };
+        return res.json({ success: true, redirect: resolvePostAuthRedirect(updatedUser) });
+    } catch (err) {
+        console.error('Phone verification error:', err);
+        return res.status(500).json({ success: false, error: 'Failed to verify phone. Please try again.' });
+    }
+});
+
+router.post('/resend-phone-code', async (req, res) => {
+    if (!req.session || !req.session.userId) {
+        return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
+    const user = getUserById(req.session.userId);
+    if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    try {
+        // Check rate limit: 3 attempts per 60 minutes
+        const rateLimit = rateLimitService.checkRateLimit(user.id, 'phone_verification', {
+            maxAttempts: 3,
+            windowMinutes: 60
+        });
+
+        if (!rateLimit.allowed) {
+            // Log the rate limit attempt
+            rateLimitService.recordAttempt(user.id, 'phone_verification', {
+                action: 'resend_code',
+                blocked: true,
+                ip: req.ip,
+                userAgent: req.get('User-Agent')
+            });
+
+            return res.json({
+                success: false,
+                rateLimited: true,
+                error: 'Too many SMS attempts. Please try again later.',
+                remaining: rateLimit.remaining,
+                waitSeconds: rateLimit.waitSeconds,
+                resetAt: rateLimit.resetAt
+            });
+        }
+
+        const latestCode = getLatestPhoneVerificationCode(user.id);
+        if (!latestCode) {
+            return res.status(400).json({ success: false, error: 'No phone verification found' });
+        }
+
+        const phoneCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const phoneExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+        
+        createPhoneVerificationCode({
+            userId: user.id,
+            phoneNumber: latestCode.phone_number,
+            code: phoneCode,
+            expiresAt: phoneExpiresAt
+        });
+
+        // Record the successful attempt
+        rateLimitService.recordAttempt(user.id, 'phone_verification', {
+            action: 'resend_code',
+            phone: latestCode.phone_number,
+            ip: req.ip,
+            userAgent: req.get('User-Agent')
+        });
+
+        // Send SMS if Twilio is configured
+        if (phoneService.isConfigured()) {
+            const smsResult = await phoneService.sendOTPMessage(latestCode.phone_number, phoneCode);
+            if (smsResult.success) {
+                return res.json({ success: true, message: 'Verification code sent to your phone' });
+            }
+        }
+
+        return res.json({ success: true, message: 'Verification code has been sent' });
+    } catch (err) {
+        console.error('Resend phone code error:', err);
+        return res.status(500).json({ success: false, error: 'Failed to resend code' });
+    }
 });
 
 module.exports = router;

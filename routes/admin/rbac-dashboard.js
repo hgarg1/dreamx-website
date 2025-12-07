@@ -21,6 +21,7 @@ const { getUserById } = require('../../db');
 const rbacService = require('../../services/rbac');
 const { hasPermission, isRbacReady } = require('../../middleware/rbac');
 const { isSuperAdmin, isAdmin, isGlobalAdmin } = require('../../middleware/auth');
+const sqlCompat = require('../../db/sql-compat');
 
 // Import extended services
 let rbacCache, rbacAnalytics, rbacMigration, rbacDevtools;
@@ -303,9 +304,9 @@ router.get('/users', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     }
     
     query += ` ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
-    params.push(pageSize, (pageNum - 1) * pageSize);
+    const { sql, limit: offsetVal, offset: fetchVal } = sqlCompat.convertLimitOffset(query, pageSize, (pageNum - 1) * pageSize);
     
-    users = db.prepare(query).all(...params);
+    users = db.prepare(sql).all(...params, offsetVal, fetchVal);
     
     // Get RBAC roles for each user
     for (const user of users) {

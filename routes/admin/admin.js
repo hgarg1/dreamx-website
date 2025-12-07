@@ -43,6 +43,10 @@ const {
 } = require('../../db');
 const { getRequestBaseUrl } = require('../../utils/route-helpers');
 const emailService = require('../../services/emailService');
+const azureBlobService = require('../../services/storage/azure-blob');
+const { isProduction, dbType, sqlPool } = require('../../db/adapter');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
@@ -165,6 +169,14 @@ function requireAdmin(req, res, next) {
 function requireSuperAdmin(req, res, next) {
     const user = req.session.userId ? getUserById(req.session.userId) : null;
     if (!isSuperAdmin(user)) return res.redirect('/admin?error=Insufficient+permissions');
+    next();
+}
+
+function requireGlobalAdmin(req, res, next) {
+    const user = req.session.userId ? getUserById(req.session.userId) : null;
+    if (!user || user.role !== 'global_admin') {
+        return res.status(403).json({ error: 'Access denied. Global admin privileges required.' });
+    }
     next();
 }
 
@@ -1244,6 +1256,714 @@ function initAdminRoutes({ io, webpush }) {
         } catch (error) {
             console.error('Restore comment error:', error);
             res.status(500).json({ error: 'Failed to restore comment' });
+        }
+    });
+
+    // ========================================
+    // AZURE BLOB STORAGE EXPLORER ROUTES
+    // ========================================
+
+    // List blobs in Azure Storage
+    router.get('/admin/storage/blobs', requireGlobalAdmin, async (req, res) => {
+        try {
+            const prefix = req.query.prefix || '';
+            const result = await azureBlobService.listBlobs(prefix);
+            
+            if (!result.success) {
+                return res.status(500).json({ error: result.error || 'Failed to list blobs' });
+            }
+
+            // Organize blobs into folders and files
+            const folders = new Set();
+            const files = [];
+
+            result.blobs.forEach(blob => {
+                const relativePath = prefix ? blob.name.substring(prefix.length) : blob.name;
+                const parts = relativePath.split('/');
+                
+                if (parts.length > 1) {
+                    // This is in a subfolder
+                    folders.add(parts[0]);
+                } else if (parts[0]) {
+                    // This is a file
+                    files.push({
+                        name: blob.name,
+                        displayName: parts[0],
+                        size: blob.size,
+                        contentType: blob.contentType,
+                        lastModified: blob.lastModified,
+                        isImage: blob.contentType?.startsWith('image/')
+                    });
+                }
+            });
+
+            res.json({
+                success: true,
+                prefix,
+                folders: Array.from(folders).sort(),
+                files: files.sort((a, b) => a.displayName.localeCompare(b.displayName)),
+                totalFiles: files.length,
+                totalFolders: folders.size
+            });
+        } catch (error) {
+            console.error('List blobs error:', error);
+            res.status(500).json({ error: 'Failed to list blobs' });
+        }
+    });
+
+    // Download blob from Azure Storage
+    router.get('/admin/storage/blobs/download', requireGlobalAdmin, async (req, res) => {
+        try {
+            const blobName = req.query.name;
+            if (!blobName) {
+                return res.status(400).json({ error: 'Blob name is required' });
+            }
+
+            const result = await azureBlobService.downloadFile(blobName);
+            
+            if (!result.success) {
+                return res.status(500).json({ error: result.error || 'Failed to download blob' });
+            }
+
+            res.setHeader('Content-Type', result.contentType || 'application/octet-stream');
+            res.setHeader('Content-Disposition', `attachment; filename="${blobName.split('/').pop()}"`);
+            res.send(result.data);
+        } catch (error) {
+            console.error('Download blob error:', error);
+            res.status(500).json({ error: 'Failed to download blob' });
+        }
+    });
+
+    // Get SAS URL for blob (for preview)
+    router.get('/admin/storage/blobs/preview', requireGlobalAdmin, async (req, res) => {
+        try {
+            const blobName = req.query.name;
+            if (!blobName) {
+                return res.status(400).json({ error: 'Blob name is required' });
+            }
+
+            const result = await azureBlobService.generateSASUrl(blobName, 60); // 60 minute expiry
+            
+            if (!result.success) {
+                return res.status(500).json({ error: result.error || 'Failed to generate preview URL' });
+            }
+
+            res.json({ success: true, url: result.url });
+        } catch (error) {
+            console.error('Generate SAS URL error:', error);
+            res.status(500).json({ error: 'Failed to generate preview URL' });
+        }
+    });
+
+    // Upload blob to Azure Storage
+    router.post('/admin/storage/blobs/upload', requireGlobalAdmin, upload.single('file'), async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ error: 'No file uploaded' });
+            }
+
+            const prefix = req.body.prefix || '';
+            const blobName = prefix ? `${prefix}/${req.file.originalname}` : req.file.originalname;
+
+            const result = await azureBlobService.uploadFile(
+                blobName,
+                req.file.buffer,
+                req.file.mimetype
+            );
+
+            if (!result.success) {
+                return res.status(500).json({ error: result.error || 'Failed to upload blob' });
+            }
+
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'upload_blob',
+                details: JSON.stringify({ blobName, size: req.file.size })
+            });
+
+            res.json({
+                success: true,
+                message: 'File uploaded successfully',
+                blobName: result.blobName,
+                url: result.url
+            });
+        } catch (error) {
+            console.error('Upload blob error:', error);
+            res.status(500).json({ error: 'Failed to upload blob' });
+        }
+    });
+
+    // Delete blob from Azure Storage
+    router.delete('/admin/storage/blobs', requireGlobalAdmin, async (req, res) => {
+        try {
+            const blobName = req.query.name;
+            if (!blobName) {
+                return res.status(400).json({ error: 'Blob name is required' });
+            }
+
+            const result = await azureBlobService.deleteFile(blobName);
+            
+            if (!result.success) {
+                return res.status(500).json({ error: result.error || 'Failed to delete blob' });
+            }
+
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'delete_blob',
+                details: JSON.stringify({ blobName })
+            });
+
+            res.json({ success: true, message: 'File deleted successfully' });
+        } catch (error) {
+            console.error('Delete blob error:', error);
+            res.status(500).json({ error: 'Failed to delete blob' });
+        }
+    });
+
+    // ========================================
+    // SQL DATABASE EXPLORER ROUTES (READ-ONLY)
+    // ========================================
+
+    // Get list of all tables
+    router.get('/admin/database/tables', requireGlobalAdmin, async (req, res) => {
+        try {
+            let tables = [];
+
+            if (isProduction && dbType === 'sqlserver') {
+                // SQL Server - get tables from information schema
+                const result = await sqlPool.request().query(`
+                    SELECT 
+                        TABLE_NAME as name,
+                        TABLE_TYPE as type
+                    FROM INFORMATION_SCHEMA.TABLES
+                    WHERE TABLE_TYPE = 'BASE TABLE'
+                    AND TABLE_SCHEMA = 'dbo'
+                    ORDER BY TABLE_NAME
+                `);
+                tables = result.recordset.map(t => ({
+                    name: t.name,
+                    type: 'table'
+                }));
+            } else {
+                // SQLite - get tables from sqlite_master
+                const rows = db.prepare(`
+                    SELECT name, type 
+                    FROM sqlite_master 
+                    WHERE type='table' 
+                    AND name NOT LIKE 'sqlite_%'
+                    ORDER BY name
+                `).all();
+                tables = rows;
+            }
+
+            res.json({ success: true, tables });
+        } catch (error) {
+            console.error('List tables error:', error);
+            res.status(500).json({ error: 'Failed to list tables' });
+        }
+    });
+
+    // Get table schema (columns and types)
+    router.get('/admin/database/tables/:tableName/schema', requireGlobalAdmin, async (req, res) => {
+        try {
+            const { tableName } = req.params;
+            
+            // Validate table name (prevent SQL injection)
+            if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+                return res.status(400).json({ error: 'Invalid table name' });
+            }
+
+            let columns = [];
+
+            if (isProduction && dbType === 'sqlserver') {
+                // SQL Server - get column information
+                const result = await sqlPool.request().query(`
+                    SELECT 
+                        COLUMN_NAME as name,
+                        DATA_TYPE as type,
+                        IS_NULLABLE as nullable,
+                        COLUMN_DEFAULT as defaultValue,
+                        CHARACTER_MAXIMUM_LENGTH as maxLength
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_NAME = '${tableName}'
+                    AND TABLE_SCHEMA = 'dbo'
+                    ORDER BY ORDINAL_POSITION
+                `);
+                columns = result.recordset.map(c => ({
+                    name: c.name,
+                    type: c.type,
+                    nullable: c.nullable === 'YES',
+                    defaultValue: c.defaultValue,
+                    maxLength: c.maxLength
+                }));
+            } else {
+                // SQLite - get table info
+                const rows = db.prepare(`PRAGMA table_info(${tableName})`).all();
+                columns = rows.map(c => ({
+                    name: c.name,
+                    type: c.type,
+                    nullable: c.notnull === 0,
+                    defaultValue: c.dflt_value,
+                    primaryKey: c.pk === 1
+                }));
+            }
+
+            res.json({ success: true, tableName, columns });
+        } catch (error) {
+            console.error('Get schema error:', error);
+            res.status(500).json({ error: 'Failed to get table schema' });
+        }
+    });
+
+    // Get table data with pagination
+    router.get('/admin/database/tables/:tableName/data', requireGlobalAdmin, async (req, res) => {
+        try {
+            const { tableName } = req.params;
+            const page = parseInt(req.query.page) || 1;
+            const limit = Math.min(parseInt(req.query.limit) || 50, 1000); // Max 1000 rows
+            const offset = (page - 1) * limit;
+            
+            // Validate table name (prevent SQL injection)
+            if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+                return res.status(400).json({ error: 'Invalid table name' });
+            }
+
+            let rows = [];
+            let total = 0;
+
+            if (isProduction && dbType === 'sqlserver') {
+                // SQL Server - get data with pagination
+                const countResult = await sqlPool.request().query(`
+                    SELECT COUNT(*) as total FROM [${tableName}]
+                `);
+                total = countResult.recordset[0].total;
+
+                const dataResult = await sqlPool.request().query(`
+                    SELECT * FROM [${tableName}]
+                    ORDER BY (SELECT NULL)
+                    OFFSET ${offset} ROWS
+                    FETCH NEXT ${limit} ROWS ONLY
+                `);
+                rows = dataResult.recordset;
+            } else {
+                // SQLite - get data with pagination
+                total = db.prepare(`SELECT COUNT(*) as total FROM ${tableName}`).get().total;
+                rows = db.prepare(`
+                    SELECT * FROM ${tableName}
+                    LIMIT ? OFFSET ?
+                `).all(limit, offset);
+            }
+
+            // Log access
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'view_table_data',
+                details: JSON.stringify({ tableName, page, limit })
+            });
+
+            res.json({ 
+                success: true, 
+                tableName,
+                data: rows,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit)
+                }
+            });
+        } catch (error) {
+            console.error('Get table data error:', error);
+            res.status(500).json({ error: 'Failed to get table data' });
+        }
+    });
+
+    // Execute custom SELECT query (read-only, super admin only)
+    router.post('/admin/database/query', requireGlobalAdmin, async (req, res) => {
+        try {
+            const { query } = req.body;
+
+            if (!query || typeof query !== 'string') {
+                return res.status(400).json({ error: 'Query is required' });
+            }
+
+            // Security: Only allow SELECT statements
+            const trimmedQuery = query.trim().toUpperCase();
+            if (!trimmedQuery.startsWith('SELECT')) {
+                return res.status(403).json({ 
+                    error: 'Only SELECT queries are allowed in read-only mode' 
+                });
+            }
+
+            // Security: Block dangerous keywords
+            const dangerousKeywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE', 'EXEC', 'EXECUTE'];
+            for (const keyword of dangerousKeywords) {
+                if (trimmedQuery.includes(keyword)) {
+                    return res.status(403).json({ 
+                        error: `Query contains forbidden keyword: ${keyword}` 
+                    });
+                }
+            }
+
+            let result = [];
+
+            if (isProduction && dbType === 'sqlserver') {
+                const queryResult = await sqlPool.request().query(query);
+                result = queryResult.recordset;
+            } else {
+                result = db.prepare(query).all();
+            }
+
+            // Log query execution
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'execute_database_query',
+                details: JSON.stringify({ query: query.substring(0, 200) })
+            });
+
+            res.json({ 
+                success: true, 
+                data: result,
+                rowCount: result.length
+            });
+        } catch (error) {
+            console.error('Query execution error:', error);
+            res.status(500).json({ 
+                error: 'Query execution failed: ' + error.message 
+            });
+        }
+    });
+
+    // Export table to CSV
+    router.get('/admin/database/tables/:tableName/export', requireGlobalAdmin, async (req, res) => {
+        try {
+            const { tableName } = req.params;
+            
+            // Validate table name
+            if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+                return res.status(400).json({ error: 'Invalid table name' });
+            }
+
+            let rows = [];
+
+            if (isProduction && dbType === 'sqlserver') {
+                const result = await sqlPool.request().query(`SELECT * FROM [${tableName}]`);
+                rows = result.recordset;
+            } else {
+                rows = db.prepare(`SELECT * FROM ${tableName}`).all();
+            }
+
+            if (rows.length === 0) {
+                return res.status(400).json({ error: 'Table is empty' });
+            }
+
+            // Convert to CSV
+            const headers = Object.keys(rows[0]);
+            const csvRows = [headers.join(',')];
+            
+            rows.forEach(row => {
+                const values = headers.map(header => {
+                    const value = row[header];
+                    if (value === null || value === undefined) return '';
+                    // Escape quotes and wrap in quotes if contains comma or quote
+                    const stringValue = String(value);
+                    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                        return `"${stringValue.replace(/"/g, '""')}"`;
+                    }
+                    return stringValue;
+                });
+                csvRows.push(values.join(','));
+            });
+
+            const csv = csvRows.join('\n');
+
+            // Log export
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'export_table_csv',
+                details: JSON.stringify({ tableName, rowCount: rows.length })
+            });
+
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename="${tableName}_${Date.now()}.csv"`);
+            res.send(csv);
+        } catch (error) {
+            console.error('Export table error:', error);
+            res.status(500).json({ error: 'Failed to export table' });
+        }
+    });
+
+    // ===================================
+    // DATABASE EDITING ROUTES (Phase 3)
+    // ===================================
+
+    // Update a row (inline editing)
+    router.put('/admin/database/tables/:tableName/rows', requireGlobalAdmin, async (req, res) => {
+        try {
+            const { tableName } = req.params;
+            const { primaryKey, columnName, newValue } = req.body;
+
+            // Validate table name (prevent SQL injection)
+            if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+                return res.status(400).json({ error: 'Invalid table name' });
+            }
+
+            // Validate column name (prevent SQL injection)
+            if (!/^[a-zA-Z0-9_]+$/.test(columnName)) {
+                return res.status(400).json({ error: 'Invalid column name' });
+            }
+
+            if (!primaryKey || !primaryKey.columnName || primaryKey.value === undefined) {
+                return res.status(400).json({ error: 'Primary key information required' });
+            }
+
+            // Validate primary key column name
+            if (!/^[a-zA-Z0-9_]+$/.test(primaryKey.columnName)) {
+                return res.status(400).json({ error: 'Invalid primary key column name' });
+            }
+
+            // Get the old value for audit trail
+            let oldValue;
+            if (isProduction && dbType === 'sqlserver') {
+                const result = await sqlPool.request()
+                    .input('pkValue', primaryKey.value)
+                    .query(`SELECT [${columnName}] FROM [${tableName}] WHERE [${primaryKey.columnName}] = @pkValue`);
+                oldValue = result.recordset[0]?.[columnName];
+            } else {
+                const row = db.prepare(`SELECT ${columnName} FROM ${tableName} WHERE ${primaryKey.columnName} = ?`).get(primaryKey.value);
+                oldValue = row?.[columnName];
+            }
+
+            // Perform the update
+            if (isProduction && dbType === 'sqlserver') {
+                await sqlPool.request()
+                    .input('newValue', newValue)
+                    .input('pkValue', primaryKey.value)
+                    .query(`UPDATE [${tableName}] SET [${columnName}] = @newValue WHERE [${primaryKey.columnName}] = @pkValue`);
+            } else {
+                db.prepare(`UPDATE ${tableName} SET ${columnName} = ? WHERE ${primaryKey.columnName} = ?`)
+                    .run(newValue, primaryKey.value);
+            }
+
+            // Add detailed audit log
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'database_edit_row',
+                details: JSON.stringify({
+                    table: tableName,
+                    column: columnName,
+                    primaryKey: `${primaryKey.columnName}=${primaryKey.value}`,
+                    oldValue,
+                    newValue
+                })
+            });
+
+            res.json({ 
+                success: true, 
+                message: 'Row updated successfully',
+                oldValue,
+                newValue
+            });
+        } catch (error) {
+            console.error('Error updating row:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Insert a new row
+    router.post('/admin/database/tables/:tableName/rows', requireGlobalAdmin, async (req, res) => {
+        try {
+            const { tableName } = req.params;
+            const { rowData } = req.body;
+
+            // Validate table name
+            if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+                return res.status(400).json({ error: 'Invalid table name' });
+            }
+
+            if (!rowData || typeof rowData !== 'object') {
+                return res.status(400).json({ error: 'Row data required' });
+            }
+
+            // Validate all column names
+            const columns = Object.keys(rowData);
+            for (const col of columns) {
+                if (!/^[a-zA-Z0-9_]+$/.test(col)) {
+                    return res.status(400).json({ error: `Invalid column name: ${col}` });
+                }
+            }
+
+            const values = Object.values(rowData);
+
+            // Build INSERT query
+            const columnList = columns.join(', ');
+            const placeholders = isProduction && dbType === 'sqlserver'
+                ? columns.map((_, i) => `@param${i}`).join(', ')
+                : columns.map(() => '?').join(', ');
+
+            if (isProduction && dbType === 'sqlserver') {
+                const request = sqlPool.request();
+                columns.forEach((col, i) => {
+                    request.input(`param${i}`, values[i]);
+                });
+                await request.query(`INSERT INTO [${tableName}] (${columnList}) VALUES (${placeholders})`);
+            } else {
+                db.prepare(`INSERT INTO ${tableName} (${columnList}) VALUES (${placeholders})`)
+                    .run(...values);
+            }
+
+            // Add audit log
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'database_insert_row',
+                details: JSON.stringify({
+                    table: tableName,
+                    rowData
+                })
+            });
+
+            res.json({ 
+                success: true, 
+                message: 'Row inserted successfully'
+            });
+        } catch (error) {
+            console.error('Error inserting row:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Delete a row
+    router.delete('/admin/database/tables/:tableName/rows', requireGlobalAdmin, async (req, res) => {
+        try {
+            const { tableName } = req.params;
+            const { primaryKey } = req.body;
+
+            // Validate table name
+            if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+                return res.status(400).json({ error: 'Invalid table name' });
+            }
+
+            if (!primaryKey || !primaryKey.columnName || primaryKey.value === undefined) {
+                return res.status(400).json({ error: 'Primary key information required' });
+            }
+
+            // Validate primary key column name
+            if (!/^[a-zA-Z0-9_]+$/.test(primaryKey.columnName)) {
+                return res.status(400).json({ error: 'Invalid primary key column name' });
+            }
+
+            // Get the full row before deleting for audit trail
+            let deletedRow;
+            if (isProduction && dbType === 'sqlserver') {
+                const result = await sqlPool.request()
+                    .input('pkValue', primaryKey.value)
+                    .query(`SELECT * FROM [${tableName}] WHERE [${primaryKey.columnName}] = @pkValue`);
+                deletedRow = result.recordset[0];
+            } else {
+                deletedRow = db.prepare(`SELECT * FROM ${tableName} WHERE ${primaryKey.columnName} = ?`)
+                    .get(primaryKey.value);
+            }
+
+            if (!deletedRow) {
+                return res.status(404).json({ error: 'Row not found' });
+            }
+
+            // Perform the delete
+            if (isProduction && dbType === 'sqlserver') {
+                await sqlPool.request()
+                    .input('pkValue', primaryKey.value)
+                    .query(`DELETE FROM [${tableName}] WHERE [${primaryKey.columnName}] = @pkValue`);
+            } else {
+                db.prepare(`DELETE FROM ${tableName} WHERE ${primaryKey.columnName} = ?`)
+                    .run(primaryKey.value);
+            }
+
+            // Add detailed audit log
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'database_delete_row',
+                details: JSON.stringify({
+                    table: tableName,
+                    primaryKey: `${primaryKey.columnName}=${primaryKey.value}`,
+                    deletedRow
+                })
+            });
+
+            res.json({ 
+                success: true, 
+                message: 'Row deleted successfully',
+                deletedRow
+            });
+        } catch (error) {
+            console.error('Error deleting row:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Execute custom write query (UPDATE/INSERT/DELETE)
+    router.post('/admin/database/execute-write', requireGlobalAdmin, async (req, res) => {
+        try {
+            const { query } = req.body;
+
+            if (!query || typeof query !== 'string') {
+                return res.status(400).json({ error: 'SQL query required' });
+            }
+
+            const trimmedQuery = query.trim().toUpperCase();
+
+            // Blacklist dangerous operations
+            const dangerousKeywords = [
+                'DROP', 'TRUNCATE', 'ALTER', 'CREATE', 'GRANT', 'REVOKE',
+                'EXEC', 'EXECUTE', 'DECLARE', 'CURSOR', 'BACKUP', 'RESTORE'
+            ];
+
+            for (const keyword of dangerousKeywords) {
+                if (trimmedQuery.includes(keyword)) {
+                    return res.status(403).json({ 
+                        error: `Dangerous operation not allowed: ${keyword}` 
+                    });
+                }
+            }
+
+            // Only allow UPDATE, INSERT, DELETE
+            if (!trimmedQuery.startsWith('UPDATE') && 
+                !trimmedQuery.startsWith('INSERT') && 
+                !trimmedQuery.startsWith('DELETE')) {
+                return res.status(403).json({ 
+                    error: 'Only UPDATE, INSERT, and DELETE queries are allowed' 
+                });
+            }
+
+            let result;
+            if (isProduction && dbType === 'sqlserver') {
+                const queryResult = await sqlPool.request().query(query);
+                result = {
+                    rowsAffected: queryResult.rowsAffected[0] || 0,
+                    message: `Query executed successfully. ${queryResult.rowsAffected[0] || 0} row(s) affected.`
+                };
+            } else {
+                const stmt = db.prepare(query);
+                const info = stmt.run();
+                result = {
+                    rowsAffected: info.changes || 0,
+                    message: `Query executed successfully. ${info.changes || 0} row(s) affected.`
+                };
+            }
+
+            // Add audit log
+            addAuditLog({
+                userId: req.session.userId,
+                action: 'database_execute_write',
+                details: JSON.stringify({
+                    query: query.substring(0, 500),
+                    rowsAffected: result.rowsAffected
+                })
+            });
+
+            res.json({ success: true, ...result });
+        } catch (error) {
+            console.error('Error executing query:', error);
+            res.status(500).json({ error: error.message });
         }
     });
 

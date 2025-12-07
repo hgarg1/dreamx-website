@@ -793,6 +793,36 @@
     .inv-status.unpaid{background:#fee2e2;color:#991b1b;}
   </style>
 
+  <!-- Phone Verification Section -->
+  <div class="settings-card">
+    <h2 class="settings-card-title">📱 Phone Verification</h2>
+    <p style="color:#4b5563;margin-top:-4px;margin-bottom:16px;">
+      Add a verified phone number to enhance your account security and help protect against unauthorized access.
+    </p>
+    
+    <% if (authUser.phone_verified) { %>
+      <div style="background:#d1fae5;padding:12px;border-radius:10px;border:1px solid #6ee7b7;margin-bottom:16px;">
+        <p style="margin:0;font-weight:600;color:#065f46;">✓ Phone Verified</p>
+        <p style="margin:4px 0 0 0;color:#047857;font-size:0.9rem;">
+          Your phone number <strong><%= authUser.phone_number.slice(0,3) %>***<%= authUser.phone_number.slice(-4) %></strong> is verified and linked to your account.
+        </p>
+      </div>
+    <% } else { %>
+      <div style="background:#fef3c7;padding:12px;border-radius:10px;border:1px solid #fbbf24;margin-bottom:16px;">
+        <p style="margin:0;font-weight:600;color:#92400e;">⚠ Phone Not Verified</p>
+        <p style="margin:4px 0 0 0;color:#78350f;font-size:0.9rem;">
+          Add and verify your phone number to secure your account.
+        </p>
+      </div>
+    <% } %>
+
+    <div class="settings-actions-inline">
+      <button type="button" class="settings-btn primary" onclick="openPhoneVerificationModal()">
+        <% if (authUser.phone_verified) { %>📞 Change Phone Number<% } else { %>📱 Add & Verify Phone<% } %>
+      </button>
+    </div>
+  </div>
+
   <!-- Privacy Section -->
   <div class="settings-card">
     <h2 class="settings-card-title">Privacy</h2>
@@ -1025,6 +1055,9 @@
     #deleteAccountModal[style*="display:flex"], #deleteAccountModal[style*="display: flex"] { display: flex !important; }
   </style>
 </section>
+
+<!-- Include Phone Verification Modal -->
+<%- include('../partials/phone-verification-modal') %>
 
 <%- include('../partials/footer') %>
 

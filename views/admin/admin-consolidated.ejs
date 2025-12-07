@@ -148,6 +148,15 @@
           <span class="badge-count sales-badge"><%= salesInquiryStats.new %></span>
           <% } %>
         </button>
+        <% if (authUser && authUser.role === 'global_admin') { %>
+        <button class="tab-btn" data-tab="storage">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          Storage Explorer
+          <span style="display:inline-block;margin-left:6px;padding:2px 6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-size:0.7rem;font-weight:700;border-radius:4px;text-transform:uppercase;box-shadow:0 2px 4px rgba(217,119,6,0.3);">Admin</span>
+        </button>
+        <% } %>
       </div>
     </div>
     <% if (authUser && (authUser.role === 'super_admin' || authUser.role === 'global_admin')) { %>
@@ -163,6 +172,19 @@
           Audit Logs
         </button>
       </div>
+    </div>
+    <% } %>
+    <% if (authUser && authUser.role === 'global_admin') { %>
+    <div class="group-wrapper">
+      <button class="tab-btn" data-tab="database">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+        </svg>
+        Database Explorer
+        <span style="display:inline-block;margin-left:6px;padding:2px 6px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;font-size:0.7rem;font-weight:700;border-radius:4px;text-transform:uppercase;box-shadow:0 2px 4px rgba(185,28,28,0.3);">Admin</span>
+      </button>
     </div>
     <% } %>
   </nav>
@@ -2217,6 +2239,1010 @@
       </div>
     <% } %>
   </section>
+
+  <!-- Azure Blob Storage Explorer -->
+  <% if (authUser && authUser.role === 'global_admin') { %>
+  <section class="admin-panel tab-panel" data-tab="storage" style="display:none;">
+    <header style="margin-bottom:28px;position:relative;">
+      <div style="position:absolute;top:-10px;right:0;padding:8px 16px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border-radius:8px;font-size:0.8rem;font-weight:700;box-shadow:0 4px 12px rgba(217,119,6,0.4);">
+        🔐 Global Admin Only
+      </div>
+      <h2 class="admin-panel-title" style="font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1d4ed8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">
+        📦 Azure Blob Storage Explorer
+      </h2>
+      <p class="admin-panel-subtitle" style="color:#6b7280;font-size:0.95rem;">
+        Browse, upload, download, and manage files in Azure Blob Storage with advanced controls
+      </p>
+    </header>
+
+    <!-- Breadcrumb Navigation -->
+    <div id="storageBreadcrumb" style="background:white;padding:16px 20px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span id="breadcrumbPath" style="color:#6b7280;font-size:0.95rem;">/ uploads</span>
+    </div>
+
+    <!-- Action Bar -->
+    <div style="background:white;padding:16px 20px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <button id="uploadBlobBtn" class="admin-header-btn" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        Upload File
+      </button>
+      <button id="refreshStorageBtn" class="admin-header-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+        </svg>
+        Refresh
+      </button>
+      <div style="flex:1;"></div>
+      <div id="storageStats" style="color:#6b7280;font-size:0.9rem;"></div>
+    </div>
+
+    <!-- Storage Browser -->
+    <div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);overflow:hidden;">
+      <div style="padding:20px;border-bottom:2px solid #f3f4f6;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <input 
+            type="text" 
+            id="storageSearch" 
+            placeholder="Search files and folders..." 
+            style="flex:1;padding:10px 16px;border:2px solid #e5e7eb;border-radius:8px;font-size:0.95rem;"
+          >
+        </div>
+      </div>
+
+      <div id="storageLoading" style="display:none;padding:60px 20px;text-align:center;">
+        <div style="display:inline-block;width:40px;height:40px;border:4px solid #f3f4f6;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;"></div>
+        <p style="margin-top:16px;color:#6b7280;">Loading storage contents...</p>
+      </div>
+
+      <div id="storageError" style="display:none;padding:40px 20px;text-align:center;color:#dc2626;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 16px;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="15" y1="9" x2="9" y2="15"></line>
+          <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>
+        <p id="storageErrorMsg"></p>
+      </div>
+
+      <div id="storageContent">
+        <!-- Folders Section -->
+        <div id="foldersSection" style="display:none;">
+          <div style="padding:16px 20px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-weight:700;color:#374151;font-size:0.9rem;">
+            📁 FOLDERS
+          </div>
+          <div id="foldersList"></div>
+        </div>
+
+        <!-- Files Section -->
+        <div id="filesSection" style="display:none;">
+          <div style="padding:16px 20px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-weight:700;color:#374151;font-size:0.9rem;">
+            📄 FILES
+          </div>
+          <div id="filesList"></div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" style="padding:60px 20px;text-align:center;color:#6b7280;">
+          <div style="font-size:3rem;margin-bottom:16px;">📭</div>
+          <h3 style="font-size:1.2rem;font-weight:700;color:#374151;margin-bottom:8px;">No Files Found</h3>
+          <p style="font-size:0.95rem;">This folder is empty. Upload files to get started.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Upload Modal -->
+  <div id="uploadModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:10000;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:20px;max-width:500px;width:90%;box-shadow:0 25px 60px rgba(0,0,0,0.5);overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:24px;color:white;">
+        <h3 style="margin:0;font-size:1.5rem;font-weight:700;">Upload File</h3>
+      </div>
+      <div style="padding:24px;">
+        <form id="uploadForm">
+          <div style="margin-bottom:20px;">
+            <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Select File</label>
+            <input 
+              type="file" 
+              id="fileInput" 
+              required 
+              style="width:100%;padding:12px;border:2px dashed #d1d5db;border-radius:8px;cursor:pointer;"
+            >
+          </div>
+          <div style="margin-bottom:20px;">
+            <label style="display:block;margin-bottom:8px;font-weight:600;color:#374151;">Target Folder</label>
+            <input 
+              type="text" 
+              id="uploadPrefix" 
+              readonly 
+              style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;background:#f9fafb;"
+            >
+          </div>
+          <div style="display:flex;gap:12px;">
+            <button type="button" onclick="closeUploadModal()" style="flex:1;padding:12px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+              Cancel
+            </button>
+            <button type="submit" style="flex:1;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+              Upload
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Modal -->
+  <div id="previewModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:10000;align-items:center;justify-content:center;" onclick="closePreviewModal()">
+    <div style="max-width:90%;max-height:90%;position:relative;">
+      <button onclick="closePreviewModal()" style="position:absolute;top:-40px;right:0;background:white;color:#1f2937;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.5rem;line-height:1;">×</button>
+      <img id="previewImage" style="max-width:100%;max-height:90vh;border-radius:8px;box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+    </div>
+  </div>
+
+  <script>
+    let currentPrefix = '';
+    let currentBlobs = { folders: [], files: [] };
+
+    async function loadStorage(prefix = '') {
+      currentPrefix = prefix;
+      document.getElementById('uploadPrefix').value = prefix || 'uploads';
+      
+      // Update breadcrumb
+      const breadcrumb = prefix ? `/ ${prefix.replace(/\/$/, '')}` : '/ uploads';
+      document.getElementById('breadcrumbPath').textContent = breadcrumb;
+
+      // Show loading
+      document.getElementById('storageLoading').style.display = 'block';
+      document.getElementById('storageError').style.display = 'none';
+      document.getElementById('storageContent').style.display = 'none';
+
+      try {
+        const response = await fetch(`/admin/storage/blobs?prefix=${encodeURIComponent(prefix)}`);
+        const data = await response.json();
+
+        document.getElementById('storageLoading').style.display = 'none';
+
+        if (!data.success) {
+          document.getElementById('storageError').style.display = 'block';
+          document.getElementById('storageErrorMsg').textContent = data.error || 'Failed to load storage';
+          return;
+        }
+
+        currentBlobs = data;
+        renderStorage(data);
+        
+        // Update stats
+        document.getElementById('storageStats').textContent = 
+          `${data.totalFolders} folders • ${data.totalFiles} files`;
+
+      } catch (error) {
+        console.error('Load storage error:', error);
+        document.getElementById('storageLoading').style.display = 'none';
+        document.getElementById('storageError').style.display = 'block';
+        document.getElementById('storageErrorMsg').textContent = 'Network error loading storage';
+      }
+    }
+
+    function renderStorage(data) {
+      document.getElementById('storageContent').style.display = 'block';
+
+      // Render folders
+      if (data.folders.length > 0) {
+        document.getElementById('foldersSection').style.display = 'block';
+        document.getElementById('foldersList').innerHTML = data.folders.map(folder => `
+          <div class="storage-item" onclick="loadStorage('${currentPrefix}${folder}/')" style="padding:16px 20px;border-bottom:1px solid #f3f4f6;cursor:pointer;display:flex;align-items:center;gap:12px;transition:background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span style="flex:1;font-weight:600;color:#374151;">${folder}</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </div>
+        `).join('');
+      } else {
+        document.getElementById('foldersSection').style.display = 'none';
+      }
+
+      // Render files
+      if (data.files.length > 0) {
+        document.getElementById('filesSection').style.display = 'block';
+        document.getElementById('filesList').innerHTML = data.files.map(file => {
+          const sizeKB = (file.size / 1024).toFixed(2);
+          const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+          const displaySize = file.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
+          
+          return `
+            <div class="storage-item" style="padding:16px 20px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:12px;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                ${file.isImage ? 
+                  '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>' :
+                  '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>'
+                }
+              </svg>
+              <div style="flex:1;">
+                <div style="font-weight:600;color:#374151;">${file.displayName}</div>
+                <div style="font-size:0.85rem;color:#6b7280;">${displaySize} • ${new Date(file.lastModified).toLocaleDateString()}</div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                ${file.isImage ? `
+                  <button onclick="previewBlob('${file.name}')" style="padding:8px 12px;background:#eff6ff;color:#1d4ed8;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;">
+                    👁️ Preview
+                  </button>
+                ` : ''}
+                <button onclick="downloadBlob('${file.name}')" style="padding:8px 12px;background:#f0fdf4;color:#15803d;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;">
+                  ⬇️ Download
+                </button>
+                <button onclick="deleteBlob('${file.name}')" style="padding:8px 12px;background:#fef2f2;color:#dc2626;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;">
+                  🗑️ Delete
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        document.getElementById('filesSection').style.display = 'none';
+      }
+
+      // Show empty state if no folders or files
+      if (data.folders.length === 0 && data.files.length === 0) {
+        document.getElementById('emptyState').style.display = 'block';
+      } else {
+        document.getElementById('emptyState').style.display = 'none';
+      }
+    }
+
+    async function downloadBlob(blobName) {
+      window.location.href = `/admin/storage/blobs/download?name=${encodeURIComponent(blobName)}`;
+    }
+
+    async function previewBlob(blobName) {
+      try {
+        const response = await fetch(`/admin/storage/blobs/preview?name=${encodeURIComponent(blobName)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          document.getElementById('previewImage').src = data.url;
+          document.getElementById('previewModal').style.display = 'flex';
+        }
+      } catch (error) {
+        alert('Failed to load preview');
+      }
+    }
+
+    function closePreviewModal() {
+      document.getElementById('previewModal').style.display = 'none';
+    }
+
+    async function deleteBlob(blobName) {
+      if (!confirm(`Delete ${blobName}?\n\nThis action cannot be undone.`)) return;
+
+      try {
+        const response = await fetch(`/admin/storage/blobs?name=${encodeURIComponent(blobName)}`, {
+          method: 'DELETE'
+        });
+        const data = await response.json();
+
+        if (data.success) {
+          alert('File deleted successfully');
+          loadStorage(currentPrefix);
+        } else {
+          alert('Failed to delete file: ' + (data.error || 'Unknown error'));
+        }
+      } catch (error) {
+        alert('Network error deleting file');
+      }
+    }
+
+    function openUploadModal() {
+      document.getElementById('uploadModal').style.display = 'flex';
+    }
+
+    function closeUploadModal() {
+      document.getElementById('uploadModal').style.display = 'none';
+      document.getElementById('uploadForm').reset();
+    }
+
+    document.getElementById('uploadBlobBtn').addEventListener('click', openUploadModal);
+    document.getElementById('refreshStorageBtn').addEventListener('click', () => loadStorage(currentPrefix));
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      
+      if (!file) {
+        alert('Please select a file');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('prefix', currentPrefix);
+
+      try {
+        const response = await fetch('/admin/storage/blobs/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+          alert('File uploaded successfully');
+          closeUploadModal();
+          loadStorage(currentPrefix);
+        } else {
+          alert('Upload failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (error) {
+        alert('Network error uploading file');
+      }
+    });
+
+    // Search functionality
+    document.getElementById('storageSearch').addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      
+      if (!searchTerm) {
+        renderStorage(currentBlobs);
+        return;
+      }
+
+      const filteredData = {
+        ...currentBlobs,
+        folders: currentBlobs.folders.filter(f => f.toLowerCase().includes(searchTerm)),
+        files: currentBlobs.files.filter(f => f.displayName.toLowerCase().includes(searchTerm)),
+        totalFolders: 0,
+        totalFiles: 0
+      };
+      filteredData.totalFolders = filteredData.folders.length;
+      filteredData.totalFiles = filteredData.files.length;
+
+      renderStorage(filteredData);
+    });
+
+    // Load storage when tab is opened
+    document.querySelector('[data-tab="storage"]').addEventListener('click', () => {
+      if (currentBlobs.folders.length === 0 && currentBlobs.files.length === 0) {
+        loadStorage('');
+      }
+    });
+  </script>
+  </section>
+  <% } %>
+
+  <!-- SQL Database Explorer -->
+  <% if (authUser && authUser.role === 'global_admin') { %>
+  <section class="admin-panel tab-panel" data-tab="database" style="display:none;">
+    <header style="margin-bottom:28px;position:relative;">
+      <div style="position:absolute;top:-10px;right:0;padding:8px 16px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border-radius:8px;font-size:0.8rem;font-weight:700;box-shadow:0 4px 12px rgba(185,28,28,0.4);">
+        🔐 Global Admin Only
+      </div>
+      <h2 class="admin-panel-title" style="font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">
+        🗄️ SQL Database Explorer
+      </h2>
+      <p class="admin-panel-subtitle" style="color:#6b7280;font-size:0.95rem;">
+        View, edit, and manage database tables with full CRUD operations and advanced querying
+      </p>
+      <div style="background:#dcfce7;border-left:4px solid #10b981;padding:12px 16px;border-radius:8px;margin-top:16px;display:flex;align-items:start;gap:12px;">
+        <div style="flex-shrink:0;width:32px;height:32px;background:linear-gradient(135deg,#10b981,#059669);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;">✓</div>
+        <div>
+          <strong style="color:#065f46;display:block;margin-bottom:4px;">✨ Full Access Mode</strong>
+          <span style="color:#047857;font-size:0.9rem;">You can view, edit, add, delete rows, and execute custom SQL queries with comprehensive audit logging.</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Database Info -->
+    <div style="background:linear-gradient(135deg,#ffffff,#f9fafb);padding:24px;border-radius:16px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,0.08);border:1px solid #e5e7eb;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;">
+        <div style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+          <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+            Database Type
+          </div>
+          <div style="font-weight:700;color:#374151;font-size:1.1rem;" id="dbType">Loading...</div>
+        </div>
+        <div style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+          <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3h18v18H3z"></path>
+              <path d="M3 9h18M9 21V9"></path>
+            </svg>
+            Total Tables
+          </div>
+          <div style="font-weight:700;color:#374151;font-size:1.1rem;" id="dbTableCount">0</div>
+        </div>
+        <div style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+          <div style="font-size:0.85rem;color:#6b7280;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            Environment
+          </div>
+          <div style="font-weight:700;color:#374151;font-size:1.1rem;"><%= process.env.NODE_ENV || 'development' %></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:20px;">
+      <!-- Tables Sidebar -->
+      <div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);height:fit-content;max-height:800px;overflow-y:auto;"
+        <div style="padding:16px;border-bottom:2px solid #f3f4f6;position:sticky;top:0;background:white;z-index:1;">
+          <input 
+            type="text" 
+            id="tableSearch" 
+            placeholder="Search tables..." 
+            style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:8px;font-size:0.9rem;"
+          >
+        </div>
+        <div id="tablesLoading" style="padding:40px 20px;text-align:center;color:#6b7280;">
+          <div style="width:30px;height:30px;border:3px solid #f3f4f6;border-top-color:#10b981;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px;"></div>
+          Loading tables...
+        </div>
+        <div id="tablesList"></div>
+      </div>
+
+      <!-- Table Content Area -->
+      <div>
+        <!-- Welcome State -->
+        <div id="dbWelcome" style="background:white;border-radius:12px;padding:60px 40px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin:0 auto 20px;">
+            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+          </svg>
+          <h3 style="font-size:1.4rem;font-weight:700;color:#374151;margin-bottom:12px;">Select a Table</h3>
+          <p style="color:#6b7280;font-size:0.95rem;">Choose a table from the sidebar to view its schema and data</p>
+        </div>
+
+        <!-- Table View -->
+        <div id="tableView" style="display:none;">
+          <!-- Table Header -->
+          <div style="background:white;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+              <div>
+                <h3 id="currentTableName" style="font-size:1.4rem;font-weight:700;color:#374151;margin-bottom:4px;"></h3>
+                <p id="currentTableInfo" style="color:#6b7280;font-size:0.9rem;"></p>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button id="addRowBtn" class="admin-header-btn" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Add Row
+                </button>
+                <button id="queryEditorBtn" class="admin-header-btn" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"></polyline>
+                    <polyline points="8 6 2 12 8 18"></polyline>
+                  </svg>
+                  SQL Query
+                </button>
+                <button id="exportTableBtn" class="admin-header-btn" style="background:linear-gradient(135deg,#10b981,#059669);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Export CSV
+                </button>
+                <button id="refreshTableBtn" class="admin-header-btn">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Schema Tab -->
+          <div style="background:white;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <h4 style="font-size:1.1rem;font-weight:700;color:#374151;margin-bottom:16px;">📋 Table Schema</h4>
+            <div id="schemaView" style="overflow-x:auto;"></div>
+          </div>
+
+          <!-- Data Tab -->
+          <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <h4 style="font-size:1.1rem;font-weight:700;color:#374151;margin-bottom:16px;">📊 Table Data</h4>
+            <div id="dataLoading" style="display:none;padding:40px;text-align:center;color:#6b7280;">
+              <div style="width:40px;height:40px;border:4px solid #f3f4f6;border-top-color:#10b981;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;"></div>
+              Loading data...
+            </div>
+            <div id="dataView" style="overflow-x:auto;"></div>
+            <div id="pagination" style="margin-top:20px;display:flex;justify-content:center;align-items:center;gap:12px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Row Modal -->
+    <div id="addRowModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;justify-content:center;align-items:center;">
+      <div style="background:white;border-radius:16px;padding:32px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <h3 style="font-size:1.5rem;font-weight:700;color:#374151;margin-bottom:20px;">➕ Add New Row</h3>
+        <div id="addRowForm"></div>
+        <div style="display:flex;gap:12px;margin-top:24px;">
+          <button id="saveNewRowBtn" style="flex:1;padding:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Save Row</button>
+          <button onclick="document.getElementById('addRowModal').style.display='none'" style="flex:1;padding:12px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SQL Query Editor Modal -->
+    <div id="queryEditorModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;justify-content:center;align-items:center;">
+      <div style="background:white;border-radius:16px;padding:32px;max-width:900px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <h3 style="font-size:1.5rem;font-weight:700;color:#374151;margin-bottom:20px;">🔧 Execute SQL Query</h3>
+        <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px;margin-bottom:16px;border-radius:8px;">
+          <p style="color:#92400e;font-size:0.9rem;margin:0;"><strong>⚠️ Warning:</strong> Only UPDATE, INSERT, and DELETE queries are allowed. Dangerous operations (DROP, TRUNCATE, ALTER, etc.) are blocked.</p>
+        </div>
+        <textarea id="sqlQueryInput" placeholder="UPDATE users SET status = 'active' WHERE id = 123" style="width:100%;height:200px;padding:16px;border:2px solid #e5e7eb;border-radius:8px;font-family:monospace;font-size:0.9rem;resize:vertical;"></textarea>
+        <div id="queryResult" style="margin-top:16px;"></div>
+        <div style="display:flex;gap:12px;margin-top:24px;">
+          <button id="executeQueryBtn" style="flex:1;padding:12px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Execute Query</button>
+          <button onclick="document.getElementById('queryEditorModal').style.display='none';document.getElementById('queryResult').innerHTML=''" style="flex:1;padding:12px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Close</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    let allTables = [];
+    let currentTable = null;
+    let currentPage = 1;
+    let totalPages = 1;
+
+    // Load all tables
+    async function loadDatabaseTables() {
+      try {
+        const response = await fetch('/admin/database/tables');
+        const data = await response.json();
+
+        if (data.success) {
+          allTables = data.tables;
+          document.getElementById('dbTableCount').textContent = allTables.length;
+          renderTablesList(allTables);
+        }
+      } catch (error) {
+        console.error('Load tables error:', error);
+      } finally {
+        document.getElementById('tablesLoading').style.display = 'none';
+      }
+    }
+
+    function renderTablesList(tables) {
+      const html = tables.map(table => `
+        <div 
+          class="db-table-item" 
+          onclick="selectTable('${table.name}')"
+          style="padding:12px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background 0.2s;"
+          onmouseover="this.style.background='#f9fafb'" 
+          onmouseout="this.style.background=currentTable==='${table.name}'?'#ecfdf5':'white'"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:middle;margin-right:8px;">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          </svg>
+          <span style="font-weight:600;color:#374151;font-size:0.9rem;">${table.name}</span>
+        </div>
+      `).join('');
+      document.getElementById('tablesList').innerHTML = html;
+    }
+
+    async function selectTable(tableName) {
+      currentTable = tableName;
+      currentPage = 1;
+      
+      // Update UI
+      document.getElementById('dbWelcome').style.display = 'none';
+      document.getElementById('tableView').style.display = 'block';
+      document.getElementById('currentTableName').textContent = tableName;
+
+      // Highlight selected table
+      document.querySelectorAll('.db-table-item').forEach(item => {
+        item.style.background = 'white';
+      });
+      event.target.closest('.db-table-item').style.background = '#ecfdf5';
+
+      // Load schema and data
+      await Promise.all([loadSchema(tableName), loadTableData(tableName, 1)]);
+    }
+
+    async function loadSchema(tableName) {
+      try {
+        const response = await fetch(`/admin/database/tables/${tableName}/schema`);
+        const data = await response.json();
+
+        if (data.success) {
+          const html = `
+            <table style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+                  <th style="padding:12px;text-align:left;font-weight:700;color:#374151;">Column</th>
+                  <th style="padding:12px;text-align:left;font-weight:700;color:#374151;">Type</th>
+                  <th style="padding:12px;text-align:left;font-weight:700;color:#374151;">Nullable</th>
+                  <th style="padding:12px;text-align:left;font-weight:700;color:#374151;">Default</th>
+                  ${data.columns[0].primaryKey !== undefined ? '<th style="padding:12px;text-align:left;font-weight:700;color:#374151;">Primary Key</th>' : ''}
+                </tr>
+              </thead>
+              <tbody>
+                ${data.columns.map(col => `
+                  <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:12px;font-weight:600;color:#374151;">${col.name}</td>
+                    <td style="padding:12px;color:#6b7280;"><code style="background:#f3f4f6;padding:2px 8px;border-radius:4px;font-size:0.85rem;">${col.type}</code></td>
+                    <td style="padding:12px;color:#6b7280;">${col.nullable ? '✓' : '✗'}</td>
+                    <td style="padding:12px;color:#6b7280;font-size:0.85rem;">${col.defaultValue || '-'}</td>
+                    ${col.primaryKey !== undefined ? `<td style="padding:12px;">${col.primaryKey ? '🔑' : ''}</td>` : ''}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          document.getElementById('schemaView').innerHTML = html;
+        }
+      } catch (error) {
+        console.error('Load schema error:', error);
+      }
+    }
+
+    async function loadTableData(tableName, page = 1) {
+      document.getElementById('dataLoading').style.display = 'block';
+      document.getElementById('dataView').innerHTML = '';
+
+      try {
+        const response = await fetch(`/admin/database/tables/${tableName}/data?page=${page}&limit=50`);
+        const data = await response.json();
+
+        if (data.success) {
+          currentPage = data.pagination.page;
+          totalPages = data.pagination.totalPages;
+
+          document.getElementById('currentTableInfo').textContent = 
+            `${data.pagination.total} rows total • Showing page ${currentPage} of ${totalPages}`;
+
+          if (data.data.length === 0) {
+            document.getElementById('dataView').innerHTML = 
+              '<div style="padding:40px;text-align:center;color:#6b7280;">No data found</div>';
+          } else {
+            const columns = Object.keys(data.data[0]);
+            
+            // Try to identify primary key column (usually 'id', 'userId', or first column)
+            let pkColumn = columns.find(c => c.toLowerCase() === 'id') || 
+                          columns.find(c => c.toLowerCase().includes('id')) || 
+                          columns[0];
+            
+            const html = `
+              <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+                <thead>
+                  <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+                    ${columns.map(col => `
+                      <th style="padding:10px;text-align:left;font-weight:700;color:#374151;white-space:nowrap;">${col}</th>
+                    `).join('')}
+                    <th style="padding:10px;text-align:center;font-weight:700;color:#374151;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.data.map(row => `
+                    <tr style="border-bottom:1px solid #f3f4f6;">
+                      ${columns.map(col => {
+                        let value = row[col];
+                        const displayValue = value === null || value === undefined ? '<span style="color:#9ca3af;">NULL</span>' :
+                                           typeof value === 'object' ? JSON.stringify(value) :
+                                           String(value).length > 100 ? String(value).substring(0, 100) + '...' :
+                                           value;
+                        
+                        return `<td style="padding:10px;color:#374151;max-width:300px;overflow:hidden;text-overflow:ellipsis;" 
+                                    class="editable-cell" 
+                                    data-column="${col}" 
+                                    data-pk-column="${pkColumn}" 
+                                    data-pk-value="${row[pkColumn]}"
+                                    data-original-value="${value}"
+                                    ondblclick="makeEditable(this)">${displayValue}</td>`;
+                      }).join('')}
+                      <td style="padding:10px;text-align:center;">
+                        <button onclick="deleteRow('${pkColumn}', '${row[pkColumn]}')" style="padding:6px 12px;background:#fee2e2;color:#dc2626;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;" title="Delete row">
+                          🗑️ Delete
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+            document.getElementById('dataView').innerHTML = html;
+          }
+
+          renderPagination();
+        }
+      } catch (error) {
+        console.error('Load data error:', error);
+        document.getElementById('dataView').innerHTML = 
+          '<div style="padding:40px;text-align:center;color:#dc2626;">Failed to load data</div>';
+      } finally {
+        document.getElementById('dataLoading').style.display = 'none';
+      }
+    }
+
+    function renderPagination() {
+      if (totalPages <= 1) {
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      let html = '';
+      
+      // Previous button
+      if (currentPage > 1) {
+        html += `<button onclick="loadTableData(currentTable, ${currentPage - 1})" style="padding:8px 16px;background:white;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-weight:600;">← Previous</button>`;
+      }
+
+      // Page numbers
+      html += `<span style="color:#6b7280;font-weight:600;">Page ${currentPage} of ${totalPages}</span>`;
+
+      // Next button
+      if (currentPage < totalPages) {
+        html += `<button onclick="loadTableData(currentTable, ${currentPage + 1})" style="padding:8px 16px;background:white;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-weight:600;">Next →</button>`;
+      }
+
+      document.getElementById('pagination').innerHTML = html;
+    }
+
+    // Table search
+    document.getElementById('tableSearch').addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      const filtered = allTables.filter(t => t.name.toLowerCase().includes(searchTerm));
+      renderTablesList(filtered);
+    });
+
+    // Export table
+    document.getElementById('exportTableBtn').addEventListener('click', () => {
+      if (currentTable) {
+        window.location.href = `/admin/database/tables/${currentTable}/export`;
+      }
+    });
+
+    // Refresh table
+    document.getElementById('refreshTableBtn').addEventListener('click', () => {
+      if (currentTable) {
+        loadTableData(currentTable, currentPage);
+      }
+    });
+
+    // Add Row button
+    document.getElementById('addRowBtn').addEventListener('click', async () => {
+      if (!currentTable) return;
+      
+      try {
+        const schemaRes = await fetch(`/admin/database/tables/${currentTable}/schema`);
+        const schemaData = await schemaRes.json();
+        
+        if (schemaData.success) {
+          const formHtml = schemaData.columns.map(col => `
+            <div style="margin-bottom:16px;">
+              <label style="display:block;font-weight:600;color:#374151;margin-bottom:6px;">${col.name}</label>
+              <input type="text" 
+                     id="new_${col.name}" 
+                     placeholder="${col.type}${col.nullable ? ' (optional)' : ' (required)'}"
+                     style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;"
+                     ${col.nullable ? '' : 'required'}>
+              <small style="color:#6b7280;">Type: ${col.type}${col.defaultValue ? ` • Default: ${col.defaultValue}` : ''}</small>
+            </div>
+          `).join('');
+          
+          document.getElementById('addRowForm').innerHTML = formHtml;
+          document.getElementById('addRowModal').style.display = 'flex';
+        }
+      } catch (error) {
+        console.error('Error loading schema:', error);
+        alert('Failed to load table schema');
+      }
+    });
+
+    // Save new row
+    document.getElementById('saveNewRowBtn').addEventListener('click', async () => {
+      try {
+        const schemaRes = await fetch(`/admin/database/tables/${currentTable}/schema`);
+        const schemaData = await schemaRes.json();
+        
+        const rowData = {};
+        for (const col of schemaData.columns) {
+          const input = document.getElementById(`new_${col.name}`);
+          if (input && input.value) {
+            rowData[col.name] = input.value;
+          }
+        }
+        
+        const response = await fetch(`/admin/database/tables/${currentTable}/rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rowData })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ Row added successfully!');
+          document.getElementById('addRowModal').style.display = 'none';
+          loadTableData(currentTable, currentPage);
+        } else {
+          alert('❌ Error: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error adding row:', error);
+        alert('Failed to add row: ' + error.message);
+      }
+    });
+
+    // Query Editor button
+    document.getElementById('queryEditorBtn').addEventListener('click', () => {
+      document.getElementById('queryEditorModal').style.display = 'flex';
+    });
+
+    // Execute query
+    document.getElementById('executeQueryBtn').addEventListener('click', async () => {
+      const query = document.getElementById('sqlQueryInput').value.trim();
+      
+      if (!query) {
+        alert('Please enter a SQL query');
+        return;
+      }
+      
+      try {
+        const response = await fetch('/admin/database/execute-write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          document.getElementById('queryResult').innerHTML = `
+            <div style="padding:16px;background:#d1fae5;border-left:4px solid #10b981;border-radius:8px;color:#065f46;">
+              <strong>✅ Success!</strong><br>${result.message}
+            </div>
+          `;
+          // Refresh current table if viewing one
+          if (currentTable) {
+            loadTableData(currentTable, currentPage);
+          }
+        } else {
+          document.getElementById('queryResult').innerHTML = `
+            <div style="padding:16px;background:#fee2e2;border-left:4px solid #dc2626;border-radius:8px;color:#991b1b;">
+              <strong>❌ Error:</strong><br>${result.error}
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Query execution error:', error);
+        document.getElementById('queryResult').innerHTML = `
+          <div style="padding:16px;background:#fee2e2;border-left:4px solid #dc2626;border-radius:8px;color:#991b1b;">
+            <strong>❌ Error:</strong><br>${error.message}
+          </div>
+        `;
+      }
+    });
+
+    // Make cell editable (double-click)
+    window.makeEditable = function(cell) {
+      const originalValue = cell.dataset.originalValue;
+      const column = cell.dataset.column;
+      const pkColumn = cell.dataset.pkColumn;
+      const pkValue = cell.dataset.pkValue;
+      
+      const currentText = cell.textContent;
+      
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = originalValue === 'null' || originalValue === 'undefined' ? '' : originalValue;
+      input.style.cssText = 'width:100%;padding:8px;border:2px solid #3b82f6;border-radius:4px;font-family:inherit;';
+      
+      input.onblur = async function() {
+        const newValue = input.value;
+        
+        if (newValue !== originalValue) {
+          if (confirm(`Update ${column} from "${originalValue}" to "${newValue}"?`)) {
+            try {
+              const response = await fetch(`/admin/database/tables/${currentTable}/rows`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  primaryKey: { columnName: pkColumn, value: pkValue },
+                  columnName: column,
+                  newValue: newValue
+                })
+              });
+              
+              const result = await response.json();
+              
+              if (result.success) {
+                cell.textContent = newValue || 'NULL';
+                cell.dataset.originalValue = newValue;
+                cell.style.background = '#d1fae5';
+                setTimeout(() => { cell.style.background = ''; }, 2000);
+              } else {
+                alert('Update failed: ' + result.error);
+                cell.textContent = currentText;
+              }
+            } catch (error) {
+              console.error('Update error:', error);
+              alert('Update failed: ' + error.message);
+              cell.textContent = currentText;
+            }
+          } else {
+            cell.textContent = currentText;
+          }
+        } else {
+          cell.textContent = currentText;
+        }
+      };
+      
+      input.onkeydown = function(e) {
+        if (e.key === 'Enter') {
+          input.blur();
+        } else if (e.key === 'Escape') {
+          cell.textContent = currentText;
+        }
+      };
+      
+      cell.textContent = '';
+      cell.appendChild(input);
+      input.focus();
+      input.select();
+    };
+
+    // Delete row
+    window.deleteRow = async function(pkColumn, pkValue) {
+      if (!confirm(`⚠️ Delete row where ${pkColumn} = ${pkValue}?\n\nThis action cannot be undone.`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/admin/database/tables/${currentTable}/rows`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            primaryKey: { columnName: pkColumn, value: pkValue }
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('✅ Row deleted successfully');
+          loadTableData(currentTable, currentPage);
+        } else {
+          alert('❌ Delete failed: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Delete error:', error);
+        alert('Delete failed: ' + error.message);
+      }
+    };
+
+    // Load tables when tab is opened
+    document.querySelector('[data-tab="database"]').addEventListener('click', () => {
+      if (allTables.length === 0) {
+        loadDatabaseTables();
+        document.getElementById('dbType').textContent = '<%= process.env.DB_TYPE === "sqlserver" ? "SQL Server" : "SQLite" %>';
+      }
+    });
+  </script>
+  <% } %>
 
   <section class="admin-panel tab-panel" data-tab="rbac" style="display:none;">
     <script>

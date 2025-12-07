@@ -28,8 +28,13 @@ const {
     addAuditLog,
     getUserRefundRequests,
     createRefundRequest,
+    createPhoneVerificationCode,
+    getLatestPhoneVerificationCode,
+    updateUserPhoneNumber,
     db
 } = require('../../db');
+const phoneService = require('../../services/phoneService');
+const rateLimitService = require('../../services/rateLimitService');
 
 // Multer config for refund screenshots
 const refundUploadDir = path.join(__dirname, '..', '..', 'public', 'uploads', 'refunds');
@@ -788,6 +793,241 @@ function initSettingsRoutes() {
         } catch (error) {
             console.error('Error creating refund request:', error);
             res.status(500).json({ success: false, error: 'Failed to submit refund request. Please try again.' });
+        }
+    });
+
+    // Phone number management
+    router.post('/settings/phone/request', ensureAuthenticated, async (req, res) => {
+        const { phoneNumber } = req.body;
+
+        if (!phoneNumber) {
+            return res.status(400).json({ success: false, error: 'Phone number required' });
+        }
+
+        // Check rate limit: 3 attempts per 60 minutes
+        const rateLimit = rateLimitService.checkRateLimit(req.session.userId, 'phone_verification', {
+            maxAttempts: 3,
+            windowMinutes: 60
+        });
+
+        if (!rateLimit.allowed) {
+            rateLimitService.recordAttempt(req.session.userId, 'phone_verification', {
+                action: 'request_code_settings',
+                blocked: true,
+                ip: req.ip
+            });
+            return res.json({
+                success: false,
+                rateLimited: true,
+                error: 'Too many SMS requests. Please try again later.',
+                remaining: rateLimit.remaining,
+                waitSeconds: rateLimit.waitSeconds
+            });
+        }
+
+        // Validate phone number
+        const validation = phoneService.validatePhoneNumber(phoneNumber);
+        if (!validation.valid) {
+            return res.status(400).json({ success: false, error: validation.error || 'Invalid phone number' });
+        }
+
+        const normalizedPhone = validation.e164;
+
+        try {
+            // Check if phone is already in use by another verified account
+            const existingUser = db.prepare(`
+                SELECT id FROM users 
+                WHERE phone_number = ? AND phone_verified = 1 AND id != ?
+            `).get(normalizedPhone, req.session.userId);
+
+            if (existingUser) {
+                return res.status(409).json({ 
+                    success: false, 
+                    error: 'This phone number is already associated with another account' 
+                });
+            }
+
+            // Create verification code
+            const phoneCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+            createPhoneVerificationCode({
+                userId: req.session.userId,
+                phoneNumber: normalizedPhone,
+                code: phoneCode,
+                expiresAt
+            });
+
+            // Record the attempt
+            rateLimitService.recordAttempt(req.session.userId, 'phone_verification', {
+                action: 'request_code_settings',
+                phone: normalizedPhone,
+                ip: req.ip
+            });
+
+            // Send SMS if Twilio configured
+            if (phoneService.isConfigured()) {
+                const smsResult = await phoneService.sendOTPMessage(normalizedPhone, phoneCode);
+                if (!smsResult.success) {
+                    console.warn('Failed to send SMS:', smsResult.error);
+                    return res.status(500).json({ 
+                        success: false, 
+                        error: 'Failed to send verification code. Please try again.' 
+                    });
+                }
+            }
+
+            res.json({ 
+                success: true, 
+                message: 'Verification code sent to your phone',
+                phoneNumber: normalizedPhone.slice(0, 3) + '***' + normalizedPhone.slice(-4)
+            });
+        } catch (error) {
+            console.error('Phone verification request error:', error);
+            res.status(500).json({ success: false, error: 'Failed to request verification' });
+        }
+    });
+
+    router.post('/settings/phone/verify', ensureAuthenticated, async (req, res) => {
+        const { code } = req.body;
+
+        if (!code || code.length !== 6) {
+            return res.status(400).json({ success: false, error: 'Invalid verification code format' });
+        }
+
+        // Check rate limit for verification attempts: 10 per 15 minutes
+        const verifyLimit = rateLimitService.checkRateLimit(req.session.userId, 'phone_verification_attempt', {
+            maxAttempts: 10,
+            windowMinutes: 15
+        });
+
+        if (!verifyLimit.allowed) {
+            rateLimitService.recordAttempt(req.session.userId, 'phone_verification_attempt', {
+                action: 'verify_code_settings',
+                blocked: true,
+                ip: req.ip
+            });
+            return res.status(429).json({
+                success: false,
+                error: 'Too many verification attempts. Please try again later.',
+                rateLimited: true,
+                waitSeconds: verifyLimit.waitSeconds
+            });
+        }
+
+        try {
+            const verificationRecord = db.prepare(`
+                SELECT * FROM phone_verification_codes 
+                WHERE user_id = ? AND code = ? AND verified = 0
+                ORDER BY created_at DESC LIMIT 1
+            `).get(req.session.userId, code);
+
+            if (!verificationRecord) {
+                rateLimitService.recordAttempt(req.session.userId, 'phone_verification_attempt', {
+                    action: 'verify_code_settings',
+                    result: 'invalid_code',
+                    ip: req.ip
+                });
+                return res.status(400).json({ success: false, error: 'Invalid or expired code' });
+            }
+
+            const now = new Date();
+            const expiresAt = new Date(verificationRecord.expires_at);
+            if (now > expiresAt) {
+                rateLimitService.recordAttempt(req.session.userId, 'phone_verification_attempt', {
+                    action: 'verify_code_settings',
+                    result: 'expired_code',
+                    ip: req.ip
+                });
+                return res.status(400).json({ success: false, error: 'Code has expired. Request a new one.' });
+            }
+
+            // Update phone number and mark as verified
+            updateUserPhoneNumber({ 
+                userId: req.session.userId, 
+                phoneNumber: verificationRecord.phone_number 
+            });
+
+            db.prepare(`
+                UPDATE phone_verification_codes 
+                SET verified = 1 
+                WHERE id = ?
+            `).run(verificationRecord.id);
+
+            db.prepare(`
+                UPDATE users 
+                SET phone_verified = 1, phone_verified_at = CURRENT_TIMESTAMP 
+                WHERE id = ?
+            `).run(req.session.userId);
+
+            console.log(`✅ Phone verified for user ${req.session.userId}`);
+
+            res.json({ 
+                success: true, 
+                message: 'Phone number verified successfully' 
+            });
+        } catch (error) {
+            console.error('Phone verification error:', error);
+            res.status(500).json({ success: false, error: 'Verification failed' });
+        }
+    });
+
+    router.post('/settings/phone/resend', ensureAuthenticated, async (req, res) => {
+        // Check rate limit: 3 attempts per 60 minutes
+        const rateLimit = rateLimitService.checkRateLimit(req.session.userId, 'phone_verification', {
+            maxAttempts: 3,
+            windowMinutes: 60
+        });
+
+        if (!rateLimit.allowed) {
+            rateLimitService.recordAttempt(req.session.userId, 'phone_verification', {
+                action: 'resend_code_settings',
+                blocked: true,
+                ip: req.ip
+            });
+            return res.json({
+                success: false,
+                rateLimited: true,
+                error: 'Too many SMS requests. Please try again later.',
+                remaining: rateLimit.remaining,
+                waitSeconds: rateLimit.waitSeconds
+            });
+        }
+
+        try {
+            const latestCode = getLatestPhoneVerificationCode(req.session.userId);
+            if (!latestCode) {
+                return res.status(400).json({ success: false, error: 'No phone verification in progress' });
+            }
+
+            const phoneCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+            createPhoneVerificationCode({
+                userId: req.session.userId,
+                phoneNumber: latestCode.phone_number,
+                code: phoneCode,
+                expiresAt
+            });
+
+            // Record the attempt
+            rateLimitService.recordAttempt(req.session.userId, 'phone_verification', {
+                action: 'resend_code_settings',
+                phone: latestCode.phone_number,
+                ip: req.ip
+            });
+
+            if (phoneService.isConfigured()) {
+                await phoneService.sendOTPMessage(latestCode.phone_number, phoneCode);
+            }
+
+            res.json({ 
+                success: true, 
+                message: 'Verification code resent' 
+            });
+        } catch (error) {
+            console.error('Resend phone code error:', error);
+            res.status(500).json({ success: false, error: 'Failed to resend code' });
         }
     });
 

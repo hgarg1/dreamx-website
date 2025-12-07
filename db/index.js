@@ -2,6 +2,15 @@ const path = require('path');
 const { initSync, isProduction, getDatabaseSync, getDatabase, initDatabase } = require('./adapter');
 const sqlCompat = require('./sql-compat');
 
+/**
+ * Helper function to prepare SQL statements with LIMIT/OFFSET compatibility
+ * Converts SQLite LIMIT/OFFSET syntax to SQL Server OFFSET/FETCH syntax
+ */
+function prepareLimitOffset(sql, limit, offset) {
+  const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = sqlCompat.convertLimitOffset(sql, limit, offset);
+  return { sql: convertedSql, limit: offsetVal, offset: fetchVal };
+}
+
 // Initialize database based on environment
 let db = null;
 let dbWrapper = null;
@@ -1894,20 +1903,22 @@ module.exports = {
   getUsersPaged: ({ limit, offset, search }) => {
     if (search) {
       const s = `%${search.toLowerCase()}%`;
-      return db.prepare(`
+      const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`
         SELECT id, full_name, email, role, account_status, admin_permissions, admin_scopes, created_at
         FROM users
         WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
-      `).all(s, s, limit, offset);
+      `, limit, offset);
+      return db.prepare(sql).all(s, s, offsetVal, fetchVal);
     }
-    return db.prepare(`
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`
       SELECT id, full_name, email, role, account_status, admin_permissions, admin_scopes, created_at
       FROM users
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
-    `).all(limit, offset);
+    `, limit, offset);
+    return db.prepare(sql).all(offsetVal, fetchVal);
   },
   getUsersCount: ({ search }) => {
     if (search) {
@@ -2249,7 +2260,8 @@ module.exports = {
     db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(userId || null, action, details || null);
   },
   getAuditLogsPaged: ({ limit, offset }) => {
-    return db.prepare(`SELECT id, user_id, action, details, created_at FROM audit_logs ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT id, user_id, action, details, created_at FROM audit_logs ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
+    return db.prepare(sql).all(offsetVal, fetchVal);
   },
   getAuditLogCount: () => {
     return db.prepare(`SELECT COUNT(*) as c FROM audit_logs`).get().c;
@@ -2273,7 +2285,7 @@ module.exports = {
     return info.lastInsertRowid;
   },
   getFeedPosts: ({ limit, offset, userId = null }) => {
-    return db.prepare(`
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`
       SELECT p.*, u.full_name, u.email, u.profile_picture,
         (SELECT COUNT(*) FROM posts) as total_count,
         (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS comments_count
@@ -2282,7 +2294,8 @@ module.exports = {
       WHERE p.is_reel = 0
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(limit, offset).map(row => {
+    `, limit, offset);
+    return db.prepare(sql).all(offsetVal, fetchVal).map(row => {
       const counts = db.prepare(`
         SELECT reaction_type, COUNT(*) as c
         FROM post_reactions
@@ -2429,7 +2442,7 @@ module.exports = {
       ? 'WHERE c.post_id = ?'
       : 'WHERE c.post_id = ? AND c.is_hidden = 0 AND c.is_deleted = 0';
 
-    const comments = db.prepare(`
+    let query = `
       SELECT c.*, u.full_name, u.profile_picture,
         (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS star_count,
         pc.user_id as parent_author_id,
@@ -2441,7 +2454,9 @@ module.exports = {
       ${whereClause}
       ORDER BY c.created_at ASC
       LIMIT ? OFFSET ?
-    `).all(postId, limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    const comments = db.prepare(sql).all(postId, offsetVal, fetchVal);
     return comments;
   },
   getCommentsCount: (postId, isAdmin = false) => {
@@ -2838,9 +2853,11 @@ module.exports = {
   },
   getCareerApplicationsPaged: ({ limit = 50, offset = 0, status }) => {
     if (status) {
-      return db.prepare(`SELECT * FROM career_applications WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
+      const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM career_applications WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
+      return db.prepare(sql).all(status, offsetVal, fetchVal);
     }
-    return db.prepare(`SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
+    return db.prepare(sql).all(offsetVal, fetchVal);
   },
   getCareerApplicationById: (id) => {
     return db.prepare(`SELECT * FROM career_applications WHERE id = ?`).get(id);
@@ -2993,8 +3010,12 @@ module.exports = {
     return info.lastInsertRowid;
   },
   getContentAppealsPaged: ({ limit = 50, offset = 0, status }) => {
-    if (status) return db.prepare(`SELECT * FROM content_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
-    return db.prepare(`SELECT * FROM content_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+    if (status) {
+      const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM content_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
+      return db.prepare(sql).all(status, offsetVal, fetchVal);
+    }
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM content_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
+    return db.prepare(sql).all(offsetVal, fetchVal);
   },
   getContentAppealById: (id) => {
     return db.prepare(`SELECT * FROM content_appeals WHERE id = ?`).get(id);
@@ -3012,8 +3033,12 @@ module.exports = {
     return info.lastInsertRowid;
   },
   getAccountAppealsPaged: ({ limit = 50, offset = 0, status }) => {
-    if (status) return db.prepare(`SELECT * FROM account_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(status, limit, offset);
-    return db.prepare(`SELECT * FROM account_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
+    if (status) {
+      const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM account_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
+      return db.prepare(sql).all(status, offsetVal, fetchVal);
+    }
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM account_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
+    return db.prepare(sql).all(offsetVal, fetchVal);
   },
   getAccountAppealById: (id) => {
     return db.prepare(`SELECT * FROM account_appeals WHERE id = ?`).get(id);
@@ -3334,14 +3359,16 @@ module.exports = {
       ? 'WHERE r.service_id = ?'
       : 'WHERE r.service_id = ? AND r.is_hidden = 0 AND r.is_deleted = 0';
 
-    return db.prepare(`
+    let query = `
       SELECT r.*, u.full_name, u.profile_picture
       FROM service_reviews r
       JOIN users u ON u.id = r.user_id
       ${whereClause}
       ORDER BY r.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(serviceId, limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    return db.prepare(sql).all(serviceId, offsetVal, fetchVal);
   },
   getServiceRatingsSummary: (serviceId) => {
     const row = db.prepare(`SELECT ROUND(AVG(rating), 2) AS avg, COUNT(*) AS count FROM service_reviews WHERE service_id = ?`).get(serviceId);
@@ -3385,8 +3412,9 @@ module.exports = {
       params.push(sLike, sLike, sLike);
     }
     sql += ` ORDER BY s.created_at DESC LIMIT ? OFFSET ?`;
-    params.push(limit, offset);
-    return db.prepare(sql).all(...params);
+    const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(sql, limit, offset);
+    params.push(offsetVal, fetchVal);
+    return db.prepare(convertedSql).all(...params);
   },
 
   // Service review moderation
@@ -3581,7 +3609,7 @@ module.exports = {
     return db.prepare(`SELECT * FROM user_moderation WHERE user_id = ?`).get(userId);
   },
   getAllBlocksAndReports: ({ limit = 100, offset = 0 }) => {
-    const blocks = db.prepare(`
+    let query = `
       SELECT ub.id, ub.blocker_id, ub.blocked_id, ub.reason, ub.created_at,
              u1.handle as blocker_username, u1.full_name as blocker_name,
              u2.handle as blocked_username, u2.full_name as blocked_name,
@@ -3592,7 +3620,9 @@ module.exports = {
       LEFT JOIN user_moderation mod ON mod.user_id = ub.blocker_id
       ORDER BY ub.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    const blocks = db.prepare(sql).all(offsetVal, fetchVal);
     return blocks;
   },
 
@@ -3629,7 +3659,7 @@ module.exports = {
   },
 
   getActiveLivestreams: ({ limit = 50, offset = 0 }) => {
-    return db.prepare(`
+    let query = `
       SELECT l.*, u.full_name, u.profile_picture,
         (SELECT COUNT(*) FROM livestream_viewers WHERE stream_id = l.id AND left_at IS NULL) as current_viewers
       FROM livestreams l
@@ -3637,7 +3667,9 @@ module.exports = {
       WHERE l.status = 'live'
       ORDER BY l.started_at DESC
       LIMIT ? OFFSET ?
-    `).all(limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    return db.prepare(sql).all(offsetVal, fetchVal);
   },
 
   getUserLivestreams: (userId) => {
@@ -3716,14 +3748,16 @@ module.exports = {
   },
 
   getLivestreamChat: ({ streamId, limit = 100, offset = 0 }) => {
-    return db.prepare(`
+    let query = `
       SELECT lc.*, u.full_name, u.profile_picture
       FROM livestream_chat lc
       JOIN users u ON u.id = lc.user_id
       WHERE lc.stream_id = ?
       ORDER BY lc.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(streamId, limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    return db.prepare(sql).all(streamId, offsetVal, fetchVal);
   },
 
   // Billing charges functions
@@ -3737,12 +3771,14 @@ module.exports = {
   },
 
   getUserCharges: ({ userId, limit = 50, offset = 0 }) => {
-    return db.prepare(`
+    let query = `
       SELECT * FROM billing_charges
       WHERE user_id = ?
       ORDER BY charge_date DESC
       LIMIT ? OFFSET ?
-    `).all(userId, limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    return db.prepare(sql).all(userId, offsetVal, fetchVal);
   },
 
   getAllCharges: ({ limit = 100, offset = 0, status }) => {
@@ -3750,8 +3786,9 @@ module.exports = {
     const params = [];
     if (status) { sql += ` AND bc.status = ?`; params.push(status); }
     sql += ` ORDER BY bc.charge_date DESC LIMIT ? OFFSET ?`;
-    params.push(limit, offset);
-    return db.prepare(sql).all(...params);
+    const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(sql, limit, offset);
+    params.push(offsetVal, fetchVal);
+    return db.prepare(convertedSql).all(...params);
   },
 
   // Refund request functions
@@ -3801,8 +3838,9 @@ module.exports = {
     const params = [];
     if (status) { sql += ` AND rr.status = ?`; params.push(status); }
     sql += ` ORDER BY rr.created_at DESC LIMIT ? OFFSET ?`;
-    params.push(limit, offset);
-    return db.prepare(sql).all(...params);
+    const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(sql, limit, offset);
+    params.push(offsetVal, fetchVal);
+    return db.prepare(convertedSql).all(...params);
   },
 
   // User admin notes
@@ -3919,7 +3957,9 @@ module.exports = {
 
   getCareerApplicationsPaged: ({ limit, offset }) => {
     try {
-      return db.prepare("SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?").all(limit, offset);
+      let query = "SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?";
+      const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+      return db.prepare(sql).all(offsetVal, fetchVal);
     } catch (e) {
       return [];
     }
@@ -4131,7 +4171,7 @@ module.exports = {
   },
 
   getProjectsByOwner: (ownerId, limit = 50, offset = 0) => {
-    const stmt = db.prepare(`
+    let query = `
       SELECT 
         p.*,
         u.full_name as owner_name,
@@ -4144,13 +4184,14 @@ module.exports = {
       GROUP BY p.id
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `);
-
-    return stmt.all(ownerId, limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    const stmt = db.prepare(sql);
+    return stmt.all(ownerId, offsetVal, fetchVal);
   },
 
   getPublicProjects: (limit = 50, offset = 0) => {
-    const stmt = db.prepare(`
+    let query = `
       SELECT 
         p.*,
         u.full_name as owner_name,
@@ -4163,9 +4204,10 @@ module.exports = {
       GROUP BY p.id
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `);
-
-    return stmt.all(limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    const stmt = db.prepare(sql);
+    return stmt.all(offsetVal, fetchVal);
   },
 
   getProjectCount: (ownerId = null) => {
@@ -4361,7 +4403,7 @@ module.exports = {
   },
 
   getProjectUpdates: (projectId, limit = 50, offset = 0) => {
-    const stmt = db.prepare(`
+    let query = `
       SELECT 
         pu.*,
         u.full_name, u.profile_picture,
@@ -4375,9 +4417,10 @@ module.exports = {
       GROUP BY pu.id
       ORDER BY pu.created_at DESC
       LIMIT ? OFFSET ?
-    `);
-
-    return stmt.all(projectId, limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    const stmt = db.prepare(sql);
+    return stmt.all(projectId, offsetVal, fetchVal);
   },
 
   getProjectUpdate: (updateId) => {
@@ -4492,7 +4535,7 @@ module.exports = {
 
   getProjectComments: (projectId, limit = 50, offset = 0, includeHidden = false) => {
     const hiddenFilter = includeHidden ? '' : 'AND pc.is_hidden = 0';
-    const stmt = db.prepare(`
+    let query = `
       SELECT 
         pc.*, 
         u.full_name, 
@@ -4505,9 +4548,10 @@ module.exports = {
       WHERE pc.project_id = ? ${hiddenFilter}
       ORDER BY pc.is_pinned DESC, pc.created_at DESC
       LIMIT ? OFFSET ?
-    `);
-
-    return stmt.all(projectId, limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    const stmt = db.prepare(sql);
+    return stmt.all(projectId, offsetVal, fetchVal);
   },
 
   getProjectCommentById: (commentId) => {
@@ -4525,7 +4569,7 @@ module.exports = {
   },
 
   getProjectCommentReplies: (parentId, limit = 50, offset = 0) => {
-    const stmt = db.prepare(`
+    let query = `
       SELECT 
         pc.*, 
         u.full_name, 
@@ -4537,9 +4581,10 @@ module.exports = {
       WHERE pc.parent_id = ? AND pc.is_hidden = 0
       ORDER BY pc.created_at ASC
       LIMIT ? OFFSET ?
-    `);
-
-    return stmt.all(parentId, limit, offset);
+    `;
+    const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
+    const stmt = db.prepare(sql);
+    return stmt.all(parentId, offsetVal, fetchVal);
   },
 
   getProjectCommentCount: (projectId) => {
@@ -4722,9 +4767,10 @@ module.exports = {
       si.created_at DESC
       LIMIT ? OFFSET ?
     `;
-    params.push(limit, offset);
+    const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(sql, limit, offset);
+    params.push(offsetVal, fetchVal);
 
-    return db.prepare(sql).all(...params);
+    return db.prepare(convertedSql).all(...params);
   },
 
   getSalesInquiriesCount: ({ status, priority, assignedTo, search }) => {
@@ -5043,6 +5089,191 @@ module.exports = {
 
   deletePricingTier: (tierId) => {
     return db.prepare(`DELETE FROM pricing_tiers WHERE tier_id = ?`).run(tierId).changes > 0;
+  },
+
+  // Phone verification functions
+  createPhoneVerificationCode: ({ userId, phoneNumber, code, expiresAt }) => {
+    const result = db.prepare(`
+      INSERT INTO phone_verification_codes (user_id, phone_number, code, expires_at, verified, attempt_count, created_at)
+      VALUES (?, ?, ?, ?, 0, 0, CURRENT_TIMESTAMP)
+    `).run(userId, phoneNumber, code, expiresAt);
+    return result.lastInsertRowid;
+  },
+
+  getPhoneVerificationCode: ({ userId, code }) => {
+    return db.prepare(`
+      SELECT * FROM phone_verification_codes 
+      WHERE user_id = ? AND code = ? AND verified = 0
+    `).get(userId, code);
+  },
+
+  getLatestPhoneVerificationCode: (userId) => {
+    return db.prepare(`
+      SELECT * FROM phone_verification_codes 
+      WHERE user_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `).get(userId);
+  },
+
+  markPhoneCodeAsVerified: (codeId) => {
+    return db.prepare(`
+      UPDATE phone_verification_codes 
+      SET verified = 1 
+      WHERE id = ?
+    `).run(codeId).changes > 0;
+  },
+
+  markPhoneAsVerified: ({ userId, phoneNumber }) => {
+    return db.prepare(`
+      UPDATE users 
+      SET phone_verified = 1, phone_verified_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `).run(userId).changes > 0;
+  },
+
+  updateUserPhoneNumber: ({ userId, phoneNumber }) => {
+    return db.prepare(`
+      UPDATE users 
+      SET phone_number = ?, phone_verified = 0, phone_verified_at = NULL 
+      WHERE id = ?
+    `).run(phoneNumber, userId).changes > 0;
+  },
+
+  incrementPhoneVerificationAttempt: (codeId) => {
+    return db.prepare(`
+      UPDATE phone_verification_codes 
+      SET attempt_count = attempt_count + 1 
+      WHERE id = ?
+    `).run(codeId).changes > 0;
+  },
+
+  deleteExpiredPhoneVerificationCodes: () => {
+    return db.prepare(`
+      DELETE FROM phone_verification_codes 
+      WHERE expires_at < CURRENT_TIMESTAMP
+    `).run().changes;
+  },
+
+  // Device fingerprint functions
+  createDeviceFingerprint: ({ userId, fingerprintHash, userAgent, ipAddress, country, deviceType, browser, os }) => {
+    try {
+      const result = db.prepare(`
+        INSERT INTO device_fingerprints (user_id, fingerprint_hash, user_agent, ip_address, country, device_type, browser, os, created_at, last_used_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).run(userId, fingerprintHash, userAgent, ipAddress, country, deviceType, browser, os);
+      return result.lastInsertRowid;
+    } catch (error) {
+      if (error.message.includes('UNIQUE')) {
+        // Fingerprint already exists, just update last_used_at
+        return db.prepare(`
+          UPDATE device_fingerprints 
+          SET last_used_at = CURRENT_TIMESTAMP, user_id = ? 
+          WHERE fingerprint_hash = ?
+        `).run(userId, fingerprintHash).changes;
+      }
+      throw error;
+    }
+  },
+
+  getDeviceFingerprintsForUser: (userId) => {
+    return db.prepare(`
+      SELECT * FROM device_fingerprints 
+      WHERE user_id = ? 
+      ORDER BY last_used_at DESC
+    `).all(userId);
+  },
+
+  findUsersWithFingerprint: (fingerprintHash) => {
+    return db.prepare(`
+      SELECT DISTINCT user_id FROM device_fingerprints 
+      WHERE fingerprint_hash = ?
+    `).all(fingerprintHash);
+  },
+
+  findUsersWithIPAddress: (ipAddress) => {
+    return db.prepare(`
+      SELECT DISTINCT user_id FROM device_fingerprints 
+      WHERE ip_address = ?
+    `).all(ipAddress);
+  },
+
+  // Alt account detection functions
+  createAltAccountDetection: ({ userId, detectionType, confidenceScore, matchedUserIds, details, action }) => {
+    const result = db.prepare(`
+      INSERT INTO alt_account_detections (user_id, detection_type, confidence_score, matched_user_ids, details, action, resolved, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `).run(
+      userId,
+      detectionType,
+      confidenceScore,
+      JSON.stringify(matchedUserIds || []),
+      JSON.stringify(details || {}),
+      action || 'flagged'
+    );
+    return result.lastInsertRowid;
+  },
+
+  getAltAccountDetections: ({ userId, includeResolved = false }) => {
+    const sql = `
+      SELECT * FROM alt_account_detections 
+      WHERE user_id = ? ${includeResolved ? '' : 'AND resolved = 0'}
+      ORDER BY created_at DESC
+    `;
+    return db.prepare(sql).all(userId);
+  },
+
+  getPendingAltAccountDetections: (limit = 100) => {
+    return db.prepare(`
+      SELECT * FROM alt_account_detections 
+      WHERE resolved = 0 
+      ORDER BY confidence_score DESC, created_at DESC 
+      LIMIT ?
+    `).all(limit);
+  },
+
+  updateAltAccountDetectionStatus: ({ detectionId, action, resolved, resolutionNotes }) => {
+    const fields = ['updated_at = CURRENT_TIMESTAMP'];
+    const values = [];
+
+    if (action !== undefined) {
+      fields.push('action = ?');
+      values.push(action);
+    }
+    if (resolved !== undefined) {
+      fields.push('resolved = ?');
+      values.push(resolved ? 1 : 0);
+    }
+    if (resolved && resolutionNotes !== undefined) {
+      fields.push('resolved_at = CURRENT_TIMESTAMP');
+    }
+    if (resolutionNotes !== undefined) {
+      fields.push('resolution_notes = ?');
+      values.push(resolutionNotes);
+    }
+
+    values.push(detectionId);
+
+    const sql = `UPDATE alt_account_detections SET ${fields.join(', ')} WHERE id = ?`;
+    return db.prepare(sql).run(...values).changes > 0;
+  },
+
+  findPhoneNumberMatches: (phoneNumber) => {
+    return db.prepare(`
+      SELECT u.id, u.email, u.full_name, u.account_status, u.created_at 
+      FROM users u 
+      WHERE u.phone_number = ? AND u.phone_verified = 1
+      ORDER BY u.created_at DESC
+    `).all(phoneNumber);
+  },
+
+  findRecentPhoneMatchesByIP: (ipAddress, hoursBack = 24) => {
+    return db.prepare(`
+      SELECT DISTINCT df.user_id 
+      FROM device_fingerprints df 
+      WHERE df.ip_address = ? 
+      AND df.created_at > DATEADD(HOUR, -?, CURRENT_TIMESTAMP)
+    `).all(ipAddress, hoursBack);
   }
 };
 

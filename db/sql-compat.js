@@ -119,6 +119,39 @@ function dateCompare(column, operator, dateExpr = 'now') {
 }
 
 /**
+ * Convert SQLite LIMIT/OFFSET syntax to SQL Server syntax
+ * 
+ * SQLite: ... LIMIT ? OFFSET ?
+ * SQL Server: ... OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+ * 
+ * This function modifies a SQL string and parameter array to use the correct syntax
+ * and adjusts parameter order if necessary.
+ * 
+ * @param {string} sql - SQL query string with "LIMIT ? OFFSET ?" at the end
+ * @param {number} limit - Limit value
+ * @param {number} offset - Offset value
+ * @returns {object} {sql: modified SQL string, limit, offset}
+ */
+function convertLimitOffset(sql, limit, offset) {
+  if (!isProduction) {
+    // SQLite: LIMIT OFFSET stays as is
+    return { sql, limit, offset };
+  }
+  
+  // SQL Server: Convert to OFFSET...FETCH syntax
+  // Replace "LIMIT ? OFFSET ?" with "OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+  const converted = sql.replace(
+    /LIMIT\s+\?\s+OFFSET\s+\?/i,
+    'OFFSET ? ROWS FETCH NEXT ? ROWS ONLY'
+  );
+  
+  // For SQL Server, parameters must be: OFFSET value, FETCH NEXT value
+  // But the original code had them as: LIMIT value, OFFSET value
+  // So we need to swap them: return {offset, limit}
+  return { sql: converted, limit: offset, offset: limit };
+}
+
+/**
  * Check if we're in production (SQL Server) mode
  * @returns {boolean}
  */
@@ -140,6 +173,7 @@ module.exports = {
   upsertQuery,
   insertIgnoreQuery,
   dateCompare,
+  convertLimitOffset,
   isSqlServer,
   isSqlite,
   isProduction
