@@ -109,6 +109,18 @@ async function seedRbac(db) {
 }
 
 /**
+ * Helper to check if an error is a duplicate key/constraint error
+ * Works for both SQLite ("UNIQUE constraint") and SQL Server ("UNIQUE KEY constraint" or "duplicate key")
+ */
+function isDuplicateError(error) {
+  const msg = error.message || '';
+  return msg.includes('UNIQUE constraint') || 
+         msg.includes('UNIQUE KEY constraint') || 
+         msg.includes('duplicate key') ||
+         msg.includes('Cannot insert duplicate');
+}
+
+/**
  * Seed permission groups
  */
 async function seedPermissionGroups() {
@@ -125,8 +137,8 @@ async function seedPermissionGroups() {
     try {
       rbacService.createPermissionGroup(group);
     } catch (error) {
-      // Ignore duplicate errors
-      if (!error.message.includes('UNIQUE constraint')) {
+      // Ignore duplicate errors (already seeded)
+      if (!isDuplicateError(error)) {
         console.warn(`Failed to create permission group ${group.name}:`, error.message);
       }
     }
@@ -166,7 +178,7 @@ async function seedPermissions() {
         isSystemPermission: true
       });
     } catch (error) {
-      if (!error.message.includes('UNIQUE constraint')) {
+      if (!isDuplicateError(error)) {
         console.warn(`Failed to create permission admin.${perm.key}:`, error.message);
       }
     }
@@ -186,7 +198,7 @@ async function seedPermissions() {
         isSystemPermission: true
       });
     } catch (error) {
-      if (!error.message.includes('UNIQUE constraint')) {
+      if (!isDuplicateError(error)) {
         console.warn(`Failed to create permission hr.${perm.key}:`, error.message);
       }
     }
@@ -206,7 +218,7 @@ async function seedPermissions() {
         isSystemPermission: true
       });
     } catch (error) {
-      if (!error.message.includes('UNIQUE constraint')) {
+      if (!isDuplicateError(error)) {
         console.warn(`Failed to create permission business.${perm.key}:`, error.message);
       }
     }
@@ -236,7 +248,7 @@ async function seedPermissions() {
         isSystemPermission: true
       });
     } catch (error) {
-      if (!error.message.includes('UNIQUE constraint')) {
+      if (!isDuplicateError(error)) {
         console.warn(`Failed to create permission ${perm.name}:`, error.message);
       }
     }
@@ -263,7 +275,7 @@ async function seedPermissions() {
         isSystemPermission: true
       });
     } catch (error) {
-      if (!error.message.includes('UNIQUE constraint')) {
+      if (!isDuplicateError(error)) {
         console.warn(`Failed to create permission ${perm.name}:`, error.message);
       }
     }
@@ -299,9 +311,13 @@ async function seedRoles() {
       });
       createdRoles[role.name] = roleId;
     } catch (error) {
-      if (error.message.includes('UNIQUE constraint')) {
+      if (isDuplicateError(error)) {
         // Role already exists, get its ID
-        const existing = rbacService.getRoleByName(role.name);
+        let existing = rbacService.getRoleByName(role.name);
+        // Handle async for SQL Server
+        if (existing && typeof existing.then === 'function') {
+          existing = await existing;
+        }
         if (existing) createdRoles[role.name] = existing.id;
       } else {
         console.warn(`Failed to create role ${role.name}:`, error.message);
@@ -404,7 +420,7 @@ function assignPermissionsToRole(roleId, permissionNames, permMap) {
         rbacService.assignPermissionToRole(roleId, perm.id);
       } catch (error) {
         // Ignore duplicate assignment errors
-        if (!error.message.includes('UNIQUE constraint')) {
+        if (!isDuplicateError(error)) {
           console.warn(`Failed to assign ${permName} to role:`, error.message);
         }
       }
