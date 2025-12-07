@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-const isProduction = process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'sqlserver';
+const isProduction = process.env.NODE_ENV === 'Production' && process.env.DB_TYPE === 'sqlserver';
 let db = null;
 let dbType = 'sqlite';
 let sqlPool = null;
