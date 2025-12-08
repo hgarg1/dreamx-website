@@ -11,6 +11,8 @@
 const path = require('path');
 const fs = require('fs');
 
+const isSqlServer = process.env.NODE_ENV === 'Production' && process.env.DB_TYPE === 'sqlserver';
+
 // Lazy load database
 let db = null;
 
@@ -483,31 +485,81 @@ async function createThemeSettingsTable() {
   if (!database) return;
   
   try {
-    // Note: The schema.sql file has the proper SQL Server syntax
-    // This is just a fallback - tables should exist from schema
-    await database.exec(`
-      CREATE TABLE IF NOT EXISTS theme_settings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        setting_key TEXT NOT NULL UNIQUE,
-        setting_value TEXT,
-        custom_theme_data TEXT,
-        is_enabled INTEGER DEFAULT 1,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_by INTEGER
-      )
-    `);
-    
-    await database.exec(`
-      CREATE TABLE IF NOT EXISTS theme_change_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        action TEXT NOT NULL,
-        theme_id TEXT,
-        theme_data TEXT,
-        changed_by INTEGER,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    if (isSqlServer) {
+      // SQL Server-safe creation (idempotent)
+      await database.exec(`
+        IF NOT EXISTS (
+          SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[theme_settings]') AND type = N'U'
+        )
+        BEGIN
+          CREATE TABLE theme_settings (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            setting_key NVARCHAR(255) NOT NULL UNIQUE,
+            setting_value NVARCHAR(MAX),
+            custom_theme_data NVARCHAR(MAX),
+            is_enabled BIT DEFAULT 1,
+            created_at DATETIME2 DEFAULT GETDATE(),
+            updated_at DATETIME2 DEFAULT GETDATE(),
+            updated_by INT
+          );
+        END;
+        IF NOT EXISTS (SELECT name FROM sys.indexes WHERE name = 'idx_theme_settings_key')
+        BEGIN
+          CREATE INDEX idx_theme_settings_key ON theme_settings(setting_key);
+        END;
+        IF NOT EXISTS (SELECT name FROM sys.indexes WHERE name = 'idx_theme_settings_enabled')
+        BEGIN
+          CREATE INDEX idx_theme_settings_enabled ON theme_settings(is_enabled);
+        END;
+        
+        IF NOT EXISTS (
+          SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[theme_change_log]') AND type = N'U'
+        )
+        BEGIN
+          CREATE TABLE theme_change_log (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            action NVARCHAR(255) NOT NULL,
+            theme_id NVARCHAR(255),
+            theme_data NVARCHAR(MAX),
+            changed_by INT,
+            created_at DATETIME2 DEFAULT GETDATE()
+          );
+        END;
+        IF NOT EXISTS (SELECT name FROM sys.indexes WHERE name = 'idx_theme_log_created')
+        BEGIN
+          CREATE INDEX idx_theme_log_created ON theme_change_log(created_at);
+        END;
+        IF NOT EXISTS (SELECT name FROM sys.indexes WHERE name = 'idx_theme_log_action')
+        BEGIN
+          CREATE INDEX idx_theme_log_action ON theme_change_log(action);
+        END;
+      `);
+    } else {
+      // SQLite fallback for local development
+      await database.exec(`
+        CREATE TABLE IF NOT EXISTS theme_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          setting_key TEXT NOT NULL UNIQUE,
+          setting_value TEXT,
+          custom_theme_data TEXT,
+          is_enabled INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_by INTEGER
+        )
+      `);
+      
+      await database.exec(`
+        CREATE TABLE IF NOT EXISTS theme_change_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          action TEXT NOT NULL,
+          theme_id TEXT,
+          theme_data TEXT,
+          changed_by INTEGER,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    }
   } catch (error) {
     // Tables might already exist or this is SQL Server (tables should be in schema.sql)
   }

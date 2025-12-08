@@ -187,6 +187,15 @@ CREATE INDEX idx_auth_tokens_user_id ON auth_tokens(user_id);
 CREATE INDEX idx_auth_tokens_token_hash ON auth_tokens(token_hash);
 CREATE INDEX idx_auth_tokens_expires_at ON auth_tokens(expires_at);
 
+-- Express session store (used by connect-mssql-v2)
+CREATE TABLE sessions (
+  sid NVARCHAR(255) NOT NULL PRIMARY KEY,
+  session NVARCHAR(MAX) NOT NULL,
+  expires DATETIME NOT NULL
+);
+
+CREATE INDEX idx_sessions_expires ON sessions(expires);
+
 -- WebAuthn credentials
 CREATE TABLE webauthn_credentials (
   id INT IDENTITY(1,1) PRIMARY KEY,

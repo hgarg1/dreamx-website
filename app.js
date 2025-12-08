@@ -90,7 +90,7 @@ const livestreamServices = require('./services/livestream');
 const paymentService = require('./services/payments');
 
 const {
-    db, initializeDatabase, seedDatabase, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
+    db, initializeDatabase, ensureSessionTable, seedDatabase, getUserById, getUserByEmail, getUserByHandle, getUserByProvider, createUser, updateUserProvider, updateOnboarding, updateUserProfile,
     updateProfilePicture, updateBannerImage, updatePassword, updateUserHandle, updateNotificationSettings, getLinkedAccountsForUser, unlinkProvider,
     getOrCreateConversation, getUserConversations, getConversationMessages, getMessageWithContext,
     createMessage, markMessagesAsRead, getUnreadMessageCount,
@@ -1442,6 +1442,7 @@ async function startServer() {
         // Initialize database connection (required for SQL Server in production)
         if (process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'sqlserver') {
             await initializeDatabase();
+            await ensureSessionTable();
             console.log('✅ Database initialized for production');
         }
         

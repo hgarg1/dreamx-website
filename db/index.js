@@ -1798,9 +1798,38 @@ function prepare(sql) {
   }
 }
 
+// Ensure the SQL Server session table exists for express-session store
+async function ensureSessionTable() {
+  if (!isProduction) return;
+
+  // Make sure the SQL wrapper is ready
+  if (!dbWrapper) {
+    await initializeDatabase();
+  }
+
+  try {
+    await dbWrapper.exec(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sessions]') AND type = N'U'
+      )
+      BEGIN
+        CREATE TABLE sessions (
+          sid NVARCHAR(255) NOT NULL PRIMARY KEY,
+          session NVARCHAR(MAX) NOT NULL,
+          expires DATETIME NOT NULL
+        );
+        CREATE INDEX IX_sessions_expires ON sessions(expires);
+      END
+    `);
+  } catch (error) {
+    console.warn('Failed to ensure sessions table exists:', error.message);
+  }
+}
+
 module.exports = {
   db,
   initializeDatabase, // MUST be called at app startup in production (SQL Server only)
+  ensureSessionTable,
   seedDatabase, // Call after initializeDatabase() to seed admin/HR accounts
   getUserById: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
   getUserByEmail: (email) => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
