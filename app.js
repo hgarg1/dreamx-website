@@ -543,28 +543,21 @@ const isProductionDB = process.env.NODE_ENV === 'Production' && process.env.DB_T
 let sessionStore;
 if (isProductionDB) {
     // Production: Use SQL Server for sessions
+    const mssql = require('mssql');
     sessionStore = new MSSQLStore({
-        config: {
-            server: process.env.SQL_DB_URL || 'dream-x.database.windows.net',
-            database: process.env.SQL_DB_NAME || 'DreamX',
-            user: process.env.SQL_DB_UNAME || 'DreamX',
-            password: process.env.SQL_DB_PWORD || '',
-            options: {
-                encrypt: true,
-                trustServerCertificate: false,
-                enableArithAbort: true
-            }
-        },
-        table: 'sessions',
-        autoRemove: true,
-        autoRemoveInterval: 1000 * 60 * 10, // Remove expired sessions every 10 minutes
-        ttl: 7 * 24 * 60 * 60 * 1000 // 1 week
-    }, (err) => {
-        if (err) {
-            console.error('❌ SQL Server session store initialization error:', err);
-        } else {
-            console.log('✅ SQL Server session store initialized');
+        // Use mssql connection configuration
+        server: process.env.SQL_DB_URL || 'dream-x.database.windows.net',
+        database: process.env.SQL_DB_NAME || 'DreamX',
+        user: process.env.SQL_DB_UNAME || 'DreamX',
+        password: process.env.SQL_DB_PWORD || '',
+        options: {
+            encrypt: true,
+            trustServerCertificate: false,
+            enableArithAbort: true
         }
+    }, {
+        table: 'sessions',
+        ttl: 7 * 24 * 60 * 60 // 1 week in seconds
     });
 } else {
     // Development: Use SQLite for sessions
