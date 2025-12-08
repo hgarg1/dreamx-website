@@ -791,4 +791,199 @@ router.post('/modules', requireRbacManager, (req, res) => {
   }
 });
 
+// =============================================================================
+// ROLE COMPARISON
+// =============================================================================
+
+/**
+ * Compare two roles
+ */
+router.get('/roles/compare', (req, res) => {
+  try {
+    const { role1, role2 } = req.query;
+    
+    if (!role1 || !role2) {
+      return res.status(400).json({ error: 'Both role1 and role2 IDs are required' });
+    }
+    
+    const comparison = rbacService.compareRoles(parseInt(role1), parseInt(role2));
+    res.json({ success: true, comparison });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to compare roles', message: error.message });
+  }
+});
+
+/**
+ * Clone a role
+ */
+router.post('/roles/:id/clone', requireRbacManager, (req, res) => {
+  try {
+    const sourceRoleId = parseInt(req.params.id);
+    const { name, displayName, description } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'New role name is required' });
+    }
+    
+    const newRole = rbacService.cloneRole(sourceRoleId, {
+      newName: name,
+      newDisplayName: displayName,
+      newDescription: description,
+      createdBy: req.session.userId
+    });
+    
+    res.status(201).json({ success: true, role: newRole, message: 'Role cloned successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to clone role', message: error.message });
+  }
+});
+
+// =============================================================================
+// PERMISSION DEPENDENCIES
+// =============================================================================
+
+/**
+ * Get permission dependency tree
+ */
+router.get('/permissions/:id/dependencies', (req, res) => {
+  try {
+    const permissionId = parseInt(req.params.id);
+    const dependencies = rbacService.getPermissionDependencies(permissionId);
+    res.json({ success: true, ...dependencies });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get permission dependencies', message: error.message });
+  }
+});
+
+/**
+ * Get full permission dependency graph
+ */
+router.get('/permissions/dependency-graph', (req, res) => {
+  try {
+    const graph = rbacService.getPermissionDependencyGraph();
+    res.json({ success: true, graph });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get dependency graph', message: error.message });
+  }
+});
+
+// =============================================================================
+// CLEANUP OPERATIONS
+// =============================================================================
+
+/**
+ * Get count of expired items
+ */
+router.get('/cleanup/expired-count', requireRbacManager, (req, res) => {
+  try {
+    const counts = rbacService.getExpiredItemsCount();
+    res.json({ success: true, counts });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get expired counts', message: error.message });
+  }
+});
+
+/**
+ * Clean up expired user role assignments
+ */
+router.post('/cleanup/user-roles', requireRbacManager, (req, res) => {
+  try {
+    const result = rbacService.cleanupExpiredUserRoles(req.session.userId);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to cleanup expired user roles', message: error.message });
+  }
+});
+
+/**
+ * Clean up expired permission overrides
+ */
+router.post('/cleanup/overrides', requireRbacManager, (req, res) => {
+  try {
+    const result = rbacService.cleanupExpiredOverrides(req.session.userId);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to cleanup expired overrides', message: error.message });
+  }
+});
+
+/**
+ * Clean up expired role permissions
+ */
+router.post('/cleanup/role-permissions', requireRbacManager, (req, res) => {
+  try {
+    const result = rbacService.cleanupExpiredRolePermissions(req.session.userId);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to cleanup expired role permissions', message: error.message });
+  }
+});
+
+/**
+ * Run full cleanup
+ */
+router.post('/cleanup/all', requireRbacManager, (req, res) => {
+  try {
+    const result = rbacService.runFullCleanup(req.session.userId);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to run full cleanup', message: error.message });
+  }
+});
+
+// =============================================================================
+// BULK OPERATIONS
+// =============================================================================
+
+/**
+ * Bulk assign permissions to a role
+ */
+router.post('/roles/:id/permissions/bulk', requireRbacManager, (req, res) => {
+  try {
+    const roleId = parseInt(req.params.id);
+    const { permissionIds, expiresAt } = req.body;
+    
+    if (!Array.isArray(permissionIds) || permissionIds.length === 0) {
+      return res.status(400).json({ error: 'Permission IDs array is required' });
+    }
+    
+    const result = rbacService.bulkAssignPermissionsToRole(roleId, permissionIds, {
+      grantedBy: req.session.userId,
+      expiresAt: expiresAt || null
+    });
+    
+    res.json({ 
+      success: true, 
+      ...result,
+      message: `${result.success} permission(s) assigned, ${result.failed} failed` 
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Bulk assignment failed', message: error.message });
+  }
+});
+
+/**
+ * Bulk revoke permissions from a role
+ */
+router.delete('/roles/:id/permissions/bulk', requireRbacManager, (req, res) => {
+  try {
+    const roleId = parseInt(req.params.id);
+    const { permissionIds } = req.body;
+    
+    if (!Array.isArray(permissionIds) || permissionIds.length === 0) {
+      return res.status(400).json({ error: 'Permission IDs array is required' });
+    }
+    
+    const result = rbacService.bulkRevokePermissionsFromRole(roleId, permissionIds, req.session.userId);
+    
+    res.json({ 
+      success: true, 
+      ...result,
+      message: `${result.success} permission(s) revoked, ${result.failed} failed` 
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Bulk revocation failed', message: error.message });
+  }
+});
+
 module.exports = router;
