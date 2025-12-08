@@ -53,6 +53,7 @@ function configureHelmet() {
                     "https://js.stripe.com",
                     "https://hooks.stripe.com"
                 ],
+                scriptSrcAttr: ["'unsafe-inline'", "'unsafe-hashes'"], // Allow inline event handlers
                 objectSrc: ["'none'"],
                 mediaSrc: ["'self'", "blob:", "https:"],
                 workerSrc: ["'self'", "blob:"],
