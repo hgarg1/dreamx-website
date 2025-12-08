@@ -1111,3 +1111,33 @@ CREATE INDEX idx_baa_parent ON business_admin_assignments(parent_admin_id);
 CREATE INDEX idx_baa_assigned ON business_admin_assignments(assigned_admin_id);
 CREATE INDEX idx_baa_status ON business_admin_assignments(status);
 
+-- Theme settings
+CREATE TABLE theme_settings (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  setting_key NVARCHAR(255) NOT NULL UNIQUE,
+  setting_value NVARCHAR(MAX),
+  custom_theme_data NVARCHAR(MAX),
+  is_enabled BIT DEFAULT 1,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  updated_at DATETIME2 DEFAULT GETDATE(),
+  updated_by INT,
+  FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_theme_settings_key ON theme_settings(setting_key);
+CREATE INDEX idx_theme_settings_enabled ON theme_settings(is_enabled);
+
+-- Theme change log
+CREATE TABLE theme_change_log (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  action NVARCHAR(255) NOT NULL,
+  theme_id NVARCHAR(255),
+  theme_data NVARCHAR(MAX),
+  changed_by INT,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_theme_log_created ON theme_change_log(created_at);
+CREATE INDEX idx_theme_log_action ON theme_change_log(action);
+

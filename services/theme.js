@@ -392,23 +392,17 @@ function getThemeById(themeId) {
 /**
  * Get the currently active global theme
  */
-function getActiveTheme() {
+async function getActiveTheme() {
   const database = initDb();
   if (!database) {
     return PREDEFINED_THEMES['dream-x'];
   }
   
   try {
-    // Check if theme_settings table exists
-    const tableCheck = database.prepare(`
-      SELECT name FROM sqlite_master WHERE type='table' AND name='theme_settings'
-    `).get();
+    // Ensure theme settings table exists
+    await createThemeSettingsTable();
     
-    if (!tableCheck) {
-      createThemeSettingsTable();
-    }
-    
-    const setting = database.prepare(`
+    const setting = await database.prepare(`
       SELECT * FROM theme_settings WHERE setting_key = 'active_theme' AND is_enabled = 1
     `).get();
     
@@ -438,7 +432,7 @@ function getActiveTheme() {
 /**
  * Set the active global theme
  */
-function setActiveTheme(themeId, changedBy = null) {
+async function setActiveTheme(themeId, changedBy = null) {
   const database = initDb();
   if (!database) {
     throw new Error('Database not available');
@@ -451,28 +445,28 @@ function setActiveTheme(themeId, changedBy = null) {
   
   try {
     // Ensure table exists
-    createThemeSettingsTable();
+    await createThemeSettingsTable();
     
     // Check if setting exists
-    const existing = database.prepare(`
+    const existing = await database.prepare(`
       SELECT id FROM theme_settings WHERE setting_key = 'active_theme'
     `).get();
     
     if (existing) {
-      database.prepare(`
+      await database.prepare(`
         UPDATE theme_settings 
         SET setting_value = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
         WHERE setting_key = 'active_theme'
       `).run(themeId, changedBy);
     } else {
-      database.prepare(`
+      await database.prepare(`
         INSERT INTO theme_settings (setting_key, setting_value, is_enabled, updated_by)
         VALUES ('active_theme', ?, 1, ?)
       `).run(themeId, changedBy);
     }
     
     // Log the change
-    logThemeChange('theme.change', themeId, changedBy);
+    await logThemeChange('theme.change', themeId, changedBy);
     
     return theme;
   } catch (error) {
@@ -484,12 +478,14 @@ function setActiveTheme(themeId, changedBy = null) {
 /**
  * Create theme settings table if it doesn't exist
  */
-function createThemeSettingsTable() {
+async function createThemeSettingsTable() {
   const database = initDb();
   if (!database) return;
   
   try {
-    database.exec(`
+    // Note: The schema.sql file has the proper SQL Server syntax
+    // This is just a fallback - tables should exist from schema
+    await database.exec(`
       CREATE TABLE IF NOT EXISTS theme_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         setting_key TEXT NOT NULL UNIQUE,
@@ -502,7 +498,7 @@ function createThemeSettingsTable() {
       )
     `);
     
-    database.exec(`
+    await database.exec(`
       CREATE TABLE IF NOT EXISTS theme_change_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         action TEXT NOT NULL,
@@ -513,19 +509,19 @@ function createThemeSettingsTable() {
       )
     `);
   } catch (error) {
-    // Tables might already exist
+    // Tables might already exist or this is SQL Server (tables should be in schema.sql)
   }
 }
 
 /**
  * Log theme changes for audit
  */
-function logThemeChange(action, themeId, changedBy, themeData = null) {
+async function logThemeChange(action, themeId, changedBy, themeData = null) {
   const database = initDb();
   if (!database) return;
   
   try {
-    database.prepare(`
+    await database.prepare(`
       INSERT INTO theme_change_log (action, theme_id, theme_data, changed_by)
       VALUES (?, ?, ?, ?)
     `).run(action, themeId, themeData ? JSON.stringify(themeData) : null, changedBy);
@@ -557,7 +553,7 @@ function getThemeHistory(limit = 50) {
 /**
  * Save a custom theme
  */
-function saveCustomTheme(themeData, savedBy = null) {
+async function saveCustomTheme(themeData, savedBy = null) {
   const database = initDb();
   if (!database) {
     throw new Error('Database not available');
@@ -576,29 +572,29 @@ function saveCustomTheme(themeData, savedBy = null) {
   }
   
   try {
-    createThemeSettingsTable();
+    await createThemeSettingsTable();
     
     const key = `custom_theme_${themeId}`;
-    const existing = database.prepare(`
+    const existing = await database.prepare(`
       SELECT id FROM theme_settings WHERE setting_key = ?
     `).get(key);
     
     const themeJson = JSON.stringify(themeData);
     
     if (existing) {
-      database.prepare(`
+      await database.prepare(`
         UPDATE theme_settings 
         SET setting_value = ?, custom_theme_data = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
         WHERE setting_key = ?
       `).run(themeId, themeJson, savedBy, key);
     } else {
-      database.prepare(`
+      await database.prepare(`
         INSERT INTO theme_settings (setting_key, setting_value, custom_theme_data, is_enabled, updated_by)
         VALUES (?, ?, ?, 1, ?)
       `).run(key, themeId, themeJson, savedBy);
     }
     
-    logThemeChange('theme.custom.save', themeId, savedBy, themeData);
+    await logThemeChange('theme.custom.save', themeId, savedBy, themeData);
     
     return themeData;
   } catch (error) {
@@ -807,9 +803,9 @@ function getThemePreview(themeId) {
 /**
  * Middleware to inject active theme into response
  */
-function themeMiddleware(req, res, next) {
+async function themeMiddleware(req, res, next) {
   try {
-    const activeTheme = getActiveTheme();
+    const activeTheme = await getActiveTheme();
     const themeCSS = generateThemeCSS(activeTheme);
     
     // Make theme available to templates
