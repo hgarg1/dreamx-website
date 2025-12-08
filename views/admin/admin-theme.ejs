@@ -1,0 +1,887 @@
+<%- include('../partials/header') %>
+<link rel="stylesheet" href="/css/admin.css">
+<link rel="stylesheet" href="/css/rbac.css">
+
+<style>
+/* Theme Management Specific Styles */
+.theme-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.theme-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(139, 92, 246, 0.2);
+}
+
+.theme-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-color), var(--cyan-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.theme-header p {
+  color: var(--text-light);
+  margin-top: 0.5rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15));
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  color: var(--text-dark);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.back-link:hover {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+}
+
+/* Current Theme Display */
+.current-theme-card {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.current-theme-card h2 {
+  font-size: 1.25rem;
+  color: var(--text-dark);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.current-theme-info {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.current-theme-preview {
+  display: flex;
+  gap: 8px;
+}
+
+.color-dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.current-theme-details h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.current-theme-details p {
+  color: var(--text-light);
+}
+
+/* Theme Grid */
+.themes-section {
+  margin-bottom: 3rem;
+}
+
+.themes-section h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.themes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.theme-card {
+  background: white;
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.theme-card.active {
+  border-color: var(--success-color);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(52, 211, 153, 0.05));
+}
+
+.theme-card.active::before {
+  content: '✓ ACTIVE';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.theme-card-preview {
+  height: 100px;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-card-preview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  opacity: 0.9;
+  z-index: 0;
+}
+
+.preview-color {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s ease;
+}
+
+.theme-card:hover .preview-color {
+  transform: scale(1.1);
+}
+
+.theme-card-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.theme-card-desc {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.theme-card-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.theme-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.theme-btn-preview {
+  background: var(--bg-gray);
+  color: var(--text-dark);
+}
+
+.theme-btn-preview:hover {
+  background: var(--border-color);
+}
+
+.theme-btn-activate {
+  background: linear-gradient(135deg, var(--primary-color), var(--cyan-color));
+  color: white;
+}
+
+.theme-btn-activate:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(139, 92, 246, 0.35);
+}
+
+.theme-btn-activate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Live Preview Panel */
+.preview-panel {
+  position: fixed;
+  top: 0;
+  right: -500px;
+  width: 480px;
+  height: 100vh;
+  background: white;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.preview-panel.open {
+  right: 0;
+}
+
+.preview-panel-header {
+  padding: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preview-panel-header h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.preview-close-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: var(--bg-gray);
+  color: var(--text-dark);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 1.5rem;
+}
+
+.preview-close-btn:hover {
+  background: var(--error-color);
+  color: white;
+}
+
+.preview-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.preview-section {
+  margin-bottom: 2rem;
+}
+
+.preview-section h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 1rem;
+}
+
+.preview-colors {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.preview-color-item {
+  text-align: center;
+}
+
+.preview-color-swatch {
+  width: 100%;
+  height: 50px;
+  border-radius: 10px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  margin-bottom: 6px;
+}
+
+.preview-color-label {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+.preview-ui-elements {
+  padding: 1.5rem;
+  background: var(--bg-light);
+  border-radius: 12px;
+}
+
+.preview-btn-sample {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: default;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.preview-input-sample {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  margin-top: 1rem;
+  background: white;
+}
+
+.preview-panel-footer {
+  padding: 1.5rem;
+  border-top: 2px solid var(--border-color);
+  display: flex;
+  gap: 1rem;
+}
+
+.preview-panel-footer .theme-btn {
+  flex: 1;
+}
+
+/* Theme History */
+.history-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--border-color);
+}
+
+.history-section h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 1.5rem;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.history-table th,
+.history-table td {
+  padding: 1rem 1.25rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-table th {
+  background: var(--bg-light);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+
+.history-table tr:hover td {
+  background: var(--bg-light);
+}
+
+.history-action-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.history-action-badge.change {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  color: white;
+}
+
+.history-action-badge.save {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: white;
+}
+
+.history-action-badge.delete {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: white;
+}
+
+/* Notifications */
+.theme-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transform: translateX(150%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-notification.show {
+  transform: translateX(0);
+}
+
+.theme-notification.success {
+  border-left: 4px solid var(--success-color);
+}
+
+.theme-notification.error {
+  border-left: 4px solid var(--error-color);
+}
+
+/* Custom Theme Creator */
+.custom-theme-section {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+  border: 2px solid rgba(251, 191, 36, 0.3);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 3rem;
+}
+
+.custom-theme-section h2 {
+  color: #d97706;
+}
+
+.color-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.color-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.color-picker-item label {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+
+.color-picker-item input[type="color"] {
+  width: 50px;
+  height: 40px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.custom-theme-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+}
+
+/* Overlay */
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.preview-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (max-width: 768px) {
+  .theme-container {
+    padding: 1rem;
+  }
+  
+  .themes-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .preview-panel {
+    width: 100%;
+    right: -100%;
+  }
+  
+  .current-theme-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+}
+</style>
+
+<main class="theme-container">
+  <div class="theme-header">
+    <div>
+      <h1>🎨 Theme Management</h1>
+      <p>Customize the global appearance for all users</p>
+    </div>
+    <a href="/admin" class="back-link">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+      Back to Admin
+    </a>
+  </div>
+  
+  <% if (locals.success) { %>
+  <div class="alert alert-success" style="margin-bottom: 1.5rem;">
+    <strong>✓</strong> <%= success %>
+  </div>
+  <% } %>
+  
+  <% if (locals.error) { %>
+  <div class="alert alert-error" style="margin-bottom: 1.5rem;">
+    <strong>✕</strong> <%= error %>
+  </div>
+  <% } %>
+
+  <!-- Current Theme Display -->
+  <div class="current-theme-card">
+    <h2>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+      </svg>
+      Currently Active Theme
+    </h2>
+    <div class="current-theme-info">
+      <div class="current-theme-preview">
+        <% if (activeTheme && activeTheme.colors) { %>
+        <div class="color-dot" style="background: <%= activeTheme.colors.primaryColor %>;"></div>
+        <div class="color-dot" style="background: <%= activeTheme.colors.cyanColor %>;"></div>
+        <div class="color-dot" style="background: <%= activeTheme.colors.secondaryColor %>;"></div>
+        <% } %>
+      </div>
+      <div class="current-theme-details">
+        <h3><%= activeTheme ? activeTheme.name : 'Default Theme' %></h3>
+        <p><%= activeTheme ? activeTheme.description : 'The default Dream X theme' %></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Available Themes -->
+  <section class="themes-section">
+    <h2>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+      </svg>
+      Available Themes
+    </h2>
+    <div class="themes-grid" id="themes-grid">
+      <% availableThemes.forEach(function(theme) { %>
+      <div class="theme-card <%= (activeTheme && activeTheme.id === theme.id) ? 'active' : '' %>" 
+           data-theme-id="<%= theme.id %>">
+        <div class="theme-card-preview" style="background: <%= theme.colors.gradientPrimary %>;">
+          <div class="preview-color" style="background: <%= theme.colors.primaryColor %>;"></div>
+          <div class="preview-color" style="background: <%= theme.colors.cyanColor %>;"></div>
+          <div class="preview-color" style="background: <%= theme.colors.secondaryColor %>;"></div>
+        </div>
+        <div class="theme-card-name"><%= theme.name %></div>
+        <div class="theme-card-desc"><%= theme.description %></div>
+        <div class="theme-card-actions">
+          <button class="theme-btn theme-btn-preview" onclick="openPreview('<%= theme.id %>')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            Preview
+          </button>
+          <button class="theme-btn theme-btn-activate" 
+                  onclick="activateTheme('<%= theme.id %>')"
+                  <%= (activeTheme && activeTheme.id === theme.id) ? 'disabled' : '' %>>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <%= (activeTheme && activeTheme.id === theme.id) ? 'Active' : 'Activate' %>
+          </button>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+  </section>
+
+  <!-- Custom Themes -->
+  <% if (customThemes && customThemes.length > 0) { %>
+  <section class="themes-section">
+    <h2>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 3v18M3 12h18"></path>
+      </svg>
+      Custom Themes
+    </h2>
+    <div class="themes-grid">
+      <% customThemes.forEach(function(theme) { %>
+      <div class="theme-card <%= (activeTheme && activeTheme.id === theme.id) ? 'active' : '' %>"
+           data-theme-id="<%= theme.id %>">
+        <div class="theme-card-preview" style="background: <%= theme.colors.gradientPrimary %>;">
+          <div class="preview-color" style="background: <%= theme.colors.primaryColor %>;"></div>
+          <div class="preview-color" style="background: <%= theme.colors.cyanColor %>;"></div>
+          <div class="preview-color" style="background: <%= theme.colors.secondaryColor %>;"></div>
+        </div>
+        <div class="theme-card-name"><%= theme.name %></div>
+        <div class="theme-card-desc"><%= theme.description || 'Custom theme' %></div>
+        <div class="theme-card-actions">
+          <button class="theme-btn theme-btn-preview" onclick="openPreview('<%= theme.id %>')">Preview</button>
+          <button class="theme-btn theme-btn-activate" 
+                  onclick="activateTheme('<%= theme.id %>')"
+                  <%= (activeTheme && activeTheme.id === theme.id) ? 'disabled' : '' %>>
+            <%= (activeTheme && activeTheme.id === theme.id) ? 'Active' : 'Activate' %>
+          </button>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- Theme History -->
+  <% if (themeHistory && themeHistory.length > 0) { %>
+  <section class="history-section">
+    <h2>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      Theme Change History
+    </h2>
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>Theme</th>
+          <th>Changed By</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% themeHistory.forEach(function(entry) { %>
+        <tr>
+          <td>
+            <span class="history-action-badge <%= entry.action.includes('delete') ? 'delete' : entry.action.includes('save') || entry.action.includes('custom') ? 'save' : 'change' %>">
+              <%= entry.action.replace('theme.', '').replace('.', ' ').toUpperCase() %>
+            </span>
+          </td>
+          <td><strong><%= entry.theme_id || 'N/A' %></strong></td>
+          <td><%= entry.changed_by_name || entry.changed_by_email || 'System' %></td>
+          <td><%= new Date(entry.created_at).toLocaleString() %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </section>
+  <% } %>
+</main>
+
+<!-- Preview Panel -->
+<div class="preview-overlay" id="preview-overlay" onclick="closePreview()"></div>
+<div class="preview-panel" id="preview-panel">
+  <div class="preview-panel-header">
+    <h3>Theme Preview</h3>
+    <button class="preview-close-btn" onclick="closePreview()">×</button>
+  </div>
+  <div class="preview-panel-content">
+    <h4 id="preview-theme-name" style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Theme Name</h4>
+    <p id="preview-theme-desc" style="color: var(--text-light); margin-bottom: 1.5rem;">Theme description</p>
+    
+    <div class="preview-section">
+      <h4>Color Palette</h4>
+      <div class="preview-colors" id="preview-colors"></div>
+    </div>
+    
+    <div class="preview-section">
+      <h4>UI Elements Preview</h4>
+      <div class="preview-ui-elements" id="preview-ui">
+        <button class="preview-btn-sample" id="preview-btn-primary">Primary Button</button>
+        <button class="preview-btn-sample" id="preview-btn-secondary">Secondary</button>
+        <input type="text" class="preview-input-sample" id="preview-input" placeholder="Sample input field" readonly>
+      </div>
+    </div>
+  </div>
+  <div class="preview-panel-footer">
+    <button class="theme-btn theme-btn-preview" onclick="closePreview()">Close</button>
+    <button class="theme-btn theme-btn-activate" id="preview-activate-btn">Activate Theme</button>
+  </div>
+</div>
+
+<!-- Notification -->
+<div class="theme-notification" id="theme-notification">
+  <span class="notification-icon"></span>
+  <span class="notification-text"></span>
+</div>
+
+<script>
+// Theme data from server
+const themes = <%- JSON.stringify(availableThemes) %>;
+const customThemes = <%- JSON.stringify(customThemes || []) %>;
+const allThemes = [...themes, ...customThemes];
+
+let currentPreviewThemeId = null;
+
+// Show notification
+function showNotification(message, type = 'success') {
+  const notif = document.getElementById('theme-notification');
+  notif.querySelector('.notification-text').textContent = message;
+  notif.querySelector('.notification-icon').textContent = type === 'success' ? '✓' : '✕';
+  notif.className = 'theme-notification ' + type;
+  notif.classList.add('show');
+  setTimeout(() => notif.classList.remove('show'), 3000);
+}
+
+// Open preview panel
+function openPreview(themeId) {
+  const theme = allThemes.find(t => t.id === themeId);
+  if (!theme) return;
+  
+  currentPreviewThemeId = themeId;
+  
+  document.getElementById('preview-theme-name').textContent = theme.name;
+  document.getElementById('preview-theme-desc').textContent = theme.description || '';
+  
+  // Populate colors
+  const colorsContainer = document.getElementById('preview-colors');
+  const colorLabels = [
+    { key: 'primaryColor', label: 'Primary' },
+    { key: 'cyanColor', label: 'Accent' },
+    { key: 'secondaryColor', label: 'Secondary' },
+    { key: 'textDark', label: 'Text' },
+    { key: 'bgWhite', label: 'Background' },
+    { key: 'successColor', label: 'Success' },
+    { key: 'errorColor', label: 'Error' },
+    { key: 'borderColor', label: 'Border' }
+  ];
+  
+  colorsContainer.innerHTML = colorLabels.map(c => `
+    <div class="preview-color-item">
+      <div class="preview-color-swatch" style="background: ${theme.colors[c.key] || '#ccc'}"></div>
+      <div class="preview-color-label">${c.label}</div>
+    </div>
+  `).join('');
+  
+  // Apply preview styles
+  const primaryBtn = document.getElementById('preview-btn-primary');
+  primaryBtn.style.background = theme.colors.gradientPrimary || theme.colors.primaryColor;
+  primaryBtn.style.color = 'white';
+  
+  const secondaryBtn = document.getElementById('preview-btn-secondary');
+  secondaryBtn.style.background = theme.colors.bgGray || '#f3f4f6';
+  secondaryBtn.style.color = theme.colors.textDark || '#1f2937';
+  
+  const input = document.getElementById('preview-input');
+  input.style.borderColor = theme.colors.borderColor || '#e5e7eb';
+  input.style.background = theme.colors.bgWhite || 'white';
+  
+  // Set activate button
+  const activateBtn = document.getElementById('preview-activate-btn');
+  activateBtn.onclick = () => activateTheme(themeId);
+  activateBtn.style.background = theme.colors.gradientPrimary || theme.colors.primaryColor;
+  
+  // Show panel
+  document.getElementById('preview-overlay').classList.add('show');
+  document.getElementById('preview-panel').classList.add('open');
+}
+
+// Close preview panel
+function closePreview() {
+  document.getElementById('preview-overlay').classList.remove('show');
+  document.getElementById('preview-panel').classList.remove('open');
+  currentPreviewThemeId = null;
+}
+
+// Activate theme
+async function activateTheme(themeId) {
+  try {
+    const response = await fetch('/admin/theme/api/activate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ themeId })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showNotification(data.message, 'success');
+      closePreview();
+      // Reload page to apply new theme
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      showNotification(data.error || 'Failed to activate theme', 'error');
+    }
+  } catch (error) {
+    console.error('Activate theme error:', error);
+    showNotification('Failed to activate theme', 'error');
+  }
+}
+
+// Escape key to close preview
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePreview();
+});
+</script>
+
+<%- include('../partials/footer') %>

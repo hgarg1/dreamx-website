@@ -1605,6 +1605,528 @@ function search(query, { types = ['role', 'permission', 'user'], limit = 20 } = 
   return results;
 }
 
+// =============================================================================
+// ROLE COMPARISON
+// =============================================================================
+
+/**
+ * Compare two roles and return their permission differences
+ */
+function compareRoles(roleId1, roleId2) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  const role1 = getRoleById(roleId1);
+  const role2 = getRoleById(roleId2);
+  
+  if (!role1) throw new Error(`Role with ID ${roleId1} not found`);
+  if (!role2) throw new Error(`Role with ID ${roleId2} not found`);
+  
+  // Get permissions for both roles (including inherited)
+  const perms1 = getRolePermissions(roleId1, { includeInherited: true });
+  const perms2 = getRolePermissions(roleId2, { includeInherited: true });
+  
+  const perms1Map = new Map(perms1.map(p => [p.id, p]));
+  const perms2Map = new Map(perms2.map(p => [p.id, p]));
+  
+  const perms1Ids = new Set(perms1.map(p => p.id));
+  const perms2Ids = new Set(perms2.map(p => p.id));
+  
+  // Find unique and common permissions
+  const onlyInRole1 = [];
+  const onlyInRole2 = [];
+  const common = [];
+  const denied1NotDenied2 = [];
+  const denied2NotDenied1 = [];
+  
+  for (const perm of perms1) {
+    if (!perms2Ids.has(perm.id)) {
+      onlyInRole1.push(perm);
+    } else {
+      const perm2 = perms2Map.get(perm.id);
+      common.push({ ...perm, role2Status: perm2.is_denied ? 'denied' : 'granted' });
+      
+      // Check for denial differences
+      if (perm.is_denied === 1 && perm2.is_denied !== 1) {
+        denied1NotDenied2.push(perm);
+      } else if (perm.is_denied !== 1 && perm2.is_denied === 1) {
+        denied2NotDenied1.push(perm2);
+      }
+    }
+  }
+  
+  for (const perm of perms2) {
+    if (!perms1Ids.has(perm.id)) {
+      onlyInRole2.push(perm);
+    }
+  }
+  
+  return {
+    role1: {
+      id: role1.id,
+      name: role1.name,
+      displayName: role1.display_name,
+      totalPermissions: perms1.length,
+      priority: role1.priority
+    },
+    role2: {
+      id: role2.id,
+      name: role2.name,
+      displayName: role2.display_name,
+      totalPermissions: perms2.length,
+      priority: role2.priority
+    },
+    comparison: {
+      onlyInRole1,
+      onlyInRole2,
+      common,
+      denied1NotDenied2,
+      denied2NotDenied1,
+      similarityPercentage: common.length > 0 
+        ? Math.round((common.length / Math.max(perms1.length, perms2.length)) * 100) 
+        : 0
+    }
+  };
+}
+
+/**
+ * Get permission dependency tree (permissions that require other permissions)
+ */
+function getPermissionDependencies(permissionId) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  const permission = getPermissionById(permissionId);
+  if (!permission) throw new Error('Permission not found');
+  
+  const dependencies = [];
+  const dependents = [];
+  
+  // Get permissions this permission requires
+  if (permission.requires_permissions) {
+    try {
+      const requiredIds = JSON.parse(permission.requires_permissions);
+      for (const reqId of requiredIds) {
+        const reqPerm = getPermissionById(reqId);
+        if (reqPerm) {
+          dependencies.push({
+            id: reqPerm.id,
+            name: reqPerm.name,
+            displayName: reqPerm.display_name,
+            type: 'required'
+          });
+        }
+      }
+    } catch (e) {
+      // Invalid JSON, skip
+    }
+  }
+  
+  // Get permissions that require this permission
+  const allPerms = getPermissions({ includeDisabled: true });
+  for (const perm of allPerms) {
+    if (perm.requires_permissions) {
+      try {
+        const requiredIds = JSON.parse(perm.requires_permissions);
+        if (requiredIds.includes(permissionId)) {
+          dependents.push({
+            id: perm.id,
+            name: perm.name,
+            displayName: perm.display_name,
+            type: 'dependent'
+          });
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+  }
+  
+  return {
+    permission: {
+      id: permission.id,
+      name: permission.name,
+      displayName: permission.display_name
+    },
+    dependencies, // Permissions this permission needs
+    dependents,   // Permissions that need this permission
+    hasDependencies: dependencies.length > 0,
+    hasDependents: dependents.length > 0
+  };
+}
+
+/**
+ * Get full permission dependency graph for visualization
+ */
+function getPermissionDependencyGraph() {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  const permissions = getPermissions({ includeDisabled: true });
+  const nodes = [];
+  const edges = [];
+  
+  for (const perm of permissions) {
+    nodes.push({
+      id: perm.id,
+      name: perm.name,
+      displayName: perm.display_name,
+      group: perm.group_id,
+      module: perm.module,
+      isSystem: perm.is_system_permission === 1
+    });
+    
+    if (perm.requires_permissions) {
+      try {
+        const requiredIds = JSON.parse(perm.requires_permissions);
+        for (const reqId of requiredIds) {
+          edges.push({
+            source: perm.id,
+            target: reqId,
+            type: 'requires'
+          });
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+  }
+  
+  return { nodes, edges };
+}
+
+// =============================================================================
+// BATCH CLEANUP OPERATIONS
+// =============================================================================
+
+/**
+ * Clean up expired user role assignments
+ */
+function cleanupExpiredUserRoles(performedBy = null) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  // Get count of expired assignments before cleanup
+  const expiredCount = db.prepare(`
+    SELECT COUNT(*) as count FROM rbac_user_roles 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).get().count;
+  
+  if (expiredCount === 0) {
+    return { cleaned: 0, message: 'No expired role assignments found' };
+  }
+  
+  // Log the expired assignments before deleting
+  const expiredAssignments = db.prepare(`
+    SELECT ur.*, r.name as role_name 
+    FROM rbac_user_roles ur
+    JOIN rbac_roles r ON r.id = ur.role_id
+    WHERE ur.expires_at IS NOT NULL AND ur.expires_at <= CURRENT_TIMESTAMP
+  `).all();
+  
+  // Delete expired assignments
+  const result = db.prepare(`
+    DELETE FROM rbac_user_roles 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).run();
+  
+  // Create audit log
+  createAuditLog({
+    action: 'batch.cleanup.user_roles',
+    actorId: performedBy,
+    targetType: 'system',
+    newValue: { 
+      cleaned: result.changes, 
+      expiredAssignments: expiredAssignments.map(a => ({
+        userId: a.user_id,
+        roleName: a.role_name,
+        expiredAt: a.expires_at
+      }))
+    }
+  });
+  
+  return { 
+    cleaned: result.changes, 
+    message: `Removed ${result.changes} expired role assignment(s)` 
+  };
+}
+
+/**
+ * Clean up expired user permission overrides
+ */
+function cleanupExpiredOverrides(performedBy = null) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  // Get count of expired overrides before cleanup
+  const expiredCount = db.prepare(`
+    SELECT COUNT(*) as count FROM rbac_user_overrides 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).get().count;
+  
+  if (expiredCount === 0) {
+    return { cleaned: 0, message: 'No expired permission overrides found' };
+  }
+  
+  // Log the expired overrides before deleting
+  const expiredOverrides = db.prepare(`
+    SELECT uo.*, p.name as permission_name 
+    FROM rbac_user_overrides uo
+    JOIN rbac_permissions p ON p.id = uo.permission_id
+    WHERE uo.expires_at IS NOT NULL AND uo.expires_at <= CURRENT_TIMESTAMP
+  `).all();
+  
+  // Delete expired overrides
+  const result = db.prepare(`
+    DELETE FROM rbac_user_overrides 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).run();
+  
+  // Create audit log
+  createAuditLog({
+    action: 'batch.cleanup.overrides',
+    actorId: performedBy,
+    targetType: 'system',
+    newValue: { 
+      cleaned: result.changes, 
+      expiredOverrides: expiredOverrides.map(o => ({
+        userId: o.user_id,
+        permissionName: o.permission_name,
+        expiredAt: o.expires_at
+      }))
+    }
+  });
+  
+  return { 
+    cleaned: result.changes, 
+    message: `Removed ${result.changes} expired permission override(s)` 
+  };
+}
+
+/**
+ * Clean up expired role permissions
+ */
+function cleanupExpiredRolePermissions(performedBy = null) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  // Get count of expired role permissions before cleanup
+  const expiredCount = db.prepare(`
+    SELECT COUNT(*) as count FROM rbac_role_permissions 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).get().count;
+  
+  if (expiredCount === 0) {
+    return { cleaned: 0, message: 'No expired role permissions found' };
+  }
+  
+  // Log the expired permissions before deleting
+  const expiredPerms = db.prepare(`
+    SELECT rp.*, r.name as role_name, p.name as permission_name 
+    FROM rbac_role_permissions rp
+    JOIN rbac_roles r ON r.id = rp.role_id
+    JOIN rbac_permissions p ON p.id = rp.permission_id
+    WHERE rp.expires_at IS NOT NULL AND rp.expires_at <= CURRENT_TIMESTAMP
+  `).all();
+  
+  // Delete expired role permissions
+  const result = db.prepare(`
+    DELETE FROM rbac_role_permissions 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).run();
+  
+  // Create audit log
+  createAuditLog({
+    action: 'batch.cleanup.role_permissions',
+    actorId: performedBy,
+    targetType: 'system',
+    newValue: { 
+      cleaned: result.changes, 
+      expiredPermissions: expiredPerms.map(p => ({
+        roleName: p.role_name,
+        permissionName: p.permission_name,
+        expiredAt: p.expires_at
+      }))
+    }
+  });
+  
+  return { 
+    cleaned: result.changes, 
+    message: `Removed ${result.changes} expired role permission(s)` 
+  };
+}
+
+/**
+ * Run all cleanup operations
+ */
+function runFullCleanup(performedBy = null) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  const results = {
+    userRoles: cleanupExpiredUserRoles(performedBy),
+    overrides: cleanupExpiredOverrides(performedBy),
+    rolePermissions: cleanupExpiredRolePermissions(performedBy)
+  };
+  
+  const totalCleaned = results.userRoles.cleaned + results.overrides.cleaned + results.rolePermissions.cleaned;
+  
+  return {
+    ...results,
+    totalCleaned,
+    message: `Cleanup complete: ${totalCleaned} expired item(s) removed`
+  };
+}
+
+/**
+ * Get count of all expired items
+ */
+function getExpiredItemsCount() {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  const expiredUserRoles = db.prepare(`
+    SELECT COUNT(*) as count FROM rbac_user_roles 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).get().count;
+  
+  const expiredOverrides = db.prepare(`
+    SELECT COUNT(*) as count FROM rbac_user_overrides 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).get().count;
+  
+  const expiredRolePermissions = db.prepare(`
+    SELECT COUNT(*) as count FROM rbac_role_permissions 
+    WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `).get().count;
+  
+  return {
+    userRoles: expiredUserRoles,
+    overrides: expiredOverrides,
+    rolePermissions: expiredRolePermissions,
+    total: expiredUserRoles + expiredOverrides + expiredRolePermissions
+  };
+}
+
+// =============================================================================
+// BULK OPERATIONS
+// =============================================================================
+
+/**
+ * Bulk assign permissions to a role
+ */
+function bulkAssignPermissionsToRole(roleId, permissionIds, { grantedBy = null, expiresAt = null } = {}) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  if (!Array.isArray(permissionIds) || permissionIds.length === 0) return { success: 0, failed: 0 };
+  
+  const role = getRoleById(roleId);
+  if (!role) throw new Error('Role not found');
+  
+  let success = 0;
+  let failed = 0;
+  const failedIds = [];
+  
+  for (const permissionId of permissionIds) {
+    try {
+      assignPermissionToRole(roleId, permissionId, { grantedBy, expiresAt });
+      success++;
+    } catch (error) {
+      failed++;
+      failedIds.push({ id: permissionId, error: error.message });
+    }
+  }
+  
+  // Create audit log
+  createAuditLog({
+    action: 'role.permission.bulk_assign',
+    actorId: grantedBy,
+    targetType: 'role',
+    targetId: roleId,
+    targetName: role.name,
+    newValue: { permissionIds, success, failed, failedIds, expiresAt }
+  });
+  
+  return { success, failed, failedIds };
+}
+
+/**
+ * Bulk revoke permissions from a role
+ */
+function bulkRevokePermissionsFromRole(roleId, permissionIds, revokedBy = null) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  if (!Array.isArray(permissionIds) || permissionIds.length === 0) return { success: 0, failed: 0 };
+  
+  const role = getRoleById(roleId);
+  if (!role) throw new Error('Role not found');
+  
+  let success = 0;
+  let failed = 0;
+  
+  for (const permissionId of permissionIds) {
+    try {
+      revokePermissionFromRole(roleId, permissionId, revokedBy);
+      success++;
+    } catch (error) {
+      failed++;
+    }
+  }
+  
+  // Create audit log
+  createAuditLog({
+    action: 'role.permission.bulk_revoke',
+    actorId: revokedBy,
+    targetType: 'role',
+    targetId: roleId,
+    targetName: role.name,
+    newValue: { permissionIds, success, failed }
+  });
+  
+  return { success, failed };
+}
+
+/**
+ * Clone a role with all its permissions
+ */
+function cloneRole(sourceRoleId, { newName, newDisplayName, newDescription, createdBy = null }) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  
+  const sourceRole = getRoleById(sourceRoleId);
+  if (!sourceRole) throw new Error('Source role not found');
+  
+  // Create new role
+  const newRoleId = createRole({
+    name: newName,
+    displayName: newDisplayName || `${sourceRole.display_name} (Copy)`,
+    description: newDescription || sourceRole.description,
+    isSystemRole: false, // Cloned roles are never system roles
+    priority: sourceRole.priority,
+    parentRoleId: sourceRole.parent_role_id,
+    metadata: sourceRole.metadata ? JSON.parse(sourceRole.metadata) : null,
+    createdBy
+  });
+  
+  // Copy all permissions
+  const sourcePermissions = getRolePermissions(sourceRoleId);
+  for (const perm of sourcePermissions) {
+    try {
+      assignPermissionToRole(newRoleId, perm.id, {
+        grantedBy: createdBy,
+        isDenied: perm.is_denied === 1
+      });
+    } catch (error) {
+      console.warn(`Failed to copy permission ${perm.name}:`, error.message);
+    }
+  }
+  
+  // Create audit log
+  createAuditLog({
+    action: 'role.clone',
+    actorId: createdBy,
+    targetType: 'role',
+    targetId: newRoleId,
+    targetName: newName,
+    newValue: { 
+      sourceRoleId, 
+      sourceRoleName: sourceRole.name,
+      copiedPermissions: sourcePermissions.length 
+    }
+  });
+  
+  return getRoleById(newRoleId);
+}
+
 // Export all functions
 module.exports = {
   // Initialization
@@ -1673,5 +2195,24 @@ module.exports = {
   
   // Statistics and search
   getStats,
-  search
+  search,
+  
+  // Role comparison
+  compareRoles,
+  
+  // Permission dependencies
+  getPermissionDependencies,
+  getPermissionDependencyGraph,
+  
+  // Cleanup operations
+  cleanupExpiredUserRoles,
+  cleanupExpiredOverrides,
+  cleanupExpiredRolePermissions,
+  runFullCleanup,
+  getExpiredItemsCount,
+  
+  // Bulk operations
+  bulkAssignPermissionsToRole,
+  bulkRevokePermissionsFromRole,
+  cloneRole
 };
