@@ -1,0 +1,623 @@
+<%- include('../partials/header') %>
+
+<main class="rbac-dashboard">
+  <div class="rbac-header">
+    <h1>🧹 RBAC Cleanup Tools</h1>
+    <nav class="rbac-nav">
+      <a href="/rbac/dashboard">Dashboard</a>
+      <a href="/rbac/roles">Roles</a>
+      <a href="/rbac/permissions">Permissions</a>
+      <a href="/rbac/users">Users</a>
+      <% if (canManage) { %>
+      <a href="/rbac/compare">Compare</a>
+      <a href="/rbac/cleanup" class="active">Cleanup</a>
+      <a href="/rbac/overrides">Overrides</a>
+      <a href="/rbac/audit">Audit Logs</a>
+      <a href="/rbac/security">Security</a>
+      <% } %>
+      <a href="/rbac/docs">Docs</a>
+    </nav>
+  </div>
+  
+  <!-- Expired Items Overview -->
+  <div class="cleanup-overview">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>⏰ Expired Items Overview</h2>
+        <button class="btn-secondary refresh-btn" onclick="window.location.reload()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+      
+      <div class="expired-stats-grid">
+        <div class="expired-stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-value"><%= expiredCounts.userRoles %></div>
+          <div class="stat-label">Expired User Roles</div>
+          <button class="cleanup-action-btn" onclick="runCleanup('user-roles')" <%= expiredCounts.userRoles === 0 ? 'disabled' : '' %>>
+            Clean Up
+          </button>
+        </div>
+        
+        <div class="expired-stat-card">
+          <div class="stat-icon">🔓</div>
+          <div class="stat-value"><%= expiredCounts.overrides %></div>
+          <div class="stat-label">Expired Overrides</div>
+          <button class="cleanup-action-btn" onclick="runCleanup('overrides')" <%= expiredCounts.overrides === 0 ? 'disabled' : '' %>>
+            Clean Up
+          </button>
+        </div>
+        
+        <div class="expired-stat-card">
+          <div class="stat-icon">🔑</div>
+          <div class="stat-value"><%= expiredCounts.rolePermissions %></div>
+          <div class="stat-label">Expired Role Permissions</div>
+          <button class="cleanup-action-btn" onclick="runCleanup('role-permissions')" <%= expiredCounts.rolePermissions === 0 ? 'disabled' : '' %>>
+            Clean Up
+          </button>
+        </div>
+        
+        <div class="expired-stat-card total-card">
+          <div class="stat-icon">📊</div>
+          <div class="stat-value"><%= expiredCounts.total %></div>
+          <div class="stat-label">Total Expired Items</div>
+          <button class="cleanup-action-btn primary" onclick="runCleanup('all')" <%= expiredCounts.total === 0 ? 'disabled' : '' %>>
+            Clean All
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Cleanup Actions -->
+  <div class="cleanup-actions-panel">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🔧 Cleanup Actions</h2>
+      </div>
+      <div class="cleanup-actions-list">
+        <div class="cleanup-action-item">
+          <div class="action-info">
+            <h4>Clean Expired User Role Assignments</h4>
+            <p>Remove user role assignments that have passed their expiration date. This helps keep the RBAC system clean and ensures users don't retain access after their temporary roles expire.</p>
+          </div>
+          <div class="action-buttons">
+            <button class="btn-outline" onclick="previewCleanup('user-roles')">Preview</button>
+            <button class="btn-danger" onclick="runCleanup('user-roles')" <%= expiredCounts.userRoles === 0 ? 'disabled' : '' %>>
+              Execute (<%= expiredCounts.userRoles %>)
+            </button>
+          </div>
+        </div>
+        
+        <div class="cleanup-action-item">
+          <div class="action-info">
+            <h4>Clean Expired Permission Overrides</h4>
+            <p>Remove user-specific permission overrides that have expired. These are temporary permission grants or denials given to individual users.</p>
+          </div>
+          <div class="action-buttons">
+            <button class="btn-outline" onclick="previewCleanup('overrides')">Preview</button>
+            <button class="btn-danger" onclick="runCleanup('overrides')" <%= expiredCounts.overrides === 0 ? 'disabled' : '' %>>
+              Execute (<%= expiredCounts.overrides %>)
+            </button>
+          </div>
+        </div>
+        
+        <div class="cleanup-action-item">
+          <div class="action-info">
+            <h4>Clean Expired Role Permissions</h4>
+            <p>Remove permission-to-role assignments that have expired. This affects all users with the role once the temporary permission grant expires.</p>
+          </div>
+          <div class="action-buttons">
+            <button class="btn-outline" onclick="previewCleanup('role-permissions')">Preview</button>
+            <button class="btn-danger" onclick="runCleanup('role-permissions')" <%= expiredCounts.rolePermissions === 0 ? 'disabled' : '' %>>
+              Execute (<%= expiredCounts.rolePermissions %>)
+            </button>
+          </div>
+        </div>
+        
+        <div class="cleanup-action-item highlight">
+          <div class="action-info">
+            <h4>🚀 Run Full Cleanup</h4>
+            <p>Execute all cleanup operations at once. This is the recommended approach to maintain RBAC hygiene. All cleanups are logged in the audit trail.</p>
+          </div>
+          <div class="action-buttons">
+            <button class="btn-primary full-cleanup-btn" onclick="runCleanup('all')" <%= expiredCounts.total === 0 ? 'disabled' : '' %>>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              Run Full Cleanup (<%= expiredCounts.total %> items)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Cleanup History -->
+  <div class="panel cleanup-history">
+    <div class="panel-header">
+      <h2>📋 Cleanup History</h2>
+    </div>
+    <% if (cleanupHistory && cleanupHistory.length > 0) { %>
+    <div class="history-list">
+      <table class="cleanup-table">
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Items Cleaned</th>
+            <th>Performed By</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% cleanupHistory.forEach(log => { %>
+          <tr>
+            <td>
+              <span class="action-badge"><%= log.action.replace('batch.cleanup.', '').replace(/_/g, ' ') %></span>
+            </td>
+            <td>
+              <% 
+              let cleaned = 0;
+              try { 
+                const details = JSON.parse(log.new_value || '{}');
+                cleaned = details.cleaned || details.totalCleaned || 0;
+              } catch(e) {} 
+              %>
+              <strong><%= cleaned %></strong> items
+            </td>
+            <td><%= log.actor_id ? 'User #' + log.actor_id : 'System' %></td>
+            <td><%= new Date(log.created_at).toLocaleString() %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } else { %>
+    <div class="empty-state">
+      <div class="icon">📭</div>
+      <p>No cleanup history yet</p>
+      <p class="subtext">Cleanup operations will appear here once executed</p>
+    </div>
+    <% } %>
+  </div>
+</main>
+
+<!-- Result Modal -->
+<div class="cleanup-modal" id="cleanupModal" style="display: none;">
+  <div class="modal-overlay" onclick="closeModal()"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modalTitle">Cleanup Result</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <!-- Content injected by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.cleanup-overview {
+  margin-bottom: 1.5rem;
+}
+
+.expired-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.expired-stat-card {
+  background: white;
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.expired-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.expired-stat-card.total-card {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(63, 214, 255, 0.05));
+}
+
+.stat-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.stat-label {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.cleanup-action-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: white;
+  color: var(--text-dark);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cleanup-action-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.cleanup-action-btn.primary {
+  background: linear-gradient(135deg, var(--primary-color), var(--cyan-color));
+  border-color: transparent;
+  color: white;
+}
+
+.cleanup-action-btn.primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35);
+}
+
+.cleanup-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cleanup-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.cleanup-action-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: var(--bg-light);
+  border-radius: 12px;
+  gap: 2rem;
+}
+
+.cleanup-action-item.highlight {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(63, 214, 255, 0.1));
+  border: 2px solid rgba(139, 92, 246, 0.3);
+}
+
+.action-info h4 {
+  color: var(--text-dark);
+  margin-bottom: 0.5rem;
+}
+
+.action-info p {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.btn-outline {
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: white;
+  color: var(--text-dark);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.btn-danger {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--error-color);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.full-cleanup-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, var(--primary-color), var(--cyan-color));
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.full-cleanup-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);
+}
+
+.full-cleanup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.cleanup-history {
+  margin-top: 1.5rem;
+}
+
+.cleanup-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cleanup-table th,
+.cleanup-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.cleanup-table th {
+  background: var(--bg-light);
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.cleanup-table tr:hover td {
+  background: var(--bg-light);
+}
+
+.action-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, var(--primary-color), var(--cyan-color));
+  color: white;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-light);
+}
+
+.empty-state .icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state .subtext {
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  opacity: 0.8;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Modal Styles */
+.cleanup-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  position: relative;
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: modalSlide 0.3s ease;
+}
+
+@keyframes modalSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-gray);
+  color: var(--text-dark);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: var(--error-color);
+  color: white;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.modal-body .success-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.modal-body .result-count {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.modal-body .result-message {
+  color: var(--text-light);
+  margin-top: 0.5rem;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .cleanup-action-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .action-buttons {
+    justify-content: center;
+  }
+}
+</style>
+
+<script>
+async function runCleanup(type) {
+  if (!confirm(`Are you sure you want to run the ${type.replace('-', ' ')} cleanup? This action cannot be undone.`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/admin/rbac/cleanup/${type}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showResult(type, data);
+    } else {
+      alert('Cleanup failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    alert('Cleanup failed: ' + error.message);
+  }
+}
+
+function showResult(type, data) {
+  const modal = document.getElementById('cleanupModal');
+  const title = document.getElementById('modalTitle');
+  const body = document.getElementById('modalBody');
+  
+  title.textContent = 'Cleanup Complete';
+  
+  let cleaned = data.cleaned || data.totalCleaned || 0;
+  let message = data.message || `Removed ${cleaned} expired item(s)`;
+  
+  body.innerHTML = `
+    <div class="success-icon">✅</div>
+    <div class="result-count">${cleaned}</div>
+    <div class="result-message">${message}</div>
+  `;
+  
+  modal.style.display = 'flex';
+  
+  // Reload page after closing modal to refresh counts
+  modal.dataset.reload = 'true';
+}
+
+function previewCleanup(type) {
+  alert('Preview functionality coming soon. This will show you what items will be cleaned before executing.');
+}
+
+function closeModal() {
+  const modal = document.getElementById('cleanupModal');
+  modal.style.display = 'none';
+  
+  if (modal.dataset.reload === 'true') {
+    modal.dataset.reload = '';
+    window.location.reload();
+  }
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+</script>
+
+<%- include('../partials/footer') %>

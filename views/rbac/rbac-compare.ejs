@@ -1,0 +1,496 @@
+<%- include('../partials/header') %>
+
+<main class="rbac-dashboard">
+  <div class="rbac-header">
+    <h1>⚖️ Role Comparison</h1>
+    <nav class="rbac-nav">
+      <a href="/rbac/dashboard">Dashboard</a>
+      <a href="/rbac/roles">Roles</a>
+      <a href="/rbac/permissions">Permissions</a>
+      <a href="/rbac/users">Users</a>
+      <% if (canManage) { %>
+      <a href="/rbac/compare" class="active">Compare</a>
+      <a href="/rbac/cleanup">Cleanup</a>
+      <a href="/rbac/overrides">Overrides</a>
+      <a href="/rbac/audit">Audit Logs</a>
+      <a href="/rbac/security">Security</a>
+      <% } %>
+      <a href="/rbac/docs">Docs</a>
+    </nav>
+  </div>
+  
+  <!-- Role Selection -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>🔍 Select Roles to Compare</h2>
+    </div>
+    <form method="GET" action="/rbac/compare" class="compare-form">
+      <div class="compare-selectors">
+        <div class="selector-group">
+          <label for="role1">First Role</label>
+          <select id="role1" name="role1" required>
+            <option value="">-- Select Role --</option>
+            <% allRoles.forEach(role => { %>
+            <option value="<%= role.id %>" <%= selectedRole1 === role.id ? 'selected' : '' %>>
+              <%= role.display_name || role.name %>
+            </option>
+            <% }); %>
+          </select>
+        </div>
+        
+        <div class="compare-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 17l5-5-5-5M21 12H9"></path>
+          </svg>
+        </div>
+        
+        <div class="selector-group">
+          <label for="role2">Second Role</label>
+          <select id="role2" name="role2" required>
+            <option value="">-- Select Role --</option>
+            <% allRoles.forEach(role => { %>
+            <option value="<%= role.id %>" <%= selectedRole2 === role.id ? 'selected' : '' %>>
+              <%= role.display_name || role.name %>
+            </option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+      
+      <button type="submit" class="btn-primary compare-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        Compare Roles
+      </button>
+    </form>
+  </div>
+  
+  <% if (comparison) { %>
+  <!-- Comparison Results -->
+  <div class="comparison-results">
+    <!-- Summary Cards -->
+    <div class="comparison-summary">
+      <div class="role-summary-card role1-card">
+        <div class="role-icon">👤</div>
+        <h3><%= comparison.role1.displayName || comparison.role1.name %></h3>
+        <div class="role-stats">
+          <span><%= comparison.role1.totalPermissions %> permissions</span>
+          <span>Priority: <%= comparison.role1.priority %></span>
+        </div>
+      </div>
+      
+      <div class="similarity-badge">
+        <div class="similarity-value"><%= comparison.comparison.similarityPercentage %>%</div>
+        <div class="similarity-label">Similarity</div>
+      </div>
+      
+      <div class="role-summary-card role2-card">
+        <div class="role-icon">👤</div>
+        <h3><%= comparison.role2.displayName || comparison.role2.name %></h3>
+        <div class="role-stats">
+          <span><%= comparison.role2.totalPermissions %> permissions</span>
+          <span>Priority: <%= comparison.role2.priority %></span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Detailed Comparison -->
+    <div class="comparison-details">
+      <!-- Only in Role 1 -->
+      <div class="panel comparison-panel">
+        <div class="panel-header">
+          <h2>🔵 Only in <%= comparison.role1.displayName || comparison.role1.name %></h2>
+          <span class="count-badge"><%= comparison.comparison.onlyInRole1.length %></span>
+        </div>
+        <% if (comparison.comparison.onlyInRole1.length > 0) { %>
+        <div class="permission-list">
+          <% comparison.comparison.onlyInRole1.forEach(perm => { %>
+          <div class="permission-item">
+            <span class="permission-name"><%= perm.display_name || perm.name %></span>
+            <span class="permission-key"><%= perm.name %></span>
+            <% if (perm.module) { %>
+            <span class="permission-module"><%= perm.module %></span>
+            <% } %>
+          </div>
+          <% }); %>
+        </div>
+        <% } else { %>
+        <div class="empty-state">
+          <p>No unique permissions</p>
+        </div>
+        <% } %>
+      </div>
+      
+      <!-- Common Permissions -->
+      <div class="panel comparison-panel">
+        <div class="panel-header">
+          <h2>🟢 Common Permissions</h2>
+          <span class="count-badge success"><%= comparison.comparison.common.length %></span>
+        </div>
+        <% if (comparison.comparison.common.length > 0) { %>
+        <div class="permission-list common-list">
+          <% comparison.comparison.common.forEach(perm => { %>
+          <div class="permission-item">
+            <span class="permission-name"><%= perm.display_name || perm.name %></span>
+            <span class="permission-key"><%= perm.name %></span>
+          </div>
+          <% }); %>
+        </div>
+        <% } else { %>
+        <div class="empty-state">
+          <p>No common permissions</p>
+        </div>
+        <% } %>
+      </div>
+      
+      <!-- Only in Role 2 -->
+      <div class="panel comparison-panel">
+        <div class="panel-header">
+          <h2>🟣 Only in <%= comparison.role2.displayName || comparison.role2.name %></h2>
+          <span class="count-badge"><%= comparison.comparison.onlyInRole2.length %></span>
+        </div>
+        <% if (comparison.comparison.onlyInRole2.length > 0) { %>
+        <div class="permission-list">
+          <% comparison.comparison.onlyInRole2.forEach(perm => { %>
+          <div class="permission-item">
+            <span class="permission-name"><%= perm.display_name || perm.name %></span>
+            <span class="permission-key"><%= perm.name %></span>
+            <% if (perm.module) { %>
+            <span class="permission-module"><%= perm.module %></span>
+            <% } %>
+          </div>
+          <% }); %>
+        </div>
+        <% } else { %>
+        <div class="empty-state">
+          <p>No unique permissions</p>
+        </div>
+        <% } %>
+      </div>
+    </div>
+    
+    <% if (comparison.comparison.denied1NotDenied2.length > 0 || comparison.comparison.denied2NotDenied1.length > 0) { %>
+    <!-- Denial Differences -->
+    <div class="panel denial-differences">
+      <div class="panel-header">
+        <h2>⚠️ Denial Differences</h2>
+      </div>
+      <div class="denial-grid">
+        <% if (comparison.comparison.denied1NotDenied2.length > 0) { %>
+        <div class="denial-section">
+          <h4>Denied in <%= comparison.role1.name %> but granted in <%= comparison.role2.name %>:</h4>
+          <ul>
+            <% comparison.comparison.denied1NotDenied2.forEach(perm => { %>
+            <li><%= perm.display_name || perm.name %></li>
+            <% }); %>
+          </ul>
+        </div>
+        <% } %>
+        <% if (comparison.comparison.denied2NotDenied1.length > 0) { %>
+        <div class="denial-section">
+          <h4>Denied in <%= comparison.role2.name %> but granted in <%= comparison.role1.name %>:</h4>
+          <ul>
+            <% comparison.comparison.denied2NotDenied1.forEach(perm => { %>
+            <li><%= perm.display_name || perm.name %></li>
+            <% }); %>
+          </ul>
+        </div>
+        <% } %>
+      </div>
+    </div>
+    <% } %>
+  </div>
+  <% } else if (selectedRole1 || selectedRole2) { %>
+  <div class="panel">
+    <div class="empty-state">
+      <div class="icon">⚠️</div>
+      <p>Please select both roles to compare</p>
+    </div>
+  </div>
+  <% } else { %>
+  <div class="panel">
+    <div class="empty-state">
+      <div class="icon">⚖️</div>
+      <p>Select two roles above to compare their permissions</p>
+      <p class="subtext">This tool helps you understand the differences between roles and identify potential gaps or overlaps.</p>
+    </div>
+  </div>
+  <% } %>
+</main>
+
+<style>
+.compare-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.compare-selectors {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.selector-group {
+  flex: 1;
+  min-width: 200px;
+  max-width: 350px;
+}
+
+.selector-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-dark);
+}
+
+.selector-group select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
+}
+
+.selector-group select:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+.compare-icon {
+  color: var(--text-light);
+}
+
+.compare-btn {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem;
+  background: linear-gradient(135deg, var(--primary-color), var(--cyan-color));
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.compare-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);
+}
+
+.comparison-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.role-summary-card {
+  background: white;
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  min-width: 200px;
+  transition: all 0.3s ease;
+}
+
+.role-summary-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.role1-card {
+  border-color: #3B82F6;
+}
+
+.role2-card {
+  border-color: #8B5CF6;
+}
+
+.role-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.role-summary-card h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.5rem;
+}
+
+.role-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.similarity-badge {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 50%;
+  text-align: center;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+.similarity-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.similarity-label {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.comparison-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .comparison-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+.comparison-panel {
+  min-height: 300px;
+}
+
+.comparison-panel .panel-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.count-badge {
+  background: var(--bg-gray);
+  color: var(--text-dark);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.count-badge.success {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.permission-list {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.permission-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.permission-item:last-child {
+  border-bottom: none;
+}
+
+.permission-name {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.permission-key {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  background: var(--bg-gray);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.permission-module {
+  font-size: 0.75rem;
+  color: var(--primary-color);
+  background: rgba(139, 92, 246, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.denial-differences {
+  margin-top: 1.5rem;
+}
+
+.denial-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.denial-section h4 {
+  color: var(--text-dark);
+  margin-bottom: 0.75rem;
+}
+
+.denial-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.denial-section li {
+  padding: 0.5rem 0;
+  color: var(--error-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.denial-section li:last-child {
+  border-bottom: none;
+}
+
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-light);
+}
+
+.empty-state .icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state .subtext {
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  opacity: 0.8;
+}
+</style>
+
+<%- include('../partials/footer') %>

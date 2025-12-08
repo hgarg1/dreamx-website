@@ -571,6 +571,14 @@ app.use('/admin/rbac', rbacApiRoutes);
 const rbacDashboardRoutes = require('./routes/admin/rbac-dashboard');
 app.use('/rbac', rbacDashboardRoutes);
 
+// Theme management routes
+const themeRoutes = require('./routes/admin/theme');
+app.use('/admin/theme', themeRoutes);
+
+// Theme middleware - inject active theme CSS into all pages
+const themeService = require('./services/theme');
+app.use(themeService.themeMiddleware);
+
 // Mount authentication routes (login, register, OAuth, password reset, email verification)
 app.use('/', authRoutes);
 

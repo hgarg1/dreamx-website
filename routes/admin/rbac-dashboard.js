@@ -898,6 +898,87 @@ router.get('/api/manifest', requireRbacDashboardAccess, ensureRbacReady, (req, r
 });
 
 // =============================================================================
+// ROLE COMPARISON PAGE
+// =============================================================================
+
+/**
+ * Role Comparison Page
+ */
+router.get('/compare', requireRbacDashboardAccess, ensureRbacReady, (req, res) => {
+  try {
+    const { role1, role2 } = req.query;
+    const allRoles = rbacService.getRoles({ includeDisabled: false });
+    
+    let comparison = null;
+    if (role1 && role2) {
+      try {
+        comparison = rbacService.compareRoles(parseInt(role1), parseInt(role2));
+      } catch (e) {
+        console.warn('Role comparison failed:', e.message);
+      }
+    }
+    
+    res.render('rbac/rbac-compare', {
+      title: 'Role Comparison - Dream X',
+      currentPage: 'admin',
+      activePage: 'compare',
+      authUser: req.rbacUser,
+      allRoles,
+      comparison,
+      selectedRole1: role1 ? parseInt(role1) : null,
+      selectedRole2: role2 ? parseInt(role2) : null,
+      canManage: isSuperAdmin(req.rbacUser) || isGlobalAdmin(req.rbacUser) || hasPermission(req.rbacUser, 'rbac.roles.edit')
+    });
+  } catch (error) {
+    console.error('Role comparison page error:', error);
+    res.redirect('/rbac/dashboard?error=Failed+to+load+comparison+page');
+  }
+});
+
+// =============================================================================
+// CLEANUP TOOLS PAGE
+// =============================================================================
+
+/**
+ * Cleanup Tools Page
+ */
+router.get('/cleanup', requireRbacManagement, ensureRbacReady, (req, res) => {
+  try {
+    const expiredCounts = rbacService.getExpiredItemsCount();
+    
+    // Get recent cleanup audit logs
+    let cleanupHistory = [];
+    try {
+      cleanupHistory = rbacService.getAuditLogs({
+        action: 'batch.cleanup',
+        limit: 20
+      });
+    } catch (e) {
+      // Try broader search
+      try {
+        const allLogs = rbacService.getAuditLogs({ limit: 100 });
+        cleanupHistory = allLogs.filter(log => log.action && log.action.startsWith('batch.cleanup'));
+      } catch (e2) {
+        console.warn('Failed to get cleanup history:', e2.message);
+      }
+    }
+    
+    res.render('rbac/rbac-cleanup', {
+      title: 'RBAC Cleanup Tools - Dream X',
+      currentPage: 'admin',
+      activePage: 'cleanup',
+      authUser: req.rbacUser,
+      expiredCounts,
+      cleanupHistory,
+      canManage: isSuperAdmin(req.rbacUser) || isGlobalAdmin(req.rbacUser)
+    });
+  } catch (error) {
+    console.error('Cleanup tools page error:', error);
+    res.redirect('/rbac/dashboard?error=Failed+to+load+cleanup+tools');
+  }
+});
+
+// =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
 
