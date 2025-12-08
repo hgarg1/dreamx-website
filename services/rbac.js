@@ -48,9 +48,7 @@ async function runRbacMigrations() {
 
   // Check if RBAC tables already exist to avoid unnecessary schema processing
   try {
-    const tableExists = isProduction 
-      ? await checkTableExistsSQL('rbac_roles')
-      : checkTableExistsSQLite('rbac_roles');
+    const tableExists = await checkTableExists('rbac_roles');
     
     if (tableExists) {
       console.log('✅ RBAC tables already exist, skipping migrations');
@@ -171,6 +169,17 @@ function checkTableExistsSQLite(tableName) {
     return result.count > 0;
   } catch (error) {
     return false;
+  }
+}
+
+/**
+ * Check if a table exists (async for SQL Server, sync for SQLite)
+ */
+async function checkTableExists(tableName) {
+  if (isProduction) {
+    return await checkTableExistsSQL(tableName);
+  } else {
+    return checkTableExistsSQLite(tableName);
   }
 }
 

@@ -281,7 +281,7 @@ module.exports = {
   initSync,
   initDatabase,
   isProduction,
-  dbType,
+  get dbType() { return dbType; },
   get db() { return db; },
   get sqlPool() { return sqlPool; }
 };
