@@ -12,6 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
+const MSSQLStore = require('connect-mssql-v2')(session);
 const ffmpeg = require('fluent-ffmpeg');
 const ffprobeStatic = require('ffprobe-static');
 const bcrypt = require('bcrypt');
@@ -536,9 +537,42 @@ app.use(robots({
 // Input sanitization middleware (applied after parsing)
 app.use(sanitizeRequest);
 
-// Session configuration (SQLiteStore for production safety) - MUST be before routes
+// Session configuration - Use SQL Server in production, SQLite locally
+const isProductionDB = process.env.NODE_ENV === 'Production' && process.env.DB_TYPE === 'sqlserver';
+
+let sessionStore;
+if (isProductionDB) {
+    // Production: Use SQL Server for sessions
+    sessionStore = new MSSQLStore({
+        config: {
+            server: process.env.SQL_DB_URL || 'dream-x.database.windows.net',
+            database: process.env.SQL_DB_NAME || 'DreamX',
+            user: process.env.SQL_DB_UNAME || 'DreamX',
+            password: process.env.SQL_DB_PWORD || '',
+            options: {
+                encrypt: true,
+                trustServerCertificate: false,
+                enableArithAbort: true
+            }
+        },
+        table: 'sessions',
+        autoRemove: true,
+        autoRemoveInterval: 1000 * 60 * 10, // Remove expired sessions every 10 minutes
+        ttl: 7 * 24 * 60 * 60 * 1000 // 1 week
+    }, (err) => {
+        if (err) {
+            console.error('❌ SQL Server session store initialization error:', err);
+        } else {
+            console.log('✅ SQL Server session store initialized');
+        }
+    });
+} else {
+    // Development: Use SQLite for sessions
+    sessionStore = new SQLiteStore({ db: 'sessions.sqlite3', dir: './data' });
+}
+
 app.use(session({
-    store: new SQLiteStore({ db: 'sessions.sqlite3', dir: './data' }),
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
