@@ -16,6 +16,7 @@ function configureHelmet() {
                 scriptSrc: [
                     "'self'",
                     "'unsafe-inline'", // Required for inline scripts in EJS templates
+                    "'unsafe-hashes'", // Required for inline event handlers (onclick, etc.)
                     "https://cdn.socket.io",
                     "https://api.mapbox.com",
                     "https://js.stripe.com",

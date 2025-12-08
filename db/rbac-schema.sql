@@ -10,10 +10,18 @@ GO
 
 -- =============================================================================
 -- CORE RBAC TABLES
+-- Drop tables in correct order (child tables with FKs first, then parent tables)
 -- =============================================================================
 
--- Roles: Dynamic roles with inheritance, soft delete, versioning
+-- Drop child tables first (those with foreign key references)
+IF OBJECT_ID('dbo.rbac_user_overrides', 'U') IS NOT NULL DROP TABLE dbo.rbac_user_overrides;
+IF OBJECT_ID('dbo.rbac_user_roles', 'U') IS NOT NULL DROP TABLE dbo.rbac_user_roles;
+IF OBJECT_ID('dbo.rbac_role_permissions', 'U') IS NOT NULL DROP TABLE dbo.rbac_role_permissions;
+IF OBJECT_ID('dbo.rbac_permissions', 'U') IS NOT NULL DROP TABLE dbo.rbac_permissions;
+IF OBJECT_ID('dbo.rbac_permission_groups', 'U') IS NOT NULL DROP TABLE dbo.rbac_permission_groups;
 IF OBJECT_ID('dbo.rbac_roles', 'U') IS NOT NULL DROP TABLE dbo.rbac_roles;
+
+-- Roles: Dynamic roles with inheritance, soft delete, versioning
 CREATE TABLE dbo.rbac_roles (
     id              BIGINT IDENTITY(1,1) PRIMARY KEY,
     name            NVARCHAR(100) NOT NULL UNIQUE,
@@ -39,7 +47,6 @@ CREATE INDEX IDX_rbac_roles_parent ON dbo.rbac_roles(parent_role_id);
 CREATE INDEX IDX_rbac_roles_deleted ON dbo.rbac_roles(deleted_at);
 
 -- Permission Groups
-IF OBJECT_ID('dbo.rbac_permission_groups', 'U') IS NOT NULL DROP TABLE dbo.rbac_permission_groups;
 CREATE TABLE dbo.rbac_permission_groups (
     id              BIGINT IDENTITY(1,1) PRIMARY KEY,
     name            NVARCHAR(100) NOT NULL UNIQUE,
@@ -60,7 +67,6 @@ CREATE TABLE dbo.rbac_permission_groups (
 CREATE INDEX IDX_rbac_perm_groups_module ON dbo.rbac_permission_groups(module);
 
 -- Permissions
-IF OBJECT_ID('dbo.rbac_permissions', 'U') IS NOT NULL DROP TABLE dbo.rbac_permissions;
 CREATE TABLE dbo.rbac_permissions (
     id                    BIGINT IDENTITY(1,1) PRIMARY KEY,
     name                  NVARCHAR(200) NOT NULL UNIQUE,           -- e.g. 'users.manage'
@@ -87,7 +93,6 @@ CREATE INDEX IDX_rbac_permissions_resource ON dbo.rbac_permissions(resource);
 CREATE INDEX IDX_rbac_permissions_action ON dbo.rbac_permissions(action);
 
 -- Role ↔ Permission (many-to-many with denial & expiration support)
-IF OBJECT_ID('dbo.rbac_role_permissions', 'U') IS NOT NULL DROP TABLE dbo.rbac_role_permissions;
 CREATE TABLE dbo.rbac_role_permissions (
     id            BIGINT IDENTITY(1,1) PRIMARY KEY,
     role_id       BIGINT NOT NULL,
@@ -114,7 +119,6 @@ CREATE INDEX IDX_rbac_role_perms_perm ON dbo.rbac_role_permissions(permission_id
 CREATE INDEX IDX_rbac_role_perms_expires ON dbo.rbac_role_permissions(expires_at) WHERE expires_at IS NOT NULL;
 
 -- User ↔ Role assignments (with scope, primary flag, expiration)
-IF OBJECT_ID('dbo.rbac_user_roles', 'U') IS NOT NULL DROP TABLE dbo.rbac_user_roles;
 CREATE TABLE dbo.rbac_user_roles (
     id            BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id       INT NOT NULL,
@@ -143,7 +147,6 @@ CREATE INDEX IDX_rbac_user_roles_expires ON dbo.rbac_user_roles(expires_at) WHER
 CREATE INDEX IDX_rbac_user_roles_primary ON dbo.rbac_user_roles(is_primary) WHERE is_primary = 1;
 
 -- User-specific permission overrides (grant/deny outside of roles)
-IF OBJECT_ID('dbo.rbac_user_overrides', 'U') IS NOT NULL DROP TABLE dbo.rbac_user_overrides;
 CREATE TABLE dbo.rbac_user_overrides (
     id            BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id       INT NOT NULL,
@@ -176,7 +179,10 @@ CREATE INDEX IDX_rbac_user_overrides_expires ON dbo.rbac_user_overrides(expires_
 -- VERSIONING & AUDIT
 -- =============================================================================
 
+-- Drop versioning and audit tables
+IF OBJECT_ID('dbo.rbac_audit_logs', 'U') IS NOT NULL DROP TABLE dbo.rbac_audit_logs;
 IF OBJECT_ID('dbo.rbac_versions', 'U') IS NOT NULL DROP TABLE dbo.rbac_versions;
+
 CREATE TABLE dbo.rbac_versions (
     id            BIGINT IDENTITY(1,1) PRIMARY KEY,
     entity_type   NVARCHAR(50) NOT NULL,     -- 'role', 'permission', 'group', 'assignment'
@@ -194,7 +200,6 @@ CREATE TABLE dbo.rbac_versions (
 CREATE INDEX IDX_rbac_versions_entity ON dbo.rbac_versions(entity_type, entity_id);
 CREATE INDEX IDX_rbac_versions_created ON dbo.rbac_versions(created_at);
 
-IF OBJECT_ID('dbo.rbac_audit_logs', 'U') IS NOT NULL DROP TABLE dbo.rbac_audit_logs;
 CREATE TABLE dbo.rbac_audit_logs (
     id               BIGINT IDENTITY(1,1) PRIMARY KEY,
     action           NVARCHAR(200) NOT NULL,
@@ -224,7 +229,10 @@ CREATE INDEX IDX_rbac_audit_created ON dbo.rbac_audit_logs(created_at);
 -- EXTENSIBILITY
 -- =============================================================================
 
+-- Drop extensibility tables
+IF OBJECT_ID('dbo.rbac_default_assignments', 'U') IS NOT NULL DROP TABLE dbo.rbac_default_assignments;
 IF OBJECT_ID('dbo.rbac_module_registrations', 'U') IS NOT NULL DROP TABLE dbo.rbac_module_registrations;
+
 CREATE TABLE dbo.rbac_module_registrations (
     id                BIGINT IDENTITY(1,1) PRIMARY KEY,
     module_name       NVARCHAR(100) NOT NULL UNIQUE,
@@ -237,7 +245,6 @@ CREATE TABLE dbo.rbac_module_registrations (
     updated_at        DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 
-IF OBJECT_ID('dbo.rbac_default_assignments', 'U') IS NOT NULL DROP TABLE dbo.rbac_default_assignments;
 CREATE TABLE dbo.rbac_default_assignments (
     id               BIGINT IDENTITY(1,1) PRIMARY KEY,
     role_id          BIGINT NOT NULL,
@@ -254,7 +261,9 @@ CREATE TABLE dbo.rbac_default_assignments (
 -- LEGACY MAPPING
 -- =============================================================================
 
+-- Drop legacy mapping table
 IF OBJECT_ID('dbo.rbac_legacy_mapping', 'U') IS NOT NULL DROP TABLE dbo.rbac_legacy_mapping;
+
 CREATE TABLE dbo.rbac_legacy_mapping (
     id                 BIGINT IDENTITY(1,1) PRIMARY KEY,
     legacy_role        NVARCHAR(100) NOT NULL,

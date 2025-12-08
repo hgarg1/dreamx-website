@@ -598,8 +598,20 @@ router.get('/api/csrf-token', csrfExempt, (req, res) => {
         if (!req.session.csrfToken) {
             req.session.csrfToken = generateCsrfToken();
         }
-        // Return token to client for use in subsequent requests
-        return sendResponse(res, true, { csrfToken: req.session.csrfToken });
+        
+        const token = req.session.csrfToken;
+        
+        // Save session to ensure token persists
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return sendResponse(res, false, null, 'Failed to save session', 500);
+            }
+            
+            // Return token in both response body and header
+            res.setHeader('X-CSRF-Token', token);
+            return sendResponse(res, true, { csrfToken: token });
+        });
     } catch (error) {
         console.error('Error generating CSRF token:', error);
         return sendResponse(res, false, null, 'Failed to generate CSRF token', 500);

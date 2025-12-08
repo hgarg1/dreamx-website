@@ -281,7 +281,7 @@ async function seedDatabase() {
       const rbacSeed = require('../services/rbac-seed');
       
       // Initialize RBAC service with database connection
-      rbacService.initialize(db);
+      await rbacService.initialize(db);
       
       // Seed RBAC if not already seeded
       if (!rbacSeed.isSeeded()) {

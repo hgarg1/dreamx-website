@@ -22,13 +22,13 @@ let isInitialized = false;
 /**
  * Initialize the RBAC service with database connection
  */
-function initialize(database) {
+async function initialize(database) {
   db = database;
   isInitialized = true;
   
   // Run RBAC schema migrations
   try {
-    runRbacMigrations();
+    await runRbacMigrations();
   } catch (error) {
     console.error('RBAC migration error:', error.message);
   }
@@ -37,13 +37,28 @@ function initialize(database) {
 /**
  * Run RBAC schema migrations (creates tables if they don't exist)
  */
-function runRbacMigrations() {
+async function runRbacMigrations() {
   const fs = require('fs');
   const schemaPath = path.join(__dirname, '..', 'db', 'rbac-schema.sql');
   
   if (!fs.existsSync(schemaPath)) {
     console.warn('RBAC schema file not found, skipping migrations');
     return;
+  }
+
+  // Check if RBAC tables already exist to avoid unnecessary schema processing
+  try {
+    const tableExists = isProduction 
+      ? await checkTableExistsSQL('rbac_roles')
+      : checkTableExistsSQLite('rbac_roles');
+    
+    if (tableExists) {
+      console.log('✅ RBAC tables already exist, skipping migrations');
+      return;
+    }
+  } catch (error) {
+    // If we can't check, proceed with migration attempt
+    console.log('Proceeding with RBAC migrations...');
   }
   
   let schema = fs.readFileSync(schemaPath, 'utf8');
@@ -57,12 +72,14 @@ function runRbacMigrations() {
   let statements;
   
   if (isProduction) {
-    // SQL Server: split by GO batch separator and filter out SET commands
+    // SQL Server: split by GO batch separator, filter out SET commands and DROP statements
     statements = cleanSchema
       .split(/\bGO\b/i)
       .map(s => s.trim())
       .filter(s => s.length > 0)
-      .filter(s => !s.match(/^SET\s+(ANSI_NULLS|QUOTED_IDENTIFIER)/i));
+      .filter(s => !s.match(/^SET\s+(ANSI_NULLS|QUOTED_IDENTIFIER)/i))
+      // Remove DROP TABLE statements since we're only creating if not exists
+      .filter(s => !s.match(/^IF\s+OBJECT_ID.*DROP\s+TABLE/i));
   } else {
     // SQLite: adapt SQL Server syntax to SQLite
     let sqliteSchema = cleanSchema
@@ -105,7 +122,11 @@ function runRbacMigrations() {
   for (const statement of statements) {
     try {
       if (statement.includes('CREATE TABLE') || statement.includes('CREATE INDEX')) {
-        db.exec(statement + ';');
+        if (isProduction) {
+          await db.exec(statement + ';');
+        } else {
+          db.exec(statement + ';');
+        }
       }
     } catch (error) {
       // Ignore "already exists" errors
@@ -117,6 +138,40 @@ function runRbacMigrations() {
   }
   
   console.log('✅ RBAC schema migrations completed');
+}
+
+/**
+ * Check if a table exists in SQL Server (async)
+ */
+async function checkTableExistsSQL(tableName) {
+  try {
+    const result = await db.getRaw().request()
+      .input('tableName', tableName)
+      .query(`
+        SELECT COUNT(*) as count 
+        FROM INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = @tableName
+      `);
+    return result.recordset[0].count > 0;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Check if a table exists in SQLite (sync)
+ */
+function checkTableExistsSQLite(tableName) {
+  try {
+    const result = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM sqlite_master 
+      WHERE type='table' AND name=?
+    `).get(tableName);
+    return result.count > 0;
+  } catch (error) {
+    return false;
+  }
 }
 
 // =============================================================================
