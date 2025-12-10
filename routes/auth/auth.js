@@ -820,8 +820,10 @@ function getCallbackURLFromRequest(req, path) {
 async function handleOAuthCallback(req, res, provider) {
     try {
         console.log(`🟡 [${provider}] handleOAuthCallback called`);
-        const mode = req.query.state;
-        console.log(`🟡 [${provider}] Mode from query.state:`, mode);
+        // Use mode from session (stored before OAuth redirect) instead of URL state parameter
+        // (state is reserved for Passport's CSRF protection)
+        const mode = req.session.oauthMode || 'auth/login';
+        console.log(`🟡 [${provider}] Mode from session.oauthMode:`, mode);
         
         // Handle account linking mode
         if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
@@ -859,7 +861,7 @@ async function handleOAuthCallback(req, res, provider) {
                     console.warn('Email verification during OAuth login failed:', e.message);
                 }
                 
-                // Ensure session is saved
+                // Ensure session is saved with SSO bootstrap info
                 req.session.userId = req.user.id;
                 req.session.ssoPasswordBootstrap = {
                     userId: req.user.id,
@@ -924,72 +926,6 @@ router.get('/auth/google/callback', (req, res, next) => {
         handleOAuthCallback(req, res, 'google');
     })(req, res, next);
 });
-
-async function handleOAuthCallback(req, res, provider) {
-    try {
-        // Use mode from session (stored before OAuth redirect) instead of URL state parameter
-        // (state is reserved for Passport's CSRF protection)
-        const mode = req.session.oauthMode || 'auth/login';
-        
-        // Handle account linking mode
-        if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
-            updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-            if (req.authInfo.photoUrl) {
-                const user = getUserById(req.session.userId);
-                await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
-            }
-            return res.redirect('/settings?success=' + provider.charAt(0).toUpperCase() + provider.slice(1) + ' connected');
-        }
-        
-        // Handle login mode
-        if (req.user && req.user.id) {
-            // Use req.login() to establish Passport session
-            return req.login(req.user, async (err) => {
-                if (err) {
-                    console.error(`❌ ${provider} login error:`, err);
-                    return res.redirect('/login');
-                }
-                
-                // Auto-verify email for OAuth users
-                try {
-                    const u = getUserById(req.user.id);
-                    if (u && u.email_verified !== 1) {
-                        markEmailAsVerified({ userId: u.id });
-                    }
-                } catch (e) {
-                    console.warn('Email verification during OAuth login failed:', e.message);
-                }
-                
-                // Ensure session is saved
-                req.session.userId = req.user.id;
-                return new Promise((resolve) => {
-                    req.session.save((saveErr) => {
-                        if (saveErr) {
-                            console.error(`❌ ${provider} session save error:`, saveErr);
-                            return resolve(res.redirect('/login'));
-                        }
-                        
-                        try {
-                            const u = getUserById(req.user.id);
-                            const redirectTarget = resolvePostAuthRedirect(u);
-                            console.log(`✅ ${provider} login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
-                            return resolve(res.redirect(redirectTarget));
-                        } catch (e) {
-                            console.error(`❌ ${provider} redirect resolution error:`, e.message);
-                            return resolve(res.redirect('/feed'));
-                        }
-                    });
-                });
-            });
-        } else {
-            console.warn(`⚠️ ${provider} callback: req.user not populated, redirecting to login`);
-            return res.redirect('/login');
-        }
-    } catch (e) {
-        console.error(`❌ ${provider} callback error:`, e.message);
-        return res.redirect('/login');
-    }
-}
 
 router.get('/auth/microsoft', (req, res, next) => {
     if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) return res.status(503).send('Microsoft OAuth not configured');
