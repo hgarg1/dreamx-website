@@ -574,7 +574,7 @@ app.use(session({
         maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
         httpOnly: true,
         // Secure cookies in production or when BASE_URL is https
-        secure: (process.env.NODE_ENV === 'Production') || (process.env.BASE_URL || '').startsWith('https://'),
+        secure: (process.env.NODE_ENV === 'production') || (process.env.BASE_URL || '').startsWith('https://'),
         sameSite: 'lax'
     },
     rolling: true, // Reset session expiration on each request
