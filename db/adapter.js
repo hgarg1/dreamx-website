@@ -115,8 +115,8 @@ class DatabaseWrapper {
     if (this.type === 'sqlite') {
       this.db.exec(sql);
     } else {
-      // SQL Server - split by semicolons and execute each statement
-      const statements = sql.split(';').filter(s => s.trim().length > 0);
+      // SQL Server - use smart statement splitting that respects BEGIN/END blocks
+      const statements = this.splitSqlStatements(sql);
       for (const statement of statements) {
         try {
           await this.db.request().query(statement);
@@ -128,6 +128,77 @@ class DatabaseWrapper {
         }
       }
     }
+  }
+
+  // Split SQL statements while respecting BEGIN/END blocks and MERGE statements
+  splitSqlStatements(sql) {
+    const statements = [];
+    let current = '';
+    let depth = 0; // Track BEGIN/END nesting
+    let inMerge = false; // Track if we're inside a MERGE statement
+    
+    // Normalize line endings and split into tokens
+    const normalized = sql.replace(/\r\n/g, '\n');
+    const lines = normalized.split('\n');
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim().toUpperCase();
+      
+      // Check for GO batch separator (SQL Server)
+      if (trimmedLine === 'GO') {
+        if (current.trim()) {
+          statements.push(current.trim());
+          current = '';
+        }
+        depth = 0;
+        inMerge = false;
+        continue;
+      }
+      
+      // Track BEGIN/END blocks
+      if (trimmedLine.includes('BEGIN') && !trimmedLine.includes('BEGIN TRANSACTION')) {
+        depth++;
+      }
+      if (trimmedLine.includes('END') && !trimmedLine.includes('END TRANSACTION')) {
+        depth = Math.max(0, depth - 1);
+      }
+      
+      // Track MERGE statements (they end with a semicolon after the last WHEN clause)
+      if (trimmedLine.startsWith('MERGE ') || trimmedLine.startsWith('MERGE\t')) {
+        inMerge = true;
+      }
+      
+      current += line + '\n';
+      
+      // Check if this line ends a statement (semicolon at the end, outside BEGIN/END)
+      if (line.trim().endsWith(';') && depth === 0) {
+        // For MERGE statements, the semicolon ends the statement
+        if (inMerge || !this.isInsideBlock(current)) {
+          if (current.trim()) {
+            statements.push(current.trim());
+            current = '';
+          }
+          inMerge = false;
+        }
+      }
+    }
+    
+    // Add any remaining SQL
+    if (current.trim()) {
+      statements.push(current.trim());
+    }
+    
+    return statements.filter(s => s.length > 0);
+  }
+
+  // Helper to check if we're inside a BEGIN/END block
+  isInsideBlock(sql) {
+    const upper = sql.toUpperCase();
+    const beginCount = (upper.match(/\bBEGIN\b/g) || []).length;
+    const endCount = (upper.match(/\bEND\b/g) || []).length;
+    // Also count END; as END
+    const endSemiCount = (upper.match(/\bEND\s*;/g) || []).length;
+    return beginCount > endCount;
   }
 
   // Prepare a statement (returns a prepared statement wrapper)
@@ -206,9 +277,18 @@ class SQLServerPreparedStatement {
       request.input(`p${index}`, param);
     });
     
-    // For INSERT statements, get the inserted ID
-    if (this.sql.trim().toUpperCase().startsWith('INSERT')) {
-      const insertSql = this.sql + '; SELECT SCOPE_IDENTITY() AS id;';
+    const trimmedSql = this.sql.trim().toUpperCase();
+    
+    // For simple INSERT statements (not MERGE, not IF...INSERT...END), get the inserted ID
+    // Check if it's a simple INSERT that starts with INSERT and doesn't contain MERGE
+    const isSimpleInsert = trimmedSql.startsWith('INSERT') && 
+                           !trimmedSql.includes('MERGE') &&
+                           !trimmedSql.includes('WHERE NOT EXISTS');
+    
+    if (isSimpleInsert) {
+      // Remove any trailing semicolon before adding SCOPE_IDENTITY
+      const cleanSql = this.sql.replace(/;\s*$/, '');
+      const insertSql = cleanSql + '; SELECT SCOPE_IDENTITY() AS id;';
       const result = await request.query(insertSql);
       return {
         lastInsertRowid: result.recordset[0]?.id || null,
@@ -216,9 +296,13 @@ class SQLServerPreparedStatement {
       };
     } else {
       const result = await request.query(this.sql);
+      // For MERGE and other statements, sum all rowsAffected
+      const totalChanges = Array.isArray(result.rowsAffected) 
+        ? result.rowsAffected.reduce((sum, val) => sum + (val || 0), 0)
+        : (result.rowsAffected || 0);
       return {
         lastInsertRowid: null,
-        changes: result.rowsAffected[0] || 0
+        changes: totalChanges
       };
     }
   }
