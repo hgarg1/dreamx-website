@@ -36,7 +36,7 @@ jobs:
         rm -rf deployment/node_modules deployment/.git deployment/coverage
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: app-build
         path: deployment/
@@ -63,7 +63,7 @@ jobs:
 
     steps:
     - name: Download artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: app-build
 
