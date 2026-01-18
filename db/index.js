@@ -330,12 +330,66 @@ function addColumnIfNotExists(tableName, columnName, columnDefinition) {
 
 // Run database migrations (works for both SQLite and SQL Server)
 async function runMigrations() {
-  // Only run migrations in SQLite (development) mode
-  // PostgreSQL should use schema-postgres.sql for schema setup
+  // In production (PostgreSQL), load schema-postgres.sql if tables don't exist
   if (isProduction) {
-    // In production (PostgreSQL), migrations should be handled via schema-postgres.sql
-    // or through proper migration scripts. Skip PRAGMA-based migrations.
-    console.log('⚠️  Skipping PRAGMA-based migrations in production (PostgreSQL)');
+    const fs = require('fs');
+    const path = require('path');
+    const schemaPath = path.join(__dirname, 'schema-postgres.sql');
+    
+    if (fs.existsSync(schemaPath)) {
+      try {
+        // Check if users table exists (indicator that schema is already loaded)
+        const tableCheck = await db.prepare(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'users'
+          ) as exists
+        `).get();
+        
+        if (!tableCheck || !tableCheck.exists) {
+          console.log('🔄 Loading PostgreSQL schema from schema-postgres.sql...');
+          let schema = fs.readFileSync(schemaPath, 'utf8');
+          
+          // Remove SQL comments (lines starting with --)
+          const cleanSchema = schema
+            .split('\n')
+            .filter(line => !line.trim().startsWith('--'))
+            .join('\n');
+          
+          // Split by semicolons and execute each statement
+          const statements = cleanSchema
+            .split(';')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+            .filter(s => !s.match(/^DROP\s+TABLE/i)); // Skip DROP statements
+          
+          for (const statement of statements) {
+            try {
+              if (statement.includes('CREATE TABLE') || statement.includes('CREATE INDEX')) {
+                await db.exec(statement + ';');
+              }
+            } catch (error) {
+              // Ignore "already exists" errors
+              if (!error.message.includes('already exists') && 
+                  !error.message.includes('duplicate key')) {
+                console.warn('Schema statement failed:', error.message.substring(0, 100));
+              }
+            }
+          }
+          console.log('✅ PostgreSQL schema loaded from schema-postgres.sql');
+        } else {
+          console.log('✅ PostgreSQL schema already exists, skipping schema load');
+        }
+      } catch (error) {
+        console.warn('⚠️  Could not load schema-postgres.sql:', error.message);
+        console.warn('⚠️  Please ensure schema-postgres.sql has been run manually');
+      }
+    } else {
+      console.warn('⚠️  schema-postgres.sql not found. Please run it manually before starting the app.');
+    }
+    
+    // Skip PRAGMA-based migrations for PostgreSQL
     return;
   }
 

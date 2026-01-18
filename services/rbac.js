@@ -39,7 +39,10 @@ async function initialize(database) {
  */
 async function runRbacMigrations() {
   const fs = require('fs');
-  const schemaPath = path.join(__dirname, '..', 'db', 'rbac-schema.sql');
+  // Use PostgreSQL schema in production, SQL Server schema for SQLite conversion
+  const schemaPath = isProduction 
+    ? path.join(__dirname, '..', 'db', 'rbac-schema-postgres.sql')
+    : path.join(__dirname, '..', 'db', 'rbac-schema.sql');
   
   if (!fs.existsSync(schemaPath)) {
     console.warn('RBAC schema file not found, skipping migrations');
@@ -70,14 +73,12 @@ async function runRbacMigrations() {
   let statements;
   
   if (isProduction) {
-    // SQL Server: split by GO batch separator, filter out SET commands and DROP statements
+    // PostgreSQL: split by semicolons, filter out empty statements and DROP statements
     statements = cleanSchema
-      .split(/\bGO\b/i)
+      .split(';')
       .map(s => s.trim())
       .filter(s => s.length > 0)
-      .filter(s => !s.match(/^SET\s+(ANSI_NULLS|QUOTED_IDENTIFIER)/i))
-      // Remove DROP TABLE statements since we're only creating if not exists
-      .filter(s => !s.match(/^IF\s+OBJECT_ID.*DROP\s+TABLE/i));
+      .filter(s => !s.match(/^DROP\s+TABLE/i)); // Skip DROP statements if using IF NOT EXISTS
   } else {
     // SQLite: adapt SQL Server syntax to SQLite
     let sqliteSchema = cleanSchema
