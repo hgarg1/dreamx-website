@@ -815,6 +815,9 @@ function getCallbackURLFromRequest(req, path) {
 
 // OAuth routes - these need to be set up in app.js with passport strategies
 // They're included here for reference but need passport middleware
+// Note: In production with Easy Auth enabled, these routes are skipped
+
+const { shouldUsePassportOAuth } = require('../../middleware/easy-auth');
 
 // Shared OAuth callback handler for all providers
 async function handleOAuthCallback(req, res, provider) {
@@ -898,6 +901,10 @@ async function handleOAuthCallback(req, res, provider) {
 }
 
 router.get('/auth/google', (req, res, next) => {
+    // Skip Passport.js OAuth if Easy Auth is enabled in production
+    if (!shouldUsePassportOAuth()) {
+        return res.status(503).send('OAuth is handled by Azure Easy Auth in production. Please use the Azure authentication flow.');
+    }
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return res.status(503).send('Google OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
     req.session.oauthMode = mode;
@@ -992,6 +999,10 @@ async function handleOAuthCallback(req, res, provider) {
 }
 
 router.get('/auth/microsoft', (req, res, next) => {
+    // Skip Passport.js OAuth if Easy Auth is enabled in production
+    if (!shouldUsePassportOAuth()) {
+        return res.status(503).send('OAuth is handled by Azure Easy Auth in production. Please use the Azure authentication flow.');
+    }
     if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) return res.status(503).send('Microsoft OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
     req.session.oauthMode = mode;
@@ -1049,6 +1060,10 @@ router.post('/auth/apple/callback', (req, res, next) => {
 });
 
 router.get('/auth/x', (req, res, next) => {
+    // Skip Passport.js OAuth if Easy Auth is enabled in production
+    if (!shouldUsePassportOAuth()) {
+        return res.status(503).send('OAuth is handled by Azure Easy Auth in production. Please use the Azure authentication flow.');
+    }
     if (!process.env.TWITTER_CLIENT_ID || !process.env.TWITTER_CLIENT_SECRET) return res.status(503).send('X (Twitter) OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
     // Store mode in session for use in callback - don't override state (Passport needs to handle that)

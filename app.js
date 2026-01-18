@@ -581,6 +581,10 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Azure Easy Auth middleware (production only) - Must be after session middleware
+const { easyAuthMiddleware, shouldUsePassportOAuth } = require('./middleware/easy-auth');
+app.use(easyAuthMiddleware);
+
 // CSRF Protection - Applied after session middleware
 // Generates tokens for GET requests and validates on POST/PUT/DELETE
 app.use(csrfProtection);
@@ -842,8 +846,8 @@ async function importBinaryPhotoIfNeeded(user, buffer, extHint) {
     }
 }
 
-// Google OAuth
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+// Google OAuth (only if not using Easy Auth in production)
+if (shouldUsePassportOAuth() && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     // Note: Google OAuth doesn't support per-request callback URL override like Microsoft
     // Must whitelist all callback URLs in Google Cloud Console
     const callbackURL = process.env.GOOGLE_CALLBACK_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/auth/google/callback` : 'http://localhost/auth/google/callback');
@@ -869,8 +873,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     console.warn('Google OAuth not configured');
 }
 
-// Microsoft OAuth
-if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
+// Microsoft OAuth (only if not using Easy Auth in production)
+if (shouldUsePassportOAuth() && process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
     // Note: Microsoft OAuth callback URL is set at initialization
     // Must whitelist all callback URLs in Azure AD app configuration
     const callbackURL = process.env.MICROSOFT_CALLBACK_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/auth/microsoft/callback` : 'http://localhost/auth/microsoft/callback');
@@ -925,8 +929,8 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPL
     console.warn('Apple Sign-In not configured');
 }
 
-// X (Twitter) OAuth 2.0
-if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
+// X (Twitter) OAuth 2.0 (only if not using Easy Auth in production)
+if (shouldUsePassportOAuth() && process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
     // Twitter OAuth 2.0 callback URL MUST match exactly what's registered in Twitter Developer Console
     // This URL is static - it's set when the strategy is initialized
     // If you change where you access the app, update this environment variable
