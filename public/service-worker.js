@@ -77,7 +77,8 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/auth/') ||
       url.pathname === '/login' ||
       url.pathname === '/register' ||
-      url.pathname === '/logout') {
+      url.pathname === '/logout' ||
+      url.pathname.startsWith('/.auth/')) {
     return;
   }
 

@@ -264,10 +264,32 @@ function initLogoutHandler() {
                 console.log('🧹 Clearing service worker cache on logout');
             }
             
-            // Small delay to allow cache clearing before redirect
-            setTimeout(() => {
-                window.location.href = '/logout';
-            }, 100);
+            // Clear localStorage and sessionStorage
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+            } catch (err) {
+                console.warn('Failed to clear storage:', err);
+            }
+            
+            // Clear all caches programmatically
+            if ('caches' in window) {
+                caches.keys().then((cacheNames) => {
+                    return Promise.all(
+                        cacheNames.map((cacheName) => {
+                            console.log('🗑️ Deleting cache:', cacheName);
+                            return caches.delete(cacheName);
+                        })
+                    );
+                }).catch((err) => {
+                    console.warn('Failed to clear caches:', err);
+                });
+            }
+            
+            // Use replace instead of href to prevent back button issues
+            // Add timestamp to prevent caching
+            const logoutUrl = '/logout?_=' + Date.now();
+            window.location.replace(logoutUrl);
         });
     }
 }

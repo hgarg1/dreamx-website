@@ -494,8 +494,14 @@ const simpleWebAuthnBundlePath = path.join(
     'bundle'
 );
 
-
-app.use('/webauthn', express.static(simpleWebAuthnBundlePath));
+// Serve webauthn files with correct MIME type
+app.use('/webauthn', express.static(simpleWebAuthnBundlePath, {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+}));
 
 // Import route modules
 const staticRoutes = require('./routes/static/static');

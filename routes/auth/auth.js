@@ -762,6 +762,11 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
 
 // Logout
 router.get('/logout', (req, res) => {
+    // Set aggressive no-cache headers to prevent PWA/service worker caching
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     // Check if user is authenticated via Easy Auth
     if (req.session && req.session.easyAuth) {
         // Easy Auth logout - redirect to Azure's logout endpoint
@@ -772,8 +777,8 @@ router.get('/logout', (req, res) => {
         // Destroy local session first
         if (req.session) {
             req.session.destroy(() => {
-                res.clearCookie('connect.sid');
-                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+                res.clearCookie('connect.sid', { path: '/', httpOnly: true });
+                res.clearCookie('XSRF-TOKEN', { path: '/' });
                 
                 // Redirect to Azure Easy Auth logout endpoint
                 // Azure Easy Auth uses post_logout_redirect_uri parameter
@@ -782,8 +787,8 @@ router.get('/logout', (req, res) => {
                 res.redirect(logoutUrl);
             });
         } else {
-            res.clearCookie('connect.sid');
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            res.clearCookie('connect.sid', { path: '/', httpOnly: true });
+            res.clearCookie('XSRF-TOKEN', { path: '/' });
             const logoutUrl = `${baseUrl}/.auth/logout?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirect)}`;
             res.redirect(logoutUrl);
         }
@@ -797,13 +802,19 @@ router.get('/logout', (req, res) => {
         }
         if (req.session) {
             req.session.destroy(() => {
-                res.clearCookie('connect.sid');
-                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+                res.clearCookie('connect.sid', { path: '/', httpOnly: true });
+                res.clearCookie('XSRF-TOKEN', { path: '/' });
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
                 res.redirect('/');
             });
         } else {
-            res.clearCookie('connect.sid');
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            res.clearCookie('connect.sid', { path: '/', httpOnly: true });
+            res.clearCookie('XSRF-TOKEN', { path: '/' });
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
             res.redirect('/');
         }
     });
