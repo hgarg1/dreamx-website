@@ -901,9 +901,11 @@ async function handleOAuthCallback(req, res, provider) {
 }
 
 router.get('/auth/google', (req, res, next) => {
-    // Skip Passport.js OAuth if Easy Auth is enabled in production
+    // Redirect to Azure Easy Auth if enabled in production
     if (!shouldUsePassportOAuth()) {
-        return res.status(503).send('OAuth is handled by Azure Easy Auth in production. Please use the Azure authentication flow.');
+        const baseUrl = getRequestBaseUrl(req);
+        const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
+        return res.redirect(`${baseUrl}/.auth/login/google?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`);
     }
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return res.status(503).send('Google OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
@@ -999,9 +1001,11 @@ async function handleOAuthCallback(req, res, provider) {
 }
 
 router.get('/auth/microsoft', (req, res, next) => {
-    // Skip Passport.js OAuth if Easy Auth is enabled in production
+    // Redirect to Azure Easy Auth if enabled in production
     if (!shouldUsePassportOAuth()) {
-        return res.status(503).send('OAuth is handled by Azure Easy Auth in production. Please use the Azure authentication flow.');
+        const baseUrl = getRequestBaseUrl(req);
+        const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
+        return res.redirect(`${baseUrl}/.auth/login/microsoft?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`);
     }
     if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) return res.status(503).send('Microsoft OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
@@ -1031,6 +1035,12 @@ router.get('/auth/microsoft/callback', (req, res, next) => {
 });
 
 router.get('/auth/apple', (req, res, next) => {
+    // Redirect to Azure Easy Auth if enabled in production
+    if (!shouldUsePassportOAuth()) {
+        const baseUrl = getRequestBaseUrl(req);
+        const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
+        return res.redirect(`${baseUrl}/.auth/login/apple?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`);
+    }
     if (!process.env.APPLE_CLIENT_ID || !process.env.APPLE_TEAM_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY) return res.status(503).send('Apple Sign-In not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
     req.session.oauthMode = mode;
@@ -1060,9 +1070,11 @@ router.post('/auth/apple/callback', (req, res, next) => {
 });
 
 router.get('/auth/x', (req, res, next) => {
-    // Skip Passport.js OAuth if Easy Auth is enabled in production
+    // Redirect to Azure Easy Auth if enabled in production
     if (!shouldUsePassportOAuth()) {
-        return res.status(503).send('OAuth is handled by Azure Easy Auth in production. Please use the Azure authentication flow.');
+        const baseUrl = getRequestBaseUrl(req);
+        const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
+        return res.redirect(`${baseUrl}/.auth/login/twitter?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`);
     }
     if (!process.env.TWITTER_CLIENT_ID || !process.env.TWITTER_CLIENT_SECRET) return res.status(503).send('X (Twitter) OAuth not configured');
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';

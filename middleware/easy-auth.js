@@ -54,6 +54,7 @@ function mapProviderName(easyAuthProvider) {
         'google': 'google',
         'microsoft': 'microsoft',
         'twitter': 'twitter',
+        'apple': 'apple',
         'aad': 'microsoft', // Azure AD
         'facebook': 'facebook'
     };
@@ -250,9 +251,9 @@ function shouldUsePassportOAuth() {
         return true;
     }
     
-    // In production, check if Easy Auth is preferred
+    // In production, default to Easy Auth unless explicitly disabled
     // Set EASY_AUTH_ENABLED=false to force Passport.js OAuth
-    return process.env.EASY_AUTH_ENABLED !== 'true';
+    return process.env.EASY_AUTH_ENABLED === 'false';
 }
 
 module.exports = {
