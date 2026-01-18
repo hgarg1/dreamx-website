@@ -10,8 +10,8 @@
 
 const path = require('path');
 
-// Detect production environment for SQL Server compatibility
-const isProduction = process.env.NODE_ENV === 'Production' && process.env.DB_TYPE === 'sqlserver';
+// Detect production environment for PostgreSQL compatibility
+const isProduction = process.env.NODE_ENV === 'Production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
 
 // Lazy load database and rbac service
 let db = null;

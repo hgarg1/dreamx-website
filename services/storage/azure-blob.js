@@ -2,7 +2,7 @@
 require('dotenv').config();
 const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = require('@azure/storage-blob');
 
-const isProduction = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'sqlserver';
+const isProduction = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql';
 const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME || process.env.AZURE_STORAGE_ACCOUNT;
 const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY || process.env.AZURE_STORAGE_ACCESS_KEY;
 const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'uploads';

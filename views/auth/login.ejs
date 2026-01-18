@@ -19,6 +19,7 @@
 
             <!-- Login Form -->
             <form class="auth-form" action="/login" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <!-- Email Field -->
                 <div class="form-group">
                     <label for="email">Email Address</label>

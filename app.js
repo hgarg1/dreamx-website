@@ -12,7 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
-const MSSQLStore = require('connect-mssql-v2')(session);
+const pgSession = require('connect-pg-simple')(session);
 const ffmpeg = require('fluent-ffmpeg');
 const ffprobeStatic = require('ffprobe-static');
 const bcrypt = require('bcrypt');
@@ -537,27 +537,25 @@ app.use(robots({
 // Input sanitization middleware (applied after parsing)
 app.use(sanitizeRequest);
 
-// Session configuration - Use SQL Server in production, SQLite locally
-const isProductionDB = process.env.NODE_ENV === 'Production' && process.env.DB_TYPE === 'sqlserver';
+// Session configuration - Use PostgreSQL in production, SQLite locally
+const isProductionDB = process.env.NODE_ENV === 'Production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
 
 let sessionStore;
 if (isProductionDB) {
-    // Production: Use SQL Server for sessions
-    const mssql = require('mssql');
-    sessionStore = new MSSQLStore({
-        // Use mssql connection configuration
-        server: process.env.SQL_DB_URL || 'dream-x.database.windows.net',
-        database: process.env.SQL_DB_NAME || 'DreamX',
-        user: process.env.SQL_DB_UNAME || 'DreamX',
-        password: process.env.SQL_DB_PWORD || '',
-        options: {
-            encrypt: true,
-            trustServerCertificate: false,
-            enableArithAbort: true
-        }
-    }, {
-        table: 'sessions',
-        ttl: 7 * 24 * 60 * 60 // 1 week in seconds
+    // Production: Use PostgreSQL for sessions
+    const { Pool } = require('pg');
+    const pgPool = new Pool({
+        host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
+        port: process.env.PG_PORT || process.env.DB_PORT || 5432,
+        database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
+        user: process.env.PG_USER || process.env.DB_USER || 'postgres',
+        password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
+        ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false
+    });
+    sessionStore = new pgSession({
+        pool: pgPool,
+        tableName: 'sessions',
+        createTableIfMissing: true
     });
 } else {
     // Development: Use SQLite for sessions
@@ -1439,8 +1437,8 @@ io.on('connection', (socket) => {
 // Initialize database and start server
 async function startServer() {
     try {
-        // Initialize database connection (required for SQL Server in production)
-        if (process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'sqlserver') {
+        // Initialize database connection (required for PostgreSQL in production)
+        if (process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql') {
             await initializeDatabase();
             await ensureSessionTable();
             console.log('✅ Database initialized for production');

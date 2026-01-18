@@ -1,12 +1,12 @@
-// Database Adapter - Abstracts SQLite and SQL Server
+// Database Adapter - Abstracts SQLite and PostgreSQL
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-const isProduction = process.env.NODE_ENV === 'Production' && process.env.DB_TYPE === 'sqlserver';
+const isProduction = process.env.NODE_ENV === 'Production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
 let db = null;
 let dbType = 'sqlite';
-let sqlPool = null;
+let pgPool = null;
 
 // Ensure data directory exists
 function ensureDataDirectory() {
@@ -31,32 +31,29 @@ function ensureDataDirectory() {
 // Initialize database connection
 async function initDatabase() {
   if (isProduction) {
-    // Azure SQL Server
-    const sql = require('mssql');
-    dbType = 'sqlserver';
+    // PostgreSQL
+    const { Pool } = require('pg');
+    dbType = 'postgres';
     
     const config = {
-      server: process.env.SQL_DB_URL || 'dream-x.database.windows.net',
-      database: process.env.SQL_DB_NAME || 'DreamX',
-      user: process.env.SQL_DB_UNAME || 'DreamX',
-      password: process.env.SQL_DB_PWORD || '',
-      options: {
-        encrypt: true,
-        trustServerCertificate: false,
-        enableArithAbort: true,
-        connectionTimeout: 30000,
-        requestTimeout: 30000
-      },
-      pool: {
-        max: 10,
-        min: 0,
-        idleTimeoutMillis: 30000
-      }
+      host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
+      port: process.env.PG_PORT || process.env.DB_PORT || 5432,
+      database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
+      user: process.env.PG_USER || process.env.DB_USER || 'postgres',
+      password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
+      ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      max: parseInt(process.env.PG_POOL_MAX || '10'),
+      min: parseInt(process.env.PG_POOL_MIN || '0'),
+      idleTimeoutMillis: parseInt(process.env.PG_IDLE_TIMEOUT || '30000'),
+      connectionTimeoutMillis: parseInt(process.env.PG_CONNECTION_TIMEOUT || '30000')
     };
 
     try {
-      sqlPool = await sql.connect(config);
-      db = sqlPool;
+      pgPool = new Pool(config);
+      // Test connection
+      const client = await pgPool.connect();
+      client.release();
+      db = pgPool;
       return db;
     } catch (err) {
       throw err;
@@ -71,10 +68,10 @@ async function initDatabase() {
   }
 }
 
-// Initialize database synchronously (for SQLite) or return promise (for SQL Server)
+// Initialize database synchronously (for SQLite) or return promise (for PostgreSQL)
 function initDatabaseSync() {
   if (isProduction) {
-    // Return a promise for SQL Server
+    // Return a promise for PostgreSQL
     return initDatabase();
   } else {
     // SQLite can be initialized synchronously
@@ -115,14 +112,14 @@ class DatabaseWrapper {
     if (this.type === 'sqlite') {
       this.db.exec(sql);
     } else {
-      // SQL Server - split by semicolons and execute each statement
+      // PostgreSQL - split by semicolons and execute each statement
       const statements = sql.split(';').filter(s => s.trim().length > 0);
       for (const statement of statements) {
         try {
-          await this.db.request().query(statement);
+          await this.db.query(statement);
         } catch (err) {
           // Ignore "already exists" errors for CREATE TABLE IF NOT EXISTS
-          if (!err.message.includes('already exists') && !err.message.includes('There is already an object')) {
+          if (!err.message.includes('already exists') && !err.message.includes('duplicate key')) {
             console.warn('SQL execution warning:', err.message);
           }
         }
@@ -135,7 +132,7 @@ class DatabaseWrapper {
     if (this.type === 'sqlite') {
       return new SQLitePreparedStatement(this.db.prepare(sql));
     } else {
-      return new SQLServerPreparedStatement(this.db, sql);
+      return new PostgresPreparedStatement(this.db, sql);
     }
   }
 
@@ -168,57 +165,54 @@ class SQLitePreparedStatement {
   }
 }
 
-// SQL Server prepared statement wrapper
-class SQLServerPreparedStatement {
+// PostgreSQL prepared statement wrapper
+class PostgresPreparedStatement {
   constructor(db, sql) {
     this.db = db;
-    // Convert SQLite parameter placeholders (?) to SQL Server (@p0, @p1, etc.)
+    // Convert SQLite parameter placeholders (?) to PostgreSQL ($1, $2, etc.)
     this.sql = this.convertParameters(sql);
     this.paramCount = (sql.match(/\?/g) || []).length;
   }
 
   convertParameters(sql) {
-    let paramIndex = 0;
-    return sql.replace(/\?/g, () => `@p${paramIndex++}`);
+    let paramIndex = 1;
+    return sql.replace(/\?/g, () => `$${paramIndex++}`);
   }
 
   async get(...params) {
-    const request = this.db.request();
-    params.forEach((param, index) => {
-      request.input(`p${index}`, param);
-    });
-    const result = await request.query(this.sql);
-    return result.recordset[0] || null;
+    const result = await this.db.query(this.sql, params);
+    return result.rows[0] || null;
   }
 
   async all(...params) {
-    const request = this.db.request();
-    params.forEach((param, index) => {
-      request.input(`p${index}`, param);
-    });
-    const result = await request.query(this.sql);
-    return result.recordset || [];
+    const result = await this.db.query(this.sql, params);
+    return result.rows || [];
   }
 
   async run(...params) {
-    const request = this.db.request();
-    params.forEach((param, index) => {
-      request.input(`p${index}`, param);
-    });
+    const result = await this.db.query(this.sql, params);
     
     // For INSERT statements, get the inserted ID
     if (this.sql.trim().toUpperCase().startsWith('INSERT')) {
-      const insertSql = this.sql + '; SELECT SCOPE_IDENTITY() AS id;';
-      const result = await request.query(insertSql);
-      return {
-        lastInsertRowid: result.recordset[0]?.id || null,
-        changes: result.rowsAffected[0] || 0
-      };
+      // PostgreSQL returns the inserted row with RETURNING clause
+      // If no RETURNING, we need to add it or use lastval()
+      if (this.sql.toUpperCase().includes('RETURNING')) {
+        return {
+          lastInsertRowid: result.rows[0]?.id || null,
+          changes: result.rowCount || 0
+        };
+      } else {
+        // Try to get last inserted ID using lastval()
+        const idResult = await this.db.query('SELECT lastval() AS id');
+        return {
+          lastInsertRowid: idResult.rows[0]?.id || null,
+          changes: result.rowCount || 0
+        };
+      }
     } else {
-      const result = await request.query(this.sql);
       return {
         lastInsertRowid: null,
-        changes: result.rowsAffected[0] || 0
+        changes: result.rowCount || 0
       };
     }
   }
@@ -238,10 +232,10 @@ async function getDatabase() {
 // For synchronous SQLite operations, we need a sync version
 function getDatabaseSync() {
   if (isProduction) {
-    // For SQL Server, we need to ensure connection is ready
+    // For PostgreSQL, we need to ensure connection is ready
     // This will throw if called before async init, but that's expected
     if (!dbWrapper) {
-      throw new Error('SQL Server requires async initialization. Call initDatabase() first or use getDatabase().');
+      throw new Error('PostgreSQL requires async initialization. Call initDatabase() first or use getDatabase().');
     }
     return dbWrapper;
   }
@@ -283,5 +277,5 @@ module.exports = {
   isProduction,
   get dbType() { return dbType; },
   get db() { return db; },
-  get sqlPool() { return sqlPool; }
+  get pgPool() { return pgPool; }
 };

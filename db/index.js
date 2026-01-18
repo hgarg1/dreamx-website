@@ -4,7 +4,7 @@ const sqlCompat = require('./sql-compat');
 
 /**
  * Helper function to prepare SQL statements with LIMIT/OFFSET compatibility
- * Converts SQLite LIMIT/OFFSET syntax to SQL Server OFFSET/FETCH syntax
+ * Converts SQLite LIMIT/OFFSET syntax to PostgreSQL syntax (same syntax, different placeholders)
  */
 function prepareLimitOffset(sql, limit, offset) {
   const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = sqlCompat.convertLimitOffset(sql, limit, offset);
@@ -20,7 +20,7 @@ if (!isProduction) {
   dbWrapper = initSync();
   db = dbWrapper.getRaw();
 } else {
-  // SQL Server - async initialization required
+  // PostgreSQL - async initialization required
   // dbWrapper will be assigned by initializeDatabase() at startup
   // Create a proxy that delegates to dbWrapper once it's ready
   db = new Proxy({}, {
@@ -43,7 +43,7 @@ if (!isProduction) {
   });
 }
 
-// Async initialization function for SQL Server (call this at app startup in production)
+// Async initialization function for PostgreSQL (call this at app startup in production)
 async function initializeDatabase() {
   if (isProduction && !dbWrapper) {
     await initDatabase();
@@ -327,11 +327,11 @@ function addColumnIfNotExists(tableName, columnName, columnDefinition) {
 // Run database migrations (works for both SQLite and SQL Server)
 async function runMigrations() {
   // Only run migrations in SQLite (development) mode
-  // SQL Server should use schema.sql for schema setup
+  // PostgreSQL should use schema-postgres.sql for schema setup
   if (isProduction) {
-    // In production (SQL Server), migrations should be handled via schema.sql
+    // In production (PostgreSQL), migrations should be handled via schema-postgres.sql
     // or through proper migration scripts. Skip PRAGMA-based migrations.
-    console.log('⚠️  Skipping PRAGMA-based migrations in production (SQL Server)');
+    console.log('⚠️  Skipping PRAGMA-based migrations in production (PostgreSQL)');
     return;
   }
 
@@ -421,14 +421,14 @@ async function runMigrations() {
   console.log('✅ Database migrations completed');
 }
 
-// Initialize schema if not exists (SQLite only - SQL Server uses schema.sql)
+// Initialize schema if not exists (SQLite only - PostgreSQL uses schema-postgres.sql)
 // Users table stores core account and onboarding data as JSON strings
 // For simplicity passions/categories/goals stored as JSON text columns
 // Passwords stored as bcrypt hash
 // experience is a single string
 // Additional columns can be added later via migrations
 
-// NOTE: In production (SQL Server), tables should be created using schema.sql
+// NOTE: In production (PostgreSQL), tables should be created using schema-postgres.sql
 // This initialization only runs for SQLite (local development)
 if (!isProduction) {
   db.exec(`CREATE TABLE IF NOT EXISTS users (
@@ -667,7 +667,7 @@ CREATE TABLE IF NOT EXISTS services (
 } // End of SQLite schema initialization
 
 // All schema setup below only runs in development (SQLite)
-// In production (SQL Server), schema should be set up via schema.sql
+// In production (PostgreSQL), schema should be set up via schema-postgres.sql
 if (!isProduction) {
 // --- Services: Orders and Reviews (for verified purchaser ratings) ---
 try {
@@ -758,7 +758,7 @@ addColumnIfNotExists('users', 'banner_image', 'TEXT');
 try {
   // Strip leading '/uploads/' to keep DB paths relative
   if (isProduction) {
-    // SQL Server uses SUBSTRING()
+    // PostgreSQL uses SUBSTRING()
     db.exec(`UPDATE users SET profile_picture = SUBSTRING(profile_picture, 10, LEN(profile_picture)) WHERE profile_picture LIKE '/uploads/%';`);
     db.exec(`UPDATE users SET banner_image = SUBSTRING(banner_image, 10, LEN(banner_image)) WHERE banner_image LIKE '/uploads/%';`);
   } else {
@@ -964,7 +964,7 @@ function normalizeTagValue(name = '') {
 let upsertHashtagStmt, upsertTagStmt, linkHashtagStmt, linkTagStmt;
 
 if (isProduction) {
-  // SQL Server doesn't support ON CONFLICT or RETURNING, so we use different approach
+  // PostgreSQL supports ON CONFLICT and RETURNING, similar to SQLite
   upsertHashtagStmt = {
     get: function(name) {
       // First try to get existing
@@ -1774,7 +1774,7 @@ CREATE INDEX IF NOT EXISTS idx_pricing_tiers_order ON pricing_tiers(display_orde
 
 } // End of non-production schema initialization
 
-// Helper function to get the database instance (works with both SQLite and SQL Server)
+// Helper function to get the database instance (works with both SQLite and PostgreSQL)
 function getDb() {
   if (isProduction && !dbWrapper) {
     throw new Error('Database not initialized. Call initializeDatabase() first in production mode.');
@@ -1798,7 +1798,7 @@ function prepare(sql) {
   }
 }
 
-// Ensure the SQL Server session table exists for express-session store
+// Ensure the PostgreSQL session table exists for express-session store
 async function ensureSessionTable() {
   if (!isProduction) return;
 
@@ -1828,7 +1828,7 @@ async function ensureSessionTable() {
 
 module.exports = {
   db,
-  initializeDatabase, // MUST be called at app startup in production (SQL Server only)
+  initializeDatabase, // MUST be called at app startup in production (PostgreSQL only)
   ensureSessionTable,
   seedDatabase, // Call after initializeDatabase() to seed admin/HR accounts
   getUserById: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),

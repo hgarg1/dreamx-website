@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const azureBlobService = require('./azure-blob');
 
-const isProduction = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'sqlserver';
+const isProduction = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql';
 const uploadsBasePath = path.join(__dirname, '..', '..', 'public', 'uploads');
 
 /**

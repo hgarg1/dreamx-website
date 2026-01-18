@@ -1,0 +1,237 @@
+[
+  {
+    "name": "APPLE_CALLBACK_URL",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "APPLE_CLIENT_ID",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "APPLE_KEY_ID",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "APPLE_PRIVATE_KEY",
+    "value": "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n",
+    "slotSetting": false
+  },
+  {
+    "name": "APPLE_TEAM_ID",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_STORAGE_ACCOUNT_KEY",
+    "value": "/CFS1LulwVQO62yCaiSpozyKYU5Z/93c6P46uaSuD618NkJE8EreGMhwKUmyNQ1dohWZN89zlZf1+AStVOMBfQ==",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_STORAGE_ACCOUNT_NAME",
+    "value": "dreamxapp",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_STORAGE_CONTAINER_NAME",
+    "value": "uploads",
+    "slotSetting": false
+  },
+  {
+    "name": "DB_TYPE",
+    "value": "postgresql",
+    "slotSetting": false
+  },
+  {
+    "name": "DEFAULT_PAYMENT_PROVIDER",
+    "value": "stripe",
+    "slotSetting": false
+  },
+  {
+    "name": "GMAIL_APP_PASSWORD",
+    "value": "xhyvyosnfzfkmdbf",
+    "slotSetting": false
+  },
+  {
+    "name": "GMAIL_CLIENT_ID",
+    "value": "899638086071-u4sn1nmudedc1o0v001i3h13mfcnmfpl.apps.googleusercontent.com",
+    "slotSetting": false
+  },
+  {
+    "name": "GMAIL_CLIENT_SECRET",
+    "value": "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",
+    "slotSetting": false
+  },
+  {
+    "name": "GMAIL_REFRESH_TOKEN",
+    "value": "1//04gvAT1WbdxP_CgYIARAAGAQSNgF-L9IrL8Le8Ebqw2pZFPuVH611Vofqgy0pKiXtw7_lUvW0NaOeX9PmPaZAdL20ZhNoDhmblQ",
+    "slotSetting": false
+  },
+  {
+    "name": "GMAIL_USER",
+    "value": "hgarg1@terpmail.umd.edu",
+    "slotSetting": false
+  },
+  {
+    "name": "GOOGLE_CALLBACK_URL",
+    "value": "https://dream-x.app/auth/google/callback",
+    "slotSetting": false
+  },
+  {
+    "name": "GOOGLE_CLIENT_ID",
+    "value": "899638086071-2nvhig0k9k36hku1h1r53ev93o3bme80.apps.googleusercontent.com",
+    "slotSetting": false
+  },
+  {
+    "name": "GOOGLE_CLIENT_SECRET",
+    "value": "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",
+    "slotSetting": false
+  },
+  {
+    "name": "LEMONSQUEEZY_API_KEY",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "LEMONSQUEEZY_STORE_ID",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "LEMONSQUEEZY_WEBHOOK_SECRET",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "MAPBOX_ACCESS_TOKEN",
+    "value": "pk.eyJ1IjoiaGFyc2hpdGdhcmcxIiwiYSI6ImNtaTZxczI4MDAyeHYybG9zeHJkc3IxMGIifQ.QWbPrlslRu9tqr73Lm3Fpg",
+    "slotSetting": false
+  },
+  {
+    "name": "MICROSOFT_CALLBACK_URL",
+    "value": "https://dream-x.app/auth/microsoft/callback",
+    "slotSetting": false
+  },
+  {
+    "name": "MICROSOFT_CLIENT_ID",
+    "value": "98d13e73-5cbf-4d6d-8a4e-0d0356afeae8",
+    "slotSetting": false
+  },
+  {
+    "name": "MICROSOFT_CLIENT_SECRET",
+    "value": "T.E8Q~s9tT6nyiK-rRj0xvCg7s4GuQU8Ad5wPcuH",
+    "slotSetting": false
+  },
+  {
+    "name": "MICROSOFT_TENANT_ID",
+    "value": "95af937d-b006-4af1-8f36-239bdd8f02c0",
+    "slotSetting": false
+  },
+  {
+    "name": "NODE_ENV",
+    "value": "production",
+    "slotSetting": false
+  },
+  {
+    "name": "PG_DATABASE",
+    "value": "dreamx",
+    "slotSetting": false
+  },
+  {
+    "name": "PG_PASSWORD",
+    "value": "ov7WDRcv0lwZuaSzpkVxXLrTNLxwZM4bCc/MkpF5gWL2d8XvYyfFjEKxKYd5HZLY",
+    "slotSetting": false
+  },
+  {
+    "name": "PG_USER",
+    "value": "dreamx_app",
+    "slotSetting": false
+  },
+  {
+    "name": "PG_HOST",
+    "value": "34.30.100.25",
+    "slotSetting": false
+  },
+  {
+    "name": "PG_PORT",
+    "value": "5432",
+    "slotSetting": false
+  },
+  {
+    "name": "PG_SSL",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "SQUARE_ACCESS_TOKEN",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SQUARE_APPLICATION_ID",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SQUARE_ENVIRONMENT",
+    "value": "sandbox",
+    "slotSetting": false
+  },
+  {
+    "name": "SQUARE_LOCATION_ID",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "SQUARE_WEBHOOK_SIGNATURE_KEY",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "STRIPE_PUBLISHABLE_KEY",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "STRIPE_SECRET_KEY",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "STRIPE_WEBHOOK_SECRET",
+    "value": "",
+    "slotSetting": false
+  },
+  {
+    "name": "TWITTER_CALLBACK_URL",
+    "value": "https://dream-x.app/auth/x/callback",
+    "slotSetting": false
+  },
+  {
+    "name": "TWITTER_CLIENT_ID",
+    "value": "dVFHQkdzUjVoTk5ESUhQR1ZjUUs6MTpjaQ",
+    "slotSetting": false
+  },
+  {
+    "name": "TWITTER_CLIENT_SECRET",
+    "value": "r7SjUqbz0gXRqYOedMNzCxRiFGEwFICSQuzxfa5ksL-miPvTgn",
+    "slotSetting": false
+  },
+  {
+    "name": "VAPID_PRIVATE_KEY",
+    "value": "E-crx1I_q4FsrWIcuVVmu6ACYgMNfYoycRQBrlV8pKw",
+    "slotSetting": false
+  },
+  {
+    "name": "VAPID_PUBLIC_KEY",
+    "value": "BN_Pn4lTLn2KopSvriPVCgQcYVbLPHexsGU2-wmT34jgTHFHxjdugB2fBexfq9skgzBHvlMuFKejET0aGqWOjZ0",
+    "slotSetting": false
+  },
+  {
+    "name": "VAPID_SUBJECT",
+    "value": "mailto:admin@dreamx.com",
+    "slotSetting": false
+  }
+]

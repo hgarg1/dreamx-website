@@ -1,7 +1,7 @@
 /**
  * SQL Compatibility Layer
  * 
- * Provides SQL syntax translation between SQLite and SQL Server
+ * Provides SQL syntax translation between SQLite and PostgreSQL
  * to allow the codebase to work with both databases.
  */
 
@@ -12,7 +12,7 @@ const { isProduction } = require('./adapter');
  * @returns {string} SQL expression for current timestamp
  */
 function getCurrentTimestamp() {
-  return isProduction ? 'GETDATE()' : "datetime('now')";
+  return isProduction ? 'CURRENT_TIMESTAMP' : "datetime('now')";
 }
 
 /**
@@ -20,14 +20,14 @@ function getCurrentTimestamp() {
  * @returns {string} SQL expression for current date
  */
 function getCurrentDate() {
-  return isProduction ? 'CAST(GETDATE() AS DATE)' : "date('now')";
+  return isProduction ? 'CURRENT_DATE' : "date('now')";
 }
 
 /**
  * Generate an UPSERT (INSERT OR REPLACE) query compatible with both databases
  * 
  * For SQLite: Uses INSERT OR REPLACE
- * For SQL Server: Uses MERGE statement
+ * For PostgreSQL: Uses INSERT ... ON CONFLICT ... DO UPDATE
  * 
  * @param {string} table - Table name
  * @param {string[]} columns - Column names
@@ -44,25 +44,25 @@ function upsertQuery(table, columns, keyColumns, placeholders = null) {
     return `INSERT OR REPLACE INTO ${table} (${colList}) VALUES (${valuePlaceholders})`;
   }
   
-  // SQL Server: MERGE statement
-  const keyMatch = keyColumns.map(k => `target.${k} = source.${k}`).join(' AND ');
+  // PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
+  const conflictColumns = keyColumns.join(', ');
   const updateSet = columns
     .filter(c => !keyColumns.includes(c))
-    .map(c => `target.${c} = source.${c}`)
+    .map((c, i) => {
+      const colIndex = columns.indexOf(c);
+      return `${c} = EXCLUDED.${c}`;
+    })
     .join(', ');
-  const sourceColumns = columns.map((c, i) => {
-    // For parameterized queries, use @p0, @p1, etc.
-    return `@p${i} AS ${c}`;
-  }).join(', ');
+  
+  // Convert ? placeholders to $1, $2, etc. for PostgreSQL
+  let placeholderIndex = 1;
+  const pgPlaceholders = valuePlaceholders.replace(/\?/g, () => `$${placeholderIndex++}`);
   
   return `
-    MERGE INTO ${table} AS target
-    USING (SELECT ${sourceColumns}) AS source
-    ON ${keyMatch}
-    WHEN MATCHED THEN
-      UPDATE SET ${updateSet}
-    WHEN NOT MATCHED THEN
-      INSERT (${colList}) VALUES (${columns.map(c => `source.${c}`).join(', ')});
+    INSERT INTO ${table} (${colList}) 
+    VALUES (${pgPlaceholders})
+    ON CONFLICT (${conflictColumns}) 
+    DO UPDATE SET ${updateSet}
   `;
 }
 
@@ -70,7 +70,7 @@ function upsertQuery(table, columns, keyColumns, placeholders = null) {
  * Generate an INSERT IGNORE query compatible with both databases
  * 
  * For SQLite: Uses INSERT OR IGNORE
- * For SQL Server: Uses INSERT with WHERE NOT EXISTS
+ * For PostgreSQL: Uses INSERT ... ON CONFLICT ... DO NOTHING
  * 
  * @param {string} table - Table name
  * @param {string[]} columns - Column names
@@ -87,19 +87,18 @@ function insertIgnoreQuery(table, columns, keyColumns, placeholders = null) {
     return `INSERT OR IGNORE INTO ${table} (${colList}) VALUES (${valuePlaceholders})`;
   }
   
-  // SQL Server: INSERT with WHERE NOT EXISTS
-  // For parameterized queries, we need to reference parameters
-  const keyConditions = keyColumns.map((k, i) => {
-    const colIndex = columns.indexOf(k);
-    return `${k} = @p${colIndex}`;
-  }).join(' AND ');
+  // PostgreSQL: INSERT ... ON CONFLICT ... DO NOTHING
+  const conflictColumns = keyColumns.join(', ');
+  
+  // Convert ? placeholders to $1, $2, etc. for PostgreSQL
+  let placeholderIndex = 1;
+  const pgPlaceholders = valuePlaceholders.replace(/\?/g, () => `$${placeholderIndex++}`);
   
   return `
-    INSERT INTO ${table} (${colList})
-    SELECT ${columns.map((c, i) => `@p${i}`).join(', ')}
-    WHERE NOT EXISTS (
-      SELECT 1 FROM ${table} WHERE ${keyConditions}
-    )
+    INSERT INTO ${table} (${colList}) 
+    VALUES (${pgPlaceholders})
+    ON CONFLICT (${conflictColumns}) 
+    DO NOTHING
   `;
 }
 
@@ -119,10 +118,10 @@ function dateCompare(column, operator, dateExpr = 'now') {
 }
 
 /**
- * Convert SQLite LIMIT/OFFSET syntax to SQL Server syntax
+ * Convert SQLite LIMIT/OFFSET syntax to PostgreSQL syntax
  * 
  * SQLite: ... LIMIT ? OFFSET ?
- * SQL Server: ... OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+ * PostgreSQL: ... LIMIT ? OFFSET ? (same syntax!)
  * 
  * This function modifies a SQL string and parameter array to use the correct syntax
  * and adjusts parameter order if necessary.
@@ -138,24 +137,17 @@ function convertLimitOffset(sql, limit, offset) {
     return { sql, limit, offset };
   }
   
-  // SQL Server: Convert to OFFSET...FETCH syntax
-  // Replace "LIMIT ? OFFSET ?" with "OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
-  const converted = sql.replace(
-    /LIMIT\s+\?\s+OFFSET\s+\?/i,
-    'OFFSET ? ROWS FETCH NEXT ? ROWS ONLY'
-  );
-  
-  // For SQL Server, parameters must be: OFFSET value, FETCH NEXT value
-  // But the original code had them as: LIMIT value, OFFSET value
-  // So we need to swap them: return {offset, limit}
-  return { sql: converted, limit: offset, offset: limit };
+  // PostgreSQL: Uses same LIMIT/OFFSET syntax as SQLite
+  // Just need to convert ? placeholders to $1, $2, etc.
+  // The actual LIMIT/OFFSET syntax is the same
+  return { sql, limit, offset };
 }
 
 /**
- * Check if we're in production (SQL Server) mode
+ * Check if we're in production (PostgreSQL) mode
  * @returns {boolean}
  */
-function isSqlServer() {
+function isPostgres() {
   return isProduction;
 }
 
@@ -174,7 +166,7 @@ module.exports = {
   insertIgnoreQuery,
   dateCompare,
   convertLimitOffset,
-  isSqlServer,
+  isPostgres,
   isSqlite,
   isProduction
 };

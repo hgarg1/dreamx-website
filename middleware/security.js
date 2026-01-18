@@ -379,14 +379,30 @@ function generateCsrfToken() {
  * Middleware to generate and attach CSRF token to session and response locals
  */
 function csrfProtection(req, res, next) {
+    const setResponseToken = (token) => {
+        // Expose token to templates and front-end fetch callers
+        res.locals.csrfToken = token || '';
+        try {
+            res.cookie('XSRF-TOKEN', token || '', {
+                httpOnly: false,
+                sameSite: 'lax',
+                secure: (process.env.NODE_ENV === 'production') || (process.env.BASE_URL || '').startsWith('https://'),
+                path: '/',
+                maxAge: 7 * 24 * 60 * 60 * 1000 // align with session lifespan
+            });
+        } catch (err) {
+            console.warn('Failed to set CSRF cookie:', err?.message || err);
+        }
+    };
+
     // Skip CSRF for safe methods (GET, HEAD, OPTIONS)
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         // Generate token for use in forms
         if (req.session && !req.session.csrfToken) {
             req.session.csrfToken = generateCsrfToken();
         }
-        // Make token available to templates
-        res.locals.csrfToken = req.session?.csrfToken || '';
+        // Make token available to templates and set helper cookie for JS clients
+        setResponseToken(req.session?.csrfToken || '');
         return next();
     }
 
@@ -412,7 +428,7 @@ function csrfProtection(req, res, next) {
     }
 
     // Token is valid
-    res.locals.csrfToken = sessionToken;
+    setResponseToken(sessionToken);
     next();
 }
 

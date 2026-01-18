@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Dream X - The Social Network for Productive People">
   <meta name="theme-color" content="#6366f1">
+  <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
   <title>
     <%= title %>
   </title>
@@ -43,6 +44,18 @@
   <link rel="stylesheet" href="/css/mobile.css">
   <link rel="stylesheet" href="/css/pwa.css">
   <link rel="stylesheet" href="/css/rbac.css">
+
+  <script>
+    // Surface CSRF token for fetch/XHR clients (token is also stored in a readable cookie)
+    window.__CSRF_TOKEN__ = '<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>';
+    try {
+      if (window && window.localStorage) {
+        localStorage.setItem('csrfToken', window.__CSRF_TOKEN__);
+      }
+    } catch (err) {
+      console.warn('Unable to persist CSRF token locally:', err && err.message ? err.message : err);
+    }
+  </script>
   
   <!-- Dynamic Theme CSS (injected by theme service) -->
   <% if (typeof themeCSS !== 'undefined' && themeCSS) { %>

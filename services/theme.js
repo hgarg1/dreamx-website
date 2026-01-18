@@ -11,7 +11,7 @@
 const path = require('path');
 const fs = require('fs');
 
-const isSqlServer = process.env.NODE_ENV === 'Production' && process.env.DB_TYPE === 'sqlserver';
+const isPostgres = process.env.NODE_ENV === 'Production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
 
 // Lazy load database
 let db = null;
@@ -485,8 +485,8 @@ async function createThemeSettingsTable() {
   if (!database) return;
   
   try {
-    if (isSqlServer) {
-      // SQL Server-safe creation (idempotent)
+    if (isPostgres) {
+      // PostgreSQL-safe creation (idempotent)
       await database.exec(`
         IF NOT EXISTS (
           SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[theme_settings]') AND type = N'U'
@@ -561,7 +561,7 @@ async function createThemeSettingsTable() {
       `);
     }
   } catch (error) {
-    // Tables might already exist or this is SQL Server (tables should be in schema.sql)
+    // Tables might already exist or this is PostgreSQL (tables should be in schema-postgres.sql)
   }
 }
 
