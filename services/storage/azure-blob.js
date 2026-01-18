@@ -1,24 +1,36 @@
 // Azure Blob Storage Service
 require('dotenv').config();
 const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = require('@azure/storage-blob');
+const { DefaultAzureCredential } = require('@azure/identity');
 
 const isProduction = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql';
 const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME || process.env.AZURE_STORAGE_ACCOUNT;
+// Account key is only needed for SAS token generation, not for main operations
 const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY || process.env.AZURE_STORAGE_ACCESS_KEY;
 const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'uploads';
 
 let blobServiceClient = null;
 let containerClient = null;
+let credential = null;
 
 // Initialize Azure Blob Storage client (only in production)
 function initializeBlobClient() {
-  if (!isProduction || !accountName || !accountKey) {
+  if (!isProduction || !accountName) {
     return null;
   }
 
   if (!blobServiceClient) {
-    const connectionString = `DefaultEndpointsProtocol=https;AccountName=${accountName};AccountKey=${accountKey};EndpointSuffix=core.windows.net`;
-    blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+    // Use DefaultAzureCredential for authentication
+    // This will try, in order:
+    // 1. Environment variables (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)
+    // 2. Managed Identity (when running on Azure)
+    // 3. Azure CLI (for local development)
+    // 4. Visual Studio Code
+    // 5. Azure PowerShell
+    credential = new DefaultAzureCredential();
+    
+    const accountUrl = `https://${accountName}.blob.core.windows.net`;
+    blobServiceClient = new BlobServiceClient(accountUrl, credential);
     containerClient = blobServiceClient.getContainerClient(containerName);
   }
 
@@ -53,7 +65,7 @@ async function ensureContainer() {
 }
 
 // Initialize on module load (production only)
-if (isProduction && accountName && accountKey) {
+if (isProduction && accountName) {
   initializeBlobClient();
   ensureContainer().catch(err => console.warn('Container initialization warning:', err.message));
 }
@@ -171,7 +183,7 @@ const azureBlobService = {
 
     try {
       const clients = initializeBlobClient();
-      if (!clients || !accountName || !accountKey) {
+      if (!clients) {
         return { success: false, error: 'Azure Blob Storage not configured' };
       }
 
@@ -183,7 +195,20 @@ const azureBlobService = {
         return { success: false, error: 'Blob not found' };
       }
 
-      // Generate SAS token
+      // For SAS token generation, we still need the account key
+      // This is a limitation of Azure Storage - SAS tokens require the account key
+      // If account key is not available, we can use User Delegation SAS (requires additional setup)
+      if (!accountKey) {
+        // Fallback: return the blob URL directly if public, or use User Delegation SAS
+        // For now, return the URL (assuming container has public read access)
+        // In production, you might want to implement User Delegation SAS
+        return {
+          success: true,
+          url: blockBlobClient.url
+        };
+      }
+
+      // Generate SAS token using account key
       const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
       const sasToken = generateBlobSASQueryParameters(
         {

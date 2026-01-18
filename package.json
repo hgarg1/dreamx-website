@@ -24,6 +24,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@azure/identity": "^4.13.0",
     "@azure/storage-blob": "^12.22.0",
     "@bubblewrap/cli": "^1.24.1",
     "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
