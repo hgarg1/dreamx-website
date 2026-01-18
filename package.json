@@ -23,6 +23,10 @@
   ],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
     "@azure/identity": "^4.13.0",
     "@azure/storage-blob": "^12.22.0",
