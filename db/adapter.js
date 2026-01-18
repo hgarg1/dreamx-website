@@ -7,14 +7,11 @@ require('dotenv').config();
 const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
 const isProduction = (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
 
-// Log database mode detection for debugging
-console.log('🔍 Database mode detection:', {
-  NODE_ENV: process.env.NODE_ENV,
-  nodeEnv_lowercase: nodeEnv,
-  DB_TYPE: process.env.DB_TYPE,
-  isProduction: isProduction,
-  detectedMode: isProduction ? 'PostgreSQL' : 'SQLite'
-});
+// Log database mode detection for debugging (only in non-test environments)
+if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+  const detectedMode = isProduction ? 'PostgreSQL' : 'SQLite';
+  console.log(`🔍 Database mode: ${detectedMode} (NODE_ENV=${process.env.NODE_ENV || 'undefined'}, DB_TYPE=${process.env.DB_TYPE || 'undefined'}, isProduction=${isProduction})`);
+}
 
 let db = null;
 let dbType = 'sqlite';
@@ -395,12 +392,10 @@ function initSync() {
     }
     return dbWrapper;
   } catch (error) {
-      console.error('❌ Critical error during database initialization:', error);
-      console.error('Stack:', error.stack);
-      throw error;
-    }
+    console.error('❌ Critical error during database initialization:', error);
+    console.error('Stack:', error.stack);
+    throw error;
   }
-  return null;
 }
 
 module.exports = {
