@@ -413,8 +413,18 @@ class PostgresPreparedStatement {
   async get(...params) {
     // Convert boolean parameter values (0/1) to false/true for PostgreSQL
     const convertedParams = this.convertBooleanParams(this.sql, params);
-    const result = await this.db.query(this.sql, convertedParams);
-    return result.rows[0] || null;
+    try {
+      const result = await this.db.query(this.sql, convertedParams);
+      return result.rows[0] || null;
+    } catch (error) {
+      // Log the SQL and params for debugging boolean conversion issues
+      if (error.code === '42883' && error.message.includes('boolean = integer')) {
+        console.error('Boolean conversion error - SQL:', this.sql.substring(0, 200));
+        console.error('Boolean conversion error - Params:', convertedParams);
+        console.error('Boolean conversion error - Original params:', params);
+      }
+      throw error;
+    }
   }
 
   async all(...params) {

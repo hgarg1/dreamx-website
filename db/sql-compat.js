@@ -269,34 +269,43 @@ function convertBooleanComparisons(sql) {
   // Convert each boolean column comparison
   for (const column of booleanColumns) {
     // Pattern: column = 0 or column = 1 (with word boundaries to avoid partial matches)
-    // Also handle: column != 0, column != 1, column <> 0, column <> 1
-    // Use lookahead/lookbehind to ensure we're matching the full comparison, not part of a number
+    // Also handle table aliases like r.is_enabled, p.is_enabled, etc.
+    // Use lookahead to ensure we're matching the full comparison, not part of a number
     const patterns = [
+      // Table alias or direct: alias.column = 0 or column = 0
       // = 0 → = false (but not = 10, = 20, etc.)
-      new RegExp(`\\b${column}\\s*=\\s*0(?!\\d)`, 'gi'),
+      new RegExp(`(?:\\w+\\.)?${column}\\s*=\\s*0(?!\\d)`, 'gi'),
       // = 1 → = true (but not = 10, = 11, etc.)
-      new RegExp(`\\b${column}\\s*=\\s*1(?!\\d)`, 'gi'),
+      new RegExp(`(?:\\w+\\.)?${column}\\s*=\\s*1(?!\\d)`, 'gi'),
       // != 0 → = true
-      new RegExp(`\\b${column}\\s*!=\\s*0(?!\\d)`, 'gi'),
+      new RegExp(`(?:\\w+\\.)?${column}\\s*!=\\s*0(?!\\d)`, 'gi'),
       // != 1 → = false
-      new RegExp(`\\b${column}\\s*!=\\s*1(?!\\d)`, 'gi'),
+      new RegExp(`(?:\\w+\\.)?${column}\\s*!=\\s*1(?!\\d)`, 'gi'),
       // <> 0 → = true
-      new RegExp(`\\b${column}\\s*<>\\s*0(?!\\d)`, 'gi'),
+      new RegExp(`(?:\\w+\\.)?${column}\\s*<>\\s*0(?!\\d)`, 'gi'),
       // <> 1 → = false
-      new RegExp(`\\b${column}\\s*<>\\s*1(?!\\d)`, 'gi')
+      new RegExp(`(?:\\w+\\.)?${column}\\s*<>\\s*1(?!\\d)`, 'gi')
     ];
     
-    const replacements = [
-      `${column} = false`,
-      `${column} = true`,
-      `${column} = true`,
-      `${column} = false`,
-      `${column} = true`,
-      `${column} = false`
-    ];
-    
+    // For replacements, we need to preserve the table alias if present
+    // We'll use a function to handle this
     for (let i = 0; i < patterns.length; i++) {
-      convertedSql = convertedSql.replace(patterns[i], replacements[i]);
+      convertedSql = convertedSql.replace(patterns[i], (match) => {
+        // Extract table alias if present (e.g., "r.is_enabled = 1" or "is_enabled = 1")
+        const parts = match.match(/^(\w+\.)?(\w+)\s*([=!<>]+)\s*([01])/i);
+        if (parts) {
+          const alias = parts[1] || ''; // e.g., "r." or ""
+          const col = parts[2]; // e.g., "is_enabled"
+          const operator = parts[3]; // e.g., "=", "!=", "<>"
+          const value = parts[4] === '0' ? 'false' : 'true';
+          // For != and <>, convert to = with opposite boolean
+          if (operator === '!=' || operator === '<>') {
+            return `${alias}${col} = ${value === 'false' ? 'true' : 'false'}`;
+          }
+          return `${alias}${col} = ${value}`;
+        }
+        return match;
+      });
     }
   }
   

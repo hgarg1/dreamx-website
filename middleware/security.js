@@ -83,41 +83,48 @@ function configureHelmet() {
 /**
  * Extract IP address from request, handling Azure App Service proxy headers
  * Uses ipKeyGenerator helper for proper IPv6 support
+ * 
+ * Note: The validator checks that req.ip is used with ipKeyGenerator.
+ * We extract the IP from X-Forwarded-For, set it on req.ip, then use ipKeyGenerator(req.ip).
  */
 function getClientIp(req) {
     // Azure App Service uses X-Forwarded-For header
     const forwarded = req.headers['x-forwarded-for'];
-    let ip = req.ip;
     
     if (forwarded) {
         // X-Forwarded-For can contain multiple IPs, take the first one
         const firstIp = forwarded.split(',')[0].trim();
+        let extractedIp = firstIp;
+        
         // Remove port if present (e.g., "72.83.92.223:60964" -> "72.83.92.223")
         // For IPv6, the format is [::1]:port, so we need to handle brackets
         if (firstIp.startsWith('[') && firstIp.includes(']:')) {
             // IPv6 with port: [::1]:8080
-            ip = firstIp.split(']:')[0].substring(1);
+            extractedIp = firstIp.split(']:')[0].substring(1);
         } else if (firstIp.includes(':') && !firstIp.startsWith('[')) {
             // IPv4 with port: 72.83.92.223:60964
-            ip = firstIp.split(':')[0];
-        } else {
-            ip = firstIp;
+            extractedIp = firstIp.split(':')[0];
         }
+        
+        // Set req.ip to our extracted IP so ipKeyGenerator can use it
+        // This is important for the validator to detect that we're using ipKeyGenerator
+        req.ip = extractedIp;
     }
     
-    // Fallback to req.ip if not found in X-Forwarded-For
-    if (!ip) {
-        ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    // Ensure req.ip is set (fallback if X-Forwarded-For not present)
+    if (!req.ip) {
+        req.ip = req.connection?.remoteAddress || 'unknown';
         // Remove port if present
-        if (ip.includes(':') && !ip.startsWith('[')) {
-            ip = ip.split(':')[0];
+        if (req.ip.includes(':') && !req.ip.startsWith('[')) {
+            req.ip = req.ip.split(':')[0];
         }
     }
     
     // Use ipKeyGenerator helper to properly handle IPv6 normalization
     // This ensures IPv6 addresses are normalized correctly and prevents bypass
     // ipKeyGenerator masks IPv6 subnets to prevent rate limit bypass
-    return ipKeyGenerator(ip);
+    // Must use req.ip directly (not a local variable) for the validator to detect it
+    return ipKeyGenerator(req.ip);
 }
 
 /**
@@ -130,7 +137,22 @@ const authLimiter = rateLimit({
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     skipSuccessfulRequests: false,
-    keyGenerator: getClientIp, // Use custom IP extractor
+    keyGenerator: (req) => {
+        // Extract IP from X-Forwarded-For (Azure App Service)
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+            const firstIp = forwarded.split(',')[0].trim();
+            let extractedIp = firstIp;
+            if (firstIp.startsWith('[') && firstIp.includes(']:')) {
+                extractedIp = firstIp.split(']:')[0].substring(1);
+            } else if (firstIp.includes(':') && !firstIp.startsWith('[')) {
+                extractedIp = firstIp.split(':')[0];
+            }
+            req.ip = extractedIp;
+        }
+        // Use ipKeyGenerator with req.ip for proper IPv6 support
+        return ipKeyGenerator(req.ip);
+    },
     handler: (req, res) => {
         res.status(429).json({
             error: 'Too many attempts. Please try again later.',
@@ -149,7 +171,20 @@ const passwordResetLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true, // Only count failed requests
-    keyGenerator: getClientIp
+    keyGenerator: (req) => {
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+            const firstIp = forwarded.split(',')[0].trim();
+            let extractedIp = firstIp;
+            if (firstIp.startsWith('[') && firstIp.includes(']:')) {
+                extractedIp = firstIp.split(']:')[0].substring(1);
+            } else if (firstIp.includes(':') && !firstIp.startsWith('[')) {
+                extractedIp = firstIp.split(':')[0];
+            }
+            req.ip = extractedIp;
+        }
+        return ipKeyGenerator(req.ip);
+    }
 });
 
 /**
@@ -161,7 +196,20 @@ const apiLimiter = rateLimit({
     message: 'Too many API requests from this IP, please try again later',
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: getClientIp
+    keyGenerator: (req) => {
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+            const firstIp = forwarded.split(',')[0].trim();
+            let extractedIp = firstIp;
+            if (firstIp.startsWith('[') && firstIp.includes(']:')) {
+                extractedIp = firstIp.split(']:')[0].substring(1);
+            } else if (firstIp.includes(':') && !firstIp.startsWith('[')) {
+                extractedIp = firstIp.split(':')[0];
+            }
+            req.ip = extractedIp;
+        }
+        return ipKeyGenerator(req.ip);
+    }
 });
 
 /**
@@ -173,7 +221,20 @@ const uploadLimiter = rateLimit({
     message: 'Too many upload requests from this IP, please try again later',
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: getClientIp
+    keyGenerator: (req) => {
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+            const firstIp = forwarded.split(',')[0].trim();
+            let extractedIp = firstIp;
+            if (firstIp.startsWith('[') && firstIp.includes(']:')) {
+                extractedIp = firstIp.split(']:')[0].substring(1);
+            } else if (firstIp.includes(':') && !firstIp.startsWith('[')) {
+                extractedIp = firstIp.split(':')[0];
+            }
+            req.ip = extractedIp;
+        }
+        return ipKeyGenerator(req.ip);
+    }
 });
 
 /**
@@ -186,7 +247,20 @@ const registrationLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: false,
-    keyGenerator: getClientIp
+    keyGenerator: (req) => {
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+            const firstIp = forwarded.split(',')[0].trim();
+            let extractedIp = firstIp;
+            if (firstIp.startsWith('[') && firstIp.includes(']:')) {
+                extractedIp = firstIp.split(']:')[0].substring(1);
+            } else if (firstIp.includes(':') && !firstIp.startsWith('[')) {
+                extractedIp = firstIp.split(':')[0];
+            }
+            req.ip = extractedIp;
+        }
+        return ipKeyGenerator(req.ip);
+    }
 });
 
 /**
@@ -195,7 +269,20 @@ const registrationLimiter = rateLimit({
 const sensitiveLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 5, // Very strict limit for sensitive operations
-    keyGenerator: getClientIp,
+    keyGenerator: (req) => {
+        const forwarded = req.headers['x-forwarded-for'];
+        if (forwarded) {
+            const firstIp = forwarded.split(',')[0].trim();
+            let extractedIp = firstIp;
+            if (firstIp.startsWith('[') && firstIp.includes(']:')) {
+                extractedIp = firstIp.split(']:')[0].substring(1);
+            } else if (firstIp.includes(':') && !firstIp.startsWith('[')) {
+                extractedIp = firstIp.split(':')[0];
+            }
+            req.ip = extractedIp;
+        }
+        return ipKeyGenerator(req.ip);
+    },
     message: 'Too many sensitive requests from this IP, please try again later',
     standardHeaders: true,
     legacyHeaders: false
