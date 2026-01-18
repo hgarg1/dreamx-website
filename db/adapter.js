@@ -59,7 +59,7 @@ async function initDatabase() {
         host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
         port: parseInt(process.env.PG_PORT || process.env.DB_PORT || '5432'),
         database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
-        user: process.env.PG_USER || process.env.DB_USER || 'postgres',
+        user: process.env.PG_USER || process.env.DB_USER || 'dreax_app',
         password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
         // Azure PostgreSQL requires SSL - default to requiring it unless explicitly disabled
         ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false },
@@ -165,14 +165,36 @@ class DatabaseWrapper {
       this.db.exec(sql);
     } else {
       // PostgreSQL - split by semicolons and execute each statement
-      const statements = sql.split(';').filter(s => s.trim().length > 0);
+      // Also convert boolean comparisons and remove SQL Server-specific syntax
+      const sqlCompat = require('./sql-compat');
+      let processedSql = sql;
+      
+      // Remove SQL Server-specific statements
+      processedSql = processedSql
+        .replace(/SET\s+ANSI_NULLS\s+ON/gi, '')
+        .replace(/SET\s+QUOTED_IDENTIFIER\s+ON/gi, '')
+        .replace(/GO\s*/gi, ';');
+      
+      // Convert SQL Server conditional logic (IF NOT EXISTS blocks, etc.)
+      processedSql = sqlCompat.convertConditionalLogic(processedSql);
+      
+      // Convert boolean comparisons
+      processedSql = sqlCompat.convertBooleanComparisons(processedSql);
+      
+      const statements = processedSql.split(';').filter(s => s.trim().length > 0);
       for (const statement of statements) {
+        const trimmed = statement.trim();
+        if (!trimmed || trimmed.length === 0) continue;
+        
         try {
-          await this.db.query(statement);
+          await this.db.query(trimmed);
         } catch (err) {
           // Ignore "already exists" errors for CREATE TABLE IF NOT EXISTS
-          if (!err.message.includes('already exists') && !err.message.includes('duplicate key')) {
+          if (!err.message.includes('already exists') && 
+              !err.message.includes('duplicate key') &&
+              !err.message.includes('already exists')) {
             console.warn('SQL execution warning:', err.message);
+            console.warn('SQL statement:', trimmed.substring(0, 200));
           }
         }
       }
@@ -293,13 +315,26 @@ class PostgresPreparedStatement {
   constructor(db, sql) {
     this.db = db;
     // Convert SQLite parameter placeholders (?) to PostgreSQL ($1, $2, etc.)
-    this.sql = this.convertParameters(sql);
+    // and convert boolean comparisons (0/1 to false/true)
+    const sqlCompat = require('./sql-compat');
+    this.sql = sqlCompat.convertBooleanComparisons(this.convertParameters(sql));
     this.paramCount = (sql.match(/\?/g) || []).length;
   }
 
   convertParameters(sql) {
     let paramIndex = 1;
     return sql.replace(/\?/g, () => `$${paramIndex++}`);
+  }
+
+  convertBooleanParams(params) {
+    // For PostgreSQL, we need to detect if a parameter is being compared to a boolean column
+    // This is a heuristic: if the SQL contains boolean column comparisons with parameters,
+    // we might need to convert 0/1 to false/true. However, this is complex without column info.
+    // For now, we'll rely on the SQL string conversion in convertBooleanComparisons.
+    // If a parameter is explicitly 0 or 1 and the SQL suggests it's a boolean comparison,
+    // we could convert it, but this is risky without more context.
+    // The SQL string conversion should handle most cases.
+    return params;
   }
 
   async get(...params) {

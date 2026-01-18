@@ -159,6 +159,150 @@ function isSqlite() {
   return !isProduction;
 }
 
+/**
+ * Convert SQL Server conditional logic to PostgreSQL-compatible syntax
+ * 
+ * SQL Server uses IF NOT EXISTS (SELECT ...) BEGIN ... END blocks,
+ * but PostgreSQL only supports IF NOT EXISTS for CREATE statements directly.
+ * This function converts SQL Server conditional blocks to PostgreSQL syntax.
+ * 
+ * @param {string} sql - SQL query string
+ * @returns {string} SQL query with conditional logic converted
+ */
+function convertConditionalLogic(sql) {
+  if (!isProduction) {
+    // No conversion needed for SQLite
+    return sql;
+  }
+  
+  let convertedSql = sql;
+  
+  // Pattern 1: IF NOT EXISTS (SELECT ...) BEGIN ... END
+  // Convert to just the CREATE statement with IF NOT EXISTS
+  const ifNotExistsPattern = /IF\s+NOT\s+EXISTS\s*\([^)]*SELECT[^)]*\)\s*BEGIN\s*([\s\S]*?)\s*END/gi;
+  convertedSql = convertedSql.replace(ifNotExistsPattern, (match, content) => {
+    const trimmed = content.trim();
+    // If it's a CREATE TABLE, add IF NOT EXISTS
+    if (/CREATE\s+TABLE\s+/i.test(trimmed)) {
+      return trimmed.replace(/CREATE\s+TABLE\s+/i, 'CREATE TABLE IF NOT EXISTS ');
+    }
+    // If it's a CREATE INDEX, add IF NOT EXISTS
+    if (/CREATE\s+(UNIQUE\s+)?INDEX\s+/i.test(trimmed)) {
+      return trimmed.replace(/CREATE\s+((UNIQUE\s+)?INDEX\s+)/i, 'CREATE $1INDEX IF NOT EXISTS ');
+    }
+    // For other CREATE statements, try to add IF NOT EXISTS
+    if (/CREATE\s+/i.test(trimmed)) {
+      return trimmed.replace(/CREATE\s+([A-Z]+\s+)/i, 'CREATE $1IF NOT EXISTS ');
+    }
+    // For other statements, just return the content (remove the IF wrapper)
+    return trimmed;
+  });
+  
+  // Pattern 2: IF EXISTS (SELECT ...) BEGIN ... END
+  // Convert DROP statements to DROP IF EXISTS
+  const ifExistsPattern = /IF\s+EXISTS\s*\([^)]*SELECT[^)]*\)\s*BEGIN\s*([\s\S]*?)\s*END/gi;
+  convertedSql = convertedSql.replace(ifExistsPattern, (match, content) => {
+    const trimmed = content.trim();
+    // If it's a DROP TABLE, add IF EXISTS
+    if (/DROP\s+TABLE\s+/i.test(trimmed)) {
+      return trimmed.replace(/DROP\s+TABLE\s+/i, 'DROP TABLE IF EXISTS ');
+    }
+    // If it's a DROP INDEX, add IF EXISTS
+    if (/DROP\s+INDEX\s+/i.test(trimmed)) {
+      return trimmed.replace(/DROP\s+INDEX\s+/i, 'DROP INDEX IF EXISTS ');
+    }
+    // For other DROP statements, try to add IF EXISTS
+    if (/DROP\s+/i.test(trimmed)) {
+      return trimmed.replace(/DROP\s+([A-Z]+\s+)/i, 'DROP $1IF EXISTS ');
+    }
+    // For other statements, just return the content
+    return trimmed;
+  });
+  
+  // Pattern 3: IF OBJECT_ID(...) IS NOT NULL DROP TABLE ...
+  // Convert to DROP TABLE IF EXISTS
+  convertedSql = convertedSql.replace(/IF\s+OBJECT_ID\s*\([^)]+\)\s+IS\s+NOT\s+NULL\s+DROP\s+TABLE\s+([^\s;]+)/gi, 
+    'DROP TABLE IF EXISTS $1');
+  
+  // Pattern 4: Standalone IF statements (without EXISTS)
+  // Remove the conditional wrapper and just execute the content
+  const ifPattern = /IF\s+[^(]+\s+BEGIN\s*([\s\S]*?)\s*END/gi;
+  convertedSql = convertedSql.replace(ifPattern, (match, content) => {
+    // Just extract the content, removing the conditional wrapper
+    return content.trim();
+  });
+  
+  return convertedSql;
+}
+
+/**
+ * Convert SQL query to handle boolean comparisons for PostgreSQL
+ * 
+ * SQLite stores booleans as integers (0/1), but PostgreSQL uses actual boolean types.
+ * This function converts integer comparisons to boolean comparisons for known boolean columns.
+ * 
+ * @param {string} sql - SQL query string
+ * @returns {string} SQL query with boolean comparisons converted
+ */
+function convertBooleanComparisons(sql) {
+  if (!isProduction) {
+    // No conversion needed for SQLite
+    return sql;
+  }
+  
+  // List of known boolean columns that need conversion
+  const booleanColumns = [
+    'verified', 'email_verified', 'phone_verified',
+    'read', 'is_hidden', 'is_deleted', 'is_reel', 'is_group', 'is_frozen',
+    'is_active', 'resolved', 'auto_renew', 'is_default', 'onboarding_completed',
+    'discoverable_by_email', 'used', 'revoked', 'is_pinned', 'is_public',
+    'email_notifications', 'push_notifications', 'message_notifications',
+    'show_online_status', 'read_receipts', 'chat_privileges_frozen',
+    'seller_privileges_frozen', 'first_goal_public', 'notify_followers',
+    'block_functionality_locked', 'recording_enabled', 'is_visible',
+    'is_archived', 'is_completed', 'is_cancelled', 'is_published',
+    'needs_onboarding'
+  ];
+  
+  let convertedSql = sql;
+  
+  // Convert each boolean column comparison
+  for (const column of booleanColumns) {
+    // Pattern: column = 0 or column = 1 (with word boundaries to avoid partial matches)
+    // Also handle: column != 0, column != 1, column <> 0, column <> 1
+    // Use lookahead/lookbehind to ensure we're matching the full comparison, not part of a number
+    const patterns = [
+      // = 0 → = false (but not = 10, = 20, etc.)
+      new RegExp(`\\b${column}\\s*=\\s*0(?!\\d)`, 'gi'),
+      // = 1 → = true (but not = 10, = 11, etc.)
+      new RegExp(`\\b${column}\\s*=\\s*1(?!\\d)`, 'gi'),
+      // != 0 → = true
+      new RegExp(`\\b${column}\\s*!=\\s*0(?!\\d)`, 'gi'),
+      // != 1 → = false
+      new RegExp(`\\b${column}\\s*!=\\s*1(?!\\d)`, 'gi'),
+      // <> 0 → = true
+      new RegExp(`\\b${column}\\s*<>\\s*0(?!\\d)`, 'gi'),
+      // <> 1 → = false
+      new RegExp(`\\b${column}\\s*<>\\s*1(?!\\d)`, 'gi')
+    ];
+    
+    const replacements = [
+      `${column} = false`,
+      `${column} = true`,
+      `${column} = true`,
+      `${column} = false`,
+      `${column} = true`,
+      `${column} = false`
+    ];
+    
+    for (let i = 0; i < patterns.length; i++) {
+      convertedSql = convertedSql.replace(patterns[i], replacements[i]);
+    }
+  }
+  
+  return convertedSql;
+}
+
 module.exports = {
   getCurrentTimestamp,
   getCurrentDate,
@@ -166,6 +310,8 @@ module.exports = {
   insertIgnoreQuery,
   dateCompare,
   convertLimitOffset,
+  convertConditionalLogic,
+  convertBooleanComparisons,
   isPostgres,
   isSqlite,
   isProduction
