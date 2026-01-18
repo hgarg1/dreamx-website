@@ -6,6 +6,16 @@ require('dotenv').config();
 // Check for production mode - handle both 'production' and 'Production' (case-insensitive)
 const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
 const isProduction = (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
+
+// Log database mode detection for debugging
+console.log('🔍 Database mode detection:', {
+  NODE_ENV: process.env.NODE_ENV,
+  nodeEnv_lowercase: nodeEnv,
+  DB_TYPE: process.env.DB_TYPE,
+  isProduction: isProduction,
+  detectedMode: isProduction ? 'PostgreSQL' : 'SQLite'
+});
+
 let db = null;
 let dbType = 'sqlite';
 let pgPool = null;
@@ -351,10 +361,13 @@ function getDatabaseSync() {
     // For PostgreSQL, we need to ensure connection is ready
     // This will throw if called before async init, but that's expected
     if (!dbWrapper) {
+      console.warn('⚠️ getDatabaseSync() called in production before async initialization. PostgreSQL requires async init.');
       throw new Error('PostgreSQL requires async initialization. Call initDatabase() first or use getDatabase().');
     }
     return dbWrapper;
   }
+  
+  // SQLite initialization - only in development
   if (!dbWrapper) {
     ensureDataDirectory();
     const Database = require('better-sqlite3');
@@ -368,15 +381,20 @@ function getDatabaseSync() {
 
 // Initialize SQLite synchronously (for module-level initialization)
 function initSync() {
-  if (!isProduction) {
-    try {
-      const dbInstance = initDatabaseSync();
-      if (!dbWrapper) {
-        dbWrapper = new DatabaseWrapper(dbInstance, 'sqlite');
-        console.log('✅ Database wrapper initialized');
-      }
-      return dbWrapper;
-    } catch (error) {
+  // Only initialize SQLite if we're NOT in production
+  if (isProduction) {
+    console.log('📊 Production mode detected - skipping SQLite initialization. PostgreSQL will be initialized asynchronously.');
+    return null;
+  }
+  
+  try {
+    const dbInstance = initDatabaseSync();
+    if (!dbWrapper) {
+      dbWrapper = new DatabaseWrapper(dbInstance, 'sqlite');
+      console.log('✅ Database wrapper initialized (SQLite)');
+    }
+    return dbWrapper;
+  } catch (error) {
       console.error('❌ Critical error during database initialization:', error);
       console.error('Stack:', error.stack);
       throw error;

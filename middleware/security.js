@@ -80,6 +80,24 @@ function configureHelmet() {
 }
 
 /**
+ * Extract IP address from request, handling Azure App Service proxy headers
+ */
+function getClientIp(req) {
+    // Azure App Service uses X-Forwarded-For header
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+        // X-Forwarded-For can contain multiple IPs, take the first one
+        const firstIp = forwarded.split(',')[0].trim();
+        // Remove port if present (e.g., "72.83.92.223:60964" -> "72.83.92.223")
+        return firstIp.split(':')[0];
+    }
+    
+    // Fallback to req.ip, but remove port if present
+    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    return ip.split(':')[0];
+}
+
+/**
  * Rate limiting for authentication endpoints
  */
 const authLimiter = rateLimit({
@@ -89,6 +107,7 @@ const authLimiter = rateLimit({
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     skipSuccessfulRequests: false,
+    keyGenerator: getClientIp, // Use custom IP extractor
     handler: (req, res) => {
         res.status(429).json({
             error: 'Too many attempts. Please try again later.',
@@ -106,7 +125,8 @@ const passwordResetLimiter = rateLimit({
     message: 'Too many password reset requests from this IP, please try again after an hour',
     standardHeaders: true,
     legacyHeaders: false,
-    skipSuccessfulRequests: true // Only count failed requests
+    skipSuccessfulRequests: true, // Only count failed requests
+    keyGenerator: getClientIp
 });
 
 /**
@@ -117,7 +137,8 @@ const apiLimiter = rateLimit({
     max: 100, // Limit each IP to 100 requests per windowMs
     message: 'Too many API requests from this IP, please try again later',
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    keyGenerator: getClientIp
 });
 
 /**
@@ -128,7 +149,8 @@ const uploadLimiter = rateLimit({
     max: 20, // Limit each IP to 20 uploads per windowMs
     message: 'Too many upload requests from this IP, please try again later',
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    keyGenerator: getClientIp
 });
 
 /**
@@ -140,7 +162,8 @@ const registrationLimiter = rateLimit({
     message: 'Too many accounts created from this IP, please try again after an hour',
     standardHeaders: true,
     legacyHeaders: false,
-    skipSuccessfulRequests: false
+    skipSuccessfulRequests: false,
+    keyGenerator: getClientIp
 });
 
 /**
@@ -149,6 +172,7 @@ const registrationLimiter = rateLimit({
 const sensitiveLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 5, // Very strict limit for sensitive operations
+    keyGenerator: getClientIp,
     message: 'Too many sensitive requests from this IP, please try again later',
     standardHeaders: true,
     legacyHeaders: false

@@ -17,7 +17,11 @@ let dbWrapper = null;
 
 if (!isProduction) {
   // SQLite - synchronous initialization (local development)
-  dbWrapper = initSync();
+  // Only initialize SQLite synchronously if NOT in production
+  // In production, PostgreSQL will be initialized asynchronously via initializeDatabase()
+  if (!isProduction) {
+    dbWrapper = initSync();
+  }
   db = dbWrapper.getRaw();
 } else {
   // PostgreSQL - async initialization required
