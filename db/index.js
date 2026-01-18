@@ -409,11 +409,16 @@ async function runMigrations() {
         db.exec('ALTER TABLE project_comments_new RENAME TO project_comments;');
         console.log('✅ project_comments table rebuilt');
       }
+      
+      // Only create indexes if table exists
+      db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_project ON project_comments(project_id);");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_parent ON project_comments(parent_id);");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_pinned ON project_comments(is_pinned, created_at);");
+    } else {
+      // Table doesn't exist yet - it will be created by the schema initialization below
+      // Don't create indexes here as the table doesn't exist
+      console.log('⚠️  project_comments table does not exist yet - will be created by schema initialization');
     }
-
-    db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_project ON project_comments(project_id);");
-    db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_parent ON project_comments(parent_id);");
-    db.exec("CREATE INDEX IF NOT EXISTS idx_project_comments_pinned ON project_comments(is_pinned, created_at);");
   } catch (e) {
     console.error('Failed to ensure project_comments migration', e.message);
   }
@@ -1614,17 +1619,24 @@ CREATE INDEX IF NOT EXISTS idx_reactions_type ON project_reactions(reaction_type
 // Project comments
 db.exec(`CREATE TABLE IF NOT EXISTS project_comments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  update_id INTEGER NOT NULL,
+  project_id INTEGER,
+  update_id INTEGER,
   user_id INTEGER NOT NULL,
   parent_id INTEGER,
   content TEXT NOT NULL,
+  is_pinned INTEGER DEFAULT 0,
+  is_hidden INTEGER DEFAULT 0,
+  edited_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (update_id) REFERENCES project_updates(id),
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (parent_id) REFERENCES project_comments(id)
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (update_id) REFERENCES project_updates(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE NO ACTION,
+  FOREIGN KEY (parent_id) REFERENCES project_comments(id) ON DELETE NO ACTION
 );
 CREATE INDEX IF NOT EXISTS idx_comments_update ON project_comments(update_id);
+CREATE INDEX IF NOT EXISTS idx_comments_project ON project_comments(project_id);
 CREATE INDEX IF NOT EXISTS idx_comments_parent ON project_comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_comments_pinned ON project_comments(is_pinned, created_at);
 `);
 
 // Project comment files (attachments in comments)
