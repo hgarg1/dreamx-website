@@ -544,7 +544,9 @@ app.use(robots({
 app.use(sanitizeRequest);
 
 // Session configuration - Use PostgreSQL in production, SQLite locally
-const isProductionDB = process.env.NODE_ENV === 'Production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
+// Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+const isProductionDB = nodeEnv === 'production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
 
 let sessionStore;
 if (isProductionDB) {
@@ -556,7 +558,8 @@ if (isProductionDB) {
         database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
         user: process.env.PG_USER || process.env.DB_USER || 'postgres',
         password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
-        ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false
+        // Azure PostgreSQL requires SSL - default to requiring it unless explicitly disabled
+        ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false }
     });
     sessionStore = new pgSession({
         pool: pgPool,
@@ -1448,8 +1451,18 @@ io.on('connection', (socket) => {
 async function startServer() {
     try {
         // Initialize database connection (required for PostgreSQL in production)
-        if (process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql') {
-            await initializeDatabase();
+        // Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+        const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+        if (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql') {
+            console.log('🔄 Initializing PostgreSQL database...');
+            try {
+                await initializeDatabase();
+                console.log('✅ Database initialization complete');
+            } catch (err) {
+                console.error('❌ Database initialization failed:', err);
+                console.error('This is a critical error. The application may not function correctly.');
+                // Don't exit - let the app start but log the error
+            }
             await ensureSessionTable();
             console.log('✅ Database initialized for production');
         }

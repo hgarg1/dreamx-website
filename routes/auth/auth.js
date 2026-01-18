@@ -1042,12 +1042,24 @@ async function handleOAuthCallback(req, res, provider) {
 
 router.get('/auth/microsoft', (req, res, next) => {
     // Redirect to Azure Easy Auth if enabled in production
-    if (!shouldUsePassportOAuth()) {
+    const usePassport = shouldUsePassportOAuth();
+    if (!usePassport) {
         const baseUrl = getRequestBaseUrl(req);
         const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
-        return res.redirect(`${baseUrl}/.auth/login/microsoft?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`);
+        // Azure Easy Auth uses 'aad' for Microsoft/Azure AD authentication
+        // Some configurations may use 'microsoft', but 'aad' is the standard
+        const microsoftProvider = 'aad'; // Azure AD is the standard provider name in Easy Auth
+        const redirectUrl = `${baseUrl}/.auth/login/${microsoftProvider}?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`;
+        console.log('🔐 [Microsoft] Redirecting to Easy Auth:', redirectUrl);
+        return res.redirect(redirectUrl);
     }
-    if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) return res.status(503).send('Microsoft OAuth not configured');
+    
+    // Passport.js OAuth - check configuration
+    if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) {
+        console.warn('⚠️ [Microsoft] OAuth not configured - missing credentials');
+        return res.status(503).send('Microsoft OAuth not configured');
+    }
+    
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
     req.session.oauthMode = mode;
     passport.authenticate('microsoft')(req, res, next);
@@ -1111,12 +1123,22 @@ router.post('/auth/apple/callback', (req, res, next) => {
 
 router.get('/auth/x', (req, res, next) => {
     // Redirect to Azure Easy Auth if enabled in production
-    if (!shouldUsePassportOAuth()) {
+    const usePassport = shouldUsePassportOAuth();
+    if (!usePassport) {
         const baseUrl = getRequestBaseUrl(req);
         const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
-        return res.redirect(`${baseUrl}/.auth/login/twitter?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`);
+        // Azure Easy Auth uses 'x' as the provider name for Twitter/X
+        const redirectUrl = `${baseUrl}/.auth/login/x?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`;
+        console.log('🔐 [Twitter/X] Redirecting to Easy Auth:', redirectUrl);
+        return res.redirect(redirectUrl);
     }
-    if (!process.env.TWITTER_CLIENT_ID || !process.env.TWITTER_CLIENT_SECRET) return res.status(503).send('X (Twitter) OAuth not configured');
+    
+    // Passport.js OAuth - check configuration
+    if (!process.env.TWITTER_CLIENT_ID || !process.env.TWITTER_CLIENT_SECRET) {
+        console.warn('⚠️ [Twitter/X] OAuth not configured - missing credentials');
+        return res.status(503).send('X (Twitter) OAuth not configured');
+    }
+    
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
     // Store mode in session for use in callback - don't override state (Passport needs to handle that)
     req.session.oauthMode = mode;

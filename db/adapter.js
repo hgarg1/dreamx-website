@@ -3,7 +3,9 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-const isProduction = process.env.NODE_ENV === 'Production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
+// Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+const isProduction = (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
 let db = null;
 let dbType = 'sqlite';
 let pgPool = null;
@@ -35,28 +37,71 @@ async function initDatabase() {
     const { Pool } = require('pg');
     dbType = 'postgres';
     
-    const config = {
-      host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
-      port: process.env.PG_PORT || process.env.DB_PORT || 5432,
-      database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
-      user: process.env.PG_USER || process.env.DB_USER || 'postgres',
-      password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
-      ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false,
-      max: parseInt(process.env.PG_POOL_MAX || '10'),
-      min: parseInt(process.env.PG_POOL_MIN || '0'),
-      idleTimeoutMillis: parseInt(process.env.PG_IDLE_TIMEOUT || '30000'),
-      connectionTimeoutMillis: parseInt(process.env.PG_CONNECTION_TIMEOUT || '30000')
-    };
+    // Support Azure PostgreSQL connection string format
+    let config;
+    if (process.env.DATABASE_URL) {
+      // Parse connection string (Azure often provides this)
+      config = {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.PG_SSL !== 'false' ? { rejectUnauthorized: false } : false
+      };
+      console.log('📊 Using DATABASE_URL connection string');
+    } else {
+      // Use individual environment variables
+      config = {
+        host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.PG_PORT || process.env.DB_PORT || '5432'),
+        database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
+        user: process.env.PG_USER || process.env.DB_USER || 'postgres',
+        password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
+        // Azure PostgreSQL requires SSL - default to requiring it unless explicitly disabled
+        ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false },
+        max: parseInt(process.env.PG_POOL_MAX || '10'),
+        min: parseInt(process.env.PG_POOL_MIN || '0'),
+        idleTimeoutMillis: parseInt(process.env.PG_IDLE_TIMEOUT || '30000'),
+        connectionTimeoutMillis: parseInt(process.env.PG_CONNECTION_TIMEOUT || '30000')
+      };
+      console.log('📊 Using individual PostgreSQL connection parameters');
+      console.log(`📊 Connecting to: ${config.host}:${config.port}/${config.database} as ${config.user}`);
+    }
 
     try {
+      console.log('🔄 Initializing PostgreSQL connection pool...');
       pgPool = new Pool(config);
-      // Test connection
-      const client = await pgPool.connect();
+      
+      // Test connection with timeout
+      const client = await Promise.race([
+        pgPool.connect(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout after 10 seconds')), 10000)
+        )
+      ]);
+      
+      // Test query
+      await client.query('SELECT NOW()');
       client.release();
+      
+      console.log('✅ PostgreSQL connection successful!');
       db = pgPool;
+      
+      // Set up error handlers
+      pgPool.on('error', (err) => {
+        console.error('❌ Unexpected PostgreSQL pool error:', err);
+      });
+      
       return db;
     } catch (err) {
-      throw err;
+      console.error('❌ PostgreSQL connection failed!');
+      console.error('Error details:', {
+        message: err.message,
+        code: err.code,
+        host: config.host || 'from connection string',
+        port: config.port || 'from connection string',
+        database: config.database || 'from connection string',
+        user: config.user || 'from connection string'
+      });
+      console.error('Full error:', err);
+      throw new Error(`PostgreSQL connection failed: ${err.message}. Check your connection settings and ensure the database is accessible.`);
     }
   } else {
     // SQLite (local)

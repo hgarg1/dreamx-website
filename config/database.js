@@ -1,7 +1,9 @@
 // Database configuration
 const path = require('path');
 
-const isProduction = process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql';
+// Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+const isProduction = nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql';
 
 module.exports = {
   isProduction,
@@ -14,11 +16,12 @@ module.exports = {
   
   postgres: {
     host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
-    port: process.env.PG_PORT || process.env.DB_PORT || 5432,
+    port: parseInt(process.env.PG_PORT || process.env.DB_PORT || '5432'),
     database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
     user: process.env.PG_USER || process.env.DB_USER || 'postgres',
     password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
-    ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    // Azure PostgreSQL requires SSL - default to requiring it unless explicitly disabled
+    ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false },
     pool: {
       max: parseInt(process.env.PG_POOL_MAX || '10'),
       min: parseInt(process.env.PG_POOL_MIN || '0'),

@@ -54,6 +54,7 @@ function mapProviderName(easyAuthProvider) {
         'google': 'google',
         'microsoft': 'microsoft',
         'twitter': 'twitter',
+        'x': 'twitter', // Azure Easy Auth uses 'x' for Twitter/X
         'apple': 'apple',
         'aad': 'microsoft', // Azure AD
         'facebook': 'facebook'
