@@ -762,6 +762,35 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
 
 // Logout
 router.get('/logout', (req, res) => {
+    // Check if user is authenticated via Easy Auth
+    if (req.session && req.session.easyAuth) {
+        // Easy Auth logout - redirect to Azure's logout endpoint
+        const baseUrl = getRequestBaseUrl(req);
+        // Use query parameter if provided, otherwise redirect to home page
+        const postLogoutRedirect = req.query.post_logout_redirect_uri || req.query.post_logout_redirect_url || '/';
+        
+        // Destroy local session first
+        if (req.session) {
+            req.session.destroy(() => {
+                res.clearCookie('connect.sid');
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+                
+                // Redirect to Azure Easy Auth logout endpoint
+                // Azure Easy Auth uses post_logout_redirect_uri parameter
+                const logoutUrl = `${baseUrl}/.auth/logout?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirect)}`;
+                console.log('🔓 Redirecting to Easy Auth logout:', logoutUrl);
+                res.redirect(logoutUrl);
+            });
+        } else {
+            res.clearCookie('connect.sid');
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            const logoutUrl = `${baseUrl}/.auth/logout?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirect)}`;
+            res.redirect(logoutUrl);
+        }
+        return;
+    }
+    
+    // Regular Passport.js logout
     req.logout((err) => {
         if (err) {
             console.error('Logout error:', err);
