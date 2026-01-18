@@ -995,21 +995,21 @@ if (isProduction) {
   };
   linkHashtagStmt = {
     run: function(postId, hashtagId) {
+      // SQL Server: Use INSERT with WHERE NOT EXISTS (single statement, works with parameters)
       db.prepare(`
-        IF NOT EXISTS (SELECT 1 FROM post_hashtags WHERE post_id = ? AND hashtag_id = ?)
-        BEGIN
-          INSERT INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?)
-        END
+        INSERT INTO post_hashtags (post_id, hashtag_id)
+        SELECT ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM post_hashtags WHERE post_id = ? AND hashtag_id = ?)
       `).run(postId, hashtagId, postId, hashtagId);
     }
   };
   linkTagStmt = {
     run: function(postId, tagId) {
+      // SQL Server: Use INSERT with WHERE NOT EXISTS (single statement, works with parameters)
       db.prepare(`
-        IF NOT EXISTS (SELECT 1 FROM post_tags WHERE post_id = ? AND tag_id = ?)
-        BEGIN
-          INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?)
-        END
+        INSERT INTO post_tags (post_id, tag_id)
+        SELECT ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM post_tags WHERE post_id = ? AND tag_id = ?)
       `).run(postId, tagId, postId, tagId);
     }
   };
