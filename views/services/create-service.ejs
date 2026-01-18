@@ -800,10 +800,14 @@ document.getElementById('serviceForm').addEventListener('submit', async function
   const data = Object.fromEntries(formData.entries());
   
   try {
+    const csrfToken = window.__CSRF_TOKEN__ || '';
     const response = await fetch('/api/services/create', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken
+      },
+      body: JSON.stringify({ ...data, _csrf: csrfToken })
     });
     
     const result = await response.json();

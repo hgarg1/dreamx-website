@@ -381,12 +381,14 @@ document.querySelector('.appeal-form').addEventListener('submit', async function
     submitBtn.disabled = true;
     
     try {
+        const csrfToken = window.__CSRF_TOKEN__ || '';
         const response = await fetch('/api/appeals/content', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify({ ...data, _csrf: csrfToken })
         });
         
         const result = await response.json();

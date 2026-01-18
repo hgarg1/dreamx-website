@@ -369,12 +369,14 @@
     verifyBtn.textContent = 'Verifying...';
     
     try {
+      const csrfToken = window.__CSRF_TOKEN__ || '';
       const response = await fetch('/verify-phone', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
         },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code, _csrf: csrfToken })
       });
       
       const data = await response.json();
@@ -401,11 +403,14 @@
     resendBtn.disabled = true;
     
     try {
+      const csrfToken = window.__CSRF_TOKEN__ || '';
       const response = await fetch('/resend-phone-code', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
+        },
+        body: JSON.stringify({ _csrf: csrfToken })
       });
       
       const data = await response.json();

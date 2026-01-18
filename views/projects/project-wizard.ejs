@@ -704,10 +704,14 @@
     
     try {
       // First create the project
+      const csrfToken = window.__CSRF_TOKEN__ || '';
       const projectRes = await fetch('/api/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
+        },
+        body: JSON.stringify({ ...data, _csrf: csrfToken })
       });
       
       const projectData = await projectRes.json();

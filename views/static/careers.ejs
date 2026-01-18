@@ -859,7 +859,13 @@ document.getElementById('careerForm').addEventListener('submit', async function(
         const portfolio = document.getElementById('portfolioFile').files[0];
         if (resume) fd.append('resumeFile', resume);
         if (portfolio) fd.append('portfolioFile', portfolio);
-        const response = await fetch('/api/careers/apply', { method: 'POST', body: fd });
+        const csrfToken = window.__CSRF_TOKEN__ || '';
+        fd.append('_csrf', csrfToken);
+        const response = await fetch('/api/careers/apply', { 
+          method: 'POST', 
+          headers: { 'X-CSRF-Token': csrfToken },
+          body: fd 
+        });
         const result = await response.json().catch(() => ({}));
         if (response.ok){
             showCareerMsg(result.message || 'Application submitted successfully!', true);
