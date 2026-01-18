@@ -1570,7 +1570,6 @@ function getStats() {
   stats.permissionGroups = db.prepare(`SELECT COUNT(*) as count FROM rbac_permission_groups WHERE deleted_at IS NULL`).get().count;
   stats.userRoleAssignments = db.prepare(`SELECT COUNT(*) as count FROM rbac_user_roles`).get().count;
   stats.userOverrides = db.prepare(`SELECT COUNT(*) as count FROM rbac_user_overrides`).get().count;
-  const enabledValue = isProduction ? 'true' : '1';
   stats.modules = db.prepare(`SELECT COUNT(*) as count FROM rbac_module_registrations WHERE is_enabled = ${enabledValue}`).get().count;
   
   // Use SQL Server compatible date syntax when in production, SQLite date() otherwise
