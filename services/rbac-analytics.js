@@ -375,9 +375,9 @@ class SecurityAlertSystem {
         FROM rbac_user_overrides uo
         JOIN rbac_permissions p ON p.id = uo.permission_id
         JOIN users u ON u.id = uo.user_id
-        WHERE uo.is_temporary = 1
-        AND (uo.expires_at IS NULL OR uo.expires_at > DATEADD(day, 30, GETDATE()))
-        AND uo.granted_at < DATEADD(day, -7, GETDATE())
+        WHERE uo.is_temporary = true
+        AND (uo.expires_at IS NULL OR uo.expires_at > CURRENT_TIMESTAMP + INTERVAL '30 days')
+        AND uo.granted_at < CURRENT_TIMESTAMP - INTERVAL '7 days'
       `
         : `
         SELECT uo.*, p.name as permission_name, u.email

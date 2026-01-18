@@ -1036,8 +1036,13 @@ if (isProduction) {
     ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
     RETURNING id, name
   `);
-  linkHashtagStmt = db.prepare(`INSERT OR IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?);`);
-  linkTagStmt = db.prepare(`INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?);`);
+  if (isProduction) {
+    linkHashtagStmt = db.prepare(`INSERT INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?) ON CONFLICT DO NOTHING`);
+    linkTagStmt = db.prepare(`INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING`);
+  } else {
+    linkHashtagStmt = db.prepare(`INSERT OR IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?);`);
+    linkTagStmt = db.prepare(`INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?);`);
+  }
 }
 const getPostHashtagListStmt = db.prepare(`
   SELECT h.name
@@ -1883,17 +1888,26 @@ module.exports = {
     return info.lastInsertRowid;
   },
   getVerificationCode: ({ userId, code }) => {
-    return db.prepare(`SELECT * FROM email_verification_codes WHERE user_id = ? AND code = ? AND verified = 0 ORDER BY created_at DESC LIMIT 1`).get(userId, code);
+    const sql = isProduction
+      ? `SELECT * FROM email_verification_codes WHERE user_id = ? AND code = ? AND verified = false ORDER BY created_at DESC LIMIT 1`
+      : `SELECT * FROM email_verification_codes WHERE user_id = ? AND code = ? AND verified = 0 ORDER BY created_at DESC LIMIT 1`;
+    return db.prepare(sql).get(userId, code);
   },
   markCodeAsVerified: ({ id }) => {
-    db.prepare(`UPDATE email_verification_codes SET verified = 1 WHERE id = ?`).run(id);
+    const sql = isProduction
+      ? `UPDATE email_verification_codes SET verified = true WHERE id = ?`
+      : `UPDATE email_verification_codes SET verified = 1 WHERE id = ?`;
+    db.prepare(sql).run(id);
   },
   markEmailAsVerified: ({ userId }) => {
-    db.prepare(`UPDATE users SET email_verified = 1 WHERE id = ?`).run(userId);
+    const sql = isProduction
+      ? `UPDATE users SET email_verified = true WHERE id = ?`
+      : `UPDATE users SET email_verified = 1 WHERE id = ?`;
+    db.prepare(sql).run(userId);
   },
   deleteExpiredVerificationCodes: () => {
     const sql = isProduction 
-      ? `DELETE FROM email_verification_codes WHERE expires_at < GETDATE() AND verified = 0`
+      ? `DELETE FROM email_verification_codes WHERE expires_at < CURRENT_TIMESTAMP AND verified = false`
       : `DELETE FROM email_verification_codes WHERE expires_at < datetime('now') AND verified = 0`;
     db.prepare(sql).run();
   },
@@ -1905,19 +1919,28 @@ module.exports = {
     return info.lastInsertRowid;
   },
   getPasswordResetToken: ({ tokenHash }) => {
-    return db.prepare(`SELECT * FROM password_reset_tokens WHERE token_hash = ? AND used = 0 ORDER BY created_at DESC LIMIT 1`).get(tokenHash);
+    const sql = isProduction
+      ? `SELECT * FROM password_reset_tokens WHERE token_hash = ? AND used = false ORDER BY created_at DESC LIMIT 1`
+      : `SELECT * FROM password_reset_tokens WHERE token_hash = ? AND used = 0 ORDER BY created_at DESC LIMIT 1`;
+    return db.prepare(sql).get(tokenHash);
   },
   markPasswordResetUsed: ({ id }) => {
-    db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE id = ?`).run(id);
+    const sql = isProduction
+      ? `UPDATE password_reset_tokens SET used = true WHERE id = ?`
+      : `UPDATE password_reset_tokens SET used = 1 WHERE id = ?`;
+    db.prepare(sql).run(id);
   },
   deleteExpiredPasswordResetTokens: () => {
     const sql = isProduction
-      ? `DELETE FROM password_reset_tokens WHERE expires_at < GETDATE() OR used = 1`
+      ? `DELETE FROM password_reset_tokens WHERE expires_at < CURRENT_TIMESTAMP OR used = true`
       : `DELETE FROM password_reset_tokens WHERE expires_at < datetime('now') OR used = 1`;
     db.prepare(sql).run();
   },
   invalidateUserResetTokens: ({ userId }) => {
-    db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?`).run(userId);
+    const sql = isProduction
+      ? `UPDATE password_reset_tokens SET used = true WHERE user_id = ?`
+      : `UPDATE password_reset_tokens SET used = 1 WHERE user_id = ?`;
+    db.prepare(sql).run(userId);
   },
 
   // Auth Token Management (for mobile API)
@@ -1927,17 +1950,26 @@ module.exports = {
     return info.lastInsertRowid;
   },
   getRefreshToken: ({ tokenHash }) => {
-    return db.prepare(`SELECT * FROM auth_tokens WHERE token_hash = ? AND token_type = 'refresh' AND revoked = 0 ORDER BY created_at DESC LIMIT 1`).get(tokenHash);
+    const sql = isProduction
+      ? `SELECT * FROM auth_tokens WHERE token_hash = ? AND token_type = 'refresh' AND revoked = false ORDER BY created_at DESC LIMIT 1`
+      : `SELECT * FROM auth_tokens WHERE token_hash = ? AND token_type = 'refresh' AND revoked = 0 ORDER BY created_at DESC LIMIT 1`;
+    return db.prepare(sql).get(tokenHash);
   },
   revokeRefreshToken: ({ tokenHash }) => {
-    db.prepare(`UPDATE auth_tokens SET revoked = 1 WHERE token_hash = ?`).run(tokenHash);
+    const sql = isProduction
+      ? `UPDATE auth_tokens SET revoked = true WHERE token_hash = ?`
+      : `UPDATE auth_tokens SET revoked = 1 WHERE token_hash = ?`;
+    db.prepare(sql).run(tokenHash);
   },
   revokeAllUserTokens: ({ userId }) => {
-    db.prepare(`UPDATE auth_tokens SET revoked = 1 WHERE user_id = ? AND revoked = 0`).run(userId);
+    const sql = isProduction
+      ? `UPDATE auth_tokens SET revoked = true WHERE user_id = ? AND revoked = false`
+      : `UPDATE auth_tokens SET revoked = 1 WHERE user_id = ? AND revoked = 0`;
+    db.prepare(sql).run(userId);
   },
   cleanupExpiredTokens: () => {
     const sql = isProduction
-      ? `DELETE FROM auth_tokens WHERE expires_at < GETDATE() OR revoked = 1`
+      ? `DELETE FROM auth_tokens WHERE expires_at < CURRENT_TIMESTAMP OR revoked = true`
       : `DELETE FROM auth_tokens WHERE expires_at < datetime('now') OR revoked = 1`;
     db.prepare(sql).run();
   },
@@ -1988,7 +2020,7 @@ module.exports = {
         WHERE id != ? AND (
           LOWER(full_name) LIKE ? 
           OR LOWER(handle) LIKE ?
-          OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?)
+          OR (discoverable_by_email = ${isProduction ? 'true' : '1'} AND LOWER(email) LIKE ?)
         )
         ORDER BY full_name ASC
         LIMIT ?
@@ -2015,12 +2047,12 @@ module.exports = {
     try { db.prepare(`UPDATE users SET provider = ?, provider_id = ? WHERE id = ?`).run(provider, providerId, userId); } catch (e) { }
     // Preferred: link in oauth_accounts
     if (isProduction) {
-      // SQL Server: INSERT with WHERE NOT EXISTS
+      // PostgreSQL: INSERT with ON CONFLICT
       db.prepare(`
         INSERT INTO oauth_accounts (user_id, provider, provider_id)
-        SELECT ?, ?, ?
-        WHERE NOT EXISTS (SELECT 1 FROM oauth_accounts WHERE user_id = ? AND provider = ? AND provider_id = ?)
-      `).run(userId, provider, providerId, userId, provider, providerId);
+        VALUES (?, ?, ?)
+        ON CONFLICT (provider, provider_id) DO NOTHING
+      `).run(userId, provider, providerId);
     } else {
       db.prepare(`INSERT OR IGNORE INTO oauth_accounts (user_id, provider, provider_id) VALUES (?,?,?)`).run(userId, provider, providerId);
     }
@@ -2135,9 +2167,9 @@ module.exports = {
     `).run(
       (profileVisibility || 'public'),
       (allowMessagesFrom || 'everyone'),
-      discoverableByEmail ? 1 : 0,
-      showOnlineStatus ? 1 : 0,
-      readReceipts ? 1 : 0,
+      discoverableByEmail ? (isProduction ? true : 1) : (isProduction ? false : 0),
+      showOnlineStatus ? (isProduction ? true : 1) : (isProduction ? false : 0),
+      readReceipts ? (isProduction ? true : 1) : (isProduction ? false : 0),
       userId
     );
   },
@@ -2145,28 +2177,34 @@ module.exports = {
   getOrCreateConversation: ({ user1Id, user2Id }) => {
     const existing = db.prepare(`
       SELECT * FROM conversations 
-      WHERE is_group = 0 AND ((user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?))
+      WHERE is_group = ${isProduction ? 'false' : '0'} AND ((user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?))
     `).get(user1Id, user2Id, user2Id, user1Id);
     if (existing) return existing;
-    const stmt = db.prepare(`INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,0)`);
+    const sql = isProduction
+      ? `INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,false)`
+      : `INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,0)`;
+    const stmt = db.prepare(sql);
     const info = stmt.run(user1Id, user2Id);
     return db.prepare('SELECT * FROM conversations WHERE id = ?').get(info.lastInsertRowid);
   },
   createGroupConversation: ({ creatorId, participantIds, groupName }) => {
-    const stmt = db.prepare(`INSERT INTO conversations (user1_id, user2_id, is_group, group_name) VALUES (?,?,1,?)`);
+    const sql = isProduction
+      ? `INSERT INTO conversations (user1_id, user2_id, is_group, group_name) VALUES (?,?,true,?)`
+      : `INSERT INTO conversations (user1_id, user2_id, is_group, group_name) VALUES (?,?,1,?)`;
+    const stmt = db.prepare(sql);
     const info = stmt.run(creatorId, creatorId, groupName || 'Group Chat');
     const convId = info.lastInsertRowid;
     
     // Add participants - use appropriate syntax for database type
     if (isProduction) {
-      // SQL Server: INSERT with WHERE NOT EXISTS
+      // PostgreSQL: INSERT with ON CONFLICT
       const addStmt = db.prepare(`
         INSERT INTO conversation_participants (conversation_id, user_id)
-        SELECT ?, ?
-        WHERE NOT EXISTS (SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?)
+        VALUES (?, ?)
+        ON CONFLICT (conversation_id, user_id) DO NOTHING
       `);
-      addStmt.run(convId, creatorId, convId, creatorId);
-      participantIds.forEach(uid => addStmt.run(convId, uid, convId, uid));
+      addStmt.run(convId, creatorId);
+      participantIds.forEach(uid => addStmt.run(convId, uid));
     } else {
       const addStmt = db.prepare(`INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id) VALUES (?,?)`);
       addStmt.run(convId, creatorId);
@@ -2209,10 +2247,10 @@ module.exports = {
           LIMIT 1
         ) as last_message,
         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_time,
-        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND read = 0) as unread_count
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND read = ${isProduction ? 'false' : '0'}) as unread_count
       FROM conversations c
       JOIN users u ON (CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END) = u.id
-      WHERE (c.user1_id = ? OR c.user2_id = ?) AND c.is_group = 0
+      WHERE (c.user1_id = ? OR c.user2_id = ?) AND c.is_group = ${isProduction ? 'false' : '0'}
         AND EXISTS (SELECT 1 FROM messages WHERE conversation_id = c.id LIMIT 1)
     `).all(userId, userId, userId, userId, userId);
     const groups = db.prepare(`
@@ -2230,10 +2268,10 @@ module.exports = {
           LIMIT 1
         ) as last_message,
         (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_time,
-        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND read = 0) as unread_count
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND read = ${isProduction ? 'false' : '0'}) as unread_count
       FROM conversations c
       JOIN conversation_participants cp ON cp.conversation_id = c.id
-      WHERE cp.user_id = ? AND c.is_group = 1
+      WHERE cp.user_id = ? AND c.is_group = ${isProduction ? 'true' : '1'}
         AND EXISTS (SELECT 1 FROM messages WHERE conversation_id = c.id LIMIT 1)
     `).all(userId, userId);
     return [...direct, ...groups].sort((a, b) => {
@@ -2289,13 +2327,16 @@ module.exports = {
     return info.lastInsertRowid;
   },
   markMessagesAsRead: ({ conversationId, userId }) => {
-    db.prepare(`UPDATE messages SET read = 1 WHERE conversation_id = ? AND sender_id != ?`).run(conversationId, userId);
+    const sql = isProduction
+      ? `UPDATE messages SET read = true WHERE conversation_id = ? AND sender_id != ?`
+      : `UPDATE messages SET read = 1 WHERE conversation_id = ? AND sender_id != ?`;
+    db.prepare(sql).run(conversationId, userId);
   },
   getUnreadMessageCount: (userId) => {
     const result = db.prepare(`
       SELECT COUNT(*) as count FROM messages m
       JOIN conversations c ON m.conversation_id = c.id
-      WHERE (c.user1_id = ? OR c.user2_id = ?) AND m.sender_id != ? AND m.read = 0
+      WHERE (c.user1_id = ? OR c.user2_id = ?) AND m.sender_id != ? AND m.read = ${isProduction ? 'false' : '0'}
     `).get(userId, userId, userId);
     return result.count;
   },
@@ -2335,7 +2376,7 @@ module.exports = {
         (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS comments_count
       FROM posts p
       JOIN users u ON p.user_id = u.id
-      WHERE p.is_reel = 0
+      WHERE p.is_reel = ${isProduction ? 'false' : '0'}
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
     `, limit, offset);
@@ -2406,7 +2447,7 @@ module.exports = {
       SELECT p.*, u.full_name, u.email, u.profile_picture
       FROM posts p
       JOIN users u ON p.user_id = u.id
-      WHERE p.user_id = ? AND p.is_reel = 1
+      WHERE p.user_id = ? AND p.is_reel = ${isProduction ? 'true' : '1'}
       ORDER BY p.created_at DESC
     `).all(userId).map((row) => ({
       ...row,
@@ -2553,15 +2594,16 @@ module.exports = {
     const normalizedCounter = Number.isInteger(counter) ? counter : 0;
 
     if (isProduction) {
-      // SQL Server: MERGE statement for upsert
+      // PostgreSQL: INSERT ... ON CONFLICT for upsert
       db.prepare(`
-        MERGE INTO webauthn_credentials AS target
-        USING (SELECT ? AS user_id, ? AS credential_id, ? AS public_key, ? AS counter, ? AS transports, ? AS rp_id) AS source
-        ON target.credential_id = source.credential_id
-        WHEN MATCHED THEN
-          UPDATE SET user_id = source.user_id, public_key = source.public_key, counter = source.counter, transports = source.transports, rp_id = source.rp_id
-        WHEN NOT MATCHED THEN
-          INSERT (user_id, credential_id, public_key, counter, transports, rp_id) VALUES (source.user_id, source.credential_id, source.public_key, source.counter, source.transports, source.rp_id);
+        INSERT INTO webauthn_credentials (user_id, credential_id, public_key, counter, transports, rp_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (credential_id) DO UPDATE SET
+          user_id = EXCLUDED.user_id,
+          public_key = EXCLUDED.public_key,
+          counter = EXCLUDED.counter,
+          transports = EXCLUDED.transports,
+          rp_id = EXCLUDED.rp_id
       `).run(userId, normalizedCredentialId, normalizedPublicKey, normalizedCounter, transports || null, normalizedRpId);
     } else {
       db.prepare(`INSERT OR REPLACE INTO webauthn_credentials (user_id, credential_id, public_key, counter, transports, rp_id) VALUES (?,?,?,?,?,?)`)
@@ -2643,16 +2685,25 @@ module.exports = {
     return stmt.all(userId, limit);
   },
   getUnreadNotificationCount: (userId) => {
-    const stmt = db.prepare(`SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = 0`);
+    const sql = isProduction
+      ? `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = false`
+      : `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = 0`;
+    const stmt = db.prepare(sql);
     const row = stmt.get(userId);
     return row ? row.count : 0;
   },
   markNotificationAsRead: (notificationId) => {
-    const stmt = db.prepare(`UPDATE notifications SET read = 1 WHERE id = ?`);
+    const sql = isProduction
+      ? `UPDATE notifications SET read = true WHERE id = ?`
+      : `UPDATE notifications SET read = 1 WHERE id = ?`;
+    const stmt = db.prepare(sql);
     stmt.run(notificationId);
   },
   markAllNotificationsAsRead: (userId) => {
-    const stmt = db.prepare(`UPDATE notifications SET read = 1 WHERE user_id = ?`);
+    const sql = isProduction
+      ? `UPDATE notifications SET read = true WHERE user_id = ?`
+      : `UPDATE notifications SET read = 1 WHERE user_id = ?`;
+    const stmt = db.prepare(sql);
     stmt.run(userId);
   },
   deleteNotification: (notificationId) => {
@@ -2661,15 +2712,11 @@ module.exports = {
   },
   savePushSubscription: ({ userId, endpoint, p256dh, auth }) => {
     if (isProduction) {
-      // SQL Server: Use MERGE
+      // PostgreSQL: Use ON CONFLICT
       db.prepare(`
-        MERGE INTO push_subscriptions AS target
-        USING (SELECT ? AS user_id, ? AS endpoint, ? AS p256dh, ? AS auth) AS source
-        ON target.endpoint = source.endpoint
-        WHEN MATCHED THEN
-          UPDATE SET p256dh = source.p256dh, auth = source.auth
-        WHEN NOT MATCHED THEN
-          INSERT (user_id, endpoint, p256dh, auth) VALUES (source.user_id, source.endpoint, source.p256dh, source.auth);
+        INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth
       `).run(userId, endpoint, p256dh, auth);
     } else {
       // SQLite: Use ON CONFLICT
@@ -2761,15 +2808,13 @@ module.exports = {
   },
   createPaymentCustomer: ({ userId, provider, providerCustomerId }) => {
     if (isProduction) {
-      // SQL Server: Use MERGE
+      // PostgreSQL: Use ON CONFLICT
       db.prepare(`
-        MERGE INTO payment_customers AS target
-        USING (SELECT ? AS user_id, ? AS payment_provider, ? AS provider_customer_id) AS source
-        ON target.user_id = source.user_id AND target.payment_provider = source.payment_provider
-        WHEN MATCHED THEN
-          UPDATE SET provider_customer_id = source.provider_customer_id, updated_at = CURRENT_TIMESTAMP
-        WHEN NOT MATCHED THEN
-          INSERT (user_id, payment_provider, provider_customer_id, updated_at) VALUES (source.user_id, source.payment_provider, source.provider_customer_id, CURRENT_TIMESTAMP);
+        INSERT INTO payment_customers (user_id, payment_provider, provider_customer_id, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, payment_provider) DO UPDATE SET
+          provider_customer_id = EXCLUDED.provider_customer_id,
+          updated_at = CURRENT_TIMESTAMP
       `).run(userId, provider, providerCustomerId);
     } else {
       // SQLite: Use ON CONFLICT
@@ -2796,7 +2841,10 @@ module.exports = {
         WHERE NOT EXISTS (SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?)
       `).run(followerId, followingId, followerId, followingId);
     } else {
-      db.prepare(`INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`).run(followerId, followingId);
+      const sql = isProduction
+        ? `INSERT INTO follows (follower_id, following_id) VALUES (?,?) ON CONFLICT (follower_id, following_id) DO NOTHING`
+        : `INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`;
+      db.prepare(sql).run(followerId, followingId);
     }
   },
   unfollowUser: ({ followerId, followingId }) => {
@@ -2834,9 +2882,9 @@ module.exports = {
   },
   // Active reel count (last 48 hours)
   getActiveReelCount: (userId) => {
-    // Use different date functions for SQL Server vs SQLite
+    // Use different date functions for PostgreSQL vs SQLite
     const query = isProduction
-      ? `SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= DATEADD(hour, -48, GETDATE())`
+      ? `SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = true AND created_at >= CURRENT_TIMESTAMP - INTERVAL '48 hours'`
       : `SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours')`;
     const row = db.prepare(query).get(userId);
     return row ? row.cnt : 0;
@@ -2890,7 +2938,7 @@ module.exports = {
   createCareerApplication: ({ position, name, email, phone, coverLetter, resumeFile, portfolioFile }) => {
     const stmt = db.prepare(`
       INSERT INTO career_applications (position, name, email, phone, cover_letter, resume_file, portfolio_file)
-      VALUES (?,?,?,?,?,?,?)
+      VALUES (?,?,?,?,?,?,?)SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sessions]') AND type = N'U'
     `);
     const info = stmt.run(position, name, email, phone || null, coverLetter, resumeFile || null, portfolioFile || null);
     return info.lastInsertRowid;
@@ -3099,7 +3147,7 @@ module.exports = {
       SELECT p.created_at, u.full_name
       FROM posts p
       JOIN users u ON p.user_id = u.id
-      WHERE p.is_reel = 0
+      WHERE p.is_reel = ${isProduction ? 'false' : '0'}
       ORDER BY p.created_at DESC
       LIMIT ?
     `).all(limit);
@@ -3139,7 +3187,7 @@ module.exports = {
       ? `
       SELECT created_at, full_name
       FROM users
-      WHERE created_at >= DATEADD(day, -1, GETDATE())
+      WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '1 day'
       ORDER BY created_at DESC
       LIMIT ?
     `
@@ -3493,15 +3541,13 @@ module.exports = {
   },
   createPaymentCustomer: ({ userId, provider, providerCustomerId }) => {
     if (isProduction) {
-      // SQL Server: Use MERGE
+      // PostgreSQL: Use ON CONFLICT
       db.prepare(`
-        MERGE INTO payment_customers AS target
-        USING (SELECT ? AS user_id, ? AS payment_provider, ? AS provider_customer_id) AS source
-        ON target.user_id = source.user_id AND target.payment_provider = source.payment_provider
-        WHEN MATCHED THEN
-          UPDATE SET provider_customer_id = source.provider_customer_id, updated_at = CURRENT_TIMESTAMP
-        WHEN NOT MATCHED THEN
-          INSERT (user_id, payment_provider, provider_customer_id, updated_at) VALUES (source.user_id, source.payment_provider, source.provider_customer_id, CURRENT_TIMESTAMP);
+        INSERT INTO payment_customers (user_id, payment_provider, provider_customer_id, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, payment_provider) DO UPDATE SET
+          provider_customer_id = EXCLUDED.provider_customer_id,
+          updated_at = CURRENT_TIMESTAMP
       `).run(userId, provider, providerCustomerId);
     } else {
       // SQLite: Use ON CONFLICT
@@ -3529,13 +3575,13 @@ module.exports = {
     
     let result;
     if (isProduction) {
-      // SQL Server: INSERT with WHERE NOT EXISTS
+      // PostgreSQL: INSERT with ON CONFLICT
       const stmt = db.prepare(`
         INSERT INTO user_blocks (blocker_id, blocked_id, reason)
-        SELECT ?, ?, ?
-        WHERE NOT EXISTS (SELECT 1 FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?)
+        VALUES (?, ?, ?)
+        ON CONFLICT (blocker_id, blocked_id) DO NOTHING
       `);
-      result = stmt.run(blockerId, blockedId, reason || null, blockerId, blockedId);
+      result = stmt.run(blockerId, blockedId, reason || null);
     } else {
       const stmt = db.prepare(`INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id, reason) VALUES (?,?,?)`);
       result = stmt.run(blockerId, blockedId, reason || null);
@@ -3619,21 +3665,28 @@ module.exports = {
   // User moderation (block functionality lock)
   lockUserBlockFunctionality: ({ userId, reason, lockedBy }) => {
     if (isProduction) {
-      // SQL Server: MERGE statement for upsert
+      // PostgreSQL: INSERT ... ON CONFLICT for upsert
       db.prepare(`
-        MERGE INTO user_moderation AS target
-        USING (SELECT ? AS user_id, 1 AS block_functionality_locked, ? AS lock_reason, ? AS locked_by, GETDATE() AS locked_at) AS source
-        ON target.user_id = source.user_id
-        WHEN MATCHED THEN
-          UPDATE SET block_functionality_locked = source.block_functionality_locked, lock_reason = source.lock_reason, locked_by = source.locked_by, locked_at = source.locked_at
-        WHEN NOT MATCHED THEN
-          INSERT (user_id, block_functionality_locked, lock_reason, locked_by, locked_at) VALUES (source.user_id, source.block_functionality_locked, source.lock_reason, source.locked_by, source.locked_at);
+        INSERT INTO user_moderation (user_id, block_functionality_locked, lock_reason, locked_by, locked_at)
+        VALUES (?, true, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT (user_id) DO UPDATE SET
+          block_functionality_locked = EXCLUDED.block_functionality_locked,
+          lock_reason = EXCLUDED.lock_reason,
+          locked_by = EXCLUDED.locked_by,
+          locked_at = EXCLUDED.locked_at
       `).run(userId, reason || null, lockedBy);
     } else {
-      db.prepare(`
-        INSERT OR REPLACE INTO user_moderation (user_id, block_functionality_locked, lock_reason, locked_by, locked_at)
-        VALUES (?, 1, ?, ?, CURRENT_TIMESTAMP)
-      `).run(userId, reason || null, lockedBy);
+      const sql = isProduction
+        ? `INSERT INTO user_moderation (user_id, block_functionality_locked, lock_reason, locked_by, locked_at)
+           VALUES (?, true, ?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT (user_id) DO UPDATE SET
+             block_functionality_locked = EXCLUDED.block_functionality_locked,
+             lock_reason = EXCLUDED.lock_reason,
+             locked_by = EXCLUDED.locked_by,
+             locked_at = EXCLUDED.locked_at`
+        : `INSERT OR REPLACE INTO user_moderation (user_id, block_functionality_locked, lock_reason, locked_by, locked_at)
+           VALUES (?, 1, ?, ?, CURRENT_TIMESTAMP)`;
+      db.prepare(sql).run(userId, reason || null, lockedBy);
     }
     db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       lockedBy,
@@ -4513,15 +4566,11 @@ module.exports = {
 
   setProjectReaction: (updateId, userId, reactionType = 'like') => {
     if (isProduction) {
-      // SQL Server: MERGE statement for upsert
+      // PostgreSQL: INSERT ... ON CONFLICT for upsert
       db.prepare(`
-        MERGE INTO project_reactions AS target
-        USING (SELECT ? AS update_id, ? AS user_id, ? AS reaction_type) AS source
-        ON target.update_id = source.update_id AND target.user_id = source.user_id
-        WHEN MATCHED THEN
-          UPDATE SET reaction_type = source.reaction_type
-        WHEN NOT MATCHED THEN
-          INSERT (update_id, user_id, reaction_type) VALUES (source.update_id, source.user_id, source.reaction_type);
+        INSERT INTO project_reactions (update_id, user_id, reaction_type)
+        VALUES (?, ?, ?)
+        ON CONFLICT (update_id, user_id) DO UPDATE SET reaction_type = EXCLUDED.reaction_type
       `).run(updateId, userId, reactionType);
     } else {
       const stmt = db.prepare(`
@@ -4687,15 +4736,11 @@ module.exports = {
   // Project comment reactions (stars)
   setProjectCommentReaction: (commentId, userId, reactionType = 'star') => {
     if (isProduction) {
-      // SQL Server: MERGE statement for upsert
+      // PostgreSQL: INSERT ... ON CONFLICT for upsert
       return db.prepare(`
-        MERGE INTO project_comment_reactions AS target
-        USING (SELECT ? AS comment_id, ? AS user_id, ? AS reaction_type) AS source
-        ON target.comment_id = source.comment_id AND target.user_id = source.user_id
-        WHEN MATCHED THEN
-          UPDATE SET reaction_type = source.reaction_type
-        WHEN NOT MATCHED THEN
-          INSERT (comment_id, user_id, reaction_type) VALUES (source.comment_id, source.user_id, source.reaction_type);
+        INSERT INTO project_comment_reactions (comment_id, user_id, reaction_type)
+        VALUES (?, ?, ?)
+        ON CONFLICT (comment_id, user_id) DO UPDATE SET reaction_type = EXCLUDED.reaction_type
       `).run(commentId, userId, reactionType);
     } else {
       const stmt = db.prepare(`

@@ -880,7 +880,10 @@ function assignRoleToUser(userId, roleId, { assignedBy = null, expiresAt = null,
   
   // If this is primary, unset any existing primary role
   if (isPrimary) {
-    db.prepare(`UPDATE rbac_user_roles SET is_primary = 0 WHERE user_id = ?`).run(userId);
+    const sql = isProduction
+      ? `UPDATE rbac_user_roles SET is_primary = false WHERE user_id = ?`
+      : `UPDATE rbac_user_roles SET is_primary = 0 WHERE user_id = ?`;
+    db.prepare(sql).run(userId);
   }
   
   if (isProduction) {
@@ -1572,9 +1575,9 @@ function getStats() {
   stats.userOverrides = db.prepare(`SELECT COUNT(*) as count FROM rbac_user_overrides`).get().count;
   stats.modules = db.prepare(`SELECT COUNT(*) as count FROM rbac_module_registrations WHERE is_enabled = ${enabledValue}`).get().count;
   
-  // Use SQL Server compatible date syntax when in production, SQLite date() otherwise
+  // Use PostgreSQL CURRENT_DATE in production, SQLite date() otherwise
   const todayDateSql = isProduction 
-    ? `SELECT COUNT(*) as count FROM rbac_audit_logs WHERE created_at >= CAST(GETDATE() AS DATE)`
+    ? `SELECT COUNT(*) as count FROM rbac_audit_logs WHERE created_at >= CURRENT_DATE`
     : `SELECT COUNT(*) as count FROM rbac_audit_logs WHERE created_at >= date('now')`;
   stats.auditLogsToday = db.prepare(todayDateSql).get().count;
   

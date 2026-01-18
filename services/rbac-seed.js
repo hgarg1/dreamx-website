@@ -478,13 +478,13 @@ async function seedDefaultAssignments() {
     if (!dbModule.db?.prepare) return;
     
     if (isProduction) {
-      // SQL Server: INSERT with WHERE NOT EXISTS
+      // PostgreSQL: INSERT with ON CONFLICT
       const stmt = dbModule.db.prepare(`
         INSERT INTO rbac_default_assignments (role_id, condition_type, condition_value, priority, is_enabled)
-        SELECT ?, 'new_user', NULL, 100, 1
-        WHERE NOT EXISTS (SELECT 1 FROM rbac_default_assignments WHERE role_id = ? AND condition_type = 'new_user')
+        VALUES (?, 'new_user', NULL, 100, true)
+        ON CONFLICT (role_id, condition_type) DO NOTHING
       `);
-      stmt.run(userRole.id, userRole.id);
+      stmt.run(userRole.id);
     } else {
       const stmt = dbModule.db.prepare(`
         INSERT OR IGNORE INTO rbac_default_assignments (role_id, condition_type, condition_value, priority, is_enabled)

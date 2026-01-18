@@ -487,16 +487,14 @@ class FallbackManager {
     if (db) {
       try {
         if (isProduction) {
-          // SQL Server: MERGE statement for upsert
+          // PostgreSQL: INSERT ... ON CONFLICT for upsert
           db.prepare(`
-            MERGE INTO rbac_settings AS target
-            USING (SELECT 'fallback_enabled' AS [key], ? AS value, GETDATE() AS updated_at) AS source
-            ON target.[key] = source.[key]
-            WHEN MATCHED THEN
-              UPDATE SET value = source.value, updated_at = source.updated_at
-            WHEN NOT MATCHED THEN
-              INSERT ([key], value, updated_at) VALUES (source.[key], source.value, source.updated_at);
-          `).run(enabled ? '1' : '0');
+            INSERT INTO rbac_settings (key, value, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT (key) DO UPDATE SET
+              value = EXCLUDED.value,
+              updated_at = EXCLUDED.updated_at
+          `).run('fallback_enabled', enabled ? '1' : '0');
         } else {
           db.prepare(`
             INSERT OR REPLACE INTO rbac_settings (key, value, updated_at)
