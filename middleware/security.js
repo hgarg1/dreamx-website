@@ -1,6 +1,7 @@
 // Security middleware configuration
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
 const crypto = require('crypto');
@@ -81,20 +82,42 @@ function configureHelmet() {
 
 /**
  * Extract IP address from request, handling Azure App Service proxy headers
+ * Uses ipKeyGenerator helper for proper IPv6 support
  */
 function getClientIp(req) {
     // Azure App Service uses X-Forwarded-For header
     const forwarded = req.headers['x-forwarded-for'];
+    let ip = req.ip;
+    
     if (forwarded) {
         // X-Forwarded-For can contain multiple IPs, take the first one
         const firstIp = forwarded.split(',')[0].trim();
         // Remove port if present (e.g., "72.83.92.223:60964" -> "72.83.92.223")
-        return firstIp.split(':')[0];
+        // For IPv6, the format is [::1]:port, so we need to handle brackets
+        if (firstIp.startsWith('[') && firstIp.includes(']:')) {
+            // IPv6 with port: [::1]:8080
+            ip = firstIp.split(']:')[0].substring(1);
+        } else if (firstIp.includes(':') && !firstIp.startsWith('[')) {
+            // IPv4 with port: 72.83.92.223:60964
+            ip = firstIp.split(':')[0];
+        } else {
+            ip = firstIp;
+        }
     }
     
-    // Fallback to req.ip, but remove port if present
-    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
-    return ip.split(':')[0];
+    // Fallback to req.ip if not found in X-Forwarded-For
+    if (!ip) {
+        ip = req.ip || req.connection?.remoteAddress || 'unknown';
+        // Remove port if present
+        if (ip.includes(':') && !ip.startsWith('[')) {
+            ip = ip.split(':')[0];
+        }
+    }
+    
+    // Use ipKeyGenerator helper to properly handle IPv6 normalization
+    // This ensures IPv6 addresses are normalized correctly and prevents bypass
+    // ipKeyGenerator masks IPv6 subnets to prevent rate limit bypass
+    return ipKeyGenerator(ip);
 }
 
 /**

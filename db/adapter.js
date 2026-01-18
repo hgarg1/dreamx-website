@@ -326,29 +326,108 @@ class PostgresPreparedStatement {
     return sql.replace(/\?/g, () => `$${paramIndex++}`);
   }
 
-  convertBooleanParams(params) {
-    // For PostgreSQL, we need to detect if a parameter is being compared to a boolean column
-    // This is a heuristic: if the SQL contains boolean column comparisons with parameters,
-    // we might need to convert 0/1 to false/true. However, this is complex without column info.
-    // For now, we'll rely on the SQL string conversion in convertBooleanComparisons.
-    // If a parameter is explicitly 0 or 1 and the SQL suggests it's a boolean comparison,
-    // we could convert it, but this is risky without more context.
-    // The SQL string conversion should handle most cases.
-    return params;
+  convertBooleanParams(sql, params) {
+    // For PostgreSQL, convert 0/1 parameter values to false/true when they're used with boolean columns
+    const booleanColumns = [
+      'verified', 'email_verified', 'phone_verified', 'read', 'is_hidden', 
+      'is_deleted', 'is_reel', 'is_group', 'is_frozen', 'is_active', 
+      'is_enabled', 'is_system_role', 'resolved', 'auto_renew', 'is_default', 
+      'onboarding_completed', 'discoverable_by_email', 'used', 'revoked', 
+      'is_pinned', 'is_public', 'email_notifications', 'push_notifications', 
+      'message_notifications', 'show_online_status', 'read_receipts', 
+      'chat_privileges_frozen', 'seller_privileges_frozen', 'first_goal_public', 
+      'notify_followers', 'block_functionality_locked', 'recording_enabled', 
+      'is_visible', 'is_archived', 'is_completed', 'is_cancelled', 
+      'is_published', 'needs_onboarding'
+    ];
+    
+    const convertedParams = [...params];
+    
+    // Extract column names from INSERT statements
+    const insertMatch = sql.match(/INSERT\s+INTO\s+\w+\s*\(([^)]+)\)/i);
+    let insertColumns = [];
+    if (insertMatch) {
+      insertColumns = insertMatch[1].split(',').map(col => col.trim().toLowerCase());
+    }
+    
+    // Extract column names from UPDATE statements
+    const updateMatch = sql.match(/UPDATE\s+\w+\s+SET\s+([^WHERE]+)/i);
+    let updateColumns = [];
+    if (updateMatch) {
+      updateMatch[1].split(',').forEach(assignment => {
+        const colMatch = assignment.match(/(\w+)\s*=/);
+        if (colMatch) {
+          updateColumns.push(colMatch[1].trim().toLowerCase());
+        }
+      });
+    }
+    
+    // Check each parameter position
+    for (let i = 0; i < params.length; i++) {
+      const paramValue = params[i];
+      // If parameter is 0 or 1 (integer), check if it's used with a boolean column
+      if (paramValue === 0 || paramValue === 1) {
+        const paramIndex = i + 1; // PostgreSQL uses 1-based indexing
+        
+        // Check INSERT statement column mapping
+        if (insertColumns.length > 0 && i < insertColumns.length) {
+          const columnName = insertColumns[i].toLowerCase();
+          if (booleanColumns.includes(columnName)) {
+            convertedParams[i] = paramValue === 1 ? true : false;
+            continue;
+          }
+        }
+        
+        // Check UPDATE statement column mapping
+        if (updateColumns.length > 0) {
+          // For UPDATE, we need to find which parameter corresponds to which column
+          // This is trickier, so we'll use pattern matching
+          for (const column of booleanColumns) {
+            const pattern = new RegExp(`\\b${column}\\s*=\\s*\\$${paramIndex}\\b`, 'i');
+            if (pattern.test(sql)) {
+              convertedParams[i] = paramValue === 1 ? true : false;
+              break;
+            }
+          }
+        }
+        
+        // Check WHERE clause comparisons
+        for (const column of booleanColumns) {
+          const patterns = [
+            new RegExp(`\\b${column}\\s*=\\s*\\$${paramIndex}\\b`, 'i'),
+            new RegExp(`\\b${column}\\s*!=\\s*\\$${paramIndex}\\b`, 'i'),
+            new RegExp(`\\b${column}\\s*<>\\s*\\$${paramIndex}\\b`, 'i')
+          ];
+          
+          if (patterns.some(pattern => pattern.test(sql))) {
+            convertedParams[i] = paramValue === 1 ? true : false;
+            break;
+          }
+        }
+      }
+    }
+    
+    return convertedParams;
   }
 
   async get(...params) {
-    const result = await this.db.query(this.sql, params);
+    // Convert boolean parameter values (0/1) to false/true for PostgreSQL
+    const convertedParams = this.convertBooleanParams(this.sql, params);
+    const result = await this.db.query(this.sql, convertedParams);
     return result.rows[0] || null;
   }
 
   async all(...params) {
-    const result = await this.db.query(this.sql, params);
+    // Convert boolean parameter values (0/1) to false/true for PostgreSQL
+    const convertedParams = this.convertBooleanParams(this.sql, params);
+    const result = await this.db.query(this.sql, convertedParams);
     return result.rows || [];
   }
 
   async run(...params) {
-    const result = await this.db.query(this.sql, params);
+    // Convert boolean parameter values (0/1) to false/true for PostgreSQL
+    const convertedParams = this.convertBooleanParams(this.sql, params);
+    const result = await this.db.query(this.sql, convertedParams);
     
     // For INSERT statements, get the inserted ID
     if (this.sql.trim().toUpperCase().startsWith('INSERT')) {

@@ -254,14 +254,14 @@ function convertBooleanComparisons(sql) {
   const booleanColumns = [
     'verified', 'email_verified', 'phone_verified',
     'read', 'is_hidden', 'is_deleted', 'is_reel', 'is_group', 'is_frozen',
-    'is_active', 'resolved', 'auto_renew', 'is_default', 'onboarding_completed',
-    'discoverable_by_email', 'used', 'revoked', 'is_pinned', 'is_public',
-    'email_notifications', 'push_notifications', 'message_notifications',
-    'show_online_status', 'read_receipts', 'chat_privileges_frozen',
-    'seller_privileges_frozen', 'first_goal_public', 'notify_followers',
-    'block_functionality_locked', 'recording_enabled', 'is_visible',
-    'is_archived', 'is_completed', 'is_cancelled', 'is_published',
-    'needs_onboarding'
+    'is_active', 'is_enabled', 'is_system_role', 'resolved', 'auto_renew', 
+    'is_default', 'onboarding_completed', 'discoverable_by_email', 'used', 
+    'revoked', 'is_pinned', 'is_public', 'email_notifications', 
+    'push_notifications', 'message_notifications', 'show_online_status', 
+    'read_receipts', 'chat_privileges_frozen', 'seller_privileges_frozen', 
+    'first_goal_public', 'notify_followers', 'block_functionality_locked', 
+    'recording_enabled', 'is_visible', 'is_archived', 'is_completed', 
+    'is_cancelled', 'is_published', 'needs_onboarding'
   ];
   
   let convertedSql = sql;
