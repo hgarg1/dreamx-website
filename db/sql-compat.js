@@ -178,8 +178,10 @@ function convertConditionalLogic(sql) {
   let convertedSql = sql;
   
   // Pattern 1: IF NOT EXISTS (SELECT ...) BEGIN ... END
+  // Also handle: IF NOT EXISTS (SELECT * FROM sys.objects WHERE ...) BEGIN ... END
   // Convert to just the CREATE statement with IF NOT EXISTS
-  const ifNotExistsPattern = /IF\s+NOT\s+EXISTS\s*\([^)]*SELECT[^)]*\)\s*BEGIN\s*([\s\S]*?)\s*END/gi;
+  // Use a more flexible pattern that handles multi-line SELECT statements
+  const ifNotExistsPattern = /IF\s+NOT\s+EXISTS\s*\([\s\S]*?\)\s*BEGIN\s*([\s\S]*?)\s*END/gi;
   convertedSql = convertedSql.replace(ifNotExistsPattern, (match, content) => {
     const trimmed = content.trim();
     // If it's a CREATE TABLE, add IF NOT EXISTS
@@ -199,8 +201,9 @@ function convertConditionalLogic(sql) {
   });
   
   // Pattern 2: IF EXISTS (SELECT ...) BEGIN ... END
+  // Also handle multi-line SELECT statements
   // Convert DROP statements to DROP IF EXISTS
-  const ifExistsPattern = /IF\s+EXISTS\s*\([^)]*SELECT[^)]*\)\s*BEGIN\s*([\s\S]*?)\s*END/gi;
+  const ifExistsPattern = /IF\s+EXISTS\s*\([\s\S]*?\)\s*BEGIN\s*([\s\S]*?)\s*END/gi;
   convertedSql = convertedSql.replace(ifExistsPattern, (match, content) => {
     const trimmed = content.trim();
     // If it's a DROP TABLE, add IF EXISTS
@@ -224,7 +227,23 @@ function convertConditionalLogic(sql) {
   convertedSql = convertedSql.replace(/IF\s+OBJECT_ID\s*\([^)]+\)\s+IS\s+NOT\s+NULL\s+DROP\s+TABLE\s+([^\s;]+)/gi, 
     'DROP TABLE IF EXISTS $1');
   
-  // Pattern 4: Standalone IF statements (without EXISTS)
+  // Pattern 4: Remove SQL Server-specific schema references like [dbo].table
+  convertedSql = convertedSql.replace(/\[dbo\]\./gi, '');
+  convertedSql = convertedSql.replace(/\[(\w+)\]\./gi, '$1.'); // Remove brackets from schema/table names
+  
+  // Pattern 5: Remove SQL Server-specific system table references
+  convertedSql = convertedSql.replace(/sys\.objects/gi, 'information_schema.tables');
+  convertedSql = convertedSql.replace(/OBJECT_ID\s*\([^)]+\)/gi, 'NULL'); // Remove OBJECT_ID calls
+  
+  // Pattern 6: Remove SQL Server-specific data types and syntax
+  convertedSql = convertedSql.replace(/\bNVARCHAR\((\d+)\)/gi, 'VARCHAR($1)');
+  convertedSql = convertedSql.replace(/\bNVARCHAR\(MAX\)/gi, 'TEXT');
+  convertedSql = convertedSql.replace(/\bBIT\b/gi, 'BOOLEAN');
+  convertedSql = convertedSql.replace(/\bDATETIME2\b/gi, 'TIMESTAMP');
+  convertedSql = convertedSql.replace(/\bSYSUTCDATETIME\(\)/gi, 'CURRENT_TIMESTAMP');
+  convertedSql = convertedSql.replace(/\bN'([^']+)'/gi, "'$1'"); // Remove N prefix from string literals
+  
+  // Pattern 7: Standalone IF statements (without EXISTS)
   // Remove the conditional wrapper and just execute the content
   const ifPattern = /IF\s+[^(]+\s+BEGIN\s*([\s\S]*?)\s*END/gi;
   convertedSql = convertedSql.replace(ifPattern, (match, content) => {

@@ -281,7 +281,8 @@ function getRoles({ includeDisabled = false, includeDeleted = false, search = nu
   }
   
   if (!includeDisabled) {
-    sql += ' AND r.is_enabled = 1';
+    // Use boolean true for PostgreSQL, 1 for SQLite
+    sql += isProduction ? ' AND r.is_enabled = true' : ' AND r.is_enabled = 1';
   }
   
   if (search) {
@@ -540,7 +541,8 @@ function getPermissions({ groupId = null, module = null, resource = null, includ
   }
   
   if (!includeDisabled) {
-    sql += ' AND p.is_enabled = 1';
+    // Use boolean true for PostgreSQL, 1 for SQLite
+    sql += isProduction ? ' AND p.is_enabled = true' : ' AND p.is_enabled = 1';
   }
   
   if (groupId) {
@@ -741,7 +743,8 @@ function getPermissionGroups({ includeDisabled = false, includeDeleted = false }
   }
   
   if (!includeDisabled) {
-    sql += ' AND pg.is_enabled = 1';
+    // Use boolean true for PostgreSQL, 1 for SQLite
+    sql += isProduction ? ' AND pg.is_enabled = true' : ' AND pg.is_enabled = 1';
   }
   
   sql += ' ORDER BY pg.display_order, pg.name';
@@ -838,12 +841,13 @@ function getRolePermissions(roleId, { includeInherited = true, includeExpired = 
   for (const role of roleChain.reverse()) {
     if (!role) continue;
     
+    const enabledValue = isProduction ? 'true' : '1';
     let sql = `
       SELECT p.*, rp.is_denied, rp.expires_at, rp.granted_by, rp.granted_at,
              ? as source_role_id, ? as source_role_name
       FROM rbac_role_permissions rp
       JOIN rbac_permissions p ON p.id = rp.permission_id
-      WHERE rp.role_id = ? AND p.is_enabled = 1 AND p.deleted_at IS NULL
+      WHERE rp.role_id = ? AND p.is_enabled = ${enabledValue} AND p.deleted_at IS NULL
     `;
     
     if (!includeExpired) {
@@ -949,11 +953,12 @@ function revokeRoleFromUser(userId, roleId, revokedBy = null, scope = null) {
 function getUserRoles(userId, { includeExpired = false } = {}) {
   if (!isInitialized) throw new Error('RBAC service not initialized');
   
+  const enabledValue = isProduction ? 'true' : '1';
   let sql = `
     SELECT r.*, ur.is_primary, ur.expires_at, ur.assigned_by, ur.assigned_at, ur.scope
     FROM rbac_user_roles ur
     JOIN rbac_roles r ON r.id = ur.role_id
-    WHERE ur.user_id = ? AND r.is_enabled = 1 AND r.deleted_at IS NULL
+    WHERE ur.user_id = ? AND r.is_enabled = ${enabledValue} AND r.deleted_at IS NULL
   `;
   
   if (!includeExpired) {
@@ -1489,8 +1494,9 @@ function registerModule({ moduleName, displayName, description, version, permiss
 function getRegisteredModules() {
   if (!isInitialized) throw new Error('RBAC service not initialized');
   
+  const enabledValue = isProduction ? 'true' : '1';
   return db.prepare(`
-    SELECT * FROM rbac_module_registrations WHERE is_enabled = 1 ORDER BY display_name
+    SELECT * FROM rbac_module_registrations WHERE is_enabled = ${enabledValue} ORDER BY display_name
   `).all().map(m => ({
     ...m,
     permissionsSchema: m.permissions_schema ? JSON.parse(m.permissions_schema) : null
@@ -1558,12 +1564,14 @@ function getStats() {
   const stats = {};
   
   stats.roles = db.prepare(`SELECT COUNT(*) as count FROM rbac_roles WHERE deleted_at IS NULL`).get().count;
-  stats.enabledRoles = db.prepare(`SELECT COUNT(*) as count FROM rbac_roles WHERE is_enabled = 1 AND deleted_at IS NULL`).get().count;
+  const enabledValue = isProduction ? 'true' : '1';
+  stats.enabledRoles = db.prepare(`SELECT COUNT(*) as count FROM rbac_roles WHERE is_enabled = ${enabledValue} AND deleted_at IS NULL`).get().count;
   stats.permissions = db.prepare(`SELECT COUNT(*) as count FROM rbac_permissions WHERE deleted_at IS NULL`).get().count;
   stats.permissionGroups = db.prepare(`SELECT COUNT(*) as count FROM rbac_permission_groups WHERE deleted_at IS NULL`).get().count;
   stats.userRoleAssignments = db.prepare(`SELECT COUNT(*) as count FROM rbac_user_roles`).get().count;
   stats.userOverrides = db.prepare(`SELECT COUNT(*) as count FROM rbac_user_overrides`).get().count;
-  stats.modules = db.prepare(`SELECT COUNT(*) as count FROM rbac_module_registrations WHERE is_enabled = 1`).get().count;
+  const enabledValue = isProduction ? 'true' : '1';
+  stats.modules = db.prepare(`SELECT COUNT(*) as count FROM rbac_module_registrations WHERE is_enabled = ${enabledValue}`).get().count;
   
   // Use SQL Server compatible date syntax when in production, SQLite date() otherwise
   const todayDateSql = isProduction 

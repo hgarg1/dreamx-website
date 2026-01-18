@@ -1824,21 +1824,20 @@ async function ensureSessionTable() {
   }
 
   try {
+    // Use PostgreSQL-compatible syntax
     await dbWrapper.exec(`
-      IF NOT EXISTS (
-        SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sessions]') AND type = N'U'
-      )
-      BEGIN
-        CREATE TABLE sessions (
-          sid NVARCHAR(255) NOT NULL PRIMARY KEY,
-          session NVARCHAR(MAX) NOT NULL,
-          expires DATETIME NOT NULL
-        );
-        CREATE INDEX IX_sessions_expires ON sessions(expires);
-      END
+      CREATE TABLE IF NOT EXISTS sessions (
+        sid VARCHAR(255) NOT NULL PRIMARY KEY,
+        session TEXT NOT NULL,
+        expires TIMESTAMP NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);
     `);
   } catch (error) {
-    console.warn('Failed to ensure sessions table exists:', error.message);
+    // Ignore "already exists" errors
+    if (!error.message.includes('already exists') && !error.message.includes('duplicate')) {
+      console.warn('Failed to ensure sessions table exists:', error.message);
+    }
   }
 }
 
