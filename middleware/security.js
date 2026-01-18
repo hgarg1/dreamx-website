@@ -397,12 +397,23 @@ function csrfProtection(req, res, next) {
 
     // Skip CSRF for safe methods (GET, HEAD, OPTIONS)
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-        // Generate token for use in forms
-        if (req.session && !req.session.csrfToken) {
-            req.session.csrfToken = generateCsrfToken();
+        // Generate token for use in forms if session exists
+        if (req.session) {
+            if (!req.session.csrfToken) {
+                req.session.csrfToken = generateCsrfToken();
+                // Save session to ensure token persists
+                req.session.save((err) => {
+                    if (err) {
+                        console.warn('Failed to save CSRF token to session:', err?.message || err);
+                    }
+                });
+            }
+            // Make token available to templates and set helper cookie for JS clients
+            setResponseToken(req.session.csrfToken || '');
+        } else {
+            // No session yet - set empty token (session will be created on first write)
+            setResponseToken('');
         }
-        // Make token available to templates and set helper cookie for JS clients
-        setResponseToken(req.session?.csrfToken || '');
         return next();
     }
 
