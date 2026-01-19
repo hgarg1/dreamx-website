@@ -105,12 +105,15 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email 
     const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
     const baseHandle = generateBaseHandle(displayName, email);
     const uniqueHandle = await generateUniqueHandle(baseHandle);
-    const userId = createUser({
+    const userId = await createUser({
         fullName: displayName || (email || 'User'),
         email: email || `${providerId}@${provider}.oauth.local`,
         passwordHash: dummyHash,
         handle: uniqueHandle
     });
+    if (!userId) {
+        throw new Error('Failed to create user: no user ID returned');
+    }
     updateUserProvider({ userId, provider, providerId });
     return await getUserById(userId);
 }
@@ -278,7 +281,7 @@ router.post('/register', registrationLimiter, async (req, res) => {
 
     try {
         const hash = await bcrypt.hash(password, 10);
-        const userId = createUser({
+        const userId = await createUser({
             fullName,
             email: email.trim().toLowerCase(),
             passwordHash: hash,

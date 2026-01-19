@@ -814,12 +814,15 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email 
     const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
     const baseHandle = generateBaseHandle(displayName, email);
     const uniqueHandle = await generateUniqueHandle(baseHandle);
-    const userId = createUser({
+    const userId = await createUser({
         fullName: displayName || (email || 'User'),
         email: email || `${providerId}@${provider}.oauth.local`,
         passwordHash: dummyHash,
         handle: uniqueHandle
     });
+    if (!userId) {
+        throw new Error('Failed to create user: no user ID returned');
+    }
     updateUserProvider({ userId, provider, providerId });
     return await getUserById(userId);
 }
@@ -996,7 +999,11 @@ async function seedAdminUser() {
         const existing = await getUserByEmail(adminEmail);
         if (!existing) {
             const hash = await bcrypt.hash(adminPass, 10);
-            const id = createUser({ fullName: 'Super Admin', email: adminEmail, passwordHash: hash });
+            const id = await createUser({ fullName: 'Super Admin', email: adminEmail, passwordHash: hash });
+            if (!id) {
+                console.error('Failed to create admin user: no ID returned');
+                return;
+            }
             updateUserRole({ userId: id, role: 'super_admin' });
             // Ensure seeded super admin is verified
             try { markEmailAsVerified({ userId: id }); } catch (_) { }

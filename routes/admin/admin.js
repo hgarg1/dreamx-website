@@ -356,7 +356,10 @@ function initAdminRoutes({ io, webpush }) {
         } else if (!permissions.length) {
             permissions = defaultPermissionsForRole(targetRole);
         }
-        const newUserId = createUser({ fullName, email, passwordHash });
+        const newUserId = await createUser({ fullName, email, passwordHash });
+        if (!newUserId) {
+            return res.status(500).json({ error: 'Failed to create user' });
+        }
         if (targetRole !== 'user') {
             updateUserRole({ userId: newUserId, role: targetRole });
         }

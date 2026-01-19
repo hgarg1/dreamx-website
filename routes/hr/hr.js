@@ -71,8 +71,8 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
         return actorRank > targetRank && actorRank >= 2;
     }
 
-    function requireHR(req, res, next) {
-        const user = req.session.userId ? getUserById(req.session.userId) : null;
+    async function requireHR(req, res, next) {
+        const user = req.session.userId ? await getUserById(req.session.userId) : null;
         if (!isHR(user)) return res.redirect('/');
         next();
     }
@@ -94,8 +94,8 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
         return requestedStatus || 'live';
     }
     // HR review portal
-    router.get('/hr', requireHR, (req, res) => {
-        const me = getUserById(req.session.userId);
+    router.get('/hr', requireHR, async (req, res) => {
+        const me = await getUserById(req.session.userId);
         const careers = getCareerApplicationsPaged({ limit: 100, offset: 0 });
         const jobPostings = getCareerJobsForAdmin();
         const hrTeam = (getHrTeam() || []).map(member => {
@@ -150,7 +150,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
                 });
             }
 
-            const hrUser = getUserById(req.session.userId);
+            const hrUser = await getUserById(req.session.userId);
             const fromHR = hrUser.full_name || hrUser.email;
 
             await emailService.sendHRContactEmail(
@@ -196,7 +196,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
     });
 
     router.post('/api/hr/accounts', requireHR, async (req, res) => {
-        const actor = req.session.userId ? getUserById(req.session.userId) : null;
+        const actor = req.session.userId ? await getUserById(req.session.userId) : null;
         if (!actor) return res.status(403).json({ error: 'Unauthorized' });
         if (!isSuperHR(actor)) return res.status(403).json({ error: 'Only senior HR can create team members' });
 
@@ -226,17 +226,20 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
                 ? Array.from(HR_PERMISSION_KEYS)
                 : ['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages'];
         }
-        if (getUserByEmail(email)) {
+        if (await getUserByEmail(email)) {
             return res.status(409).json({ error: 'An account with that email already exists' });
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
-        const newUserId = createUser({ fullName, email, passwordHash });
+        const newUserId = await createUser({ fullName, email, passwordHash });
+        if (!newUserId) {
+            return res.status(500).json({ error: 'Failed to create user account' });
+        }
         updateUserRole({ userId: newUserId, role: targetRole });
         updateAdminPermissions({ userId: newUserId, permissions: hrPermissions, scopes: { scopes, locked: false } });
         addAuditLog({ userId: actor.id, action: 'hr_created_account', details: JSON.stringify({ email, role: targetRole }) });
 
-        const created = getUserById(newUserId);
+        const created = await getUserById(newUserId);
         res.json({
             success: true,
             user: {
@@ -252,10 +255,10 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
         });
     });
 
-    router.post('/api/hr/accounts/:id/scopes', requireHR, (req, res) => {
-        const actor = req.session.userId ? getUserById(req.session.userId) : null;
+    router.post('/api/hr/accounts/:id/scopes', requireHR, async (req, res) => {
+        const actor = req.session.userId ? await getUserById(req.session.userId) : null;
         const targetId = parseInt(req.params.id, 10);
-        const targetUser = getUserById(targetId);
+        const targetUser = await getUserById(targetId);
         if (!actor || !targetUser || !isHR(targetUser)) {
             return res.status(404).json({ error: 'HR account not found' });
         }
@@ -275,10 +278,10 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
         return res.json({ success: true, scopes, locked: shouldLock });
     });
 
-    router.post('/api/hr/accounts/:id/permissions', requireHR, (req, res) => {
-        const actor = req.session.userId ? getUserById(req.session.userId) : null;
+    router.post('/api/hr/accounts/:id/permissions', requireHR, async (req, res) => {
+        const actor = req.session.userId ? await getUserById(req.session.userId) : null;
         const targetId = parseInt(req.params.id, 10);
-        const targetUser = getUserById(targetId);
+        const targetUser = await getUserById(targetId);
         if (!actor || !targetUser || !isHR(targetUser)) {
             return res.status(404).json({ error: 'HR account not found' });
         }

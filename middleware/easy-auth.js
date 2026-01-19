@@ -162,13 +162,15 @@ async function findOrCreateEasyAuthUser(principal, provider) {
     const uniqueHandle = await generateUniqueHandle(baseHandle);
     
     const { createUser } = require('../db');
-    const userId = createUser({
+    const userId = await createUser({
         fullName: displayName,
         email: email || `${providerId}@${provider}.easyauth.local`,
         passwordHash: dummyHash,
         handle: uniqueHandle
     });
-    
+    if (!userId) {
+        throw new Error('Failed to create user: no user ID returned');
+    }
     updateUserProvider({ userId, provider, providerId });
     
     // Auto-verify email for Easy Auth users

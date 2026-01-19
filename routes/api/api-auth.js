@@ -348,12 +348,15 @@ router.post('/api/auth/register', express.json(), async (req, res) => {
 
         // Create user
         const hash = await bcrypt.hash(password, 10);
-        const userId = createUser({
+        const userId = await createUser({
             fullName,
             email: email.trim().toLowerCase(),
             passwordHash: hash,
             handle: userHandle
         });
+        if (!userId) {
+            return sendResponse(res, false, null, 'Failed to create user account', 500);
+        }
 
         // Initialize free subscription
         try {

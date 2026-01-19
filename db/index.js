@@ -1772,10 +1772,28 @@ module.exports = {
     ).all(userId);
     return result instanceof Promise ? await result : result;
   },
-  createUser: ({ fullName, email, passwordHash, handle }) => {
-    const stmt = db.prepare(`INSERT INTO users (full_name, email, password_hash, handle) VALUES (?,?,?,?)`);
-    const info = stmt.run(fullName, email, passwordHash, handle || null);
-    return info.lastInsertRowid;
+  createUser: async ({ fullName, email, passwordHash, handle }) => {
+    if (isProduction) {
+      // PostgreSQL: Use RETURNING to get the inserted ID reliably
+      const stmt = db.prepare(`
+        INSERT INTO users (full_name, email, password_hash, handle) 
+        VALUES (?, ?, ?, ?) 
+        RETURNING id
+      `);
+      const result = await stmt.get(fullName, email, passwordHash, handle || null);
+      if (!result || !result.id) {
+        throw new Error('Failed to create user: no ID returned');
+      }
+      return result.id;
+    } else {
+      // SQLite: Use lastInsertRowid (synchronous)
+      const stmt = db.prepare(`INSERT INTO users (full_name, email, password_hash, handle) VALUES (?,?,?,?)`);
+      const info = stmt.run(fullName, email, passwordHash, handle || null);
+      if (!info.lastInsertRowid) {
+        throw new Error('Failed to create user: no ID returned');
+      }
+      return info.lastInsertRowid;
+    }
   },
   updateUserHandle: ({ userId, handle }) => {
     db.prepare(`UPDATE users SET handle = ? WHERE id = ?`).run(handle, userId);
@@ -1953,6 +1971,12 @@ module.exports = {
     return { users, conversations: conv, messages: msgs };
   },
   updateUserProvider: ({ userId, provider, providerId }) => {
+    // Validate required parameters
+    if (!userId || !provider || !providerId) {
+      console.warn('updateUserProvider called with invalid parameters:', { userId, provider, providerId });
+      return;
+    }
+    
     // Back-compat: also store on users table if columns exist
     try { db.prepare(`UPDATE users SET provider = ?, provider_id = ? WHERE id = ?`).run(provider, providerId, userId); } catch (e) { }
     // Preferred: link in oauth_accounts
