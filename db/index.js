@@ -512,38 +512,7 @@ function prepare(sql) {
 }
 
 // Ensure the PostgreSQL session table exists for express-session store
-async function ensureSessionTable() {
-  if (!isProduction) return;
-
-  // Make sure the SQL wrapper is ready
-  if (!dbWrapper) {
-    await initializeDatabase();
-  }
-
-  try {
-    // Check if table exists and what columns it has
-    const tableCheck = await dbWrapper.prepare(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'sessions' 
-      AND table_schema = 'public'
-    `).all();
-    
-    if (tableCheck && tableCheck.length > 0) {
-      // Table exists - check if it has old column names
-      const columns = tableCheck.map(c => c.column_name);
-      const hasOldColumns = columns.includes('session') || columns.includes('expires');
-      const hasNewColumns = columns.includes('sess') && columns.includes('expire');
-      
-      console.log(`📋 Sessions table columns detected: ${columns.join(', ')}`);
-      
-      if (hasOldColumns && !hasNewColumns) {
-  );
-  CREATE INDEX IF NOT EXISTS idx_service_orders_service ON service_orders(service_id);
-  CREATE INDEX IF NOT EXISTS idx_service_orders_buyer ON service_orders(buyer_id);
-  CREATE INDEX IF NOT EXISTS idx_service_orders_status ON service_orders(status);
-  `);
-} catch (e) { /* table may already exist */ }
+// Note: The implementation of ensureSessionTable() is defined later in this file (around line 1673)
 
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS service_reviews (
@@ -1642,8 +1611,6 @@ CREATE INDEX IF NOT EXISTS idx_pricing_tiers_tier_id ON pricing_tiers(tier_id);
 CREATE INDEX IF NOT EXISTS idx_pricing_tiers_active ON pricing_tiers(is_active);
 CREATE INDEX IF NOT EXISTS idx_pricing_tiers_order ON pricing_tiers(display_order);
 `);
-
-} // End of non-production schema initialization
 
 // Helper function to get the database instance (works with both SQLite and PostgreSQL)
 function getDb() {
