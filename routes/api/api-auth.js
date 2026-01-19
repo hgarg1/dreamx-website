@@ -266,7 +266,7 @@ router.post('/api/auth/refresh', express.json(), async (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/api/auth/me', authenticateToken, (req, res) => {
+router.get('/api/auth/me', authenticateToken, async (req, res) => {
     try {
         const user = await getUserById(req.userId);
         if (!user) {

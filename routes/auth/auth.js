@@ -793,7 +793,7 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
     if (accountStatus.status === 'suspended') {
         return res.redirect(`/account-status?userId=${user.id}`);
     }
-    req.login(user, (err) => {
+    req.login(user, async (err) => {
         if (err) {
             console.error('Login error:', err);
             return res.status(500).render('auth/login', {
@@ -806,7 +806,7 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
         if (req.session) {
             req.session.userId = user.id;
             req.session.ssoPasswordBootstrap = null;
-            req.session.save((saveErr) => {
+            req.session.save(async (saveErr) => {
                 if (saveErr) {
                     console.error('Session save error:', saveErr);
                 }
@@ -815,7 +815,7 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
                 return res.redirect(redirectPath);
             });
         } else {
-            const freshUser = getUserById(user.id);
+            const freshUser = await getUserById(user.id);
             const redirectPath = resolvePostAuthRedirect(freshUser);
             return res.redirect(redirectPath);
         }
@@ -998,7 +998,7 @@ async function handleOAuthCallback(req, res, provider) {
                 // Ensure session is saved
                 req.session.userId = req.user.id;
                 return new Promise((resolve) => {
-                    req.session.save((saveErr) => {
+                    req.session.save(async (saveErr) => {
                         if (saveErr) {
                             console.error(`❌ ${provider} session save error:`, saveErr);
                             return resolve(res.redirect('/login'));

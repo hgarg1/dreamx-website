@@ -373,7 +373,7 @@ function initSettingsRoutes() {
     });
 
     // Unlink OAuth provider
-    router.post('/settings/connections/unlink', (req, res) => {
+    router.post('/settings/connections/unlink', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         const provider = (req.body.provider || '').toLowerCase();
         if (!['google', 'microsoft', 'apple'].includes(provider)) {

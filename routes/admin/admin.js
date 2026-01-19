@@ -220,7 +220,7 @@ async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions,
 // Initialize router with dependencies
 function initAdminRoutes({ io, webpush }) {
     // Admin dashboard
-    router.get('/admin', requireAdmin, (req, res) => {
+    router.get('/admin', requireAdmin, async (req, res) => {
         const stats = getStats();
         const pageSize = 20;
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
@@ -370,7 +370,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Admin: adjust permissions/scopes
-    router.post('/admin/users/:id/permissions', requireAdmin, (req, res) => {
+    router.post('/admin/users/:id/permissions', requireAdmin, async (req, res) => {
         const actor = req.session.userId ? await getUserById(req.session.userId) : null;
         const targetId = parseInt(req.params.id, 10);
         const targetUser = await getUserById(targetId);
@@ -394,7 +394,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Admin: Services moderation portal
-    router.get('/admin/services', requireAdmin, (req, res) => {
+    router.get('/admin/services', requireAdmin, async (req, res) => {
         const status = (req.query.status || '').toLowerCase() || null;
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
         const pageSize = 25;
@@ -561,10 +561,10 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Update user role (super admin only)
-    router.post('/admin/users/:id/role', requireSuperAdmin, (req, res) => {
+    router.post('/admin/users/:id/role', requireSuperAdmin, async (req, res) => {
         const id = parseInt(req.params.id);
         const role = (req.body.role || 'user').toLowerCase();
-        const me = getUserById(req.session.userId);
+        const me = await getUserById(req.session.userId);
 
         if (!['user', 'admin', 'super_admin', 'global_admin', 'hr', 'super_hr', 'global_hr'].includes(role)) {
             return res.redirect('/admin?error=Invalid+role');
@@ -909,7 +909,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Admin: Freeze/unfreeze chat privileges
-    router.post('/admin/users/:id/freeze-chat', requireAdmin, (req, res) => {
+    router.post('/admin/users/:id/freeze-chat', requireAdmin, async (req, res) => {
         const userId = parseInt(req.params.id, 10);
         const { action, reason } = req.body;
         const freeze = action === 'freeze' ? 1 : 0;
