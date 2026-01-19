@@ -730,7 +730,31 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
         });
     }
     
-    const ok = await bcrypt.compare(password, user.password_hash);
+    // Final defensive check right before bcrypt.compare to prevent "data and hash arguments required" error
+    // This should never be hit if validation above works, but adds extra safety
+    const trimmedPassword = password.trim();
+    const hashValue = user.password_hash;
+    
+    if (!trimmedPassword || !hashValue || typeof hashValue !== 'string' || hashValue.length === 0) {
+        console.error('bcrypt.compare called with invalid arguments:', {
+            hasPassword: !!trimmedPassword,
+            passwordLength: trimmedPassword ? trimmedPassword.length : 0,
+            hasHash: !!hashValue,
+            hashType: typeof hashValue,
+            hashLength: hashValue ? hashValue.length : 0,
+            userEmail: normalizedEmail,
+            userId: user.id
+        });
+        accountLockout.recordFailedAttempt(normalizedEmail, req.ip);
+        return res.status(400).render('auth/login', { 
+            title: 'Login - Dream X', 
+            currentPage: 'auth/login', 
+            error: 'Invalid credentials.', 
+            providers 
+        });
+    }
+    
+    const ok = await bcrypt.compare(trimmedPassword, hashValue);
     if (!ok) {
         // Record failed login attempt
         const lockoutStatus = accountLockout.recordFailedAttempt(normalizedEmail, req.ip);
