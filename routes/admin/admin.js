@@ -160,43 +160,43 @@ function canManageHrRole(actor, targetRole) {
     return actorRank > targetRank && actorRank >= 2;
 }
 
-function requireAdmin(req, res, next) {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+async function requireAdmin(req, res, next) {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isAdmin(user)) return res.redirect('/');
     next();
 }
 
-function requireSuperAdmin(req, res, next) {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+async function requireSuperAdmin(req, res, next) {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isSuperAdmin(user)) return res.redirect('/admin?error=Insufficient+permissions');
     next();
 }
 
-function requireGlobalAdmin(req, res, next) {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+async function requireGlobalAdmin(req, res, next) {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!user || user.role !== 'global_admin') {
         return res.status(403).json({ error: 'Access denied. Global admin privileges required.' });
     }
     next();
 }
 
-function requireHR(req, res, next) {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+async function requireHR(req, res, next) {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isHR(user)) return res.redirect('/');
     next();
 }
 
-function requireAdminOrHR(req, res, next) {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+async function requireAdminOrHR(req, res, next) {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isAdmin(user) && !isHR(user)) return res.redirect('/');
     next();
 }
 
-async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions, deletePushSubscription, getUserById }) {
+async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions, deletePushSubscription, getUserById: getUserByIdFn }) {
     try {
         const webpush = require('web-push');
         if (!webpush) return;
-        const user = getUserById(userId);
+        const user = await getUserByIdFn(userId);
         if (!user || user.push_notifications !== 1) return;
         const subs = getPushSubscriptions(userId) || [];
         const payload = JSON.stringify({ title: title || 'Dream X', body: body || '', url: url || '/', icon: '/img/icon-192x192.png', badge: '/img/badge-72x72.png' });
@@ -243,7 +243,7 @@ function initAdminRoutes({ io, webpush }) {
             };
         });
 
-        const me = req.session.userId ? getUserById(req.session.userId) : null;
+        const me = req.session.userId ? await getUserById(req.session.userId) : null;
         const logs = (me && (me.role === 'super_admin' || me.role === 'global_admin')) ? getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
 
         const qLimit = 20;
@@ -327,7 +327,7 @@ function initAdminRoutes({ io, webpush }) {
 
     // Admin: create users/admins via wizard
     router.post('/admin/users/wizard', requireAdmin, async (req, res) => {
-        const actor = req.session.userId ? getUserById(req.session.userId) : null;
+        const actor = req.session.userId ? await getUserById(req.session.userId) : null;
         if (!actor) return res.status(403).json({ error: 'Unauthorized' });
 
         const targetRole = (req.body.role || 'user').toLowerCase();
@@ -346,7 +346,7 @@ function initAdminRoutes({ io, webpush }) {
         if (!fullName || !email || !password) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        if (getUserByEmail(email)) {
+        if (await getUserByEmail(email)) {
             return res.status(409).json({ error: 'User with that email already exists' });
         }
 
@@ -371,9 +371,9 @@ function initAdminRoutes({ io, webpush }) {
 
     // Admin: adjust permissions/scopes
     router.post('/admin/users/:id/permissions', requireAdmin, (req, res) => {
-        const actor = req.session.userId ? getUserById(req.session.userId) : null;
+        const actor = req.session.userId ? await getUserById(req.session.userId) : null;
         const targetId = parseInt(req.params.id, 10);
-        const targetUser = getUserById(targetId);
+        const targetUser = await getUserById(targetId);
         if (!actor || !targetUser) return res.status(404).json({ error: 'User not found' });
         const actorRank = roleRank[actor.role] || 0;
         const targetRank = roleRank[targetUser.role] || 0;
@@ -401,7 +401,7 @@ function initAdminRoutes({ io, webpush }) {
         const offset = (page - 1) * pageSize;
         const q = (req.query.q || '').trim();
         const rows = require('../../db').listAllServicesAdmin({ status, limit: pageSize, offset, q: q || null });
-        const me = req.session.userId ? getUserById(req.session.userId) : null;
+        const me = req.session.userId ? await getUserById(req.session.userId) : null;
         res.render('admin/admin-services', {
             title: 'Services Moderation - Dream X',
             currentPage: 'admin',
@@ -431,7 +431,7 @@ function initAdminRoutes({ io, webpush }) {
                     }
                     let emailSuppressed = false;
                     if (notifyEmail) {
-                        const owner = getUserById(s.user_id);
+                        const owner = await getUserById(s.user_id);
                         if (owner && owner.email_notifications === 1) {
                             const baseUrl = getRequestBaseUrl(req);
                             await emailService.sendServiceModerationEmail(owner, s, 'hidden', null, baseUrl, req);
@@ -465,7 +465,7 @@ function initAdminRoutes({ io, webpush }) {
                     }
                     let emailSuppressed = false;
                     if (notifyEmail) {
-                        const owner = getUserById(s.user_id);
+                        const owner = await getUserById(s.user_id);
                         if (owner && owner.email_notifications === 1) {
                             const baseUrl = getRequestBaseUrl(req);
                             await emailService.sendServiceModerationEmail(owner, s, 'restored', null, baseUrl, req);
@@ -500,7 +500,7 @@ function initAdminRoutes({ io, webpush }) {
                     }
                     let emailSuppressed = false;
                     if (notifyEmail) {
-                        const owner = getUserById(s.user_id);
+                        const owner = await getUserById(s.user_id);
                         if (owner && owner.email_notifications === 1) {
                             const baseUrl = getRequestBaseUrl(req);
                             await emailService.sendServiceModerationEmail(owner, s, 'deleted', reason, baseUrl, req);
@@ -602,7 +602,7 @@ function initAdminRoutes({ io, webpush }) {
     // User statistics page
     router.get('/admin/users/:id/stats', requireAdmin, async (req, res) => {
         const userId = parseInt(req.params.id);
-        const user = getUserById(userId);
+        const user = await getUserById(userId);
         if (!user) {
             return res.redirect('/admin?error=User+not+found');
         }
@@ -819,7 +819,7 @@ function initAdminRoutes({ io, webpush }) {
             } catch (e) {
                 console.warn('Audit log failed:', e);
             }
-            const user = getUserById(refundRequest.user_id);
+            const user = await getUserById(refundRequest.user_id);
             if (user && user.email) {
                 try {
                     if (status === 'approved') {
@@ -876,7 +876,7 @@ function initAdminRoutes({ io, webpush }) {
             const adminId = req.session.userId;
             const frozenValue = action === 'freeze' ? 1 : 0;
             db.prepare('UPDATE users SET seller_privileges_frozen = ? WHERE id = ?').run(frozenValue, userId);
-            const user = getUserById(userId);
+            const user = await getUserById(userId);
             try {
                 addAuditLog({
                     userId: adminId,
@@ -914,7 +914,7 @@ function initAdminRoutes({ io, webpush }) {
         const { action, reason } = req.body;
         const freeze = action === 'freeze' ? 1 : 0;
         try {
-            const user = getUserById(userId);
+            const user = await getUserById(userId);
             if (!user) return res.status(404).json({ success: false, error: 'User not found' });
             db.prepare('UPDATE users SET chat_privileges_frozen = ? WHERE id = ?').run(freeze, userId);
             try {

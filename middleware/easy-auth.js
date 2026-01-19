@@ -142,24 +142,24 @@ async function findOrCreateEasyAuthUser(principal, provider) {
                       `easyauth-${provider}-${Date.now()}`;
     
     // Try to find user by provider
-    let user = getUserByProvider(provider, providerId);
+    let user = await getUserByProvider(provider, providerId);
     if (user) {
         return user;
     }
     
     // Try to find by email
     if (email) {
-        const byEmail = getUserByEmail(email);
+        const byEmail = await getUserByEmail(email);
         if (byEmail) {
             updateUserProvider({ userId: byEmail.id, provider, providerId });
-            return getUserById(byEmail.id);
+            return await getUserById(byEmail.id);
         }
     }
     
     // Create new user
     const dummyHash = await bcrypt.hash(`easyauth-${provider}-${providerId}-${Date.now()}`, 10);
     const baseHandle = generateBaseHandle(displayName, email);
-    const uniqueHandle = generateUniqueHandle(baseHandle);
+    const uniqueHandle = await generateUniqueHandle(baseHandle);
     
     const { createUser } = require('../db');
     const userId = createUser({
@@ -180,7 +180,7 @@ async function findOrCreateEasyAuthUser(principal, provider) {
         console.warn('Failed to mark email as verified for Easy Auth user:', e.message);
     }
     
-    return getUserById(userId);
+    return await getUserById(userId);
 }
 
 /**

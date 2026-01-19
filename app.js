@@ -632,9 +632,9 @@ app.use('/', projectRoutes);
 
 // Minimal serialize/deserialize (not strictly used since we set req.session.userId)
 passport.serializeUser((user, done) => done(null, user.id));
-passport.deserializeUser((id, done) => {
+passport.deserializeUser(async (id, done) => {
     try {
-        const user = getUserById(id);
+        const user = await getUserById(id);
         done(null, user || null);
     } catch (e) {
         done(e);
@@ -653,7 +653,7 @@ function ensureAuthenticated(req, res, next) {
 async function sendBrowserPush(userId, title, body, url) {
     try {
         if (!webpush) return; // Not configured
-        const user = getUserById(userId);
+        const user = await getUserById(userId);
         if (!user || user.push_notifications !== 1) return;
         const subs = getPushSubscriptions(userId) || [];
         const payload = JSON.stringify({ title: title || 'Dream X', body: body || '', url: url || '/', icon: '/img/icon-192x192.png', badge: '/img/badge-72x72.png' });
@@ -704,13 +704,13 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
         return { ok: false, message: `Password must contain ${complexityCheck.errors.join(', ')}.` };
     }
 
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
     if (!user) {
         return { ok: false, message: 'User not found' };
     }
 
     // Check if user has linked SSO accounts
-    const linkedAccounts = getLinkedAccountsForUser(userId) || [];
+    const linkedAccounts = await getLinkedAccountsForUser(userId) || [];
     const hasLinkedAccounts = linkedAccounts.length > 0;
     
     if (!user.password_hash) {
@@ -760,12 +760,12 @@ function generateBaseHandle(fullName, email) {
 }
 
 // Generate unique handle with collision resolution
-function generateUniqueHandle(baseHandle, excludeUserId = null) {
+async function generateUniqueHandle(baseHandle, excludeUserId = null) {
     let handle = baseHandle;
     let counter = 0;
 
     while (true) {
-        const existing = getUserByHandle(handle);
+        const existing = await getUserByHandle(handle);
         // Handle is available if it doesn't exist or belongs to the current user
         if (!existing || (excludeUserId && existing.id === excludeUserId)) {
             return handle;
@@ -777,21 +777,21 @@ function generateUniqueHandle(baseHandle, excludeUserId = null) {
 }
 
 // Get suggested handles when collision occurs
-function getSuggestedHandles(baseHandle, count = 3) {
+async function getSuggestedHandles(baseHandle, count = 3) {
     const suggestions = [];
     const random = () => Math.floor(Math.random() * 999);
 
     // Suggestion 1: base + random number
-    suggestions.push(generateUniqueHandle(`${baseHandle}${random()}`));
+    suggestions.push(await generateUniqueHandle(`${baseHandle}${random()}`));
 
     // Suggestion 2: base + underscore + random number
-    suggestions.push(generateUniqueHandle(`${baseHandle}_${random()}`));
+    suggestions.push(await generateUniqueHandle(`${baseHandle}_${random()}`));
 
     // Suggestion 3: base + sequential number
     let num = 1;
     while (suggestions.length < count) {
         const candidate = `${baseHandle}${num}`;
-        if (!getUserByHandle(candidate)) {
+        if (!(await getUserByHandle(candidate))) {
             suggestions.push(candidate);
         }
         num++;
@@ -802,18 +802,18 @@ function getSuggestedHandles(baseHandle, count = 3) {
 
 // Helper to find or create a user from OAuth profile
 async function findOrCreateOAuthUser({ provider, providerId, displayName, email }) {
-    let user = getUserByProvider(provider, providerId);
+    let user = await getUserByProvider(provider, providerId);
     if (user) return user;
     if (email) {
-        const byEmail = getUserByEmail(email);
+        const byEmail = await getUserByEmail(email);
         if (byEmail) {
             updateUserProvider({ userId: byEmail.id, provider, providerId });
-            return getUserById(byEmail.id);
+            return await getUserById(byEmail.id);
         }
     }
     const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
     const baseHandle = generateBaseHandle(displayName, email);
-    const uniqueHandle = generateUniqueHandle(baseHandle);
+    const uniqueHandle = await generateUniqueHandle(baseHandle);
     const userId = createUser({
         fullName: displayName || (email || 'User'),
         email: email || `${providerId}@${provider}.oauth.local`,
@@ -821,7 +821,7 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email 
         handle: uniqueHandle
     });
     updateUserProvider({ userId, provider, providerId });
-    return getUserById(userId);
+    return await getUserById(userId);
 }
 
 async function importProfilePhotoIfNeeded(user, photoUrl) {
@@ -993,7 +993,7 @@ async function seedAdminUser() {
     try {
         const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@dreamx.local';
         const adminPass = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin!123';
-        const existing = getUserByEmail(adminEmail);
+        const existing = await getUserByEmail(adminEmail);
         if (!existing) {
             const hash = await bcrypt.hash(adminPass, 10);
             const id = createUser({ fullName: 'Super Admin', email: adminEmail, passwordHash: hash });
@@ -1052,7 +1052,7 @@ app.use((req, res, next) => {
         const isServicesOrFeed = req.path === '/services' || req.path === '/feed';
 
         if (req.session && req.session.userId) {
-            const row = getUserById(req.session.userId);
+            const row = await getUserById(req.session.userId);
             if (row) {
                 // Check account status - invalidate session if banned/suspended
                 const accountStatus = checkAccountStatus(row.id);
@@ -1087,10 +1087,10 @@ const { attachRbacContext } = require('./middleware/rbac');
 app.use(attachRbacContext);
 
 // Force email verification for authenticated users
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
     try {
         if (!req.session.userId) return next();
-        const user = getUserById(req.session.userId);
+        const user = await getUserById(req.session.userId);
         if (!user) return next();
         if (user.email_verified === 1) return next();
 
@@ -1119,10 +1119,10 @@ const userNeedsOnboarding = (user) => {
 };
 
 // After verification: gently prompt onboarding if not completed (once per session)
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
     try {
         if (!req.session || !req.session.userId) return next();
-        const user = getUserById(req.session.userId);
+        const user = await getUserById(req.session.userId);
         if (!user) return next();
         // Only prompt if email is verified but onboarding not completed
         if (user.email_verified === 1 && userNeedsOnboarding(user)) {
@@ -1266,35 +1266,35 @@ const canManageHrRole = (actor, targetRole) => {
     return actorRank > targetRank && actorRank >= 2;
 };
 
-const requireAdmin = (req, res, next) => {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+const requireAdmin = async (req, res, next) => {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isAdmin(user)) return res.redirect('/');
     next();
 };
-const requireSuperAdmin = (req, res, next) => {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+const requireSuperAdmin = async (req, res, next) => {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isSuperAdmin(user)) return res.redirect('/admin?error=Insufficient+permissions');
     next();
 };
-const requireHR = (req, res, next) => {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+const requireHR = async (req, res, next) => {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isHR(user)) return res.redirect('/');
     next();
 };
-const requireAdminOrHR = (req, res, next) => {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+const requireAdminOrHR = async (req, res, next) => {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isAdmin(user) && !isHR(user)) return res.redirect('/');
     next();
 };
-const requireBusinessAdmin = (req, res, next) => {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+const requireBusinessAdmin = async (req, res, next) => {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!isBusinessAdmin(user) && !isSuperAdmin(user) && !isGlobalAdmin(user)) {
         return res.redirect('/?error=Access+denied');
     }
     next();
 };
-const requireBusinessAdminPermission = (permission) => (req, res, next) => {
-    const user = req.session.userId ? getUserById(req.session.userId) : null;
+const requireBusinessAdminPermission = (permission) => async (req, res, next) => {
+    const user = req.session.userId ? await getUserById(req.session.userId) : null;
     if (!hasBusinessPermission(user, permission)) {
         return res.status(403).json({ error: 'Insufficient business admin permissions' });
     }

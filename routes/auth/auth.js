@@ -63,11 +63,11 @@ function generateBaseHandle(fullName, email) {
     return 'user';
 }
 
-function generateUniqueHandle(baseHandle, excludeUserId = null) {
+async function generateUniqueHandle(baseHandle, excludeUserId = null) {
     let handle = baseHandle;
     let counter = 0;
     while (true) {
-        const existing = getUserByHandle(handle);
+        const existing = await getUserByHandle(handle);
         if (!existing || (excludeUserId && existing.id === excludeUserId)) {
             return handle;
         }
@@ -76,15 +76,15 @@ function generateUniqueHandle(baseHandle, excludeUserId = null) {
     }
 }
 
-function getSuggestedHandles(baseHandle, count = 3) {
+async function getSuggestedHandles(baseHandle, count = 3) {
     const suggestions = [];
     const random = () => Math.floor(Math.random() * 999);
-    suggestions.push(generateUniqueHandle(`${baseHandle}${random()}`));
-    suggestions.push(generateUniqueHandle(`${baseHandle}_${random()}`));
+    suggestions.push(await generateUniqueHandle(`${baseHandle}${random()}`));
+    suggestions.push(await generateUniqueHandle(`${baseHandle}_${random()}`));
     let num = 1;
     while (suggestions.length < count) {
         const candidate = `${baseHandle}${num}`;
-        if (!getUserByHandle(candidate)) {
+        if (!(await getUserByHandle(candidate))) {
             suggestions.push(candidate);
         }
         num++;
@@ -93,18 +93,18 @@ function getSuggestedHandles(baseHandle, count = 3) {
 }
 
 async function findOrCreateOAuthUser({ provider, providerId, displayName, email }) {
-    let user = getUserByProvider(provider, providerId);
+    let user = await getUserByProvider(provider, providerId);
     if (user) return user;
     if (email) {
-        const byEmail = getUserByEmail(email);
+        const byEmail = await getUserByEmail(email);
         if (byEmail) {
             updateUserProvider({ userId: byEmail.id, provider, providerId });
-            return getUserById(byEmail.id);
+            return await getUserById(byEmail.id);
         }
     }
     const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
     const baseHandle = generateBaseHandle(displayName, email);
-    const uniqueHandle = generateUniqueHandle(baseHandle);
+    const uniqueHandle = await generateUniqueHandle(baseHandle);
     const userId = createUser({
         fullName: displayName || (email || 'User'),
         email: email || `${providerId}@${provider}.oauth.local`,
@@ -112,7 +112,7 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email 
         handle: uniqueHandle
     });
     updateUserProvider({ userId, provider, providerId });
-    return getUserById(userId);
+    return await getUserById(userId);
 }
 
 async function importProfilePhotoIfNeeded(user, photoUrl) {
@@ -139,13 +139,13 @@ async function importProfilePhotoIfNeeded(user, photoUrl) {
 }
 
 // Registration page
-router.get('/register', (req, res) => {
+router.get('/register', async (req, res) => {
     // Prevent caching to ensure fresh session data
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     if (req.session && req.session.userId) {
-        const user = getUserById(req.session.userId);
+        const user = await getUserById(req.session.userId);
         if (user) return res.redirect(resolvePostAuthRedirect(user));
     }
     res.render('auth/register', {
@@ -188,7 +188,7 @@ router.post('/register', registrationLimiter, async (req, res) => {
             formData: req.body
         });
     }
-    const existing = getUserByEmail(email.trim().toLowerCase());
+    const existing = await getUserByEmail(email.trim().toLowerCase());
     if (existing) {
         return res.status(400).render('auth/register', {
             title: 'Register - Dream X',
@@ -251,7 +251,7 @@ router.post('/register', registrationLimiter, async (req, res) => {
     let userHandle = handle ? handle.trim().toLowerCase() : '';
     if (!userHandle) {
         const baseHandle = generateBaseHandle(fullName, email);
-        userHandle = generateUniqueHandle(baseHandle);
+        userHandle = await generateUniqueHandle(baseHandle);
     } else {
         if (!/^[a-z0-9_]{3,20}$/.test(userHandle)) {
             return res.status(400).render('auth/register', {
@@ -262,10 +262,10 @@ router.post('/register', registrationLimiter, async (req, res) => {
                 formData: req.body
             });
         }
-        const handleExists = getUserByHandle(userHandle);
+        const handleExists = await getUserByHandle(userHandle);
         if (handleExists) {
             const baseHandle = generateBaseHandle(fullName, email);
-            const suggestions = getSuggestedHandles(baseHandle);
+            const suggestions = await getSuggestedHandles(baseHandle);
             return res.status(400).render('auth/register', {
                 title: 'Register - Dream X',
                 currentPage: 'auth/register',
@@ -346,7 +346,7 @@ router.post('/register', registrationLimiter, async (req, res) => {
             }
         }
 
-        const user = getUserById(userId);
+        const user = await getUserById(userId);
         try {
             await emailService.sendVerificationCode(user, verificationCode, req);
             console.log(`✅ Verification email sent to ${user.email}`);
@@ -381,9 +381,9 @@ router.post('/register', registrationLimiter, async (req, res) => {
 });
 
 // Email Verification Routes
-router.get('/verify-email', (req, res) => {
+router.get('/verify-email', async (req, res) => {
     if (!req.session || !req.session.userId) return res.redirect('/login');
-    const user = getUserById(req.session.userId);
+    const user = await getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
     if (user.email_verified === 1) return res.redirect(resolvePostAuthRedirect(user));
     res.render('auth/verify-email', {
@@ -399,7 +399,7 @@ router.post('/verify-email', async (req, res) => {
     if (!req.session || !req.session.userId) {
         return res.status(401).json({ success: false, error: 'Not authenticated' });
     }
-    const user = getUserById(req.session.userId);
+    const user = await getUserById(req.session.userId);
     if (!user) {
         return res.status(404).json({ success: false, error: 'User not found' });
     }
@@ -438,7 +438,7 @@ router.post('/resend-verification', async (req, res) => {
     if (!req.session || !req.session.userId) {
         return res.status(401).json({ success: false, error: 'Not authenticated' });
     }
-    const user = getUserById(req.session.userId);
+    const user = await getUserById(req.session.userId);
     if (!user) {
         return res.status(404).json({ success: false, error: 'User not found' });
     }
@@ -490,7 +490,7 @@ router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
     } catch (err) {
         console.error('Failed to cleanup reset tokens:', err.message);
     }
-    const user = getUserByEmail(email);
+    const user = await getUserByEmail(email);
     if (!user) {
         return res.render('auth/forgot-password', {
             title: 'Forgot Password - Dream X',
@@ -616,7 +616,7 @@ router.post('/reset-password', passwordResetLimiter, async (req, res) => {
             token: null
         });
     }
-    const user = getUserById(record.user_id);
+    const user = await getUserById(record.user_id);
     if (!user) {
         markPasswordResetUsed({ id: record.id });
         return res.status(404).render('auth/reset-password', {
@@ -653,13 +653,13 @@ router.post('/reset-password', passwordResetLimiter, async (req, res) => {
 });
 
 // Login page
-router.get('/login', (req, res) => {
+router.get('/login', async (req, res) => {
     // Prevent caching to ensure fresh session data
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     if (req.session && req.session.userId) {
-        const user = getUserById(req.session.userId);
+        const user = await getUserById(req.session.userId);
         if (user) return res.redirect(resolvePostAuthRedirect(user));
     }
     // Check if OAuth strategies are configured by checking environment variables
@@ -689,7 +689,7 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
     }
     
     const normalizedEmail = (email || '').trim().toLowerCase();
-    const user = getUserByEmail(normalizedEmail);
+    const user = await getUserByEmail(normalizedEmail);
     const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
     const microsoftEnabled = !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
     const appleEnabled = !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY && process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://'));
@@ -810,7 +810,7 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
                 if (saveErr) {
                     console.error('Session save error:', saveErr);
                 }
-                const freshUser = getUserById(user.id);
+                const freshUser = await getUserById(user.id);
                 const redirectPath = resolvePostAuthRedirect(freshUser);
                 return res.redirect(redirectPath);
             });
@@ -921,87 +921,6 @@ function getCallbackURLFromRequest(req, path) {
 
 const { shouldUsePassportOAuth } = require('../../middleware/easy-auth');
 
-// Shared OAuth callback handler for all providers
-async function handleOAuthCallback(req, res, provider) {
-    try {
-        console.log(`🟡 [${provider}] handleOAuthCallback called`);
-        const mode = req.query.state;
-        console.log(`🟡 [${provider}] Mode from query.state:`, mode);
-        
-        // Handle account linking mode
-        if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
-            console.log(`🟡 [${provider}] Handling account linking mode`);
-            updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
-            if (req.authInfo.photoUrl) {
-                const user = getUserById(req.session.userId);
-                await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
-            }
-            const displayName = provider.charAt(0).toUpperCase() + provider.slice(1);
-            return res.redirect('/settings?success=' + displayName + ' connected');
-        }
-        
-        // Handle login mode
-        console.log(`🟡 [${provider}] Checking for req.user, value:`, req.user?.id);
-        if (req.user && req.user.id) {
-            console.log(`🟡 [${provider}] User found (${req.user.id}), calling req.login()`);
-            // Use req.login() to establish Passport session
-            return req.login(req.user, async (err) => {
-                console.log(`🟡 [${provider}] req.login() callback - err:`, err?.message);
-                if (err) {
-                    console.error(`❌ ${provider} login error:`, err);
-                    return res.redirect('/login');
-                }
-                
-                console.log(`🟡 [${provider}] req.login() successful, setting session.userId`);
-                // Auto-verify email for OAuth users
-                try {
-                    const u = getUserById(req.user.id);
-                    if (u && u.email_verified !== 1) {
-                        console.log(`🟡 [${provider}] Marking email as verified for user ${u.id}`);
-                        markEmailAsVerified({ userId: u.id });
-                    }
-                } catch (e) {
-                    console.warn('Email verification during OAuth login failed:', e.message);
-                }
-                
-                // Ensure session is saved
-                req.session.userId = req.user.id;
-                req.session.ssoPasswordBootstrap = {
-                    userId: req.user.id,
-                    provider,
-                    grantedAt: Date.now()
-                };
-                console.log(`🟡 [${provider}] Set session.userId = ${req.user.id}, saving session...`);
-                return new Promise((resolve) => {
-                    req.session.save((saveErr) => {
-                        console.log(`🟡 [${provider}] Session save callback - err:`, saveErr?.message);
-                        if (saveErr) {
-                            console.error(`❌ ${provider} session save error:`, saveErr);
-                            return resolve(res.redirect('/login'));
-                        }
-                        
-                        try {
-                            const u = getUserById(req.user.id);
-                            const redirectTarget = resolvePostAuthRedirect(u);
-                            console.log(`✅ ${provider} login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
-                            return resolve(res.redirect(redirectTarget));
-                        } catch (e) {
-                            console.error(`❌ ${provider} redirect resolution error:`, e.message);
-                            return resolve(res.redirect('/feed'));
-                        }
-                    });
-                });
-            });
-        } else {
-            console.warn(`⚠️ ${provider} callback: req.user not populated, redirecting to login`);
-            return res.redirect('/login');
-        }
-    } catch (e) {
-        console.error(`❌ ${provider} callback error:`, e.message, e.stack);
-        return res.redirect('/login');
-    }
-}
-
 router.get('/auth/google', (req, res, next) => {
     // Redirect to Azure Easy Auth if enabled in production
     if (!shouldUsePassportOAuth()) {
@@ -1016,7 +935,7 @@ router.get('/auth/google', (req, res, next) => {
 });
 
 router.get('/auth/google/callback', (req, res, next) => {
-    passport.authenticate('google', (err, user, info) => {
+    passport.authenticate('google', async (err, user, info) => {
         if (err) {
             console.error('❌ [Google] Passport authentication error:', err);
             return res.redirect('/login');
@@ -1031,8 +950,13 @@ router.get('/auth/google/callback', (req, res, next) => {
         req.user = user;
         req.authInfo = info;
         
-        // Handle the OAuth callback logic
-        handleOAuthCallback(req, res, 'google');
+        // Handle the OAuth callback logic - await to catch any errors
+        try {
+            await handleOAuthCallback(req, res, 'google');
+        } catch (e) {
+            console.error('❌ [Google] handleOAuthCallback error:', e);
+            return res.redirect('/login');
+        }
     })(req, res, next);
 });
 
@@ -1046,7 +970,7 @@ async function handleOAuthCallback(req, res, provider) {
         if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
             updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
             if (req.authInfo.photoUrl) {
-                const user = getUserById(req.session.userId);
+                const user = await getUserById(req.session.userId);
                 await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
             }
             return res.redirect('/settings?success=' + provider.charAt(0).toUpperCase() + provider.slice(1) + ' connected');
@@ -1063,7 +987,7 @@ async function handleOAuthCallback(req, res, provider) {
                 
                 // Auto-verify email for OAuth users
                 try {
-                    const u = getUserById(req.user.id);
+                    const u = await getUserById(req.user.id);
                     if (u && u.email_verified !== 1) {
                         markEmailAsVerified({ userId: u.id });
                     }
@@ -1081,7 +1005,7 @@ async function handleOAuthCallback(req, res, provider) {
                         }
                         
                         try {
-                            const u = getUserById(req.user.id);
+                            const u = await getUserById(req.user.id);
                             const redirectTarget = resolvePostAuthRedirect(u);
                             console.log(`✅ ${provider} login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
                             return resolve(res.redirect(redirectTarget));
@@ -1128,7 +1052,7 @@ router.get('/auth/microsoft', (req, res, next) => {
 });
 
 router.get('/auth/microsoft/callback', (req, res, next) => {
-    passport.authenticate('microsoft', (err, user, info) => {
+    passport.authenticate('microsoft', async (err, user, info) => {
         if (err) {
             console.error('❌ [Microsoft] Passport authentication error:', err);
             return res.redirect('/login');
@@ -1143,8 +1067,13 @@ router.get('/auth/microsoft/callback', (req, res, next) => {
         req.user = user;
         req.authInfo = info;
         
-        // Handle the OAuth callback logic
-        handleOAuthCallback(req, res, 'microsoft');
+        // Handle the OAuth callback logic - await to catch any errors
+        try {
+            await handleOAuthCallback(req, res, 'microsoft');
+        } catch (e) {
+            console.error('❌ [Microsoft] handleOAuthCallback error:', e);
+            return res.redirect('/login');
+        }
     })(req, res, next);
 });
 
@@ -1163,7 +1092,7 @@ router.get('/auth/apple', (req, res, next) => {
 });
 
 router.post('/auth/apple/callback', (req, res, next) => {
-    passport.authenticate('apple', (err, user, info) => {
+    passport.authenticate('apple', async (err, user, info) => {
         if (err) {
             console.error('❌ [Apple] Passport authentication error:', err);
             return res.redirect('/login');
@@ -1178,8 +1107,13 @@ router.post('/auth/apple/callback', (req, res, next) => {
         req.user = user;
         req.authInfo = info;
         
-        // Handle the OAuth callback logic
-        handleOAuthCallback(req, res, 'apple');
+        // Handle the OAuth callback logic - await to catch any errors
+        try {
+            await handleOAuthCallback(req, res, 'apple');
+        } catch (e) {
+            console.error('❌ [Apple] handleOAuthCallback error:', e);
+            return res.redirect('/login');
+        }
     })(req, res, next);
 });
 
@@ -1214,7 +1148,7 @@ router.get('/auth/x/callback', (req, res, next) => {
         return res.redirect('/login?error=twitter_oauth_failed');
     }
     
-    passport.authenticate('twitter', (err, user, info) => {
+    passport.authenticate('twitter', async (err, user, info) => {
         if (err) {
             console.error('❌ [Twitter] Passport authentication error:', err);
             return res.redirect('/login');
@@ -1229,15 +1163,20 @@ router.get('/auth/x/callback', (req, res, next) => {
         req.user = user;
         req.authInfo = info;
         
-        // Handle the OAuth callback logic
-        handleOAuthCallback(req, res, 'twitter');
+        // Handle the OAuth callback logic - await to catch any errors
+        try {
+            await handleOAuthCallback(req, res, 'twitter');
+        } catch (e) {
+            console.error('❌ [Twitter/X] handleOAuthCallback error:', e);
+            return res.redirect('/login');
+        }
     })(req, res, next);
 });
 
 // Phone Verification Routes
-router.get('/verify-phone', (req, res) => {
+router.get('/verify-phone', async (req, res) => {
     if (!req.session || !req.session.userId) return res.redirect('/login');
-    const user = getUserById(req.session.userId);
+    const user = await getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
     if (user.phone_verified === 1) return res.redirect(resolvePostAuthRedirect(user));
     
@@ -1261,7 +1200,7 @@ router.post('/verify-phone', async (req, res) => {
         return res.status(401).json({ success: false, error: 'Not authenticated' });
     }
 
-    const user = getUserById(req.session.userId);
+    const user = await getUserById(req.session.userId);
     if (!user) {
         return res.status(404).json({ success: false, error: 'User not found' });
     }
@@ -1340,7 +1279,7 @@ router.post('/resend-phone-code', async (req, res) => {
         return res.status(401).json({ success: false, error: 'Not authenticated' });
     }
 
-    const user = getUserById(req.session.userId);
+    const user = await getUserById(req.session.userId);
     if (!user) {
         return res.status(404).json({ success: false, error: 'User not found' });
     }

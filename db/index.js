@@ -484,264 +484,60 @@ async function runMigrations() {
   console.log('✅ Database migrations completed');
 }
 
-// Initialize schema if not exists (SQLite only - PostgreSQL uses schema-postgres.sql)
-// Users table stores core account and onboarding data as JSON strings
-// For simplicity passions/categories/goals stored as JSON text columns
-// Passwords stored as bcrypt hash
-// experience is a single string
-// Additional columns can be added later via migrations
+// SQLite schema initialization removed - using PostgreSQL with schema-postgres.sql
+// All tables are created via migrations and schema-postgres.sql
 
-// NOTE: In production (PostgreSQL), tables should be created using schema-postgres.sql
-// This initialization only runs for SQLite (local development)
-if (!isProduction) {
-  db.exec(`CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  full_name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  role TEXT DEFAULT 'user',
-  categories TEXT,
-  goals TEXT,
-  experience TEXT,
-  bio TEXT,
-  location TEXT,
-  skills TEXT,
-  profile_picture TEXT,
-  banner_image TEXT,
-  provider TEXT,
-  provider_id TEXT,
-  email_notifications INTEGER DEFAULT 1,
-  push_notifications INTEGER DEFAULT 1,
-  message_notifications INTEGER DEFAULT 1,
-  email_verified INTEGER DEFAULT 0,
-  verification_code TEXT,
-  verification_code_expires DATETIME,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+// Helper function to get the database instance (works with both SQLite and PostgreSQL)
+function getDb() {
+  if (isProduction && !dbWrapper) {
+    throw new Error('Database not initialized. Call initializeDatabase() first in production mode.');
+  }
+  if (!isProduction && !dbWrapper) {
+    dbWrapper = getDatabaseSync();
+    db = dbWrapper.getRaw();
+  }
+  return db;
+}
 
-CREATE TABLE IF NOT EXISTS email_verification_codes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  email TEXT NOT NULL,
-  code TEXT NOT NULL,
-  expires_at DATETIME NOT NULL,
-  verified INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
+// Helper to create prepared statements that work with both databases
+function prepare(sql) {
+  if (isProduction) {
+    if (!dbWrapper) {
+      throw new Error('Database not initialized. Call initializeDatabase() first.');
+    }
+    return dbWrapper.prepare(sql);
+  } else {
+    return getDb().prepare(sql);
+  }
+}
 
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  email TEXT NOT NULL,
-  token_hash TEXT NOT NULL,
-  expires_at DATETIME NOT NULL,
-  used INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_password_reset_token_hash ON password_reset_tokens(token_hash);
+// Ensure the PostgreSQL session table exists for express-session store
+async function ensureSessionTable() {
+  if (!isProduction) return;
 
-CREATE TABLE IF NOT EXISTS auth_tokens (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  token_hash TEXT NOT NULL,
-  token_type TEXT NOT NULL DEFAULT 'refresh',
-  expires_at DATETIME NOT NULL,
-  revoked INTEGER DEFAULT 0,
-  device_info TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_auth_tokens_token_hash ON auth_tokens(token_hash);
-CREATE INDEX IF NOT EXISTS idx_auth_tokens_expires_at ON auth_tokens(expires_at);
+  // Make sure the SQL wrapper is ready
+  if (!dbWrapper) {
+    await initializeDatabase();
+  }
 
-CREATE TABLE IF NOT EXISTS webauthn_credentials (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  credential_id TEXT NOT NULL UNIQUE,
-  public_key BLOB NOT NULL,
-  counter INTEGER DEFAULT 0,
-  transports TEXT,
-  rp_id TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS oauth_accounts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  provider TEXT NOT NULL,
-  provider_id TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(provider, provider_id),
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS conversations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user1_id INTEGER NOT NULL,
-  user2_id INTEGER NOT NULL,
-  is_group INTEGER DEFAULT 0,
-  group_name TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user1_id) REFERENCES users(id),
-  FOREIGN KEY (user2_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS conversation_participants (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  conversation_id INTEGER NOT NULL,
-  user_id INTEGER NOT NULL,
-  joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (conversation_id) REFERENCES conversations(id),
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  UNIQUE(conversation_id, user_id)
-);
-
-CREATE TABLE IF NOT EXISTS message_reactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  message_id INTEGER NOT NULL,
-  user_id INTEGER NOT NULL,
-  reaction_type TEXT NOT NULL DEFAULT 'like',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(message_id, user_id),
-  FOREIGN KEY (message_id) REFERENCES messages(id),
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-CREATE INDEX IF NOT EXISTS idx_message_reactions_message ON message_reactions(message_id);
-CREATE INDEX IF NOT EXISTS idx_message_reactions_type ON message_reactions(reaction_type);
-
-CREATE TABLE IF NOT EXISTS messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  conversation_id INTEGER NOT NULL,
-  sender_id INTEGER NOT NULL,
-  content TEXT NOT NULL,
-  attachment_url TEXT,
-  attachment_mime TEXT,
-  reply_to_message_id INTEGER,
-  read INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (conversation_id) REFERENCES conversations(id),
-  FOREIGN KEY (sender_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS notifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  link TEXT,
-  read INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS push_subscriptions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  endpoint TEXT NOT NULL UNIQUE,
-  p256dh TEXT NOT NULL,
-  auth TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS user_subscriptions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL UNIQUE,
-  tier TEXT NOT NULL DEFAULT 'free',
-  status TEXT NOT NULL DEFAULT 'active',
-  payment_provider TEXT DEFAULT NULL,
-  provider_subscription_id TEXT DEFAULT NULL,
-  provider_customer_id TEXT DEFAULT NULL,
-  started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  ends_at DATETIME,
-  auto_renew INTEGER DEFAULT 1,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS payment_methods (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  payment_provider TEXT DEFAULT 'mock',
-  provider_payment_method_id TEXT DEFAULT NULL,
-  card_type TEXT NOT NULL,
-  last_four TEXT NOT NULL,
-  expiry_month INTEGER NOT NULL,
-  expiry_year INTEGER NOT NULL,
-  is_default INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS invoices (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  payment_provider TEXT DEFAULT NULL,
-  provider_payment_id TEXT DEFAULT NULL,
-  amount REAL NOT NULL,
-  tier TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'paid',
-  invoice_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS payment_customers (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  payment_provider TEXT NOT NULL,
-  provider_customer_id TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, payment_provider),
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS services (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT NOT NULL,
-  category TEXT NOT NULL,
-  price_per_hour REAL NOT NULL,
-  duration_minutes INTEGER NOT NULL DEFAULT 60,
-  experience_level TEXT,
-  format TEXT,
-  availability TEXT,
-  location TEXT,
-  tags TEXT,
-  image_url TEXT,
-  status TEXT DEFAULT 'active',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-  CREATE INDEX IF NOT EXISTS idx_services_user_id ON services(user_id);
-  CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
-  CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
-  `);
-  
-  // Run migrations for SQLite in development
-  runMigrations();
-} // End of SQLite schema initialization
-
-// All schema setup below only runs in development (SQLite)
-// In production (PostgreSQL), schema should be set up via schema-postgres.sql
-if (!isProduction) {
-// --- Services: Orders and Reviews (for verified purchaser ratings) ---
-try {
-  db.exec(`CREATE TABLE IF NOT EXISTS service_orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    service_id INTEGER NOT NULL,
-    buyer_id INTEGER NOT NULL,
-    status TEXT NOT NULL DEFAULT 'completed',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (service_id) REFERENCES services(id),
-    FOREIGN KEY (buyer_id) REFERENCES users(id)
+  try {
+    // Check if table exists and what columns it has
+    const tableCheck = await dbWrapper.prepare(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'sessions' 
+      AND table_schema = 'public'
+    `).all();
+    
+    if (tableCheck && tableCheck.length > 0) {
+      // Table exists - check if it has old column names
+      const columns = tableCheck.map(c => c.column_name);
+      const hasOldColumns = columns.includes('session') || columns.includes('expires');
+      const hasNewColumns = columns.includes('sess') && columns.includes('expire');
+      
+      console.log(`📋 Sessions table columns detected: ${columns.join(', ')}`);
+      
+      if (hasOldColumns && !hasNewColumns) {
   );
   CREATE INDEX IF NOT EXISTS idx_service_orders_service ON service_orders(service_id);
   CREATE INDEX IF NOT EXISTS idx_service_orders_buyer ON service_orders(buyer_id);
@@ -1985,17 +1781,32 @@ module.exports = {
   initializeDatabase, // MUST be called at app startup in production (PostgreSQL only)
   ensureSessionTable,
   seedDatabase, // Call after initializeDatabase() to seed admin/HR accounts
-  getUserById: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
-  getUserByEmail: (email) => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
-  getUserByHandle: (handle) => db.prepare('SELECT * FROM users WHERE handle = ?').get(handle),
-  getUserByProvider: (provider, providerId) => db.prepare(`
+  getUserById: async (id) => {
+    const result = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    return result instanceof Promise ? await result : result;
+  },
+  getUserByEmail: async (email) => {
+    const result = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    return result instanceof Promise ? await result : result;
+  },
+  getUserByHandle: async (handle) => {
+    const result = db.prepare('SELECT * FROM users WHERE handle = ?').get(handle);
+    return result instanceof Promise ? await result : result;
+  },
+  getUserByProvider: async (provider, providerId) => {
+    const result = db.prepare(`
       SELECT u.* FROM oauth_accounts oa
       JOIN users u ON u.id = oa.user_id
       WHERE oa.provider = ? AND oa.provider_id = ?
-  `).get(provider, providerId),
-  getLinkedAccountsForUser: (userId) => db.prepare(
-    `SELECT provider, provider_id FROM oauth_accounts WHERE user_id = ?`
-  ).all(userId),
+    `).get(provider, providerId);
+    return result instanceof Promise ? await result : result;
+  },
+  getLinkedAccountsForUser: async (userId) => {
+    const result = db.prepare(
+      `SELECT provider, provider_id FROM oauth_accounts WHERE user_id = ?`
+    ).all(userId);
+    return result instanceof Promise ? await result : result;
+  },
   createUser: ({ fullName, email, passwordHash, handle }) => {
     const stmt = db.prepare(`INSERT INTO users (full_name, email, password_hash, handle) VALUES (?,?,?,?)`);
     const info = stmt.run(fullName, email, passwordHash, handle || null);

@@ -97,12 +97,12 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
         return { ok: false, message: `Password must contain ${complexityCheck.errors.join(', ')}.` };
     }
 
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
     if (!user) {
         return { ok: false, message: 'User not found' };
     }
 
-    const linkedAccounts = getLinkedAccountsForUser(userId) || [];
+    const linkedAccounts = await getLinkedAccountsForUser(userId) || [];
     const hasLinkedAccounts = linkedAccounts.length > 0;
     const hasPassword = !!(user.password_hash);
     const bootstrapActive = hasLinkedAccounts && isSsoBootstrapActive(session, userId);
@@ -135,12 +135,12 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
 // Initialize router with dependencies
 function initSettingsRoutes() {
     // Settings page
-    router.get('/settings', (req, res) => {
+    router.get('/settings', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
-        const row = getUserById(req.session.userId);
+        const row = await getUserById(req.session.userId);
         if (!row) return res.redirect('/login');
         const authUser = {
             id: row.id,
@@ -167,7 +167,7 @@ function initSettingsRoutes() {
         };
         const linked = { google: false, microsoft: false, apple: false, twitter: false };
         try {
-            const accounts = getLinkedAccountsForUser(req.session.userId) || [];
+            const accounts = await getLinkedAccountsForUser(req.session.userId) || [];
             accounts.forEach(a => { 
                 if (a.provider && linked.hasOwnProperty(a.provider)) {
                     linked[a.provider] = true;
@@ -216,9 +216,9 @@ function initSettingsRoutes() {
     });
 
     // Billing page
-    router.get('/billing', (req, res) => {
+    router.get('/billing', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
-        const row = getUserById(req.session.userId);
+        const row = await getUserById(req.session.userId);
         if (!row) return res.redirect('/login');
         const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
         const userTier = (subscription.tier || 'free');
@@ -233,7 +233,7 @@ function initSettingsRoutes() {
     });
 
     // Update account settings
-    router.post('/settings/account', (req, res) => {
+    router.post('/settings/account', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         const { displayName, email, handle } = req.body;
         const fullName = displayName;
@@ -247,18 +247,19 @@ function initSettingsRoutes() {
             return res.redirect('/settings?error=Handle must be 3-20 characters and contain only lowercase letters, numbers, and underscores');
         }
 
-        const existingHandle = getUserByHandle(cleanHandle);
+        const existingHandle = await getUserByHandle(cleanHandle);
         if (existingHandle && existingHandle.id !== req.session.userId) {
             return res.redirect('/settings?error=Handle is already taken. Please choose another one');
         }
 
         try {
+            const currentUser = await getUserById(req.session.userId);
             updateUserProfile({
                 userId: req.session.userId,
                 fullName,
-                bio: getUserById(req.session.userId).bio || '',
-                location: getUserById(req.session.userId).location || '',
-                skills: getUserById(req.session.userId).skills || ''
+                bio: currentUser?.bio || '',
+                location: currentUser?.location || '',
+                skills: currentUser?.skills || ''
             });
             updateUserHandle({
                 userId: req.session.userId,
@@ -379,8 +380,8 @@ function initSettingsRoutes() {
             return res.redirect('/settings?error=Unknown provider');
         }
         try {
-            const user = getUserById(req.session.userId);
-            const accounts = getLinkedAccountsForUser(req.session.userId) || [];
+            const user = await getUserById(req.session.userId);
+            const accounts = await getLinkedAccountsForUser(req.session.userId) || [];
             const remaining = accounts.filter(a => (a.provider || '').toLowerCase() !== provider);
             const isLastLinked = accounts.length <= 1 || remaining.length === 0;
             const hasPassword = !!(user && user.password_hash);
@@ -617,7 +618,7 @@ function initSettingsRoutes() {
                 return res.redirect('/settings?error=Invalid+confirmation');
             }
 
-            const user = getUserById(userId);
+            const user = await getUserById(userId);
 
             try {
                 cancelSubscription(userId);
@@ -736,7 +737,7 @@ function initSettingsRoutes() {
                 charge.refundStatus = recentRefund?.status;
             });
 
-            const user = getUserById(req.session.userId);
+            const user = await getUserById(req.session.userId);
 
             res.render('user/refund-request', {
                 title: 'Refund Request - Dream X',

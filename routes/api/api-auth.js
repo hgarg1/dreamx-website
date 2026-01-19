@@ -59,11 +59,11 @@ function generateBaseHandle(fullName, email) {
     return 'user';
 }
 
-function generateUniqueHandle(baseHandle, excludeUserId = null) {
+async function generateUniqueHandle(baseHandle, excludeUserId = null) {
     let handle = baseHandle;
     let counter = 0;
     while (true) {
-        const existing = getUserByHandle(handle);
+        const existing = await getUserByHandle(handle);
         if (!existing || (excludeUserId && existing.id === excludeUserId)) {
             return handle;
         }
@@ -99,7 +99,7 @@ function sendResponse(res, success, data = null, error = null, statusCode = 200)
 }
 
 // Token authentication middleware
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -112,7 +112,7 @@ function authenticateToken(req, res, next) {
         return sendResponse(res, false, null, 'Invalid or expired token', 401);
     }
 
-    const user = getUserById(verification.userId);
+    const user = await getUserById(verification.userId);
     if (!user) {
         return sendResponse(res, false, null, 'User not found', 404);
     }
@@ -137,7 +137,7 @@ router.post('/api/auth/login', express.json(), async (req, res) => {
             return sendResponse(res, false, null, 'Email and password are required', 400);
         }
 
-        const user = getUserByEmail(email.trim().toLowerCase());
+        const user = await getUserByEmail(email.trim().toLowerCase());
         if (!user) {
             return sendResponse(res, false, null, 'Invalid credentials', 401);
         }
@@ -222,7 +222,7 @@ router.post('/api/auth/refresh', express.json(), async (req, res) => {
         }
 
         // Get user
-        const user = getUserById(tokenRecord.user_id);
+        const user = await getUserById(tokenRecord.user_id);
         if (!user) {
             return sendResponse(res, false, null, 'User not found', 404);
         }
@@ -268,7 +268,7 @@ router.post('/api/auth/refresh', express.json(), async (req, res) => {
 // GET /api/auth/me
 router.get('/api/auth/me', authenticateToken, (req, res) => {
     try {
-        const user = getUserById(req.userId);
+        const user = await getUserById(req.userId);
         if (!user) {
             return sendResponse(res, false, null, 'User not found', 404);
         }
@@ -326,7 +326,7 @@ router.post('/api/auth/register', express.json(), async (req, res) => {
         }
 
         // Check if email already exists
-        const existing = getUserByEmail(email.trim().toLowerCase());
+        const existing = await getUserByEmail(email.trim().toLowerCase());
         if (existing) {
             return sendResponse(res, false, null, 'Email already in use', 400);
         }
@@ -335,12 +335,12 @@ router.post('/api/auth/register', express.json(), async (req, res) => {
         let userHandle = handle ? handle.trim().toLowerCase() : '';
         if (!userHandle) {
             const baseHandle = generateBaseHandle(fullName, email);
-            userHandle = generateUniqueHandle(baseHandle);
+            userHandle = await generateUniqueHandle(baseHandle);
         } else {
             if (!/^[a-z0-9_]{3,20}$/.test(userHandle)) {
                 return sendResponse(res, false, null, 'Handle must be 3-20 characters and contain only lowercase letters, numbers, and underscores', 400);
             }
-            const handleExists = getUserByHandle(userHandle);
+            const handleExists = await getUserByHandle(userHandle);
             if (handleExists) {
                 return sendResponse(res, false, null, `Handle "@${userHandle}" is already taken`, 400);
             }
@@ -373,7 +373,7 @@ router.post('/api/auth/register', express.json(), async (req, res) => {
         });
 
         // Send verification email
-        const user = getUserById(userId);
+        const user = await getUserById(userId);
         try {
             await emailService.sendVerificationCode(user, verificationCode, req);
             console.log(`✅ Verification email sent to ${user.email}`);
@@ -416,7 +416,7 @@ router.post('/api/auth/forgot-password', express.json(), async (req, res) => {
         }
 
         const baseUrl = getRequestBaseUrl(req);
-        const user = getUserByEmail(email.trim().toLowerCase());
+        const user = await getUserByEmail(email.trim().toLowerCase());
 
         // Always return success message (security: don't reveal if email exists)
         if (!user) {
@@ -488,7 +488,7 @@ router.post('/api/auth/reset-password', express.json(), async (req, res) => {
             return sendResponse(res, false, null, 'Invalid or expired reset token', 400);
         }
 
-        const user = getUserById(record.user_id);
+        const user = await getUserById(record.user_id);
         if (!user) {
             markPasswordResetUsed({ id: record.id });
             return sendResponse(res, false, null, 'User not found', 404);
@@ -512,7 +512,7 @@ router.post('/api/auth/reset-password', express.json(), async (req, res) => {
 router.post('/api/auth/verify-email', authenticateToken, express.json(), async (req, res) => {
     try {
         const { code } = req.body;
-        const user = getUserById(req.userId);
+        const user = await getUserById(req.userId);
 
         if (!user) {
             return sendResponse(res, false, null, 'User not found', 404);
@@ -554,7 +554,7 @@ router.post('/api/auth/verify-email', authenticateToken, express.json(), async (
         return sendResponse(res, true, {
             message: 'Email verified successfully',
             verified: true,
-            user: formatUserData(getUserById(user.id))
+            user: formatUserData(await getUserById(user.id))
         });
     } catch (error) {
         console.error('Verify email error:', error);
@@ -565,7 +565,7 @@ router.post('/api/auth/verify-email', authenticateToken, express.json(), async (
 // POST /api/auth/resend-verification
 router.post('/api/auth/resend-verification', authenticateToken, express.json(), async (req, res) => {
     try {
-        const user = getUserById(req.userId);
+        const user = await getUserById(req.userId);
 
         if (!user) {
             return sendResponse(res, false, null, 'User not found', 404);
