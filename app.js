@@ -717,6 +717,11 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
         return { ok: false, message: 'No password set for this account. Please set a password first.' };
     }
     
+    // Validate that currentPassword is provided
+    if (!currentPassword) {
+        return { ok: false, message: 'Current password is required' };
+    }
+    
     // Verify current password
     const passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
     
@@ -727,11 +732,6 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
     }
     
     if (!passwordValid) {
-        return { ok: false, message: 'Current password incorrect' };
-    }
-
-    const validPassword = await bcrypt.compare(currentPassword, user.password_hash || '');
-    if (!validPassword) {
         return { ok: false, message: 'Current password incorrect' };
     }
 

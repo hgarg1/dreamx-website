@@ -111,6 +111,10 @@ async function handlePasswordChange({ userId, currentPassword, newPassword, conf
     // If user has a password set, verify current password unless SSO bootstrap is active
     if (hasPassword) {
         if (providedCurrent) {
+            // Defensive check - ensure both password and hash are present before comparing
+            if (!currentPassword || !user.password_hash) {
+                return { ok: false, message: 'Current password is required' };
+            }
             const passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
             if (!passwordValid) {
                 return { ok: false, message: 'Current password incorrect' };

@@ -142,6 +142,12 @@ router.post('/api/auth/login', express.json(), async (req, res) => {
             return sendResponse(res, false, null, 'Invalid credentials', 401);
         }
 
+        // Validate that both password and password_hash are present
+        // OAuth-only users may not have a password_hash set
+        if (!password || !user.password_hash) {
+            return sendResponse(res, false, null, 'This account does not have a password set. Please use your social login option instead.', 401);
+        }
+
         const passwordValid = await bcrypt.compare(password, user.password_hash);
         if (!passwordValid) {
             return sendResponse(res, false, null, 'Invalid credentials', 401);

@@ -678,6 +678,16 @@ router.get('/login', (req, res) => {
 // Handle login
 router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLockout.applyProgressiveDelay, async (req, res) => {
     const { email, password } = req.body;
+    
+    // Debug logging (remove in production if not needed)
+    if (!password) {
+        console.warn('Login attempt with missing password field:', {
+            hasEmail: !!email,
+            bodyKeys: Object.keys(req.body),
+            contentType: req.get('content-type')
+        });
+    }
+    
     const normalizedEmail = (email || '').trim().toLowerCase();
     const user = getUserByEmail(normalizedEmail);
     const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
@@ -690,6 +700,34 @@ router.post('/login', authLimiter, accountLockout.checkAccountLockout, accountLo
         // Record failed attempt even for non-existent users to prevent user enumeration
         accountLockout.recordFailedAttempt(normalizedEmail, req.ip);
         return res.status(400).render('auth/login', { title: 'Login - Dream X', currentPage: 'auth/login', error: 'Invalid credentials.', providers });
+    }
+    
+    // Validate that both password and password_hash are present
+    // OAuth-only users may not have a password_hash set
+    // Also check for empty strings (password.trim() would fail if password is null/undefined)
+    const passwordProvided = password && typeof password === 'string' && password.trim().length > 0;
+    const hasPasswordHash = user.password_hash && typeof user.password_hash === 'string' && user.password_hash.length > 0;
+    
+    if (!passwordProvided) {
+        // Record failed attempt - password not provided
+        accountLockout.recordFailedAttempt(normalizedEmail, req.ip);
+        return res.status(400).render('auth/login', { 
+            title: 'Login - Dream X', 
+            currentPage: 'auth/login', 
+            error: 'Password is required.', 
+            providers 
+        });
+    }
+    
+    if (!hasPasswordHash) {
+        // Record failed attempt - user may be OAuth-only account
+        accountLockout.recordFailedAttempt(normalizedEmail, req.ip);
+        return res.status(400).render('auth/login', { 
+            title: 'Login - Dream X', 
+            currentPage: 'auth/login', 
+            error: 'This account does not have a password set. Please use your social login option instead.', 
+            providers 
+        });
     }
     
     const ok = await bcrypt.compare(password, user.password_hash);
