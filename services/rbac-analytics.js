@@ -448,7 +448,7 @@ class AIPermissionManifest {
   /**
    * Generate a complete permission manifest for AI consumption
    */
-  static generate() {
+  static async generate() {
     initDependencies();
     if (!rbacService) return null;
 
@@ -456,7 +456,7 @@ class AIPermissionManifest {
       const permissions = rbacService.getPermissions();
       const roles = rbacService.getRoles();
       const groups = rbacService.getPermissionGroups();
-      const modules = rbacService.getRegisteredModules();
+      const modules = await rbacService.getRegisteredModules();
 
       return {
         version: '1.0.0',
@@ -465,7 +465,7 @@ class AIPermissionManifest {
           type: 'rbac-manifest',
           description: 'Role-Based Access Control permission manifest for AI agents'
         },
-        modules: modules.map(m => ({
+        modules: (modules || []).map(m => ({
           id: m.id,
           name: m.module_name,
           displayName: m.display_name,

@@ -7,7 +7,7 @@
  * In development, Passport.js handles OAuth directly.
  */
 
-const { getUserById } = require('../db');
+const { getUserById, markEmailAsVerified } = require('../db');
 const { findOrCreateOAuthUser } = require('../utils/oauth-helpers');
 
 /**
@@ -150,6 +150,16 @@ async function easyAuthMiddleware(req, res, next) {
         if (user && user.id) {
             // Ensure email_verified is set in user object (PostgreSQL returns boolean, SQLite returns integer)
             if (user.email_verified !== true && user.email_verified !== 1) {
+                // If we have an email claim, proactively mark verified for SSO users
+                const email = extractEmail(principal);
+                if (email) {
+                    try {
+                        markEmailAsVerified({ userId: user.id });
+                        user.email_verified = 1;
+                    } catch (e) {
+                        console.warn('Failed to mark email verified for Easy Auth user:', e.message);
+                    }
+                }
                 // Re-fetch user to get latest email_verified status
                 const freshUser = await getUserById(user.id);
                 if (freshUser) {

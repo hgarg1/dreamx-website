@@ -895,14 +895,18 @@ function attachTagsToPost(postId, tags = []) {
   return normalized;
 }
 
-function getPostHashtags(postId) {
+async function getPostHashtags(postId) {
   if (!postId) return [];
-  return getPostHashtagListStmt.all(postId).map((row) => row.name);
+  const rows = await getPostHashtagListStmt.all(postId);
+  const list = Array.isArray(rows) ? rows : (rows?.rows || []);
+  return list.map((row) => row.name);
 }
 
-function getPostTags(postId) {
+async function getPostTags(postId) {
   if (!postId) return [];
-  return getPostTagListStmt.all(postId).map((row) => row.name);
+  const rows = await getPostTagListStmt.all(postId);
+  const list = Array.isArray(rows) ? rows : (rows?.rows || []);
+  return list.map((row) => row.name);
 }
 
 function getPopularHashtags(search = '', limit = 8) {
@@ -2276,7 +2280,7 @@ module.exports = {
     );
     return info.lastInsertRowid;
   },
-  getFeedPosts: ({ limit, offset, userId = null }) => {
+  getFeedPosts: async ({ limit, offset, userId = null }) => {
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`
       SELECT p.*, u.full_name, u.email, u.profile_picture,
         (SELECT COUNT(*) FROM posts) as total_count,
@@ -2287,7 +2291,9 @@ module.exports = {
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
     `, limit, offset);
-    return db.prepare(sql).all(offsetVal, fetchVal).map(row => {
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    const list = Array.isArray(rows) ? rows : (rows?.rows || []);
+    return Promise.all(list.map(async row => {
       const counts = db.prepare(`
         SELECT reaction_type, COUNT(*) as c
         FROM post_reactions
@@ -2326,51 +2332,59 @@ module.exports = {
       const repostCount = db.prepare(`SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?`).get(row.id);
       row.repost_count = repostCount ? repostCount.c : 0;
       
-      row.hashtags = getPostHashtags(row.id);
-      row.tags = getPostTags(row.id);
+      // Hashtags/tags require async when using PostgreSQL adapter
+      // (getPostHashtags/getPostTags are async)
+      row.hashtags = await getPostHashtags(row.id);
+      row.tags = await getPostTags(row.id);
       return row;
-    });
+    }));
   },
-  getUserPosts: (userId) => {
-    return db.prepare(`
+  getUserPosts: async (userId) => {
+    const rows = await db.prepare(`
       SELECT p.*, u.full_name, u.email, u.profile_picture,
         (SELECT COUNT(*) FROM post_comments WHERE post_id = p.id) as comments_count
       FROM posts p
       JOIN users u ON p.user_id = u.id
       WHERE p.user_id = ? AND (p.content_type IS NULL OR p.content_type != 'repost')
       ORDER BY p.created_at DESC
-    `).all(userId).map((row) => {
+    `).all(userId);
+    
+    const safeRows = Array.isArray(rows) ? rows : (rows?.rows || []);
+    
+    return Promise.all(safeRows.map(async (row) => {
       const repostCount = db.prepare(`SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?`).get(row.id);
       row.repost_count = repostCount ? repostCount.c : 0;
       return {
         ...row,
-        hashtags: getPostHashtags(row.id),
-        tags: getPostTags(row.id)
+        hashtags: await getPostHashtags(row.id),
+        tags: await getPostTags(row.id)
       };
-    });
+    }));
   },
-  getUserReels: (userId) => {
-    return db.prepare(`
+  getUserReels: async (userId) => {
+    const rows = await db.prepare(`
       SELECT p.*, u.full_name, u.email, u.profile_picture
       FROM posts p
       JOIN users u ON p.user_id = u.id
       WHERE p.user_id = ? AND p.is_reel = ${isProduction ? 'true' : '1'}
       ORDER BY p.created_at DESC
-    `).all(userId).map((row) => ({
+    `).all(userId);
+    const list = Array.isArray(rows) ? rows : (rows?.rows || []);
+    return Promise.all(list.map(async (row) => ({
       ...row,
-      hashtags: getPostHashtags(row.id),
-      tags: getPostTags(row.id)
-    }));
+      hashtags: await getPostHashtags(row.id),
+      tags: await getPostTags(row.id)
+    })));
   },
-  getPostById: (postId) => {
-    const row = db.prepare(`
+  getPostById: async (postId) => {
+    const row = await db.prepare(`
       SELECT p.*, u.full_name, u.email, u.profile_picture
       FROM posts p
       JOIN users u ON p.user_id = u.id
       WHERE p.id = ?
     `).get(postId);
     if (!row) return null;
-    const counts = db.prepare(`
+    const counts = await db.prepare(`
       SELECT reaction_type, COUNT(*) as c
       FROM post_reactions
       WHERE post_id = ?
@@ -2378,8 +2392,8 @@ module.exports = {
     `).all(postId);
     row.reactions = counts.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
     row.comments_count = db.prepare(`SELECT COUNT(*) as c FROM post_comments WHERE post_id = ?`).get(postId).c;
-    row.hashtags = getPostHashtags(postId);
-    row.tags = getPostTags(postId);
+    row.hashtags = await getPostHashtags(postId);
+    row.tags = await getPostTags(postId);
     return row;
   },
   getPostHashtags,
@@ -4084,8 +4098,8 @@ module.exports = {
     `).get(postId);
   },
 
-  getUserReposts: (userId) => {
-    return db.prepare(`
+  getUserReposts: async (userId) => {
+    const rows = await db.prepare(`
       SELECT p.*, 
              u.full_name, u.email, u.profile_picture,
              pr.original_post_id, pr.repost_depth, pr.is_quote_repost, pr.quote_text,
@@ -4095,15 +4109,17 @@ module.exports = {
       JOIN post_reposts pr ON pr.post_id = p.id
       WHERE p.user_id = ? AND p.content_type = 'repost'
       ORDER BY p.created_at DESC
-    `).all(userId).map((row) => {
+    `).all(userId);
+    const list = Array.isArray(rows) ? rows : (rows?.rows || []);
+    return Promise.all(list.map(async (row) => {
       const repostCount = db.prepare(`SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?`).get(row.id);
       row.repost_count = repostCount ? repostCount.c : 0;
       return {
         ...row,
-        hashtags: getPostHashtags(row.id),
-        tags: getPostTags(row.id)
+        hashtags: await getPostHashtags(row.id),
+        tags: await getPostTags(row.id)
       };
-    });
+    }));
   },
 
   getRepostCount: (postId) => {
@@ -5254,22 +5270,42 @@ module.exports = {
     return db.prepare(sql).run(...values).changes > 0;
   },
 
-  findPhoneNumberMatches: (phoneNumber) => {
-    return db.prepare(`
+  findPhoneNumberMatches: async (phoneNumber) => {
+    const sql = isProduction
+      ? `
+      SELECT u.id, u.email, u.full_name, u.account_status, u.created_at 
+      FROM users u 
+      WHERE u.phone_number = ? AND u.phone_verified = true
+      ORDER BY u.created_at DESC
+    `
+      : `
       SELECT u.id, u.email, u.full_name, u.account_status, u.created_at 
       FROM users u 
       WHERE u.phone_number = ? AND u.phone_verified = 1
       ORDER BY u.created_at DESC
-    `).all(phoneNumber);
+    `;
+
+    return await db.prepare(sql).all(phoneNumber);
   },
 
-  findRecentPhoneMatchesByIP: (ipAddress, hoursBack = 24) => {
-    return db.prepare(`
+  findRecentPhoneMatchesByIP: async (ipAddress, hoursBack = 24) => {
+    // SQL Server legacy used DATEADD(HOUR, -?, CURRENT_TIMESTAMP)
+    // PostgreSQL equivalent: CURRENT_TIMESTAMP - (? * INTERVAL '1 hour')
+    const sql = isProduction
+      ? `
       SELECT DISTINCT df.user_id 
       FROM device_fingerprints df 
       WHERE df.ip_address = ? 
-      AND df.created_at > DATEADD(HOUR, -?, CURRENT_TIMESTAMP)
-    `).all(ipAddress, hoursBack);
+      AND df.created_at > (CURRENT_TIMESTAMP - (? * INTERVAL '1 hour'))
+    `
+      : `
+      SELECT DISTINCT df.user_id 
+      FROM device_fingerprints df 
+      WHERE df.ip_address = ? 
+      AND df.created_at > datetime('now', '-' || ? || ' hours')
+    `;
+
+    return await db.prepare(sql).all(ipAddress, hoursBack);
   }
 };
 

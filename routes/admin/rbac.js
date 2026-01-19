@@ -756,9 +756,9 @@ router.get('/audit', (req, res) => {
 /**
  * Get registered modules
  */
-router.get('/modules', (req, res) => {
+router.get('/modules', async (req, res) => {
   try {
-    const modules = rbacService.getRegisteredModules();
+    const modules = await rbacService.getRegisteredModules();
     res.json({ success: true, modules });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get modules', message: error.message });

@@ -44,7 +44,7 @@ function safeParseArray(value, fallback = []) {
 // Initialize router with dependencies
 function initProfileRoutes({ upload, io }) {
     // Profile page (current user)
-    router.get('/profile', (req, res) => {
+    router.get('/profile', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         try {
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -58,7 +58,8 @@ function initProfileRoutes({ upload, io }) {
             const goals = safeParseArray(row.goals);
             const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
             // Filter out reels only - reposts are already excluded by getUserPosts
-            let userPosts = getUserPosts(req.session.userId).filter(p => !p.is_reel);
+            let userPosts = await getUserPosts(req.session.userId) || [];
+            userPosts = userPosts.filter(p => !p.is_reel);
 
             userPosts = userPosts.map(p => {
                 try {
@@ -111,7 +112,7 @@ function initProfileRoutes({ upload, io }) {
             // Get user reposts
             let userReposts = [];
             try {
-                userReposts = getUserReposts(req.session.userId) || [];
+                userReposts = await getUserReposts(req.session.userId) || [];
                 userReposts = userReposts.map(p => {
                     try {
                         // Get repost info first
@@ -145,7 +146,7 @@ function initProfileRoutes({ upload, io }) {
                 userReposts = [];
             }
 
-            res.render('user/profile', {
+            return res.render('user/profile', {
                 title: `${user.displayName} - Profile - Dream X`,
                 currentPage: 'profile',
                 user,
@@ -163,12 +164,12 @@ function initProfileRoutes({ upload, io }) {
             });
         } catch (error) {
             console.error('Error rendering own profile:', error);
-            res.status(500).render('500', { title: 'Server Error - Dream X', currentPage: 'profile' });
+            return res.status(500).render('errors/500', { title: 'Server Error - Dream X', currentPage: 'profile' });
         }
     });
 
     // Public profile by ID (view others)
-    router.get('/profile/:id(\\d+)', (req, res) => {
+    router.get('/profile/:id(\\d+)', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         try {
             const uid = parseInt(req.params.id, 10);
@@ -185,7 +186,8 @@ function initProfileRoutes({ upload, io }) {
             const goals = safeParseArray(row.goals);
             const skillsList = row.skills ? row.skills.split(',').map(s => s.trim()) : passions.slice(0, 6);
             // Filter out reels only - reposts are already excluded by getUserPosts
-            let userPosts = getUserPosts(uid).filter(p => !p.is_reel);
+            let userPosts = await getUserPosts(uid) || [];
+            userPosts = userPosts.filter(p => !p.is_reel);
             userPosts = userPosts.map(p => {
                 try {
                     p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
@@ -200,7 +202,7 @@ function initProfileRoutes({ upload, io }) {
             // Get user reposts
             let userReposts = [];
             try {
-                userReposts = getUserReposts(uid) || [];
+                userReposts = await getUserReposts(uid) || [];
                 userReposts = userReposts.map(p => {
                     try {
                         // Get repost info first
@@ -274,7 +276,7 @@ function initProfileRoutes({ upload, io }) {
             const me = getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
 
-            res.render('user/profile', {
+            return res.render('user/profile', {
                 title: `${user.displayName} - Profile - Dream X`,
                 currentPage: 'profile',
                 user,
@@ -292,7 +294,7 @@ function initProfileRoutes({ upload, io }) {
             });
         } catch (error) {
             console.error('Error rendering user profile:', error);
-            res.status(500).render('500', { title: 'Server Error - Dream X', currentPage: 'profile' });
+            return res.status(500).render('errors/500', { title: 'Server Error - Dream X', currentPage: 'profile' });
         }
     });
 

@@ -443,7 +443,7 @@ router.get('/history', requireRbacDashboardAccess, ensureRbacReady, (req, res) =
 /**
  * Audit Logs Page
  */
-router.get('/audit', requireRbacDashboardAccess, ensureRbacReady, (req, res) => {
+router.get('/audit', requireRbacDashboardAccess, ensureRbacReady, async (req, res) => {
   try {
     const { action, actorId, targetType, startDate, endDate, page } = req.query;
     const pageNum = Math.max(parseInt(page) || 1, 1);
@@ -461,9 +461,10 @@ router.get('/audit', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     
     // Get unique actions for filter dropdown
     const { db } = require('../../db');
-    const uniqueActions = db.prepare(`
+    const actionRows = await db.prepare(`
       SELECT DISTINCT action FROM rbac_audit_logs ORDER BY action
-    `).all().map(r => r.action);
+    `).all();
+    const uniqueActions = (Array.isArray(actionRows) ? actionRows : (actionRows?.rows || [])).map(r => r.action);
     
     res.render('rbac/rbac-audit', {
       activePage: 'audit',
@@ -884,13 +885,13 @@ router.post('/api/bulk/execute', requireRbacManagement, ensureRbacReady, (req, r
 /**
  * Get AI permission manifest
  */
-router.get('/api/manifest', requireRbacDashboardAccess, ensureRbacReady, (req, res) => {
+router.get('/api/manifest', requireRbacDashboardAccess, ensureRbacReady, async (req, res) => {
   try {
     if (!rbacAnalytics) {
       return res.status(503).json({ error: 'Analytics service not available' });
     }
     
-    const manifest = rbacAnalytics.AIPermissionManifest.generate();
+    const manifest = await rbacAnalytics.AIPermissionManifest.generate();
     res.json(manifest);
   } catch (error) {
     res.status(500).json({ error: 'Failed to generate manifest', message: error.message });

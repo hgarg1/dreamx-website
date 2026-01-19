@@ -112,7 +112,7 @@ router.get('/projects', requireAuth, (req, res) => {
     });
   } catch (err) {
     console.error('Projects feed error:', err);
-    res.status(500).render('500', { title: 'Server Error' });
+    return res.status(500).render('errors/500', { title: 'Server Error' });
   }
 });
 
@@ -183,7 +183,7 @@ router.get('/project/:id(\\d+)', requireAuth, (req, res) => {
     });
   } catch (err) {
     console.error('Project detail error:', err);
-    res.status(500).render('500', { title: 'Server Error' });
+    return res.status(500).render('errors/500', { title: 'Server Error' });
   }
 });
 
@@ -215,7 +215,7 @@ router.get('/projects/:id/edit', requireAuth, (req, res) => {
     });
   } catch (err) {
     console.error('Edit project form error:', err);
-    res.status(500).render('500', { title: 'Server Error' });
+    return res.status(500).render('errors/500', { title: 'Server Error' });
   }
 });
 
@@ -231,7 +231,7 @@ router.get('/projects/create', requireAuth, (req, res) => {
     });
   } catch (err) {
     console.error('Create project form error:', err);
-    res.status(500).render('500', { title: 'Server Error' });
+    return res.status(500).render('errors/500', { title: 'Server Error' });
   }
 });
 

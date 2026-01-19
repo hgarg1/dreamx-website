@@ -379,8 +379,8 @@ describe('RBAC Service', () => {
       expect(moduleId).toBeDefined();
     });
 
-    test('should get registered modules', () => {
-      const modules = rbacService.getRegisteredModules();
+    test('should get registered modules', async () => {
+      const modules = await rbacService.getRegisteredModules();
       
       expect(Array.isArray(modules)).toBe(true);
       expect(modules.some(m => m.module_name === 'test_module')).toBe(true);

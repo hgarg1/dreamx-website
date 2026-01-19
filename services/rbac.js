@@ -1495,13 +1495,15 @@ function registerModule({ moduleName, displayName, description, version, permiss
 /**
  * Get all registered modules
  */
-function getRegisteredModules() {
+async function getRegisteredModules() {
   if (!isInitialized) throw new Error('RBAC service not initialized');
   
   const enabledValue = isProduction ? 'true' : '1';
-  return db.prepare(`
+  const rows = await db.prepare(`
     SELECT * FROM rbac_module_registrations WHERE is_enabled = ${enabledValue} ORDER BY display_name
-  `).all().map(m => ({
+  `).all();
+  const list = Array.isArray(rows) ? rows : (rows?.rows || []);
+  return list.map(m => ({
     ...m,
     permissionsSchema: m.permissions_schema ? JSON.parse(m.permissions_schema) : null
   }));

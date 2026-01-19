@@ -76,12 +76,13 @@ function deleteUploadFile(file) {
 // Initialize router with dependencies
 function initFeedRoutes({ postUpload, io }) {
     // Feed page (main social feed)
-    router.get('/feed', (req, res) => {
+    router.get('/feed', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
-        const posts = getFeedPosts({ limit: 50, offset: 0, userId: req.session.userId }).map(p => {
+        const postsRaw = await getFeedPosts({ limit: 50, offset: 0, userId: req.session.userId });
+        const posts = (postsRaw || []).map(p => {
             try {
                 p.user_reaction = getUserReactionForPost({ postId: p.id, userId: req.session.userId });
                 p.reactions = p.reactions || {};
@@ -465,7 +466,7 @@ function initFeedRoutes({ postUpload, io }) {
         const postId = parseInt(req.params.id, 10);
         if (!postId) return res.redirect('/feed');
         try {
-            const post = getPostById(postId);
+            const post = await getPostById(postId);
             if (!post) return res.redirect('/feed');
             try {
                 post.user_reaction = getUserReactionForPost({ postId, userId: req.session.userId });

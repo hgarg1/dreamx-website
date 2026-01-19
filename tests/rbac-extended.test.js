@@ -211,12 +211,12 @@ describe('RBAC Extended Services', () => {
   });
 
   describe('AI Permission Manifest', () => {
-    test('should generate manifest', () => {
+    test('should generate manifest', async () => {
       if (!rbacAnalytics || !rbacAnalytics.AIPermissionManifest) {
         console.log('Skipping - RBAC Analytics service not available');
         return;
       }
-      const manifest = rbacAnalytics.AIPermissionManifest.generate();
+      const manifest = await rbacAnalytics.AIPermissionManifest.generate();
       // May be null if RBAC service not initialized
       if (manifest) {
         expect(manifest).toHaveProperty('version');
