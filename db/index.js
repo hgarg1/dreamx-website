@@ -17,11 +17,8 @@ let dbWrapper = null;
 
 if (!isProduction) {
   // SQLite - synchronous initialization (local development)
-  // Only initialize SQLite synchronously if NOT in production
   // In production, PostgreSQL will be initialized asynchronously via initializeDatabase()
-  if (!isProduction) {
-    dbWrapper = initSync();
-  }
+  dbWrapper = initSync();
   db = dbWrapper.getRaw();
 } else {
   // PostgreSQL - async initialization required
@@ -1609,30 +1606,6 @@ CREATE INDEX IF NOT EXISTS idx_pricing_tiers_order ON pricing_tiers(display_orde
 `);
 
 } // End of SQLite-only schema initialization (production uses schema-postgres.sql)
-
-// Helper function to get the database instance (works with both SQLite and PostgreSQL)
-function getDb() {
-  if (isProduction && !dbWrapper) {
-    throw new Error('Database not initialized. Call initializeDatabase() first in production mode.');
-  }
-  if (!isProduction && !dbWrapper) {
-    dbWrapper = getDatabaseSync();
-    db = dbWrapper.getRaw();
-  }
-  return db;
-}
-
-// Helper to create prepared statements that work with both databases
-function prepare(sql) {
-  if (isProduction) {
-    if (!dbWrapper) {
-      throw new Error('Database not initialized. Call initializeDatabase() first.');
-    }
-    return dbWrapper.prepare(sql);
-  } else {
-    return getDb().prepare(sql);
-  }
-}
 
 // Ensure the PostgreSQL session table exists for express-session store
 async function ensureSessionTable() {

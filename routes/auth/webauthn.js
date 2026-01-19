@@ -101,7 +101,8 @@ const webauthnExpectedOrigins = (req, rpID) => {
 // Begin Registration
 router.get('/registration/options', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Login required to create a passkey' });
-    const user = getUserById(req.session.userId);
+    const user = await getUserById(req.session.userId);
+    if (!user) return res.status(401).json({ error: 'User not found' });
     const rpID = rpIDFromReq(req);
     const existingCreds = getCredentialsForUser(user.id, rpID);
     try {
@@ -175,7 +176,7 @@ router.get('/authentication/options', async (req, res) => {
     let hintedUserId = null;
     try {
         if (email) {
-            const user = getUserByEmail(email);
+            const user = await getUserByEmail(email);
             if (!user) {
                 return res.status(404).json({ error: 'No passkeys found for that email. Please sign in with your password.' });
             }
@@ -250,7 +251,7 @@ router.post('/authentication/verify', async (req, res) => {
         const { verified, authenticationInfo } = verification;
         if (verified && stored) {
             updateCredentialCounter({ credentialId: stored.credential_id, counter: authenticationInfo.newCounter ?? stored.counter });
-            const user = getUserById(stored.user_id);
+            const user = await getUserById(stored.user_id);
             if (user) {
                 req.login(user, (err) => {
                     if (err) {

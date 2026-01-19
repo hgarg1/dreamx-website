@@ -539,7 +539,7 @@ function initAdminRoutes({ io, webpush }) {
             }
             const ok = require('../../db').adminUpdateServiceContent({ serviceId: id, fields });
             if (ok && (req.body.notifyEmail || req.body.notifyInApp)) {
-                const owner = getUserById(s.user_id);
+                const owner = await getUserById(s.user_id);
                 let emailSuppressed = false;
                 if (req.body.notifyInApp) {
                     createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service edited by admin', message: `Your service "${s.title}" was edited for compliance.`, link: `/services/${id}` });
