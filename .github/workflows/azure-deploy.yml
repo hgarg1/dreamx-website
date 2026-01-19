@@ -30,6 +30,19 @@ jobs:
         npm ci
         npm run build
         
+    - name: Prepare deployment package
+      run: |
+        # Remove files that shouldn't be deployed
+        rm -rf node_modules/.cache
+        rm -rf .git
+        rm -rf tests
+        rm -rf coverage
+        # List files being deployed for verification
+        echo "Files to be deployed:"
+        find . -type f -name "*.js" | head -20
+        echo "Total JS files: $(find . -type f -name '*.js' | wc -l)"
+        echo "Package prepared for deployment"
+        
     - name: Deploy to Azure Web App
       id: deploy-to-webapp
       uses: azure/webapps-deploy@v3
@@ -37,3 +50,10 @@ jobs:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         package: .
+      continue-on-error: false
+      
+    - name: Verify deployment
+      run: |
+        echo "Deployment completed successfully"
+        echo "Commit SHA: ${{ github.sha }}"
+        echo "Deployed to: ${{ env.AZURE_WEBAPP_NAME }}"

@@ -514,6 +514,8 @@ function prepare(sql) {
 // Ensure the PostgreSQL session table exists for express-session store
 // Note: The implementation of ensureSessionTable() is defined later in this file (around line 1673)
 
+// SQLite-only schema initialization (skip in production - PostgreSQL uses schema-postgres.sql)
+if (!isProduction) {
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS service_reviews (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -582,18 +584,12 @@ db.exec(`CREATE TABLE IF NOT EXISTS oauth_accounts (
 addColumnIfNotExists('users', 'push_notifications', 'INTEGER DEFAULT 1');
 addColumnIfNotExists('users', 'message_notifications', 'INTEGER DEFAULT 1');
 addColumnIfNotExists('users', 'banner_image', 'TEXT');
-// Normalize any previously stored absolute upload paths
+// Normalize any previously stored absolute upload paths (SQLite only)
 try {
   // Strip leading '/uploads/' to keep DB paths relative
-  if (isProduction) {
-    // PostgreSQL uses SUBSTRING()
-    db.exec(`UPDATE users SET profile_picture = SUBSTRING(profile_picture, 10, LEN(profile_picture)) WHERE profile_picture LIKE '/uploads/%';`);
-    db.exec(`UPDATE users SET banner_image = SUBSTRING(banner_image, 10, LEN(banner_image)) WHERE banner_image LIKE '/uploads/%';`);
-  } else {
-    // SQLite uses substr()
-    db.exec(`UPDATE users SET profile_picture = substr(profile_picture, 10) WHERE profile_picture LIKE '/uploads/%';`);
-    db.exec(`UPDATE users SET banner_image = substr(banner_image, 10) WHERE banner_image LIKE '/uploads/%';`);
-  }
+  // SQLite uses substr()
+  db.exec(`UPDATE users SET profile_picture = substr(profile_picture, 10) WHERE profile_picture LIKE '/uploads/%';`);
+  db.exec(`UPDATE users SET banner_image = substr(banner_image, 10) WHERE banner_image LIKE '/uploads/%';`);
 } catch (e) {
   // ignore
 }
@@ -1611,6 +1607,8 @@ CREATE INDEX IF NOT EXISTS idx_pricing_tiers_tier_id ON pricing_tiers(tier_id);
 CREATE INDEX IF NOT EXISTS idx_pricing_tiers_active ON pricing_tiers(is_active);
 CREATE INDEX IF NOT EXISTS idx_pricing_tiers_order ON pricing_tiers(display_order);
 `);
+
+} // End of SQLite-only schema initialization (production uses schema-postgres.sql)
 
 // Helper function to get the database instance (works with both SQLite and PostgreSQL)
 function getDb() {
