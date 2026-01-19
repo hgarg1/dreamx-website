@@ -1043,7 +1043,7 @@ function initializePaymentProcessors() {
 }
 
 // Attach auth context to templates
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
     try {
         let user = null;
         let unreadCount = 0;
@@ -1374,8 +1374,13 @@ app.get('/', (req, res) => {
 });
 
 
-// Error handler for 503 errors
+// Error handler for 503 errors (catch-all for unmatched routes)
+// Only send 503 if response hasn't been sent (e.g., by Azure Easy Auth for .auth paths)
 app.use((req, res, next) => {
+    // If response was already sent (e.g., by Azure Easy Auth), don't send another
+    if (res.headersSent || res.finished) {
+        return next();
+    }
     res.status(503).render('errors/503', { title: 'Service Unavailable - Dream X' });
 });
 
