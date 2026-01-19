@@ -319,7 +319,8 @@ router.get('/verify-email', async (req, res) => {
     if (!req.session || !req.session.userId) return res.redirect('/login');
     const user = await getUserById(req.session.userId);
     if (!user) return res.redirect('/login');
-    if (user.email_verified === 1) return res.redirect(resolvePostAuthRedirect(user));
+    const isVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+    if (isVerified) return res.redirect(resolvePostAuthRedirect(user));
     res.render('auth/verify-email', {
         title: 'Verify Your Email - Dream X',
         currentPage: 'verify-email',
@@ -337,7 +338,8 @@ router.post('/verify-email', async (req, res) => {
     if (!user) {
         return res.status(404).json({ success: false, error: 'User not found' });
     }
-    if (user.email_verified === 1) {
+    const isAlreadyVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+    if (isAlreadyVerified) {
         return res.json({ success: true, redirect: resolvePostAuthRedirect(user) });
     }
     const { code } = req.body;
@@ -360,7 +362,8 @@ router.post('/verify-email', async (req, res) => {
         markCodeAsVerified({ id: verificationRecord.id });
         markEmailAsVerified({ userId: user.id });
         console.log(`✅ Email verified for user ${user.id} (${user.email})`);
-        const updatedUser = { ...user, email_verified: 1 };
+        const freshUser = await getUserById(user.id);
+        const updatedUser = freshUser || { ...user, email_verified: true };
         return res.json({ success: true, redirect: resolvePostAuthRedirect(updatedUser) });
     } catch (err) {
         console.error('Verification error:', err);
@@ -376,7 +379,8 @@ router.post('/resend-verification', async (req, res) => {
     if (!user) {
         return res.status(404).json({ success: false, error: 'User not found' });
     }
-    if (user.email_verified === 1) {
+    const isVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+    if (isVerified) {
         return res.json({ success: true, message: 'Email already verified' });
     }
     try {
@@ -601,11 +605,18 @@ router.get('/login', async (req, res) => {
     const microsoftEnabled = !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
     const appleEnabled = !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY && process.env.APPLE_CALLBACK_URL && process.env.APPLE_CALLBACK_URL.startsWith('https://'));
     const twitterEnabled = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET);
+
+    // In production, prefer Azure Easy Auth endpoints directly for SSO buttons
+    const useEasyAuth = !shouldUsePassportOAuth();
+    const xLoginHref = useEasyAuth
+        ? '/.auth/login/twitter?post_login_redirect_url=%2Ffeed'
+        : '/auth/x';
     res.render('auth/login', {
         title: 'Login - Dream X',
         currentPage: 'auth/login',
         error: null,
-        providers: { googleEnabled, microsoftEnabled, appleEnabled, twitterEnabled }
+        providers: { googleEnabled, microsoftEnabled, appleEnabled, twitterEnabled },
+        xLoginHref
     });
 });
 
@@ -1033,7 +1044,8 @@ function createOAuthRoutes(provider, easyAuthProvider = null) {
 createOAuthRoutes('google');
 createOAuthRoutes('microsoft', 'aad');
 createOAuthRoutes('apple');
-createOAuthRoutes('x', 'x');
+// Azure Easy Auth provider name is "twitter" (not "x") for Twitter/X
+createOAuthRoutes('x', 'twitter');
 
 // Phone Verification Routes
 router.get('/verify-phone', async (req, res) => {

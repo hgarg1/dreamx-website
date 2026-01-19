@@ -83,7 +83,7 @@ function formatUserData(user) {
         profilePicture: user.profile_picture || null,
         bannerImage: user.banner_image || null,
         bio: user.bio || null,
-        emailVerified: user.email_verified === 1,
+        emailVerified: user.email_verified === true || user.email_verified === 1 || user.email_verified === '1',
         accountStatus: user.account_status || 'active',
         role: user.role || 'user',
         createdAt: user.created_at
@@ -521,7 +521,8 @@ router.post('/api/auth/verify-email', authenticateToken, express.json(), async (
             return sendResponse(res, false, null, 'User not found', 404);
         }
 
-        if (user.email_verified === 1) {
+        const isVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+        if (isVerified) {
             return sendResponse(res, true, {
                 message: 'Email already verified',
                 verified: true
@@ -574,7 +575,8 @@ router.post('/api/auth/resend-verification', authenticateToken, express.json(), 
             return sendResponse(res, false, null, 'User not found', 404);
         }
 
-        if (user.email_verified === 1) {
+        const isVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+        if (isVerified) {
             return sendResponse(res, true, {
                 message: 'Email already verified'
             });

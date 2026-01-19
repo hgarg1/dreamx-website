@@ -1056,7 +1056,8 @@ app.use(async (req, res, next) => {
         if (!req.session.userId) return next();
         const user = await getUserById(req.session.userId);
         if (!user) return next();
-        if (user.email_verified === 1) return next();
+        const isVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+        if (isVerified) return next();
 
         // Allowlist: verification flow, logout, auth, static assets, and essential files
         const p = req.path || '';
@@ -1089,7 +1090,8 @@ app.use(async (req, res, next) => {
         const user = await getUserById(req.session.userId);
         if (!user) return next();
         // Only prompt if email is verified but onboarding not completed
-        if (user.email_verified === 1 && userNeedsOnboarding(user)) {
+        const isVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+        if (isVerified && userNeedsOnboarding(user)) {
             const p = req.path || '';
             const isStatic = p.startsWith('/css/') || p.startsWith('/js/') || p.startsWith('/img/') || p.startsWith('/uploads/') || p.startsWith('/fonts/') || p === '/favicon.ico' || p === '/robots.txt' || p.startsWith('/manifest') || p.startsWith('/service-worker');
             const allowedExact = new Set(['/onboarding', '/onboarding/start', '/logout', '/verify-email', '/onboarding-empty', '/api/onboarding']);
