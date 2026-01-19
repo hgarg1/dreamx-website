@@ -11,7 +11,9 @@
 const path = require('path');
 const fs = require('fs');
 
-const isPostgres = process.env.NODE_ENV === 'Production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
+// Check for PostgreSQL - handle both 'production' and 'Production' (case-insensitive)
+const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+const isPostgres = (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
 
 // Lazy load database
 let db = null;

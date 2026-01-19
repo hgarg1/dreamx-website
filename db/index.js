@@ -1883,15 +1883,95 @@ async function ensureSessionTable() {
   }
 
   try {
-    // Use PostgreSQL-compatible syntax
-    await dbWrapper.exec(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        sid VARCHAR(255) NOT NULL PRIMARY KEY,
-        session TEXT NOT NULL,
-        expires TIMESTAMP NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires);
-    `);
+    // Check if table exists and what columns it has
+    const tableCheck = await dbWrapper.prepare(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'sessions' 
+      AND table_schema = 'public'
+    `).all();
+    
+    if (tableCheck && tableCheck.length > 0) {
+      // Table exists - check if it has old column names
+      const columns = tableCheck.map(c => c.column_name);
+      const hasOldColumns = columns.includes('session') || columns.includes('expires');
+      const hasNewColumns = columns.includes('sess') && columns.includes('expire');
+      
+      console.log(`📋 Sessions table columns detected: ${columns.join(', ')}`);
+      
+      if (hasOldColumns && !hasNewColumns) {
+        // Migrate old schema to new schema (connect-pg-simple compatible)
+        console.log('🔄 Migrating sessions table to connect-pg-simple format...');
+        
+        // Only rename if the old column exists
+        if (columns.includes('session')) {
+          try {
+            await dbWrapper.exec(`
+              ALTER TABLE sessions 
+              RENAME COLUMN session TO sess;
+            `);
+            // Convert to JSON type if it's TEXT
+            const sessionCol = tableCheck.find(c => c.column_name === 'session');
+            if (sessionCol && (sessionCol.data_type === 'text' || sessionCol.data_type === 'character varying')) {
+              await dbWrapper.exec(`
+                ALTER TABLE sessions 
+                ALTER COLUMN sess TYPE JSON USING sess::json;
+              `);
+            }
+          } catch (e) {
+            console.error('❌ Could not rename session column:', e.message);
+            throw e;
+          }
+        }
+        
+        if (columns.includes('expires')) {
+          try {
+            await dbWrapper.exec(`
+              ALTER TABLE sessions 
+              RENAME COLUMN expires TO expire;
+            `);
+          } catch (e) {
+            console.error('❌ Could not rename expires column:', e.message);
+            throw e;
+          }
+        }
+        
+        // Update index name if it exists
+        try {
+          await dbWrapper.exec(`DROP INDEX IF EXISTS idx_sessions_expires;`);
+        } catch (e) {
+          // Ignore if index doesn't exist
+        }
+        try {
+          await dbWrapper.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions(expire);`);
+        } catch (e) {
+          // Ignore if index already exists
+        }
+        
+        console.log('✅ Sessions table migrated successfully');
+      } else if (!hasNewColumns) {
+        // Table exists but doesn't have expected columns - this shouldn't happen
+        console.warn('⚠️ Sessions table exists but has unexpected schema. Expected sess/expire columns.');
+        // Don't recreate the table if it has data, but log a warning
+      } else {
+        // Table has correct columns
+        console.log('✅ Sessions table already has correct schema (sess/expire)');
+      }
+    } else {
+      // Table doesn't exist - create it with correct schema
+      console.log('🔄 Creating sessions table with connect-pg-simple compatible schema...');
+      await dbWrapper.exec(`
+        CREATE TABLE IF NOT EXISTS sessions (
+          sid VARCHAR(255) NOT NULL PRIMARY KEY,
+          sess JSON NOT NULL,
+          expire TIMESTAMP NOT NULL
+        );
+      `);
+      await dbWrapper.exec(`
+        CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions(expire);
+      `);
+      console.log('✅ Sessions table created successfully');
+    }
   } catch (error) {
     // Ignore "already exists" errors
     if (!error.message.includes('already exists') && !error.message.includes('duplicate')) {

@@ -184,14 +184,14 @@ CREATE INDEX idx_auth_tokens_user_id ON auth_tokens(user_id);
 CREATE INDEX idx_auth_tokens_token_hash ON auth_tokens(token_hash);
 CREATE INDEX idx_auth_tokens_expires_at ON auth_tokens(expires_at);
 
--- Express session store
+-- Express session store (compatible with connect-pg-simple)
 CREATE TABLE sessions (
   sid VARCHAR(255) NOT NULL PRIMARY KEY,
-  session TEXT NOT NULL,
-  expires TIMESTAMP NOT NULL
+  sess JSON NOT NULL,
+  expire TIMESTAMP NOT NULL
 );
 
-CREATE INDEX idx_sessions_expires ON sessions(expires);
+CREATE INDEX idx_sessions_expire ON sessions(expire);
 
 -- WebAuthn credentials
 CREATE TABLE webauthn_credentials (

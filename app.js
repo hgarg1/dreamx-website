@@ -551,6 +551,8 @@ const isProductionDB = nodeEnv === 'production' && (process.env.DB_TYPE === 'pos
 let sessionStore;
 if (isProductionDB) {
     // Production: Use PostgreSQL for sessions
+    // Note: createTableIfMissing is disabled - we handle table creation/migration via ensureSessionTable()
+    // This ensures the table has the correct schema (sess/expire columns) for connect-pg-simple
     const { Pool } = require('pg');
     const pgPool = new Pool({
         host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
@@ -564,7 +566,7 @@ if (isProductionDB) {
     sessionStore = new pgSession({
         pool: pgPool,
         tableName: 'sessions',
-        createTableIfMissing: true
+        createTableIfMissing: false  // Disabled - ensureSessionTable() handles this
     });
 } else {
     // Development: Use SQLite for sessions
