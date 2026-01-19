@@ -115,7 +115,22 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email 
         throw new Error('Failed to create user: no user ID returned');
     }
     updateUserProvider({ userId, provider, providerId });
-    return await getUserById(userId);
+    
+    // Auto-verify email for OAuth users (OAuth providers already verify emails)
+    if (email) {
+        try {
+            markEmailAsVerified({ userId });
+        } catch (e) {
+            console.warn('Failed to auto-verify email for new OAuth user:', e.message);
+        }
+    }
+    
+    const newUser = await getUserById(userId);
+    // Ensure email_verified is set in the returned user object
+    if (newUser && email) {
+        newUser.email_verified = 1;
+    }
+    return newUser;
 }
 
 async function importProfilePhotoIfNeeded(user, photoUrl) {
@@ -988,11 +1003,18 @@ async function handleOAuthCallback(req, res, provider) {
                     return res.redirect('/login');
                 }
                 
-                // Auto-verify email for OAuth users
+                // Auto-verify email for OAuth users (OAuth providers already verify emails)
+                let verifiedUser = req.user;
                 try {
                     const u = await getUserById(req.user.id);
-                    if (u && u.email_verified !== 1) {
+                    // Check if email is verified (handle both boolean and integer)
+                    const isEmailVerified = u && (u.email_verified === true || u.email_verified === 1 || u.email_verified === '1');
+                    if (u && !isEmailVerified) {
                         markEmailAsVerified({ userId: u.id });
+                        // Update the user object to reflect verification
+                        verifiedUser = { ...u, email_verified: 1 };
+                    } else if (u) {
+                        verifiedUser = u;
                     }
                 } catch (e) {
                     console.warn('Email verification during OAuth login failed:', e.message);
@@ -1008,7 +1030,10 @@ async function handleOAuthCallback(req, res, provider) {
                         }
                         
                         try {
-                            const u = await getUserById(req.user.id);
+                            // Use the verified user object to ensure email_verified is set
+                            // Check if email is verified (handle both boolean and integer)
+                            const isVerified = verifiedUser.email_verified === true || verifiedUser.email_verified === 1 || verifiedUser.email_verified === '1';
+                            const u = isVerified ? verifiedUser : await getUserById(req.user.id);
                             const redirectTarget = resolvePostAuthRedirect(u);
                             console.log(`✅ ${provider} login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
                             return resolve(res.redirect(redirectTarget));
@@ -1123,19 +1148,39 @@ router.post('/auth/apple/callback', (req, res, next) => {
 router.get('/auth/x', (req, res, next) => {
     // Redirect to Azure Easy Auth if enabled in production
     const usePassport = shouldUsePassportOAuth();
+    
+    // Log for debugging
+    console.log('🔐 [Twitter/X] Auth route accessed:', {
+        usePassport,
+        nodeEnv: process.env.NODE_ENV,
+        easyAuthEnabled: process.env.EASY_AUTH_ENABLED,
+        hasTwitterCreds: !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
+    });
+    
     if (!usePassport) {
+        // Easy Auth mode - redirect to Azure's endpoint
+        // NOTE: /.auth/login/x (with dot) is Azure's endpoint, not the app's
+        // If you see 503 on /.auth/login/x, it means Twitter/X isn't configured in Azure Portal
         const baseUrl = getRequestBaseUrl(req);
         const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
         // Azure Easy Auth uses 'x' as the provider name for Twitter/X
         const redirectUrl = `${baseUrl}/.auth/login/x?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`;
-        console.log('🔐 [Twitter/X] Redirecting to Easy Auth:', redirectUrl);
+        console.log('🔐 [Twitter/X] Redirecting to Azure Easy Auth:', redirectUrl);
+        console.log('   NOTE: If Azure returns 503, configure Twitter/X in Azure Portal → Authentication');
         return res.redirect(redirectUrl);
     }
     
-    // Passport.js OAuth - check configuration
+    // Passport.js OAuth mode - check configuration
     if (!process.env.TWITTER_CLIENT_ID || !process.env.TWITTER_CLIENT_SECRET) {
-        console.warn('⚠️ [Twitter/X] OAuth not configured - missing credentials');
-        return res.status(503).send('X (Twitter) OAuth not configured');
+        console.error('❌ [Twitter/X] OAuth not configured - missing credentials');
+        console.error('   This error means Passport.js OAuth is enabled but Twitter credentials are missing.');
+        console.error('   If you want to use Azure Easy Auth instead, set EASY_AUTH_ENABLED=false or ensure NODE_ENV=production');
+        return res.status(503).json({ 
+            error: 'X (Twitter) OAuth not configured',
+            message: 'Twitter OAuth credentials are missing. Please configure TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET, or use Azure Easy Auth.',
+            nodeEnv: process.env.NODE_ENV,
+            easyAuthEnabled: process.env.EASY_AUTH_ENABLED
+        });
     }
     
     const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
@@ -1350,6 +1395,32 @@ router.post('/resend-phone-code', async (req, res) => {
         return res.status(500).json({ success: false, error: 'Failed to resend code' });
     }
 });
+
+// Handle Azure Easy Auth callback redirects
+// NOTE: This route ONLY handles callbacks (/.auth/login/{provider}/callback)
+// Azure handles the login endpoints (/.auth/login/{provider}) directly - do NOT intercept those!
+// Azure redirects to /.auth/login/{provider}/callback after authentication
+// We need to process Easy Auth headers and redirect to post_login_redirect_url
+router.get('/.auth/login/:provider/callback', async (req, res) => {
+    const { provider } = req.params;
+    const postLoginRedirect = req.query.post_login_redirect_url || req.query.redirect || '/feed';
+    
+    // Easy Auth middleware should have already processed the headers and set req.user
+    // If user is authenticated, redirect to the intended destination
+    if (req.user && req.session && req.session.userId) {
+        const redirectTarget = resolvePostAuthRedirect(req.user) || postLoginRedirect;
+        console.log(`✅ Easy Auth callback for ${provider}, redirecting to: ${redirectTarget}`);
+        return res.redirect(redirectTarget);
+    }
+    
+    // If not authenticated, redirect to login
+    console.warn(`⚠️ Easy Auth callback for ${provider} but user not authenticated`);
+    return res.redirect('/login');
+});
+
+// IMPORTANT: Do NOT add routes for /.auth/login/{provider} (without /callback)
+// Those are Azure's endpoints and must be handled by Azure Easy Auth.
+// If you see 503 on /.auth/login/x, it means Twitter/X isn't configured in Azure Portal.
 
 module.exports = router;
 

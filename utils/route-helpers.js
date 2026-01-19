@@ -39,9 +39,12 @@ function userNeedsOnboarding(user) {
 function resolvePostAuthRedirect(user) {
     if (!user) return '/login';
 
+    // Normalize email_verified to boolean/integer (PostgreSQL uses boolean, SQLite uses integer)
+    const isEmailVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+
     // Auto-verify and complete onboarding for admin/HR accounts
     if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || ['hr', 'super_hr', 'global_hr'].includes(user.role)) {
-        if (user.email_verified !== 1 || user.onboarding_completed !== 1) {
+        if (!isEmailVerified || user.onboarding_completed !== 1) {
             db.prepare('UPDATE users SET email_verified = 1, onboarding_completed = 1, needs_onboarding = 0 WHERE id = ?').run(user.id);
             user.email_verified = 1;
             user.onboarding_completed = 1;
@@ -50,7 +53,7 @@ function resolvePostAuthRedirect(user) {
         }
     }
 
-    if (user.email_verified !== 1) {
+    if (!isEmailVerified) {
         return '/verify-email';
     }
     if (userNeedsOnboarding(user)) {

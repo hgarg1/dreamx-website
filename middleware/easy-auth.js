@@ -217,6 +217,15 @@ async function easyAuthMiddleware(req, res, next) {
         const user = await findOrCreateEasyAuthUser(principal, provider);
         
         if (user && user.id) {
+            // Ensure email_verified is set in user object (PostgreSQL returns boolean, SQLite returns integer)
+            if (user.email_verified !== true && user.email_verified !== 1) {
+                // Re-fetch user to get latest email_verified status
+                const freshUser = await getUserById(user.id);
+                if (freshUser) {
+                    Object.assign(user, freshUser);
+                }
+            }
+            
             // Set session
             if (req.session) {
                 req.session.userId = user.id;

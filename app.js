@@ -1105,7 +1105,7 @@ app.use(async (req, res, next) => {
         const p = req.path || '';
         const isStatic = p.startsWith('/css/') || p.startsWith('/js/') || p.startsWith('/img/') || p.startsWith('/uploads/') || p.startsWith('/fonts/') || p === '/favicon.ico' || p === '/robots.txt' || p.startsWith('/manifest') || p.startsWith('/service-worker');
         const allowedExact = new Set(['/verify-email', '/resend-verification', '/logout', '/api/push/public-key']);
-        const isAuthPath = p === '/login' || p === '/register' || p.startsWith('/auth/') || p.startsWith('/webauthn/');
+        const isAuthPath = p === '/login' || p === '/register' || p.startsWith('/auth/') || p.startsWith('/webauthn/') || p.startsWith('/.auth/'); // Allow Azure Easy Auth endpoints
         if (isStatic || allowedExact.has(p) || isAuthPath) return next();
 
         if (p.startsWith('/api/')) {
@@ -1382,8 +1382,17 @@ app.get('/', (req, res) => {
 
 
 // Error handler for 503 errors (catch-all for unmatched routes)
-// Only send 503 if response hasn't been sent (e.g., by Azure Easy Auth for .auth paths)
+// IMPORTANT: Exclude Azure Easy Auth endpoints (/.auth/*) - those are handled by Azure, not the app
 app.use((req, res, next) => {
+    // Skip Azure Easy Auth endpoints - let Azure handle them
+    // Azure handles /.auth/login/{provider} and /.auth/logout
+    // The app only handles /.auth/login/{provider}/callback
+    if (req.path.startsWith('/.auth/')) {
+        // Let Azure handle it - don't return 503
+        // Azure will process the request and either redirect or return its own response
+        return next();
+    }
+    
     // If response was already sent (e.g., by Azure Easy Auth), don't send another
     if (res.headersSent || res.finished) {
         return next();
