@@ -800,51 +800,8 @@ async function getSuggestedHandles(baseHandle, count = 3) {
     return suggestions.slice(0, count);
 }
 
-// Helper to find or create a user from OAuth profile
-async function findOrCreateOAuthUser({ provider, providerId, displayName, email }) {
-    let user = await getUserByProvider(provider, providerId);
-    if (user) return user;
-    if (email) {
-        const byEmail = await getUserByEmail(email);
-        if (byEmail) {
-            updateUserProvider({ userId: byEmail.id, provider, providerId });
-            return await getUserById(byEmail.id);
-        }
-    }
-    const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
-    const baseHandle = generateBaseHandle(displayName, email);
-    const uniqueHandle = await generateUniqueHandle(baseHandle);
-    const userId = await createUser({
-        fullName: displayName || (email || 'User'),
-        email: email || `${providerId}@${provider}.oauth.local`,
-        passwordHash: dummyHash,
-        handle: uniqueHandle
-    });
-    if (!userId) {
-        throw new Error('Failed to create user: no user ID returned');
-    }
-    updateUserProvider({ userId, provider, providerId });
-    return await getUserById(userId);
-}
-
-async function importProfilePhotoIfNeeded(user, photoUrl) {
-    try {
-        if (!photoUrl || !user || user.profile_picture) return;
-        const res = await fetch(photoUrl);
-        if (!res || !res.ok) return;
-        const arrayBuffer = await res.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const uploadsDir = path.join(__dirname, 'public', 'uploads', 'profiles');
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-        const ext = (photoUrl.split('?')[0].split('.').pop() || 'jpg').toLowerCase();
-        const safeExt = ext.length <= 5 ? ext : 'jpg';
-        const filename = `profile-oauth-${user.id}-${Date.now()}.${safeExt}`;
-        fs.writeFileSync(path.join(uploadsDir, filename), buffer);
-        updateProfilePicture({ userId: user.id, filename: `profiles/${filename}` });
-    } catch (e) {
-        console.warn('Profile photo import failed:', e.message);
-    }
-}
+// Use unified OAuth helpers (replaces duplicate functions)
+const { findOrCreateOAuthUser, importProfilePhotoIfNeeded } = require('./utils/oauth-helpers');
 
 async function importBinaryPhotoIfNeeded(user, buffer, extHint) {
     try {
@@ -1385,11 +1342,12 @@ app.get('/', (req, res) => {
 // IMPORTANT: Exclude Azure Easy Auth endpoints (/.auth/*) - those are handled by Azure, not the app
 app.use((req, res, next) => {
     // Skip Azure Easy Auth endpoints - let Azure handle them
-    // Azure handles /.auth/login/{provider} and /.auth/logout
+    // Azure handles /.auth/login/{provider} and /.auth/logout at the platform level
     // The app only handles /.auth/login/{provider}/callback
-    if (req.path.startsWith('/.auth/')) {
-        // Let Azure handle it - don't return 503
-        // Azure will process the request and either redirect or return its own response
+    if (req.path.startsWith('/.auth/') && !req.path.endsWith('/callback')) {
+        // If we're here, Azure Easy Auth isn't handling this request at the platform level
+        // This means the provider (e.g., Twitter/X) isn't configured in Azure Portal
+        // Skip this catch-all and let the 404 handler provide a helpful error
         return next();
     }
     
@@ -1410,7 +1368,21 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler - must be last route
+// IMPORTANT: Skip Azure Easy Auth endpoints (/.auth/*) - those are handled by Azure, not the app
 app.use((req, res) => {
+    // Skip Azure Easy Auth endpoints (except callbacks which we handle)
+    // Azure handles /.auth/login/{provider} and /.auth/logout at the platform level
+    if (req.path.startsWith('/.auth/') && !req.path.endsWith('/callback')) {
+        // If we're here, Azure Easy Auth isn't handling this request
+        // This means the provider (e.g., Twitter/X) isn't configured in Azure Portal
+        // Return a helpful error instead of 404
+        console.warn(`⚠️ Azure Easy Auth endpoint ${req.path} reached the app - provider may not be configured in Azure Portal`);
+        return res.status(503).json({
+            error: 'Authentication provider not configured',
+            message: `The authentication provider for ${req.path} is not configured in Azure App Service. Please configure it in Azure Portal → Authentication → Identity providers.`,
+            path: req.path
+        });
+    }
     res.status(404).render('errors/404', { title: 'Page Not Found - Dream X' });
 });
 

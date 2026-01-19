@@ -7,8 +7,8 @@
  * In development, Passport.js handles OAuth directly.
  */
 
-const { getUserByEmail, getUserByProvider, getUserByHandle, createUser, updateUserProvider, getUserById, markEmailAsVerified } = require('../db');
-const bcrypt = require('bcrypt');
+const { getUserById } = require('../db');
+const { findOrCreateOAuthUser } = require('../utils/oauth-helpers');
 
 /**
  * Check if Easy Auth is enabled (production with Easy Auth headers present)
@@ -95,40 +95,6 @@ function extractDisplayName(principal) {
 }
 
 /**
- * Generate a unique handle from email or name
- */
-function generateBaseHandle(name, email) {
-    if (name) {
-        return name.toLowerCase()
-            .replace(/[^a-z0-9]/g, '')
-            .substring(0, 20);
-    }
-    if (email) {
-        return email.split('@')[0].toLowerCase()
-            .replace(/[^a-z0-9]/g, '')
-            .substring(0, 20);
-    }
-    return 'user' + Date.now().toString().slice(-6);
-}
-
-/**
- * Generate unique handle
- */
-function generateUniqueHandle(baseHandle) {
-    let handle = baseHandle;
-    let counter = 1;
-    while (getUserByHandle(handle)) {
-        handle = `${baseHandle}${counter}`;
-        counter++;
-        if (counter > 1000) {
-            handle = `${baseHandle}${Date.now().toString().slice(-6)}`;
-            break;
-        }
-    }
-    return handle;
-}
-
-/**
  * Find or create user from Easy Auth principal
  */
 async function findOrCreateEasyAuthUser(principal, provider) {
@@ -141,48 +107,13 @@ async function findOrCreateEasyAuthUser(principal, provider) {
                       email ||
                       `easyauth-${provider}-${Date.now()}`;
     
-    // Try to find user by provider
-    let user = await getUserByProvider(provider, providerId);
-    if (user) {
-        return user;
-    }
-    
-    // Try to find by email
-    if (email) {
-        const byEmail = await getUserByEmail(email);
-        if (byEmail) {
-            updateUserProvider({ userId: byEmail.id, provider, providerId });
-            return await getUserById(byEmail.id);
-        }
-    }
-    
-    // Create new user
-    const dummyHash = await bcrypt.hash(`easyauth-${provider}-${providerId}-${Date.now()}`, 10);
-    const baseHandle = generateBaseHandle(displayName, email);
-    const uniqueHandle = await generateUniqueHandle(baseHandle);
-    
-    const { createUser } = require('../db');
-    const userId = await createUser({
-        fullName: displayName,
-        email: email || `${providerId}@${provider}.easyauth.local`,
-        passwordHash: dummyHash,
-        handle: uniqueHandle
+    // Use unified OAuth helper
+    return await findOrCreateOAuthUser({
+        provider,
+        providerId,
+        displayName,
+        email
     });
-    if (!userId) {
-        throw new Error('Failed to create user: no user ID returned');
-    }
-    updateUserProvider({ userId, provider, providerId });
-    
-    // Auto-verify email for Easy Auth users
-    try {
-        if (email) {
-            markEmailAsVerified({ userId });
-        }
-    } catch (e) {
-        console.warn('Failed to mark email as verified for Easy Auth user:', e.message);
-    }
-    
-    return await getUserById(userId);
 }
 
 /**

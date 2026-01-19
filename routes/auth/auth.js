@@ -34,6 +34,7 @@ const {
     db
 } = require('../../db');
 const { resolvePostAuthRedirect, getRequestBaseUrl, validatePasswordComplexity } = require('../../utils/route-helpers');
+const { findOrCreateOAuthUser, importProfilePhotoIfNeeded } = require('../../utils/oauth-helpers');
 const emailService = require('../../services/emailService');
 const phoneService = require('../../services/phoneService');
 const DeviceFingerprintService = require('../../services/deviceFingerprintService');
@@ -53,28 +54,7 @@ const accountLockout = require('../../services/accountLockoutService');
 const router = express.Router();
 
 // Helper functions
-function generateBaseHandle(fullName, email) {
-    if (fullName) {
-        return fullName.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
-    }
-    if (email) {
-        return email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
-    }
-    return 'user';
-}
-
-async function generateUniqueHandle(baseHandle, excludeUserId = null) {
-    let handle = baseHandle;
-    let counter = 0;
-    while (true) {
-        const existing = await getUserByHandle(handle);
-        if (!existing || (excludeUserId && existing.id === excludeUserId)) {
-            return handle;
-        }
-        counter++;
-        handle = `${baseHandle}${counter}`;
-    }
-}
+const { generateBaseHandle, generateUniqueHandle } = require('../../utils/oauth-helpers');
 
 async function getSuggestedHandles(baseHandle, count = 3) {
     const suggestions = [];
@@ -90,70 +70,6 @@ async function getSuggestedHandles(baseHandle, count = 3) {
         num++;
     }
     return suggestions.slice(0, count);
-}
-
-async function findOrCreateOAuthUser({ provider, providerId, displayName, email }) {
-    let user = await getUserByProvider(provider, providerId);
-    if (user) return user;
-    if (email) {
-        const byEmail = await getUserByEmail(email);
-        if (byEmail) {
-            updateUserProvider({ userId: byEmail.id, provider, providerId });
-            return await getUserById(byEmail.id);
-        }
-    }
-    const dummyHash = await bcrypt.hash(`oauth-${provider}-${providerId}-${Date.now()}`, 10);
-    const baseHandle = generateBaseHandle(displayName, email);
-    const uniqueHandle = await generateUniqueHandle(baseHandle);
-    const userId = await createUser({
-        fullName: displayName || (email || 'User'),
-        email: email || `${providerId}@${provider}.oauth.local`,
-        passwordHash: dummyHash,
-        handle: uniqueHandle
-    });
-    if (!userId) {
-        throw new Error('Failed to create user: no user ID returned');
-    }
-    updateUserProvider({ userId, provider, providerId });
-    
-    // Auto-verify email for OAuth users (OAuth providers already verify emails)
-    if (email) {
-        try {
-            markEmailAsVerified({ userId });
-        } catch (e) {
-            console.warn('Failed to auto-verify email for new OAuth user:', e.message);
-        }
-    }
-    
-    const newUser = await getUserById(userId);
-    // Ensure email_verified is set in the returned user object
-    if (newUser && email) {
-        newUser.email_verified = 1;
-    }
-    return newUser;
-}
-
-async function importProfilePhotoIfNeeded(user, photoUrl) {
-    try {
-        if (!photoUrl || !user || user.profile_picture) return;
-        const fetch = require('node-fetch');
-        const path = require('path');
-        const fs = require('fs');
-        const res = await fetch(photoUrl);
-        if (!res || !res.ok) return;
-        const arrayBuffer = await res.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const uploadsDir = path.join(__dirname, '..', 'public', 'uploads', 'profiles');
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-        const ext = (photoUrl.split('?')[0].split('.').pop() || 'jpg').toLowerCase();
-        const safeExt = ext.length <= 5 ? ext : 'jpg';
-        const filename = `profile-oauth-${user.id}-${Date.now()}.${safeExt}`;
-        fs.writeFileSync(path.join(uploadsDir, filename), buffer);
-        const { updateProfilePicture } = require('../../db');
-        updateProfilePicture({ userId: user.id, filename: `profiles/${filename}` });
-    } catch (e) {
-        console.warn('Profile photo import failed:', e.message);
-    }
 }
 
 // Registration page
@@ -978,248 +894,146 @@ router.get('/auth/google/callback', (req, res, next) => {
     })(req, res, next);
 });
 
+/**
+ * Simplified OAuth callback handler
+ */
 async function handleOAuthCallback(req, res, provider) {
     try {
-        // Use mode from session (stored before OAuth redirect) instead of URL state parameter
-        // (state is reserved for Passport's CSRF protection)
-        const mode = req.session.oauthMode || 'auth/login';
+        const mode = req.session?.oauthMode || 'auth/login';
         
-        // Handle account linking mode
-        if (mode === 'link' && req.session && req.session.userId && req.authInfo) {
-            updateUserProvider({ userId: req.session.userId, provider: req.authInfo.provider, providerId: req.authInfo.providerId });
+        // Account linking mode
+        if (mode === 'link' && req.session?.userId && req.authInfo) {
+            updateUserProvider({ 
+                userId: req.session.userId, 
+                provider: req.authInfo.provider, 
+                providerId: req.authInfo.providerId 
+            });
             if (req.authInfo.photoUrl) {
                 const user = await getUserById(req.session.userId);
                 await importProfilePhotoIfNeeded(user, req.authInfo.photoUrl);
             }
-            return res.redirect('/settings?success=' + provider.charAt(0).toUpperCase() + provider.slice(1) + ' connected');
+            return res.redirect(`/settings?success=${provider.charAt(0).toUpperCase() + provider.slice(1)} connected`);
         }
         
-        // Handle login mode
-        if (req.user && req.user.id) {
-            // Use req.login() to establish Passport session
-            return req.login(req.user, async (err) => {
-                if (err) {
-                    console.error(`❌ ${provider} login error:`, err);
+        // Login mode
+        if (!req.user?.id) {
+            console.warn(`⚠️ ${provider} callback: req.user not populated`);
+            return res.redirect('/login');
+        }
+        
+        // Establish session
+        req.login(req.user, async (err) => {
+            if (err) {
+                console.error(`❌ ${provider} login error:`, err);
+                return res.redirect('/login');
+            }
+            
+            // Ensure email is verified for OAuth users
+            const user = await getUserById(req.user.id);
+            if (user && user.email_verified !== true && user.email_verified !== 1) {
+                try {
+                    markEmailAsVerified({ userId: user.id });
+                    user.email_verified = 1;
+                } catch (e) {
+                    console.warn('Email verification failed:', e.message);
+                }
+            }
+            
+            // Save session and redirect
+            req.session.userId = req.user.id;
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    console.error(`❌ ${provider} session save error:`, saveErr);
                     return res.redirect('/login');
                 }
                 
-                // Auto-verify email for OAuth users (OAuth providers already verify emails)
-                let verifiedUser = req.user;
-                try {
-                    const u = await getUserById(req.user.id);
-                    // Check if email is verified (handle both boolean and integer)
-                    const isEmailVerified = u && (u.email_verified === true || u.email_verified === 1 || u.email_verified === '1');
-                    if (u && !isEmailVerified) {
-                        markEmailAsVerified({ userId: u.id });
-                        // Update the user object to reflect verification
-                        verifiedUser = { ...u, email_verified: 1 };
-                    } else if (u) {
-                        verifiedUser = u;
-                    }
-                } catch (e) {
-                    console.warn('Email verification during OAuth login failed:', e.message);
-                }
-                
-                // Ensure session is saved
-                req.session.userId = req.user.id;
-                return new Promise((resolve) => {
-                    req.session.save(async (saveErr) => {
-                        if (saveErr) {
-                            console.error(`❌ ${provider} session save error:`, saveErr);
-                            return resolve(res.redirect('/login'));
-                        }
-                        
-                        try {
-                            // Use the verified user object to ensure email_verified is set
-                            // Check if email is verified (handle both boolean and integer)
-                            const isVerified = verifiedUser.email_verified === true || verifiedUser.email_verified === 1 || verifiedUser.email_verified === '1';
-                            const u = isVerified ? verifiedUser : await getUserById(req.user.id);
-                            const redirectTarget = resolvePostAuthRedirect(u);
-                            console.log(`✅ ${provider} login successful for user ${req.user.id}, redirecting to ${redirectTarget}`);
-                            return resolve(res.redirect(redirectTarget));
-                        } catch (e) {
-                            console.error(`❌ ${provider} redirect resolution error:`, e.message);
-                            return resolve(res.redirect('/feed'));
-                        }
-                    });
-                });
+                const redirectTarget = resolvePostAuthRedirect(user || req.user);
+                console.log(`✅ ${provider} login successful, redirecting to ${redirectTarget}`);
+                res.redirect(redirectTarget);
             });
-        } else {
-            console.warn(`⚠️ ${provider} callback: req.user not populated, redirecting to login`);
-            return res.redirect('/login');
-        }
+        });
     } catch (e) {
         console.error(`❌ ${provider} callback error:`, e.message);
-        return res.redirect('/login');
+        res.redirect('/login');
     }
 }
 
-router.get('/auth/microsoft', (req, res, next) => {
-    // Redirect to Azure Easy Auth if enabled in production
-    const usePassport = shouldUsePassportOAuth();
-    if (!usePassport) {
-        const baseUrl = getRequestBaseUrl(req);
-        const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
-        // Azure Easy Auth uses 'aad' for Microsoft/Azure AD authentication
-        // Some configurations may use 'microsoft', but 'aad' is the standard
-        const microsoftProvider = 'aad'; // Azure AD is the standard provider name in Easy Auth
-        const redirectUrl = `${baseUrl}/.auth/login/${microsoftProvider}?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`;
-        console.log('🔐 [Microsoft] Redirecting to Easy Auth:', redirectUrl);
-        return res.redirect(redirectUrl);
-    }
+/**
+ * Create OAuth route handlers (factory function to reduce duplication)
+ */
+function createOAuthRoutes(provider, easyAuthProvider = null) {
+    const providerName = provider.toLowerCase();
+    const easyAuthName = easyAuthProvider || providerName;
     
-    // Passport.js OAuth - check configuration
-    if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) {
-        console.warn('⚠️ [Microsoft] OAuth not configured - missing credentials');
-        return res.status(503).send('Microsoft OAuth not configured');
-    }
-    
-    const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
-    req.session.oauthMode = mode;
-    passport.authenticate('microsoft')(req, res, next);
-});
-
-router.get('/auth/microsoft/callback', (req, res, next) => {
-    passport.authenticate('microsoft', async (err, user, info) => {
-        if (err) {
-            console.error('❌ [Microsoft] Passport authentication error:', err);
-            return res.redirect('/login');
+    // Login route
+    router.get(`/auth/${providerName}`, (req, res, next) => {
+        if (!shouldUsePassportOAuth()) {
+            const baseUrl = getRequestBaseUrl(req);
+            const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
+            return res.redirect(`${baseUrl}/.auth/login/${easyAuthName}?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`);
         }
         
-        if (!user) {
-            console.warn('⚠️ [Microsoft] No user returned from Passport');
-            return res.redirect('/login');
+        // Check credentials (handle special cases)
+        let clientId, clientSecret;
+        if (providerName === 'x') {
+            clientId = process.env.TWITTER_CLIENT_ID;
+            clientSecret = process.env.TWITTER_CLIENT_SECRET;
+        } else if (providerName === 'apple') {
+            if (!process.env.APPLE_CLIENT_ID || !process.env.APPLE_TEAM_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY) {
+                return res.status(503).json({ error: 'Apple Sign-In not configured' });
+            }
+        } else {
+            clientId = process.env[`${provider.toUpperCase()}_CLIENT_ID`];
+            clientSecret = process.env[`${provider.toUpperCase()}_CLIENT_SECRET`];
         }
         
-        // Set req.user for use in handleOAuthCallback
-        req.user = user;
-        req.authInfo = info;
-        
-        // Handle the OAuth callback logic - await to catch any errors
-        try {
-            await handleOAuthCallback(req, res, 'microsoft');
-        } catch (e) {
-            console.error('❌ [Microsoft] handleOAuthCallback error:', e);
-            return res.redirect('/login');
-        }
-    })(req, res, next);
-});
-
-router.get('/auth/apple', (req, res, next) => {
-    // Redirect to Azure Easy Auth if enabled in production
-    if (!shouldUsePassportOAuth()) {
-        const baseUrl = getRequestBaseUrl(req);
-        const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
-        return res.redirect(`${baseUrl}/.auth/login/apple?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`);
-    }
-    if (!process.env.APPLE_CLIENT_ID || !process.env.APPLE_TEAM_ID || !process.env.APPLE_KEY_ID || !process.env.APPLE_PRIVATE_KEY) return res.status(503).send('Apple Sign-In not configured');
-    const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
-    req.session.oauthMode = mode;
-    const callbackURL = getCallbackURLFromRequest(req, '/auth/apple/callback');
-    passport.authenticate('apple', { callbackURL: callbackURL })(req, res, next);
-});
-
-router.post('/auth/apple/callback', (req, res, next) => {
-    passport.authenticate('apple', async (err, user, info) => {
-        if (err) {
-            console.error('❌ [Apple] Passport authentication error:', err);
-            return res.redirect('/login');
+        if ((!clientId || !clientSecret) && providerName !== 'apple') {
+            return res.status(503).json({ error: `${provider} OAuth not configured` });
         }
         
-        if (!user) {
-            console.warn('⚠️ [Apple] No user returned from Passport');
-            return res.redirect('/login');
-        }
+        req.session.oauthMode = req.query.mode === 'link' ? 'link' : 'auth/login';
+        const strategyName = providerName === 'x' ? 'twitter' : providerName;
+        const scope = providerName === 'google' ? { scope: ['profile', 'email'] } : {};
         
-        // Set req.user for use in handleOAuthCallback
-        req.user = user;
-        req.authInfo = info;
-        
-        // Handle the OAuth callback logic - await to catch any errors
-        try {
-            await handleOAuthCallback(req, res, 'apple');
-        } catch (e) {
-            console.error('❌ [Apple] handleOAuthCallback error:', e);
-            return res.redirect('/login');
+        // Apple needs special callback URL handling
+        if (providerName === 'apple') {
+            const callbackURL = getCallbackURLFromRequest(req, '/auth/apple/callback');
+            passport.authenticate('apple', { callbackURL })(req, res, next);
+        } else {
+            passport.authenticate(strategyName, scope)(req, res, next);
         }
-    })(req, res, next);
-});
-
-router.get('/auth/x', (req, res, next) => {
-    // Redirect to Azure Easy Auth if enabled in production
-    const usePassport = shouldUsePassportOAuth();
-    
-    // Log for debugging
-    console.log('🔐 [Twitter/X] Auth route accessed:', {
-        usePassport,
-        nodeEnv: process.env.NODE_ENV,
-        easyAuthEnabled: process.env.EASY_AUTH_ENABLED,
-        hasTwitterCreds: !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
     });
     
-    if (!usePassport) {
-        // Easy Auth mode - redirect to Azure's endpoint
-        // NOTE: /.auth/login/x (with dot) is Azure's endpoint, not the app's
-        // If you see 503 on /.auth/login/x, it means Twitter/X isn't configured in Azure Portal
-        const baseUrl = getRequestBaseUrl(req);
-        const postLoginRedirect = req.query.post_login_redirect_url || '/feed';
-        // Azure Easy Auth uses 'x' as the provider name for Twitter/X
-        const redirectUrl = `${baseUrl}/.auth/login/x?post_login_redirect_url=${encodeURIComponent(postLoginRedirect)}`;
-        console.log('🔐 [Twitter/X] Redirecting to Azure Easy Auth:', redirectUrl);
-        console.log('   NOTE: If Azure returns 503, configure Twitter/X in Azure Portal → Authentication');
-        return res.redirect(redirectUrl);
-    }
-    
-    // Passport.js OAuth mode - check configuration
-    if (!process.env.TWITTER_CLIENT_ID || !process.env.TWITTER_CLIENT_SECRET) {
-        console.error('❌ [Twitter/X] OAuth not configured - missing credentials');
-        console.error('   This error means Passport.js OAuth is enabled but Twitter credentials are missing.');
-        console.error('   If you want to use Azure Easy Auth instead, set EASY_AUTH_ENABLED=false or ensure NODE_ENV=production');
-        return res.status(503).json({ 
-            error: 'X (Twitter) OAuth not configured',
-            message: 'Twitter OAuth credentials are missing. Please configure TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET, or use Azure Easy Auth.',
-            nodeEnv: process.env.NODE_ENV,
-            easyAuthEnabled: process.env.EASY_AUTH_ENABLED
-        });
-    }
-    
-    const mode = req.query.mode === 'link' ? 'link' : 'auth/login';
-    // Store mode in session for use in callback - don't override state (Passport needs to handle that)
-    req.session.oauthMode = mode;
-    passport.authenticate('twitter')(req, res, next);
-});
+    // Callback route (Apple uses POST, others use GET)
+    const callbackMethod = providerName === 'apple' ? 'post' : 'get';
+    router[callbackMethod](`/auth/${providerName}/callback`, (req, res, next) => {
+        if (req.query.error) {
+            console.error(`❌ [${provider}] OAuth error:`, req.query.error);
+            return res.redirect('/login?error=oauth_failed');
+        }
+        
+        const strategyName = providerName === 'x' ? 'twitter' : providerName;
+        passport.authenticate(strategyName, async (err, user, info) => {
+            if (err) {
+                console.error(`❌ [${provider}] Passport error:`, err);
+                return res.redirect('/login');
+            }
+            if (!user) {
+                console.warn(`⚠️ [${provider}] No user returned`);
+                return res.redirect('/login');
+            }
+            req.user = user;
+            req.authInfo = info;
+            await handleOAuthCallback(req, res, providerName);
+        })(req, res, next);
+    });
+}
 
-router.get('/auth/x/callback', (req, res, next) => {
-    // If we got an error from Twitter before the callback, handle it
-    if (req.query.error) {
-        console.error('❌ [Twitter] OAuth error from Twitter:', req.query.error);
-        return res.redirect('/login?error=twitter_oauth_failed');
-    }
-    
-    passport.authenticate('twitter', async (err, user, info) => {
-        if (err) {
-            console.error('❌ [Twitter] Passport authentication error:', err);
-            return res.redirect('/login');
-        }
-        
-        if (!user) {
-            console.warn('⚠️ [Twitter] No user returned from Passport');
-            return res.redirect('/login');
-        }
-        
-        // Set req.user for use in handleOAuthCallback
-        req.user = user;
-        req.authInfo = info;
-        
-        // Handle the OAuth callback logic - await to catch any errors
-        try {
-            await handleOAuthCallback(req, res, 'twitter');
-        } catch (e) {
-            console.error('❌ [Twitter/X] handleOAuthCallback error:', e);
-            return res.redirect('/login');
-        }
-    })(req, res, next);
-});
+// Create OAuth routes
+createOAuthRoutes('google');
+createOAuthRoutes('microsoft', 'aad');
+createOAuthRoutes('apple');
+createOAuthRoutes('x', 'x');
 
 // Phone Verification Routes
 router.get('/verify-phone', async (req, res) => {
