@@ -856,20 +856,36 @@ if (isProduction) {
     linkTagStmt = db.prepare(`INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?);`);
   }
 }
-const getPostHashtagListStmt = db.prepare(`
-  SELECT h.name
-  FROM hashtags h
-  JOIN post_hashtags ph ON ph.hashtag_id = h.id
-  WHERE ph.post_id = ?
-  ORDER BY h.name ASC
-`);
-const getPostTagListStmt = db.prepare(`
-  SELECT t.name
-  FROM tags t
-  JOIN post_tags pt ON pt.tag_id = t.id
-  WHERE pt.post_id = ?
-  ORDER BY t.name ASC
-`);
+// Prepared statements are created lazily to avoid initialization errors in production
+// (db may not be initialized until async initializeDatabase() is called)
+let getPostHashtagListStmt = null;
+let getPostTagListStmt = null;
+
+function getPostHashtagListStmtLazy() {
+  if (!getPostHashtagListStmt) {
+    getPostHashtagListStmt = db.prepare(`
+      SELECT h.name
+      FROM hashtags h
+      JOIN post_hashtags ph ON ph.hashtag_id = h.id
+      WHERE ph.post_id = ?
+      ORDER BY h.name ASC
+    `);
+  }
+  return getPostHashtagListStmt;
+}
+
+function getPostTagListStmtLazy() {
+  if (!getPostTagListStmt) {
+    getPostTagListStmt = db.prepare(`
+      SELECT t.name
+      FROM tags t
+      JOIN post_tags pt ON pt.tag_id = t.id
+      WHERE pt.post_id = ?
+      ORDER BY t.name ASC
+    `);
+  }
+  return getPostTagListStmt;
+}
 
 function attachHashtagsToPost(postId, hashtags = []) {
   if (!postId || !Array.isArray(hashtags) || hashtags.length === 0) return [];
@@ -897,14 +913,16 @@ function attachTagsToPost(postId, tags = []) {
 
 async function getPostHashtags(postId) {
   if (!postId) return [];
-  const rows = await getPostHashtagListStmt.all(postId);
+  const stmt = getPostHashtagListStmtLazy();
+  const rows = await stmt.all(postId);
   const list = Array.isArray(rows) ? rows : (rows?.rows || []);
   return list.map((row) => row.name);
 }
 
 async function getPostTags(postId) {
   if (!postId) return [];
-  const rows = await getPostTagListStmt.all(postId);
+  const stmt = getPostTagListStmtLazy();
+  const rows = await stmt.all(postId);
   const list = Array.isArray(rows) ? rows : (rows?.rows || []);
   return list.map((row) => row.name);
 }
