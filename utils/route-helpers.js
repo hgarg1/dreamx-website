@@ -41,6 +41,9 @@ function resolvePostAuthRedirect(user) {
 
     // Normalize email_verified to boolean/integer (PostgreSQL uses boolean, SQLite uses integer)
     const isEmailVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+    
+    // Check if email is a placeholder (e.g., Twitter/X OAuth without email permission)
+    const isPlaceholderEmail = user.email && user.email.endsWith('.oauth.local');
 
     // Auto-verify and complete onboarding for admin/HR accounts
     if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin' || ['hr', 'super_hr', 'global_hr'].includes(user.role)) {
@@ -53,9 +56,24 @@ function resolvePostAuthRedirect(user) {
         }
     }
 
-    if (!isEmailVerified) {
+    // Skip email verification for placeholder emails (OAuth users who authenticated via provider)
+    // These users have already been verified through OAuth, so we trust the authentication
+    if (!isEmailVerified && !isPlaceholderEmail) {
         return '/verify-email';
     }
+    
+    // If placeholder email but not verified, mark as verified and continue
+    if (isPlaceholderEmail && !isEmailVerified) {
+        try {
+            const { markEmailAsVerified } = require('../db');
+            markEmailAsVerified({ userId: user.id });
+            user.email_verified = 1;
+            console.log(`✅ Auto-verified placeholder email for OAuth user: ${user.email}`);
+        } catch (e) {
+            console.warn('Failed to auto-verify placeholder email:', e.message);
+        }
+    }
+    
     if (userNeedsOnboarding(user)) {
         return '/onboarding-empty';
     }

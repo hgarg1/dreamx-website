@@ -148,23 +148,37 @@ async function easyAuthMiddleware(req, res, next) {
         const user = await findOrCreateEasyAuthUser(principal, provider);
         
         if (user && user.id) {
-            // Ensure email_verified is set in user object (PostgreSQL returns boolean, SQLite returns integer)
-            if (user.email_verified !== true && user.email_verified !== 1) {
-                // If we have an email claim, proactively mark verified for SSO users
-                const email = extractEmail(principal);
-                if (email) {
-                    try {
-                        markEmailAsVerified({ userId: user.id });
-                        user.email_verified = 1;
-                    } catch (e) {
-                        console.warn('Failed to mark email verified for Easy Auth user:', e.message);
+            // For SSO users via Easy Auth, always verify email if we have an email claim
+            const email = extractEmail(principal);
+            const isPlaceholderEmail = user.email && user.email.endsWith('.oauth.local');
+            
+            // Check current status (normalize for both PostgreSQL boolean and SQLite integer)
+            const isCurrentlyVerified = user.email_verified === true || user.email_verified === 1 || user.email_verified === '1';
+            
+            // For placeholder emails (Twitter/X without email permission), verify automatically
+            // For real emails, verify if we got an email claim
+            if ((email || isPlaceholderEmail) && !isCurrentlyVerified) {
+                try {
+                    // Mark as verified in database
+                    markEmailAsVerified({ userId: user.id });
+                    // Update user object immediately
+                    user.email_verified = 1;
+                    if (isPlaceholderEmail) {
+                        console.log(`✅ Auto-verified placeholder email for Easy Auth user (${provider}): ${user.email} - User authenticated via OAuth, skipping email verification requirement`);
+                    } else {
+                        console.log(`✅ Auto-verified email for Easy Auth user (${provider}): ${email}`);
                     }
+                } catch (e) {
+                    console.warn('Failed to mark email verified for Easy Auth user:', e.message);
                 }
-                // Re-fetch user to get latest email_verified status
-                const freshUser = await getUserById(user.id);
-                if (freshUser) {
-                    Object.assign(user, freshUser);
-                }
+            }
+            
+            // Re-fetch user to ensure we have the latest state from database
+            const freshUser = await getUserById(user.id);
+            if (freshUser) {
+                // Ensure email_verified is properly set (handle both boolean and integer)
+                Object.assign(user, freshUser);
+                user.email_verified = freshUser.email_verified === true ? 1 : (freshUser.email_verified || 1);
             }
             
             // Set session

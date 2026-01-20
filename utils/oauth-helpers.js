@@ -73,9 +73,13 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email,
     const baseHandle = generateBaseHandle(displayName, email);
     const uniqueHandle = await generateUniqueHandle(baseHandle);
 
+    // Create placeholder email if no real email provided (e.g., Twitter/X may not provide email)
+    const userEmail = email || `${providerId}@${provider}.oauth.local`;
+    const isPlaceholderEmail = userEmail.endsWith('.oauth.local');
+
     const userId = await createUser({
         fullName: displayName || (email || 'User'),
-        email: email || `${providerId}@${provider}.oauth.local`,
+        email: userEmail,
         passwordHash: dummyHash,
         handle: uniqueHandle
     });
@@ -88,17 +92,24 @@ async function findOrCreateOAuthUser({ provider, providerId, displayName, email,
     updateUserProvider({ userId, provider, providerId });
 
     // Auto-verify email for OAuth users
-    if (email) {
-        try {
-            markEmailAsVerified({ userId });
-        } catch (e) {
-            console.warn('Failed to auto-verify email for OAuth user:', e.message);
+    // For placeholder emails (Twitter/X without email permission), we still verify since they authenticated via OAuth
+    // For real emails, verify normally
+    try {
+        markEmailAsVerified({ userId });
+        if (isPlaceholderEmail) {
+            console.log(`✅ Auto-verified placeholder email for OAuth user (${provider}): ${userEmail} - User authenticated via OAuth, skipping email verification requirement`);
+        } else {
+            console.log(`✅ Auto-verified email for new OAuth user (${provider}): ${userEmail}`);
         }
+    } catch (e) {
+        console.warn('Failed to auto-verify email for OAuth user:', e.message);
     }
 
+    // Fetch fresh user data to ensure email_verified is set
     const newUser = await getUserById(userId);
-    if (newUser && email) {
-        newUser.email_verified = 1;
+    if (newUser) {
+        // Ensure email_verified is set (normalize boolean to integer for consistency)
+        newUser.email_verified = newUser.email_verified === true ? 1 : (newUser.email_verified || 1);
     }
 
     return newUser;
