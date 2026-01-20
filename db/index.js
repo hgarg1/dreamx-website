@@ -4246,6 +4246,12 @@ module.exports = {
   },
 
   getProjectById: (projectId) => {
+    // PostgreSQL requires all non-aggregated columns from joined tables in GROUP BY
+    // Since we're grouping by p.id (primary key), we can select p.*, but u.* columns need GROUP BY
+    const groupBy = isProduction 
+      ? `GROUP BY p.id, u.full_name, u.profile_picture`
+      : `GROUP BY p.id`;
+    
     const stmt = db.prepare(`
       SELECT 
         p.*,
@@ -4258,13 +4264,19 @@ module.exports = {
       LEFT JOIN project_updates pu ON pu.project_id = p.id
       LEFT JOIN project_milestones pm ON pm.project_id = p.id
       WHERE p.id = ?
-      GROUP BY p.id
+      ${groupBy}
     `);
 
     return stmt.get(projectId);
   },
 
   getProjectsByOwner: (ownerId, limit = 50, offset = 0) => {
+    // PostgreSQL requires all non-aggregated columns from joined tables in GROUP BY
+    // Since we're grouping by p.id (primary key), we can select p.*, but u.* columns need GROUP BY
+    const groupBy = isProduction 
+      ? `GROUP BY p.id, u.full_name, u.profile_picture`
+      : `GROUP BY p.id`;
+    
     let query = `
       SELECT 
         p.*,
@@ -4275,7 +4287,7 @@ module.exports = {
       JOIN users u ON u.id = p.owner_id
       LEFT JOIN project_updates pu ON pu.project_id = p.id
       WHERE p.owner_id = ?
-      GROUP BY p.id
+      ${groupBy}
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
     `;
@@ -4285,6 +4297,12 @@ module.exports = {
   },
 
   getPublicProjects: (limit = 50, offset = 0) => {
+    // PostgreSQL requires all non-aggregated columns from joined tables in GROUP BY
+    // Since we're grouping by p.id (primary key), we can select p.*, but u.* columns need GROUP BY
+    const groupBy = isProduction 
+      ? `GROUP BY p.id, u.full_name, u.profile_picture`
+      : `GROUP BY p.id`;
+    
     let query = `
       SELECT 
         p.*,
@@ -4295,7 +4313,7 @@ module.exports = {
       JOIN users u ON u.id = p.owner_id
       LEFT JOIN project_updates pu ON pu.project_id = p.id
       WHERE p.visibility IN ('public', 'unlisted')
-      GROUP BY p.id
+      ${groupBy}
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
     `;
@@ -4497,6 +4515,12 @@ module.exports = {
   },
 
   getProjectUpdates: (projectId, limit = 50, offset = 0) => {
+    // PostgreSQL requires all non-aggregated columns from joined tables in GROUP BY
+    // Since we're grouping by pu.id (primary key), we can select pu.*, but u.* columns need GROUP BY
+    const groupBy = isProduction 
+      ? `GROUP BY pu.id, u.full_name, u.profile_picture`
+      : `GROUP BY pu.id`;
+    
     let query = `
       SELECT 
         pu.*,
@@ -4508,7 +4532,7 @@ module.exports = {
       LEFT JOIN project_reactions pr ON pr.update_id = pu.id
       LEFT JOIN project_comments pc ON pc.update_id = pu.id
       WHERE pu.project_id = ?
-      GROUP BY pu.id
+      ${groupBy}
       ORDER BY pu.created_at DESC
       LIMIT ? OFFSET ?
     `;
