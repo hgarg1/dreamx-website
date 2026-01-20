@@ -942,14 +942,14 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Admin: View all user blocks and reports
-    router.get('/admin/moderation/user-actions', requireSuperAdmin, (req, res) => {
+    router.get('/admin/moderation/user-actions', requireSuperAdmin, async (req, res) => {
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
         const pageSize = 50;
         const offset = (page - 1) * pageSize;
         try {
-            const blocks = getAllBlocksAndReports({ limit: pageSize, offset });
-            const reports = getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
-            const me = getUserById(req.session.userId);
+            const blocks = await getAllBlocksAndReports({ limit: pageSize, offset });
+            const reports = await getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
+            const me = await getUserById(req.session.userId);
             res.render('admin/admin-user-actions', {
                 title: 'User Actions Moderation - Dream X',
                 currentPage: 'admin',
@@ -1152,11 +1152,11 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Unban/unsuspend a user
-    router.post('/admin/users/:id/unban', requireSuperAdmin, (req, res) => {
+    router.post('/admin/users/:id/unban', requireSuperAdmin, async (req, res) => {
         const userId = parseInt(req.params.id, 10);
         const isJson = req.headers['content-type']?.includes('application/json');
         try {
-            const targetUser = getUserById(userId);
+            const targetUser = await getUserById(userId);
             unbanUser({ userId, unbannedBy: req.session.userId });
             const { createNotification } = require('../../db');
             createNotification({
@@ -1187,7 +1187,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Delete post (admin action)
-    router.post('/admin/posts/:id/delete', requireAdmin, (req, res) => {
+    router.post('/admin/posts/:id/delete', requireAdmin, async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const postId = parseInt(req.params.id, 10);
         try {
@@ -1205,7 +1205,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Hide post (admin action)
-    router.post('/admin/posts/:id/hide', requireAdmin, (req, res) => {
+    router.post('/admin/posts/:id/hide', requireAdmin, async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const postId = parseInt(req.params.id, 10);
         try {
@@ -1224,7 +1224,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Hide comment (admin action)
-    router.post('/admin/comments/:id/hide', requireAdmin, (req, res) => {
+    router.post('/admin/comments/:id/hide', requireAdmin, async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
@@ -1237,7 +1237,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Delete comment (admin action)
-    router.post('/admin/comments/:id/delete', requireAdmin, (req, res) => {
+    router.post('/admin/comments/:id/delete', requireAdmin, async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
@@ -1250,11 +1250,11 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Restore comment (admin action)
-    router.post('/admin/comments/:id/restore', requireAdmin, (req, res) => {
+    router.post('/admin/comments/:id/restore', requireAdmin, async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
-            restoreComment({ commentId, restoredBy: req.session.userId });
+            await restoreComment({ commentId, restoredBy: req.session.userId });
             res.json({ success: true, message: 'Comment restored successfully' });
         } catch (error) {
             console.error('Restore comment error:', error);
