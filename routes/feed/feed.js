@@ -135,7 +135,7 @@ function initFeedRoutes({ postUpload, io }) {
                 WHERE u.id != ?
                   AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
                   AND u.account_status = 'active'
-                GROUP BY u.id
+                GROUP BY u.id, u.full_name, u.email, u.profile_picture, u.categories
                 ORDER BY recent_posts DESC, u.created_at DESC
                 LIMIT 10
             `
@@ -175,7 +175,7 @@ function initFeedRoutes({ postUpload, io }) {
                     WHERE u.id != ?
                       AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
                       AND u.account_status = 'active'
-                    GROUP BY u.id
+                    GROUP BY u.id, u.full_name, u.email, u.profile_picture, u.categories
                     HAVING COUNT(p.id) > 0
                     ORDER BY COUNT(p.id) DESC
                     LIMIT ?
