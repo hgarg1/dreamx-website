@@ -21,8 +21,10 @@ const {
     searchUsers,
     db
 } = require('../../db');
+
 const { getRequestBaseUrl } = require('../../utils/route-helpers');
 const emailService = require('../../services/emailService');
+const { isProduction } = require('../../db/adapter');
 
 const router = express.Router();
 
@@ -124,7 +126,20 @@ function initFeedRoutes({ postUpload, io }) {
         // Get suggested users
         let suggestions = [];
         try {
-            const activeUsersQuery = db.prepare(`
+            const activeUsersQuery = db.prepare(isProduction
+                ? `
+                SELECT DISTINCT u.id, u.full_name, u.email, u.profile_picture, u.categories,
+                       COUNT(p.id) as recent_posts
+                FROM users u
+                LEFT JOIN posts p ON u.id = p.user_id AND p.created_at >= (CURRENT_TIMESTAMP - INTERVAL '7 days')
+                WHERE u.id != ?
+                  AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
+                  AND u.account_status = 'active'
+                GROUP BY u.id
+                ORDER BY recent_posts DESC, u.created_at DESC
+                LIMIT 10
+            `
+                : `
                 SELECT DISTINCT u.id, u.full_name, u.email, u.profile_picture, u.categories,
                        COUNT(p.id) as recent_posts
                 FROM users u
@@ -208,7 +223,26 @@ function initFeedRoutes({ postUpload, io }) {
         // Get trending posts
         let trendingPosts = [];
         try {
-            const trendingQuery = db.prepare(`
+            const trendingQuery = db.prepare(isProduction
+                ? `
+                SELECT
+                    p.id as post_id,
+                    p.title,
+                    p.text_content,
+                    p.activity_label,
+                    p.created_at,
+                    u.id as user_id,
+                    u.full_name,
+                    u.profile_picture,
+                    0 as likes_count,
+                    0 as comments_count
+                FROM posts p
+                JOIN users u ON u.id = p.user_id
+                WHERE p.created_at >= (CURRENT_TIMESTAMP - INTERVAL '7 days') AND p.is_reel = false
+                ORDER BY p.created_at DESC
+                LIMIT 5
+            `
+                : `
                 SELECT
                     p.id as post_id,
                     p.title,
@@ -461,7 +495,7 @@ function initFeedRoutes({ postUpload, io }) {
     });
 
     // View single post page
-    router.get('/post/:id', (req, res) => {
+    router.get('/post/:id', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         const postId = parseInt(req.params.id, 10);
         if (!postId) return res.redirect('/feed');
@@ -561,7 +595,15 @@ function initFeedRoutes({ postUpload, io }) {
         if (!uid) return res.status(400).json({ error: 'Invalid user id' });
         const tzOffsetMin = parseInt(req.query.tzOffset || '0', 10);
         try {
-            const rows = db.prepare(`
+            const rows = db.prepare(isProduction
+                ? `
+                SELECT p.*, u.full_name, u.profile_picture
+                FROM posts p
+                JOIN users u ON u.id = p.user_id
+                WHERE p.user_id = ? AND p.is_reel = true AND p.created_at >= (CURRENT_TIMESTAMP - INTERVAL '48 hours')
+                ORDER BY p.created_at DESC
+            `
+                : `
                 SELECT p.*, u.full_name, u.profile_picture
                 FROM posts p
                 JOIN users u ON u.id = p.user_id
@@ -589,7 +631,10 @@ function initFeedRoutes({ postUpload, io }) {
         if (!uid) return res.status(400).json({ error: 'Invalid user id' });
         const tzOffsetMin = parseInt(req.query.tzOffset || '0', 10);
         try {
-            const rows = db.prepare(`SELECT created_at FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours') ORDER BY created_at DESC`).all(uid);
+            const rows = db.prepare(isProduction
+                ? `SELECT created_at FROM posts WHERE user_id = ? AND is_reel = true AND created_at >= (CURRENT_TIMESTAMP - INTERVAL '48 hours') ORDER BY created_at DESC`
+                : `SELECT created_at FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours') ORDER BY created_at DESC`
+            ).all(uid);
             const now = new Date();
             const nowLocalMs = now.getTime() - (tzOffsetMin * 60 * 1000);
             const count = rows.filter(r => {
