@@ -128,19 +128,19 @@ function initFeedRoutes({ postUpload, io }) {
         try {
             const activeUsersQuery = db.prepare(isProduction
                 ? `
-                SELECT DISTINCT u.id, u.full_name, u.email, u.profile_picture, u.categories,
+                SELECT DISTINCT u.id, u.full_name, u.email, u.profile_picture, u.categories, u.created_at,
                        COUNT(p.id) as recent_posts
                 FROM users u
                 LEFT JOIN posts p ON u.id = p.user_id AND p.created_at >= (CURRENT_TIMESTAMP - INTERVAL '7 days')
                 WHERE u.id != ?
                   AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
                   AND u.account_status = 'active'
-                GROUP BY u.id, u.full_name, u.email, u.profile_picture, u.categories
+                GROUP BY u.id, u.full_name, u.email, u.profile_picture, u.categories, u.created_at
                 ORDER BY recent_posts DESC, u.created_at DESC
                 LIMIT 10
             `
                 : `
-                SELECT DISTINCT u.id, u.full_name, u.email, u.profile_picture, u.categories,
+                SELECT DISTINCT u.id, u.full_name, u.email, u.profile_picture, u.categories, u.created_at,
                        COUNT(p.id) as recent_posts
                 FROM users u
                 LEFT JOIN posts p ON u.id = p.user_id AND p.created_at >= datetime('now', '-7 days')
@@ -151,7 +151,7 @@ function initFeedRoutes({ postUpload, io }) {
                 ORDER BY recent_posts DESC, u.created_at DESC
                 LIMIT 10
             `);
-            const activeUsers = activeUsersQuery.all(req.session.userId, req.session.userId);
+            const activeUsers = await activeUsersQuery.all(req.session.userId, req.session.userId) || [];
 
             if (activeUsers.length >= 3) {
                 const busyUsers = activeUsers.filter(u => u.recent_posts >= 3);
@@ -194,7 +194,7 @@ function initFeedRoutes({ postUpload, io }) {
                     LIMIT ?
                 `);
                 const needed = 3 - suggestions.length;
-                const topCreators = topCreatorsQuery.all(req.session.userId, req.session.userId, needed);
+                const topCreators = await topCreatorsQuery.all(req.session.userId, req.session.userId, needed) || [];
                 suggestions = [...suggestions, ...topCreators];
             }
 
@@ -208,7 +208,7 @@ function initFeedRoutes({ postUpload, io }) {
                     ORDER BY u.created_at DESC
                     LIMIT 3
                 `);
-                suggestions = anyUsersQuery.all(req.session.userId, req.session.userId);
+                suggestions = await anyUsersQuery.all(req.session.userId, req.session.userId) || [];
             }
 
             suggestions = suggestions.map(u => {
@@ -274,7 +274,7 @@ function initFeedRoutes({ postUpload, io }) {
                 ORDER BY p.created_at DESC
                 LIMIT 5
             `);
-            const trendingResults = trendingQuery.all();
+            const trendingResults = await trendingQuery.all() || [];
             trendingPosts = trendingResults.map(post => ({
                 post_id: post.post_id,
                 user: post.full_name,
@@ -299,7 +299,7 @@ function initFeedRoutes({ postUpload, io }) {
         // Get recent activity
         let recentActivity = [];
         try {
-            recentActivity = getRecentActivity(5) || [];
+            recentActivity = await getRecentActivity(5) || [];
         } catch (error) {
             console.error('Error fetching recent activity:', error);
             recentActivity = [];
@@ -311,7 +311,7 @@ function initFeedRoutes({ postUpload, io }) {
         let topPassions = [];
         try {
             const passionsQuery = db.prepare(`SELECT categories FROM users WHERE categories IS NOT NULL AND categories != ''`);
-            const usersWithCategories = passionsQuery.all();
+            const usersWithCategories = await passionsQuery.all() || [];
             const passionCounts = {};
             usersWithCategories.forEach(user => {
                 try {
@@ -603,13 +603,13 @@ function initFeedRoutes({ postUpload, io }) {
     });
 
     // API: Get reels for a user
-    router.get('/api/users/:id/reels', (req, res) => {
+    router.get('/api/users/:id/reels', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const uid = parseInt(req.params.id, 10);
         if (!uid) return res.status(400).json({ error: 'Invalid user id' });
         const tzOffsetMin = parseInt(req.query.tzOffset || '0', 10);
         try {
-            const rows = db.prepare(isProduction
+            const rows = await db.prepare(isProduction
                 ? `
                 SELECT p.*, u.full_name, u.profile_picture
                 FROM posts p
@@ -623,7 +623,7 @@ function initFeedRoutes({ postUpload, io }) {
                 JOIN users u ON u.id = p.user_id
                 WHERE p.user_id = ? AND p.is_reel = 1 AND p.created_at >= datetime('now', '-48 hours')
                 ORDER BY p.created_at DESC
-            `).all(uid);
+            `).all(uid) || [];
             const now = new Date();
             const nowLocalMs = now.getTime() - (tzOffsetMin * 60 * 1000);
             const active = rows.filter(r => {
@@ -639,16 +639,16 @@ function initFeedRoutes({ postUpload, io }) {
     });
 
     // API: Count reels for a user
-    router.get('/api/users/:id/reels/count', (req, res) => {
+    router.get('/api/users/:id/reels/count', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const uid = parseInt(req.params.id, 10);
         if (!uid) return res.status(400).json({ error: 'Invalid user id' });
         const tzOffsetMin = parseInt(req.query.tzOffset || '0', 10);
         try {
-            const rows = db.prepare(isProduction
+            const rows = await db.prepare(isProduction
                 ? `SELECT created_at FROM posts WHERE user_id = ? AND is_reel = true AND created_at >= (CURRENT_TIMESTAMP - INTERVAL '48 hours') ORDER BY created_at DESC`
                 : `SELECT created_at FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours') ORDER BY created_at DESC`
-            ).all(uid);
+            ).all(uid) || [];
             const now = new Date();
             const nowLocalMs = now.getTime() - (tzOffsetMin * 60 * 1000);
             const count = rows.filter(r => {

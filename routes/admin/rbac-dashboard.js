@@ -281,7 +281,7 @@ router.get('/permissions', requireRbacDashboardAccess, ensureRbacReady, (req, re
 /**
  * User-Role Assignment Page
  */
-router.get('/users', requireRbacDashboardAccess, ensureRbacReady, (req, res) => {
+router.get('/users', requireRbacDashboardAccess, ensureRbacReady, async (req, res) => {
   try {
     const { search, role, page } = req.query;
     const pageNum = Math.max(parseInt(page) || 1, 1);
@@ -306,7 +306,7 @@ router.get('/users', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     query += ` ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
     const { sql, limit: offsetVal, offset: fetchVal } = sqlCompat.convertLimitOffset(query, pageSize, (pageNum - 1) * pageSize);
     
-    users = db.prepare(sql).all(...params, offsetVal, fetchVal);
+    users = await db.prepare(sql).all(...params, offsetVal, fetchVal) || [];
     
     // Get RBAC roles for each user
     for (const user of users) {
@@ -317,9 +317,11 @@ router.get('/users', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
     let countQuery = 'SELECT COUNT(*) as count FROM users';
     if (search) {
       countQuery += ` WHERE (full_name LIKE ? OR email LIKE ?)`;
-      total = db.prepare(countQuery).get(`%${search}%`, `%${search}%`).count;
+      const totalRow = await db.prepare(countQuery).get(`%${search}%`, `%${search}%`);
+      total = totalRow ? totalRow.count : 0;
     } else {
-      total = db.prepare(countQuery).get().count;
+      const totalRow = await db.prepare(countQuery).get();
+      total = totalRow ? totalRow.count : 0;
     }
     
     // Get all roles for assignment dropdown
@@ -350,7 +352,7 @@ router.get('/users', requireRbacDashboardAccess, ensureRbacReady, (req, res) => 
 /**
  * Active Overrides Page
  */
-router.get('/overrides', requireRbacDashboardAccess, ensureRbacReady, (req, res) => {
+router.get('/overrides', requireRbacDashboardAccess, ensureRbacReady, async (req, res) => {
   try {
     const { includeExpired, userId } = req.query;
     const { db } = require('../../db');
@@ -383,7 +385,7 @@ router.get('/overrides', requireRbacDashboardAccess, ensureRbacReady, (req, res)
     
     query += ` ORDER BY uo.expires_at IS NULL, uo.expires_at ASC, uo.granted_at DESC`;
     
-    const overrides = db.prepare(query).all(...params);
+    const overrides = await db.prepare(query).all(...params) || [];
     
     // Categorize overrides
     const expiringWithin24h = overrides.filter(o => {

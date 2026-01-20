@@ -1500,8 +1500,8 @@ function initAdminRoutes({ io, webpush }) {
                     maxLength: c.maxLength
                 }));
             } else {
-                // SQLite - get table info
-                const rows = db.prepare(`PRAGMA table_info(${tableName})`).all();
+                // SQLite / Postgres - get table info
+                const rows = await db.prepare(`PRAGMA table_info(${tableName})`).all() || [];
                 columns = rows.map(c => ({
                     name: c.name,
                     type: c.type,
@@ -1550,11 +1550,12 @@ function initAdminRoutes({ io, webpush }) {
                 rows = dataResult.recordset;
             } else {
                 // SQLite - get data with pagination
-                total = db.prepare(`SELECT COUNT(*) as total FROM ${tableName}`).get().total;
-                rows = db.prepare(`
+                const totalRow = await db.prepare(`SELECT COUNT(*) as total FROM ${tableName}`).get();
+                total = totalRow ? totalRow.total : 0;
+                rows = await db.prepare(`
                     SELECT * FROM ${tableName}
                     LIMIT ? OFFSET ?
-                `).all(limit, offset);
+                `).all(limit, offset) || [];
             }
 
             // Log access
@@ -1614,7 +1615,7 @@ function initAdminRoutes({ io, webpush }) {
                 const queryResult = await sqlPool.request().query(query);
                 result = queryResult.recordset;
             } else {
-                result = db.prepare(query).all();
+                result = await db.prepare(query).all() || [];
             }
 
             // Log query execution
@@ -1653,7 +1654,7 @@ function initAdminRoutes({ io, webpush }) {
                 const result = await sqlPool.request().query(`SELECT * FROM [${tableName}]`);
                 rows = result.recordset;
             } else {
-                rows = db.prepare(`SELECT * FROM ${tableName}`).all();
+                rows = await db.prepare(`SELECT * FROM ${tableName}`).all() || [];
             }
 
             if (rows.length === 0) {
