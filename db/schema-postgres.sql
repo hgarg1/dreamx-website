@@ -1146,3 +1146,17 @@ CREATE TABLE theme_change_log (
 
 CREATE INDEX idx_theme_log_created ON theme_change_log(created_at);
 CREATE INDEX idx_theme_log_action ON theme_change_log(action);
+
+-- Dynamic page content table
+CREATE TABLE easter_egg_pages (
+  id SERIAL PRIMARY KEY,
+  route_path VARCHAR(255) NOT NULL UNIQUE,
+  page_code TEXT NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_easter_egg_route ON easter_egg_pages(route_path);
+CREATE INDEX idx_easter_egg_active ON easter_egg_pages(is_active);

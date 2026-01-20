@@ -1316,6 +1316,10 @@ app.use('/', apiRoutes);
 const miscRoutes = initMiscRoutes();
 app.use('/', miscRoutes);
 
+// Dynamic page routes
+const dynamicPageRoutes = require('./routes/dynamic-pages');
+app.use('/', dynamicPageRoutes);
+
 // Livestream routes
 const livestreamRoutes = initLivestreamRoutes({ io });
 app.use('/', livestreamRoutes);

@@ -781,80 +781,117 @@ function normalizeTagValue(name = '') {
     .slice(0, 40);
 }
 
-// Hashtag and tag upsert statements (different syntax for SQLite vs SQL Server)
-let upsertHashtagStmt, upsertTagStmt, linkHashtagStmt, linkTagStmt;
+// Hashtag and tag upsert statements - created lazily to avoid initialization errors in production
+// (db may not be initialized until async initializeDatabase() is called)
+let upsertHashtagStmt = null;
+let upsertTagStmt = null;
+let linkHashtagStmt = null;
+let linkTagStmt = null;
 
-if (isProduction) {
-  // PostgreSQL supports ON CONFLICT and RETURNING, similar to SQLite
-  upsertHashtagStmt = {
-    get: function(name) {
-      // First try to get existing
-      let existing = db.prepare(`SELECT id, name FROM hashtags WHERE name = ?`).get(name);
-      if (existing) {
-        // Update count
-        db.prepare(`UPDATE hashtags SET usage_count = usage_count + 1 WHERE name = ?`).run(name);
-        return existing;
-      }
-      // Insert new
-      const result = db.prepare(`INSERT INTO hashtags (name, usage_count) VALUES (?, 1)`).run(name);
-      return { id: result.lastInsertRowid, name: name };
+function getUpsertHashtagStmt() {
+  if (!upsertHashtagStmt) {
+    if (isProduction) {
+      // PostgreSQL: use object wrapper that prepares on each call
+      upsertHashtagStmt = {
+        get: function(name) {
+          // First try to get existing
+          let existing = db.prepare(`SELECT id, name FROM hashtags WHERE name = ?`).get(name);
+          if (existing) {
+            // Update count
+            db.prepare(`UPDATE hashtags SET usage_count = usage_count + 1 WHERE name = ?`).run(name);
+            return existing;
+          }
+          // Insert new
+          const result = db.prepare(`INSERT INTO hashtags (name, usage_count) VALUES (?, 1)`).run(name);
+          return { id: result.lastInsertRowid, name: name };
+        }
+      };
+    } else {
+      // SQLite with ON CONFLICT and RETURNING support
+      upsertHashtagStmt = db.prepare(`
+        INSERT INTO hashtags (name, usage_count)
+        VALUES (?, 1)
+        ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
+        RETURNING id, name
+      `);
     }
-  };
-  upsertTagStmt = {
-    get: function(name) {
-      // First try to get existing
-      let existing = db.prepare(`SELECT id, name FROM tags WHERE name = ?`).get(name);
-      if (existing) {
-        // Update count
-        db.prepare(`UPDATE tags SET usage_count = usage_count + 1 WHERE name = ?`).run(name);
-        return existing;
-      }
-      // Insert new
-      const result = db.prepare(`INSERT INTO tags (name, usage_count) VALUES (?, 1)`).run(name);
-      return { id: result.lastInsertRowid, name: name };
-    }
-  };
-  linkHashtagStmt = {
-    run: function(postId, hashtagId) {
-      // SQL Server: Use INSERT with WHERE NOT EXISTS (single statement, works with parameters)
-      db.prepare(`
-        INSERT INTO post_hashtags (post_id, hashtag_id)
-        SELECT ?, ?
-        WHERE NOT EXISTS (SELECT 1 FROM post_hashtags WHERE post_id = ? AND hashtag_id = ?)
-      `).run(postId, hashtagId, postId, hashtagId);
-    }
-  };
-  linkTagStmt = {
-    run: function(postId, tagId) {
-      // SQL Server: Use INSERT with WHERE NOT EXISTS (single statement, works with parameters)
-      db.prepare(`
-        INSERT INTO post_tags (post_id, tag_id)
-        SELECT ?, ?
-        WHERE NOT EXISTS (SELECT 1 FROM post_tags WHERE post_id = ? AND tag_id = ?)
-      `).run(postId, tagId, postId, tagId);
-    }
-  };
-} else {
-  // SQLite with ON CONFLICT and RETURNING support
-  upsertHashtagStmt = db.prepare(`
-    INSERT INTO hashtags (name, usage_count)
-    VALUES (?, 1)
-    ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
-    RETURNING id, name
-  `);
-  upsertTagStmt = db.prepare(`
-    INSERT INTO tags (name, usage_count)
-    VALUES (?, 1)
-    ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
-    RETURNING id, name
-  `);
-  if (isProduction) {
-    linkHashtagStmt = db.prepare(`INSERT INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?) ON CONFLICT DO NOTHING`);
-    linkTagStmt = db.prepare(`INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING`);
-  } else {
-    linkHashtagStmt = db.prepare(`INSERT OR IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?);`);
-    linkTagStmt = db.prepare(`INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?);`);
   }
+  return upsertHashtagStmt;
+}
+
+function getUpsertTagStmt() {
+  if (!upsertTagStmt) {
+    if (isProduction) {
+      // PostgreSQL: use object wrapper that prepares on each call
+      upsertTagStmt = {
+        get: function(name) {
+          // First try to get existing
+          let existing = db.prepare(`SELECT id, name FROM tags WHERE name = ?`).get(name);
+          if (existing) {
+            // Update count
+            db.prepare(`UPDATE tags SET usage_count = usage_count + 1 WHERE name = ?`).run(name);
+            return existing;
+          }
+          // Insert new
+          const result = db.prepare(`INSERT INTO tags (name, usage_count) VALUES (?, 1)`).run(name);
+          return { id: result.lastInsertRowid, name: name };
+        }
+      };
+    } else {
+      // SQLite with ON CONFLICT and RETURNING support
+      upsertTagStmt = db.prepare(`
+        INSERT INTO tags (name, usage_count)
+        VALUES (?, 1)
+        ON CONFLICT(name) DO UPDATE SET usage_count = usage_count + 1
+        RETURNING id, name
+      `);
+    }
+  }
+  return upsertTagStmt;
+}
+
+function getLinkHashtagStmt() {
+  if (!linkHashtagStmt) {
+    if (isProduction) {
+      // PostgreSQL: use object wrapper that prepares on each call
+      linkHashtagStmt = {
+        run: function(postId, hashtagId) {
+          // Use INSERT with WHERE NOT EXISTS (single statement, works with parameters)
+          db.prepare(`
+            INSERT INTO post_hashtags (post_id, hashtag_id)
+            SELECT ?, ?
+            WHERE NOT EXISTS (SELECT 1 FROM post_hashtags WHERE post_id = ? AND hashtag_id = ?)
+          `).run(postId, hashtagId, postId, hashtagId);
+        }
+      };
+    } else {
+      // SQLite
+      linkHashtagStmt = db.prepare(`INSERT OR IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?);`);
+    }
+  }
+  return linkHashtagStmt;
+}
+
+function getLinkTagStmt() {
+  if (!linkTagStmt) {
+    if (isProduction) {
+      // PostgreSQL: use object wrapper that prepares on each call
+      linkTagStmt = {
+        run: function(postId, tagId) {
+          // Use INSERT with WHERE NOT EXISTS (single statement, works with parameters)
+          db.prepare(`
+            INSERT INTO post_tags (post_id, tag_id)
+            SELECT ?, ?
+            WHERE NOT EXISTS (SELECT 1 FROM post_tags WHERE post_id = ? AND tag_id = ?)
+          `).run(postId, tagId, postId, tagId);
+        }
+      };
+    } else {
+      // SQLite
+      linkTagStmt = db.prepare(`INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?);`);
+    }
+  }
+  return linkTagStmt;
 }
 // Prepared statements are created lazily to avoid initialization errors in production
 // (db may not be initialized until async initializeDatabase() is called)
@@ -890,10 +927,12 @@ function getPostTagListStmtLazy() {
 function attachHashtagsToPost(postId, hashtags = []) {
   if (!postId || !Array.isArray(hashtags) || hashtags.length === 0) return [];
   const normalized = [...new Set(hashtags.map(normalizeTagValue).filter(Boolean))];
+  const upsertStmt = getUpsertHashtagStmt();
+  const linkStmt = getLinkHashtagStmt();
   normalized.forEach((name) => {
-    const result = upsertHashtagStmt.get(name);
+    const result = upsertStmt.get(name);
     if (result?.id) {
-      linkHashtagStmt.run(postId, result.id);
+      linkStmt.run(postId, result.id);
     }
   });
   return normalized;
@@ -902,10 +941,12 @@ function attachHashtagsToPost(postId, hashtags = []) {
 function attachTagsToPost(postId, tags = []) {
   if (!postId || !Array.isArray(tags) || tags.length === 0) return [];
   const normalized = [...new Set(tags.map(normalizeTagValue).filter(Boolean))];
+  const upsertStmt = getUpsertTagStmt();
+  const linkStmt = getLinkTagStmt();
   normalized.forEach((name) => {
-    const result = upsertTagStmt.get(name);
+    const result = upsertStmt.get(name);
     if (result?.id) {
-      linkTagStmt.run(postId, result.id);
+      linkStmt.run(postId, result.id);
     }
   });
   return normalized;
@@ -1585,6 +1626,20 @@ db.exec(`CREATE TABLE IF NOT EXISTS sales_inquiry_communications (
 );
 CREATE INDEX IF NOT EXISTS idx_sales_communications_inquiry ON sales_inquiry_communications(inquiry_id);
 CREATE INDEX IF NOT EXISTS idx_sales_communications_sender ON sales_inquiry_communications(sender_id);
+`);
+
+// Dynamic page content table
+db.exec(`CREATE TABLE IF NOT EXISTS easter_egg_pages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  route_path VARCHAR(255) NOT NULL UNIQUE,
+  page_code TEXT NOT NULL,
+  description TEXT,
+  is_active INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_easter_egg_route ON easter_egg_pages(route_path);
+CREATE INDEX IF NOT EXISTS idx_easter_egg_active ON easter_egg_pages(is_active);
 `);
 
 // Business admin assignments - for business admins assigning other business admins
@@ -2414,8 +2469,8 @@ module.exports = {
     row.tags = await getPostTags(postId);
     return row;
   },
-  getPostHashtags,
-  getPostTags,
+  getPostHashtags: (postId) => getPostHashtags(postId),
+  getPostTags: (postId) => getPostTags(postId),
   attachHashtagsToPost: ({ postId, hashtags }) => attachHashtagsToPost(postId, hashtags),
   attachTagsToPost: ({ postId, tags }) => attachTagsToPost(postId, tags),
   getPopularHashtags: ({ search, limit } = {}) => getPopularHashtags(search || '', limit),
@@ -5324,6 +5379,32 @@ module.exports = {
     `;
 
     return await db.prepare(sql).all(ipAddress, hoursBack);
+  },
+
+  // Dynamic page rendering from database
+  getEasterEggPage: async (routePath) => {
+    const sql = isProduction
+      ? `SELECT page_code, description FROM easter_egg_pages WHERE route_path = ? AND is_active = true LIMIT 1`
+      : `SELECT page_code, description FROM easter_egg_pages WHERE route_path = ? AND is_active = 1 LIMIT 1`;
+    const result = await db.prepare(sql).get(routePath);
+    return result ? result.page_code : null;
+  },
+
+  setEasterEggPage: async ({ routePath, pageCode, description }) => {
+    const sql = isProduction
+      ? `
+        INSERT INTO easter_egg_pages (route_path, page_code, description, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT (route_path) 
+        DO UPDATE SET page_code = ?, description = ?, updated_at = CURRENT_TIMESTAMP
+      `
+      : `
+        INSERT INTO easter_egg_pages (route_path, page_code, description, updated_at)
+        VALUES (?, ?, ?, datetime('now'))
+        ON CONFLICT (route_path) 
+        DO UPDATE SET page_code = ?, description = ?, updated_at = datetime('now')
+      `;
+    await db.prepare(sql).run(routePath, pageCode, description, pageCode, description);
   }
 };
 
