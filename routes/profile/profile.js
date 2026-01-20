@@ -113,7 +113,8 @@ function initProfileRoutes({ upload, io }) {
             let userReposts = [];
             try {
                 userReposts = await getUserReposts(req.session.userId) || [];
-                userReposts = userReposts.map(p => {
+                const repostsEnriched = [];
+                for (const p of userReposts) {
                     try {
                         // Get repost info first
                         const repostInfo = getRepostInfo(p.id);
@@ -124,12 +125,12 @@ function initProfileRoutes({ upload, io }) {
                             p.user_reaction = getUserReactionForPost({ postId: originalPostId, userId: req.session.userId });
                             p.reactions = getPostReactionsSummary(originalPostId);
                             // Get original post's comment count
-                            const originalPost = db.prepare('SELECT (SELECT COUNT(*) FROM post_comments WHERE post_id = ?) as comments_count FROM posts WHERE id = ?').get(originalPostId, originalPostId);
+                            const originalPost = await db.prepare('SELECT (SELECT COUNT(*) FROM post_comments WHERE post_id = ?) as comments_count FROM posts WHERE id = ?').get(originalPostId, originalPostId);
                             if (originalPost) {
                                 p.comments_count = originalPost.comments_count;
                             }
                             // Get original post's repost count
-                            const repostCountResult = db.prepare('SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?').get(originalPostId);
+                            const repostCountResult = await db.prepare('SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?').get(originalPostId);
                             p.repost_count = repostCountResult ? repostCountResult.c : 0;
                         } else {
                             // Fallback if no repost info
@@ -139,8 +140,9 @@ function initProfileRoutes({ upload, io }) {
                     } catch (e) { 
                         console.error('Error loading repost data:', e);
                     }
-                    return p;
-                });
+                    repostsEnriched.push(p);
+                }
+                userReposts = repostsEnriched;
             } catch (error) {
                 console.error('Error fetching user reposts:', error);
                 userReposts = [];
@@ -203,7 +205,8 @@ function initProfileRoutes({ upload, io }) {
             let userReposts = [];
             try {
                 userReposts = await getUserReposts(uid) || [];
-                userReposts = userReposts.map(p => {
+                const repostsEnriched = [];
+                for (const p of userReposts) {
                     try {
                         // Get repost info first
                         const repostInfo = getRepostInfo(p.id);
@@ -214,12 +217,12 @@ function initProfileRoutes({ upload, io }) {
                             p.user_reaction = getUserReactionForPost({ postId: originalPostId, userId: req.session.userId });
                             p.reactions = getPostReactionsSummary(originalPostId);
                             // Get original post's comment count
-                            const originalPost = db.prepare('SELECT (SELECT COUNT(*) FROM post_comments WHERE post_id = ?) as comments_count FROM posts WHERE id = ?').get(originalPostId, originalPostId);
+                            const originalPost = await db.prepare('SELECT (SELECT COUNT(*) FROM post_comments WHERE post_id = ?) as comments_count FROM posts WHERE id = ?').get(originalPostId, originalPostId);
                             if (originalPost) {
                                 p.comments_count = originalPost.comments_count;
                             }
                             // Get original post's repost count
-                            const repostCountResult = db.prepare('SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?').get(originalPostId);
+                            const repostCountResult = await db.prepare('SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?').get(originalPostId);
                             p.repost_count = repostCountResult ? repostCountResult.c : 0;
                         } else {
                             // Fallback if no repost info
@@ -229,8 +232,9 @@ function initProfileRoutes({ upload, io }) {
                     } catch (e) { 
                         console.error('Error loading repost data:', e);
                     }
-                    return p;
-                });
+                    repostsEnriched.push(p);
+                }
+                userReposts = repostsEnriched;
             } catch (error) {
                 console.error('Error fetching user reposts:', error);
                 userReposts = [];

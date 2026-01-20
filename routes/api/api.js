@@ -121,11 +121,11 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Get user profile counts
-    router.get('/api/users/:userId/profile-counts', (req, res) => {
+    router.get('/api/users/:userId/profile-counts', async (req, res) => {
         try {
             const userId = parseInt(req.params.userId, 10);
-            const postsCount = db.prepare('SELECT COUNT(*) as count FROM posts WHERE user_id = ?').get(userId).count;
-            const servicesCount = db.prepare('SELECT COUNT(*) as count FROM services WHERE user_id = ?').get(userId).count;
+            const postsCount = (await db.prepare('SELECT COUNT(*) as count FROM posts WHERE user_id = ?').get(userId))?.count || 0;
+            const servicesCount = (await db.prepare('SELECT COUNT(*) as count FROM services WHERE user_id = ?').get(userId))?.count || 0;
             res.json({
                 success: true,
                 posts: postsCount,

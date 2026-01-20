@@ -586,19 +586,19 @@ function initSettingsRoutes() {
     });
 
     // Settings: Banking
-    router.post('/settings/banking', ensureAuthenticated, (req, res) => {
+    router.post('/settings/banking', ensureAuthenticated, async (req, res) => {
         try {
             const { bankCountry, bankAccount, routingNumber } = req.body;
             const userId = req.session.userId;
 
             if (bankCountry) {
-                db.prepare('UPDATE users SET bank_account_country = ? WHERE id = ?').run(bankCountry, userId);
+                await db.prepare('UPDATE users SET bank_account_country = ? WHERE id = ?').run(bankCountry, userId);
             }
             if (bankAccount && !bankAccount.includes('••••')) {
-                db.prepare('UPDATE users SET bank_account_number = ? WHERE id = ?').run(bankAccount, userId);
+                await db.prepare('UPDATE users SET bank_account_number = ? WHERE id = ?').run(bankAccount, userId);
             }
             if (routingNumber) {
-                db.prepare('UPDATE users SET bank_routing_number = ? WHERE id = ?').run(routingNumber, userId);
+                await db.prepare('UPDATE users SET bank_routing_number = ? WHERE id = ?').run(routingNumber, userId);
             }
 
             res.redirect('/settings?success=Banking+info+updated');
@@ -624,78 +624,78 @@ function initSettingsRoutes() {
                 cancelSubscription(userId);
             } catch (e) { }
 
-            const runDelete = db.transaction((uid) => {
-                db.prepare(`DELETE FROM comment_likes WHERE comment_id IN (
+            const runDelete = db.transaction(async (uid) => {
+                await db.prepare(`DELETE FROM comment_likes WHERE comment_id IN (
                     SELECT pc.id FROM post_comments pc WHERE pc.post_id IN (SELECT p.id FROM posts p WHERE p.user_id = ?)
                 )`).run(uid);
-                db.prepare(`DELETE FROM post_comments WHERE post_id IN (
+                await db.prepare(`DELETE FROM post_comments WHERE post_id IN (
                     SELECT p.id FROM posts p WHERE p.user_id = ?
                 )`).run(uid);
-                db.prepare(`DELETE FROM post_reactions WHERE post_id IN (
+                await db.prepare(`DELETE FROM post_reactions WHERE post_id IN (
                     SELECT p.id FROM posts p WHERE p.user_id = ?
                 )`).run(uid);
-                db.prepare('DELETE FROM comment_likes WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM post_comments WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM post_reactions WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM posts WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM comment_likes WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM post_comments WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM post_reactions WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM posts WHERE user_id = ?').run(uid);
 
-                db.prepare(`DELETE FROM service_reviews WHERE service_id IN (
+                await db.prepare(`DELETE FROM service_reviews WHERE service_id IN (
                     SELECT s.id FROM services s WHERE s.user_id = ?
                 )`).run(uid);
-                db.prepare(`DELETE FROM service_orders WHERE service_id IN (
+                await db.prepare(`DELETE FROM service_orders WHERE service_id IN (
                     SELECT s.id FROM services s WHERE s.user_id = ?
                 )`).run(uid);
-                db.prepare('DELETE FROM service_reviews WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM service_orders WHERE buyer_id = ?').run(uid);
-                db.prepare('DELETE FROM services WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM service_reviews WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM service_orders WHERE buyer_id = ?').run(uid);
+                await db.prepare('DELETE FROM services WHERE user_id = ?').run(uid);
 
-                db.prepare(`DELETE FROM message_reactions WHERE message_id IN (
+                await db.prepare(`DELETE FROM message_reactions WHERE message_id IN (
                     SELECT m.id FROM messages m WHERE m.conversation_id IN (
                         SELECT c.id FROM conversations c WHERE c.user1_id = ? OR c.user2_id = ?
                     )
                 )`).run(uid, uid);
-                db.prepare(`DELETE FROM messages WHERE conversation_id IN (
+                await db.prepare(`DELETE FROM messages WHERE conversation_id IN (
                     SELECT c.id FROM conversations c WHERE c.user1_id = ? OR c.user2_id = ?
                 )`).run(uid, uid);
-                db.prepare(`DELETE FROM conversation_participants WHERE conversation_id IN (
+                await db.prepare(`DELETE FROM conversation_participants WHERE conversation_id IN (
                     SELECT c.id FROM conversations c WHERE c.user1_id = ? OR c.user2_id = ?
                 )`).run(uid, uid);
-                db.prepare('DELETE FROM conversation_participants WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM conversations WHERE user1_id = ? OR user2_id = ?').run(uid, uid);
+                await db.prepare('DELETE FROM conversation_participants WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM conversations WHERE user1_id = ? OR user2_id = ?').run(uid, uid);
 
-                db.prepare('DELETE FROM invoices WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM payment_methods WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM user_subscriptions WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM invoices WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM payment_methods WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM user_subscriptions WHERE user_id = ?').run(uid);
 
-                db.prepare('DELETE FROM follows WHERE follower_id = ? OR following_id = ?').run(uid, uid);
-                db.prepare('DELETE FROM notifications WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM follows WHERE follower_id = ? OR following_id = ?').run(uid, uid);
+                await db.prepare('DELETE FROM notifications WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(uid);
 
-                db.prepare('DELETE FROM user_blocks WHERE blocker_id = ? OR blocked_id = ?').run(uid, uid);
-                db.prepare('DELETE FROM user_reports WHERE reporter_id = ? OR reported_user_id = ?').run(uid, uid);
-                db.prepare('DELETE FROM user_moderation WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM user_blocks WHERE blocker_id = ? OR blocked_id = ?').run(uid, uid);
+                await db.prepare('DELETE FROM user_reports WHERE reporter_id = ? OR reported_user_id = ?').run(uid, uid);
+                await db.prepare('DELETE FROM user_moderation WHERE user_id = ?').run(uid);
 
-                db.prepare('DELETE FROM livestream_chat WHERE livestream_id IN (SELECT id FROM livestreams WHERE user_id = ?)').run(uid);
-                db.prepare('DELETE FROM livestream_viewers WHERE livestream_id IN (SELECT id FROM livestreams WHERE user_id = ?)').run(uid);
-                db.prepare('DELETE FROM livestream_viewers WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM livestream_chat WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM livestreams WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM livestream_chat WHERE livestream_id IN (SELECT id FROM livestreams WHERE user_id = ?)').run(uid);
+                await db.prepare('DELETE FROM livestream_viewers WHERE livestream_id IN (SELECT id FROM livestreams WHERE user_id = ?)').run(uid);
+                await db.prepare('DELETE FROM livestream_viewers WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM livestream_chat WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM livestreams WHERE user_id = ?').run(uid);
 
-                db.prepare('DELETE FROM payment_customers WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM payment_customers WHERE user_id = ?').run(uid);
 
-                db.prepare('DELETE FROM webauthn_credentials WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM oauth_accounts WHERE user_id = ?').run(uid);
-                db.prepare('DELETE FROM email_verification_codes WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM webauthn_credentials WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM oauth_accounts WHERE user_id = ?').run(uid);
+                await db.prepare('DELETE FROM email_verification_codes WHERE user_id = ?').run(uid);
 
-                db.prepare('UPDATE career_applications SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
-                db.prepare('UPDATE content_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
-                db.prepare('UPDATE account_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
+                await db.prepare('UPDATE career_applications SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
+                await db.prepare('UPDATE content_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
+                await db.prepare('UPDATE account_appeals SET reviewer_id = NULL WHERE reviewer_id = ?').run(uid);
 
-                db.prepare('UPDATE audit_logs SET user_id = NULL WHERE user_id = ?').run(uid);
+                await db.prepare('UPDATE audit_logs SET user_id = NULL WHERE user_id = ?').run(uid);
 
-                db.prepare('DELETE FROM users WHERE id = ?').run(uid);
+                await db.prepare('DELETE FROM users WHERE id = ?').run(uid);
             });
-            runDelete(userId);
+            await runDelete(userId);
 
             if (user && user.email) {
                 await emailService.sendAccountDeletionEmail(user.email, user.full_name, req);

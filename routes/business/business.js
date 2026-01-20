@@ -374,7 +374,7 @@ function initBusinessRoutes({ emailService }) {
     });
 
     // Create Business Admin Subordinate
-    router.post('/api/business/team/add', requireBusinessAdmin, requireBusinessPermission('business_team_manage'), (req, res) => {
+    router.post('/api/business/team/add', requireBusinessAdmin, requireBusinessPermission('business_team_manage'), async (req, res) => {
         try {
             const { userId, permissions, notes } = req.body;
             const targetUserId = parseInt(userId, 10);
@@ -386,7 +386,7 @@ function initBusinessRoutes({ emailService }) {
             }
             
             // Upgrade user to business_admin role
-            db.prepare(`UPDATE users SET role = 'business_admin', admin_permissions = ? WHERE id = ?`).run(
+            await db.prepare(`UPDATE users SET role = 'business_admin', admin_permissions = ? WHERE id = ?`).run(
                 JSON.stringify(permissions || []),
                 targetUserId
             );
@@ -413,7 +413,7 @@ function initBusinessRoutes({ emailService }) {
     });
 
     // Update Business Admin Permissions
-    router.post('/api/business/team/:id/permissions', requireBusinessAdmin, requireBusinessPermission('business_team_manage'), (req, res) => {
+    router.post('/api/business/team/:id/permissions', requireBusinessAdmin, requireBusinessPermission('business_team_manage'), async (req, res) => {
         try {
             const assignmentId = parseInt(req.params.id, 10);
             const { permissions, scopes } = req.body;
@@ -425,9 +425,9 @@ function initBusinessRoutes({ emailService }) {
             });
             
             // Also update the user's admin_permissions
-            const assignment = db.prepare('SELECT assigned_admin_id FROM business_admin_assignments WHERE id = ?').get(assignmentId);
+            const assignment = await db.prepare('SELECT assigned_admin_id FROM business_admin_assignments WHERE id = ?').get(assignmentId);
             if (assignment) {
-                db.prepare(`UPDATE users SET admin_permissions = ? WHERE id = ?`).run(
+                await db.prepare(`UPDATE users SET admin_permissions = ? WHERE id = ?`).run(
                     JSON.stringify(permissions || []),
                     assignment.assigned_admin_id
                 );
@@ -447,16 +447,16 @@ function initBusinessRoutes({ emailService }) {
     });
 
     // Revoke Business Admin
-    router.post('/api/business/team/:id/revoke', requireBusinessAdmin, requireBusinessPermission('business_team_manage'), (req, res) => {
+    router.post('/api/business/team/:id/revoke', requireBusinessAdmin, requireBusinessPermission('business_team_manage'), async (req, res) => {
         try {
             const assignmentId = parseInt(req.params.id, 10);
             
             // Get the assignment to find the user
-            const assignment = db.prepare('SELECT assigned_admin_id FROM business_admin_assignments WHERE id = ?').get(assignmentId);
+            const assignment = await db.prepare('SELECT assigned_admin_id FROM business_admin_assignments WHERE id = ?').get(assignmentId);
             
             if (assignment) {
                 // Downgrade user back to regular user
-                db.prepare(`UPDATE users SET role = 'user', admin_permissions = '[]', admin_scopes = '[]' WHERE id = ?`).run(
+                await db.prepare(`UPDATE users SET role = 'user', admin_permissions = '[]', admin_scopes = '[]' WHERE id = ?`).run(
                     assignment.assigned_admin_id
                 );
             }
@@ -477,20 +477,20 @@ function initBusinessRoutes({ emailService }) {
     });
 
     // Search users for adding to team
-    router.get('/api/business/users/search', requireBusinessAdmin, requireBusinessPermission('business_team_manage'), (req, res) => {
+    router.get('/api/business/users/search', requireBusinessAdmin, requireBusinessPermission('business_team_manage'), async (req, res) => {
         try {
             const q = (req.query.q || '').trim();
             if (q.length < 2) {
                 return res.json({ users: [] });
             }
             
-            const users = db.prepare(`
+            const users = await db.prepare(`
                 SELECT id, full_name, email, role, profile_picture
                 FROM users
                 WHERE (LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?)
                 AND role IN ('user', 'business_admin')
                 LIMIT 10
-            `).all(`%${q.toLowerCase()}%`, `%${q.toLowerCase()}%`);
+            `).all(`%${q.toLowerCase()}%`, `%${q.toLowerCase()}%`) || [];
             
             res.json({ users });
         } catch (error) {

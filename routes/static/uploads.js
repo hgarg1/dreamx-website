@@ -18,7 +18,7 @@ router.get('/uploads/:folder?/:filename', async (req, res) => {
     
     // Check if file is a chat attachment
     if (filename && filename.startsWith('chat-')) {
-        const msg = db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url LIKE ?`).get(`%/uploads/${filePath}%`);
+        const msg = await db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url LIKE ?`).get(`%/uploads/${filePath}%`);
         if (!msg || !isUserInConversation({ conversationId: msg.conversation_id, userId: req.session.userId })) {
             return res.status(403).send('Forbidden');
         }
@@ -57,7 +57,7 @@ router.get('/uploads/:filename', async (req, res) => {
         if (fileResult.success) {
             // Check if file is a chat attachment
             if (filename.startsWith('chat-')) {
-                const msg = db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url LIKE ?`).get(`%/uploads/${filePath}%`);
+                const msg = await db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url LIKE ?`).get(`%/uploads/${filePath}%`);
                 if (!msg || !isUserInConversation({ conversationId: msg.conversation_id, userId: req.session.userId })) {
                     return res.status(403).send('Forbidden');
                 }

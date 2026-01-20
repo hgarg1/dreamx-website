@@ -42,7 +42,7 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Messages page - Real messaging with database
-    router.get('/messages', (req, res) => {
+    router.get('/messages', async (req, res) => {
         if (!req.session || !req.session.userId) return res.redirect('/login');
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.setHeader('Pragma', 'no-cache');
@@ -75,9 +75,13 @@ function initMessagesRoutes({ chatUpload, io }) {
             
             // If not found, check if it exists in database (might be new conversation with no messages)
             if (!currentConversation) {
-                const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(requestedId);
-                if (conv && (conv.user1_id === req.session.userId || conv.user2_id === req.session.userId || 
-                    (conv.is_group && db.prepare('SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').get(requestedId, req.session.userId)))) {
+                const conv = await db.prepare('SELECT * FROM conversations WHERE id = ?').get(requestedId);
+                const isParticipant = !conv ? false : (
+                    conv.user1_id === req.session.userId ||
+                    conv.user2_id === req.session.userId ||
+                    (conv.is_group && !!(await db.prepare('SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').get(requestedId, req.session.userId)))
+                );
+                if (conv && isParticipant) {
                     // Get user info for direct conversations
                     if (!conv.is_group) {
                         const otherId = conv.user1_id === req.session.userId ? conv.user2_id : conv.user1_id;
@@ -138,7 +142,7 @@ function initMessagesRoutes({ chatUpload, io }) {
             try {
                 const reader = getUserById(req.session.userId);
                 if (reader && reader.read_receipts === 1 && !currentConversation.is_group) {
-                    const lastReadMessage = db.prepare(`
+                    const lastReadMessage = await db.prepare(`
                       SELECT MAX(id) as maxId
                       FROM messages
                       WHERE conversation_id = ? AND sender_id != ?
@@ -191,7 +195,7 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Update group name
-    router.post('/messages/group/:conversationId/name', (req, res) => {
+    router.post('/messages/group/:conversationId/name', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const conversationId = parseInt(req.params.conversationId, 10);
         const { groupName } = req.body;
@@ -205,7 +209,7 @@ function initMessagesRoutes({ chatUpload, io }) {
         }
 
         try {
-            db.prepare('UPDATE conversations SET group_name = ? WHERE id = ? AND is_group = 1').run(groupName.trim(), conversationId);
+            await db.prepare('UPDATE conversations SET group_name = ? WHERE id = ? AND is_group = 1').run(groupName.trim(), conversationId);
             res.json({ success: true });
         } catch (e) {
             console.error('Update group name error:', e);
@@ -214,7 +218,7 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Add member to group
-    router.post('/messages/group/:conversationId/add', (req, res) => {
+    router.post('/messages/group/:conversationId/add', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const conversationId = parseInt(req.params.conversationId, 10);
         const { userId } = req.body;
@@ -228,12 +232,12 @@ function initMessagesRoutes({ chatUpload, io }) {
         }
 
         try {
-            const existing = db.prepare('SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').get(conversationId, userId);
+            const existing = await db.prepare('SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').get(conversationId, userId);
             if (existing) {
                 return res.status(400).json({ error: 'User is already in this group' });
             }
 
-            db.prepare('INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?)').run(conversationId, userId);
+            await db.prepare('INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?)').run(conversationId, userId);
             res.json({ success: true });
         } catch (e) {
             console.error('Add member error:', e);
@@ -242,7 +246,7 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Remove member from group
-    router.post('/messages/group/:conversationId/remove', (req, res) => {
+    router.post('/messages/group/:conversationId/remove', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const conversationId = parseInt(req.params.conversationId, 10);
         const { userId } = req.body;
@@ -256,7 +260,7 @@ function initMessagesRoutes({ chatUpload, io }) {
         }
 
         try {
-            db.prepare('DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').run(conversationId, userId);
+            await db.prepare('DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').run(conversationId, userId);
             res.json({ success: true });
         } catch (e) {
             console.error('Remove member error:', e);
@@ -265,7 +269,7 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Leave group
-    router.post('/messages/group/:conversationId/leave', (req, res) => {
+    router.post('/messages/group/:conversationId/leave', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const conversationId = parseInt(req.params.conversationId, 10);
 
@@ -274,7 +278,7 @@ function initMessagesRoutes({ chatUpload, io }) {
         }
 
         try {
-            db.prepare('DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').run(conversationId, req.session.userId);
+            await db.prepare('DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?').run(conversationId, req.session.userId);
             res.json({ success: true });
         } catch (e) {
             console.error('Leave group error:', e);
@@ -321,7 +325,7 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Send message API (supports optional single or multiple file attachments)
-    router.post('/api/messages/send', chatUpload.any(), (req, res) => {
+    router.post('/api/messages/send', chatUpload.any(), async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
         try {
@@ -345,12 +349,12 @@ function initMessagesRoutes({ chatUpload, io }) {
             return res.status(403).json({ error: 'Not a participant in this conversation' });
         }
 
-        const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+        const conv = await db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
         if (!conv) return res.status(404).json({ error: 'Conversation not found' });
 
         let replyContext = null;
         if (replyToMessageId) {
-            replyContext = db.prepare('SELECT id, conversation_id FROM messages WHERE id = ?').get(replyToMessageId);
+            replyContext = await db.prepare('SELECT id, conversation_id FROM messages WHERE id = ?').get(replyToMessageId);
             if (!replyContext || replyContext.conversation_id !== conversationId) {
                 return res.status(400).json({ error: 'Invalid reply target' });
             }
@@ -456,11 +460,11 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Protected file download
-    router.get('/uploads/:filename', (req, res) => {
+    router.get('/uploads/:filename', async (req, res) => {
         if (!req.session.userId) return res.status(401).send('Unauthorized');
         const filename = req.params.filename;
         if (filename.startsWith('chat-')) {
-            const msg = db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url = ?`).get(`/uploads/${filename}`);
+            const msg = await db.prepare(`SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.attachment_url = ?`).get(`/uploads/${filename}`);
             if (!msg || !isUserInConversation({ conversationId: msg.conversation_id, userId: req.session.userId })) {
                 return res.status(403).send('Forbidden');
             }
@@ -469,17 +473,17 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Mark messages as read
-    router.post('/api/messages/:conversationId/read', (req, res) => {
+    router.post('/api/messages/:conversationId/read', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
         const conversationId = parseInt(req.params.conversationId);
         markMessagesAsRead({ conversationId, userId: req.session.userId });
         try {
-            const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+            const conv = await db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
             if (conv && !conv.is_group) {
                 const reader = getUserById(req.session.userId);
                 if (reader && reader.read_receipts === 1) {
-                    const lastReadMessage = db.prepare(`
+                    const lastReadMessage = await db.prepare(`
                       SELECT MAX(id) as maxId
                       FROM messages
                       WHERE conversation_id = ? AND sender_id != ?
@@ -501,13 +505,13 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // React to a message
-    router.post('/api/messages/:messageId/react', (req, res) => {
+    router.post('/api/messages/:messageId/react', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
         const messageId = parseInt(req.params.messageId);
         const { reactionType = 'like' } = req.body;
 
-        const msg = db.prepare('SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.id = ?').get(messageId);
+        const msg = await db.prepare('SELECT m.*, c.* FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE m.id = ?').get(messageId);
         if (!msg) return res.status(404).json({ error: 'Message not found' });
         if (!isUserInConversation({ conversationId: msg.conversation_id, userId: req.session.userId })) {
             return res.status(403).json({ error: 'Not authorized' });

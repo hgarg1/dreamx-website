@@ -680,7 +680,7 @@ function initFeedRoutes({ postUpload, io }) {
         if (type !== 'like') return res.status(400).json({ error: 'Only "like" reactions are supported' });
         try {
             const result = setPostReaction({ postId, userId: req.session.userId, reactionType: 'like' });
-            const post = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
+            const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
             const { createNotification } = require('../../db');
 
             if (post && post.user_id !== req.session.userId && result.status !== 'cleared') {
@@ -735,7 +735,7 @@ function initFeedRoutes({ postUpload, io }) {
             });
             
             // Get the original post for notification
-            const originalPost = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
+            const originalPost = await db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
             if (originalPost && originalPost.user_id !== req.session.userId) {
                 const reposter = getUserById(req.session.userId);
                 const { createNotification } = require('../../db');
@@ -770,16 +770,19 @@ function initFeedRoutes({ postUpload, io }) {
     });
 
     // API: List comments for a post
-    router.get('/api/posts/:postId/comments', (req, res) => {
+    router.get('/api/posts/:postId/comments', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const postId = parseInt(req.params.postId, 10);
         const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
         const offset = parseInt(req.query.offset || '0', 10);
         try {
-            const comments = getPostComments({ postId, limit, offset }).map(c => {
-                const liked = !!db.prepare('SELECT 1 FROM comment_likes WHERE comment_id = ? AND user_id = ?').get(c.id, req.session.userId);
-                return { ...c, user_starred: liked };
-            });
+            const baseComments = getPostComments({ postId, limit, offset }) || [];
+            const comments = [];
+            for (const c of baseComments) {
+                const likedRow = await db.prepare('SELECT 1 FROM comment_likes WHERE comment_id = ? AND user_id = ?').get(c.id, req.session.userId);
+                const liked = !!likedRow;
+                comments.push({ ...c, user_starred: liked });
+            }
             const total = getCommentsCount(postId);
             res.json({ comments, total });
         } catch (e) {
@@ -798,7 +801,7 @@ function initFeedRoutes({ postUpload, io }) {
         try {
             let parentAuthorId = null;
             if (parentId) {
-                const parent = db.prepare('SELECT id, post_id, user_id FROM post_comments WHERE id = ?').get(parentId);
+                const parent = await db.prepare('SELECT id, post_id, user_id FROM post_comments WHERE id = ?').get(parentId);
                 if (!parent || Number(parent.post_id) !== Number(postId)) {
                     return res.status(400).json({ error: 'Invalid parent comment' });
                 }
@@ -806,7 +809,7 @@ function initFeedRoutes({ postUpload, io }) {
             }
 
             const commentId = addPostComment({ postId, userId: req.session.userId, content, parentId: parentId || null });
-            const comment = db.prepare(`
+            const comment = await db.prepare(`
               SELECT c.*, u.full_name, u.profile_picture,
                 (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS star_count,
                 pc.user_id as parent_author_id,
@@ -818,7 +821,7 @@ function initFeedRoutes({ postUpload, io }) {
               WHERE c.id = ?
             `).get(commentId);
 
-            const post = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
+            const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
             const commenter = getUserById(req.session.userId);
             const { createNotification } = require('../../db');
 

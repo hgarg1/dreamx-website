@@ -426,7 +426,7 @@ function initAdminRoutes({ io, webpush }) {
         try {
             const ok = require('../../db').adminSetServiceStatus({ serviceId: id, status: 'hidden' });
             if (ok) {
-                const s = db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
+                const s = await db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
                 if (s) {
                     if (notifyInApp) {
                         createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service hidden', message: `Your service "${s.title}" was hidden by admins.`, link: `/services/${id}` });
@@ -460,7 +460,7 @@ function initAdminRoutes({ io, webpush }) {
         try {
             const ok = require('../../db').adminSetServiceStatus({ serviceId: id, status: 'active' });
             if (ok) {
-                const s = db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
+                const s = await db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
                 if (s) {
                     if (notifyInApp) {
                         createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service restored', message: `Your service "${s.title}" is visible again.`, link: `/services/${id}` });
@@ -495,7 +495,7 @@ function initAdminRoutes({ io, webpush }) {
         try {
             const ok = require('../../db').adminSetServiceStatus({ serviceId: id, status: 'deleted' });
             if (ok) {
-                const s = db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
+                const s = await db.prepare('SELECT s.*, u.email, u.full_name FROM services s JOIN users u ON u.id = s.user_id WHERE s.id = ?').get(id);
                 if (s) {
                     if (notifyInApp) {
                         createNotification({ userId: s.user_id, type: 'service_moderation', title: 'Service deleted', message: `Your service "${s.title}" was removed by admins.`, link: `/profile` });
@@ -525,7 +525,7 @@ function initAdminRoutes({ io, webpush }) {
     router.post('/admin/services/:id/edit', requireSuperAdmin, async (req, res) => {
         const id = parseInt(req.params.id, 10);
         try {
-            const s = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
+            const s = await db.prepare('SELECT * FROM services WHERE id = ?').get(id);
             if (!s) return res.redirect('/admin/services?error=Service+not+found');
             const fields = {};
             const map = {
@@ -610,14 +610,14 @@ function initAdminRoutes({ io, webpush }) {
             return res.redirect('/admin?error=User+not+found');
         }
 
-        const postsCount = db.prepare('SELECT COUNT(*) as count FROM posts WHERE user_id = ?').get(userId)?.count || 0;
-        const commentsCount = db.prepare('SELECT COUNT(*) as count FROM post_comments WHERE user_id = ?').get(userId)?.count || 0;
+        const postsCount = (await db.prepare('SELECT COUNT(*) as count FROM posts WHERE user_id = ?').get(userId))?.count || 0;
+        const commentsCount = (await db.prepare('SELECT COUNT(*) as count FROM post_comments WHERE user_id = ?').get(userId))?.count || 0;
         const followersCount = getFollowerCount(userId);
         const followingCount = getFollowingCount(userId);
-        const conversationsCount = db.prepare('SELECT COUNT(DISTINCT conversation_id) as count FROM conversation_participants WHERE user_id = ?').get(userId)?.count || 0;
-        const messagesCount = db.prepare('SELECT COUNT(*) as count FROM messages WHERE sender_id = ?').get(userId)?.count || 0;
+        const conversationsCount = (await db.prepare('SELECT COUNT(DISTINCT conversation_id) as count FROM conversation_participants WHERE user_id = ?').get(userId))?.count || 0;
+        const messagesCount = (await db.prepare('SELECT COUNT(*) as count FROM messages WHERE sender_id = ?').get(userId))?.count || 0;
 
-        const recentPosts = db.prepare(`
+        const recentPosts = await db.prepare(`
             SELECT p.*, 
                    (SELECT COUNT(*) FROM post_reactions WHERE post_id = p.id) as reactions_count,
                    (SELECT COUNT(*) FROM post_comments WHERE post_id = p.id) as comments_count
@@ -625,7 +625,7 @@ function initAdminRoutes({ io, webpush }) {
             WHERE p.user_id = ?
             ORDER BY p.created_at DESC
             LIMIT 5
-        `).all(userId);
+        `).all(userId) || [];
 
         const accountAge = Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24));
         const accountStatus = checkAccountStatus(userId);
@@ -660,11 +660,11 @@ function initAdminRoutes({ io, webpush }) {
         res.send(csv);
     });
 
-    router.get('/admin/export/messages.csv', requireAdmin, (req, res) => {
+    router.get('/admin/export/messages.csv', requireAdmin, async (req, res) => {
         try { addAuditLog({ userId: req.session.userId, action: 'export_messages', details: null }); } catch (e) { }
-        const rows = db.prepare(`SELECT m.id, m.conversation_id, m.sender_id, u.email as sender_email, m.content, m.read, m.created_at
+        const rows = await db.prepare(`SELECT m.id, m.conversation_id, m.sender_id, u.email as sender_email, m.content, m.read, m.created_at
                                  FROM messages m JOIN users u ON u.id = m.sender_id
-                                 ORDER BY m.created_at DESC`).all();
+                                 ORDER BY m.created_at DESC`).all() || [];
         const header = 'id,conversation_id,sender_id,sender_email,content,read,created_at\n';
         const csv = header + rows.map(r => `${r.id},${r.conversation_id},${r.sender_id},${r.sender_email},"${(r.content || '').replace(/"/g, '""')}",${r.read},${r.created_at}`).join('\n');
         res.setHeader('Content-Type', 'text/csv');
@@ -878,7 +878,7 @@ function initAdminRoutes({ io, webpush }) {
             const { action, reason } = req.body;
             const adminId = req.session.userId;
             const frozenValue = action === 'freeze' ? 1 : 0;
-            db.prepare('UPDATE users SET seller_privileges_frozen = ? WHERE id = ?').run(frozenValue, userId);
+            await db.prepare('UPDATE users SET seller_privileges_frozen = ? WHERE id = ?').run(frozenValue, userId);
             const user = await getUserById(userId);
             try {
                 addAuditLog({
@@ -888,9 +888,9 @@ function initAdminRoutes({ io, webpush }) {
                 });
             } catch (e) { }
             if (action === 'freeze') {
-                db.prepare('UPDATE services SET status = \'frozen\' WHERE user_id = ? AND status = \'active\'').run(userId);
+                await db.prepare('UPDATE services SET status = \'frozen\' WHERE user_id = ? AND status = \'active\'').run(userId);
             } else {
-                db.prepare('UPDATE services SET status = \'active\' WHERE user_id = ? AND status = \'frozen\'').run(userId);
+                await db.prepare('UPDATE services SET status = \'active\' WHERE user_id = ? AND status = \'frozen\'').run(userId);
             }
             if (user) {
                 try {
@@ -919,7 +919,7 @@ function initAdminRoutes({ io, webpush }) {
         try {
             const user = await getUserById(userId);
             if (!user) return res.status(404).json({ success: false, error: 'User not found' });
-            db.prepare('UPDATE users SET chat_privileges_frozen = ? WHERE id = ?').run(freeze, userId);
+            await db.prepare('UPDATE users SET chat_privileges_frozen = ? WHERE id = ?').run(freeze, userId);
             try {
                 addAuditLog({
                     userId: req.session.userId,
@@ -1191,7 +1191,7 @@ function initAdminRoutes({ io, webpush }) {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const postId = parseInt(req.params.id, 10);
         try {
-            db.prepare(`DELETE FROM posts WHERE id = ?`).run(postId);
+            await db.prepare(`DELETE FROM posts WHERE id = ?`).run(postId);
             addAuditLog({
                 userId: req.session.userId,
                 action: 'delete_post',
@@ -1210,7 +1210,7 @@ function initAdminRoutes({ io, webpush }) {
         const postId = parseInt(req.params.id, 10);
         try {
             // Note: hidden column is now added via migrations in db/index.js
-            db.prepare(`UPDATE posts SET hidden = 1 WHERE id = ?`).run(postId);
+            await db.prepare(`UPDATE posts SET hidden = 1 WHERE id = ?`).run(postId);
             addAuditLog({
                 userId: req.session.userId,
                 action: 'hide_post',
@@ -1447,15 +1447,24 @@ function initAdminRoutes({ io, webpush }) {
                     name: t.name,
                     type: 'table'
                 }));
+            } else if (dbType === 'postgres') {
+                // Postgres - list user tables in public schema
+                const rows = await db.prepare(`
+                    SELECT tablename AS name, 'table' AS type
+                    FROM pg_catalog.pg_tables
+                    WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+                    ORDER BY tablename
+                `).all() || [];
+                tables = rows;
             } else {
                 // SQLite - get tables from sqlite_master
-                const rows = db.prepare(`
+                const rows = await db.prepare(`
                     SELECT name, type 
                     FROM sqlite_master 
                     WHERE type='table' 
                     AND name NOT LIKE 'sqlite_%'
                     ORDER BY name
-                `).all();
+                `).all() || [];
                 tables = rows;
             }
 
@@ -1498,6 +1507,39 @@ function initAdminRoutes({ io, webpush }) {
                     nullable: c.nullable === 'YES',
                     defaultValue: c.defaultValue,
                     maxLength: c.maxLength
+                }));
+            } else if (dbType === 'postgres') {
+                // Postgres - column info with PK detection
+                const rows = await db.prepare(`
+                    SELECT 
+                        c.column_name AS name,
+                        c.data_type AS type,
+                        (c.is_nullable = 'YES') AS nullable,
+                        c.column_default AS defaultValue,
+                        c.character_maximum_length AS maxLength,
+                        EXISTS (
+                            SELECT 1
+                            FROM information_schema.table_constraints tc
+                            JOIN information_schema.key_column_usage kcu
+                              ON tc.constraint_name = kcu.constraint_name
+                             AND tc.table_schema = kcu.table_schema
+                            WHERE tc.constraint_type = 'PRIMARY KEY'
+                              AND tc.table_name = c.table_name
+                              AND tc.table_schema = c.table_schema
+                              AND kcu.column_name = c.column_name
+                        ) AS primaryKey
+                    FROM information_schema.columns c
+                    WHERE c.table_name = ?
+                      AND c.table_schema = 'public'
+                    ORDER BY c.ordinal_position
+                `).all(tableName) || [];
+                columns = rows.map(c => ({
+                    name: c.name,
+                    type: c.type,
+                    nullable: c.nullable === true,
+                    defaultValue: c.defaultvalue,
+                    maxLength: c.maxlength,
+                    primaryKey: c.primarykey === true
                 }));
             } else {
                 // SQLite / Postgres - get table info
@@ -1548,6 +1590,14 @@ function initAdminRoutes({ io, webpush }) {
                     FETCH NEXT ${limit} ROWS ONLY
                 `);
                 rows = dataResult.recordset;
+            } else if (dbType === 'postgres') {
+                // Postgres - paginate table rows
+                const countResult = await db.prepare(`SELECT COUNT(*) as total FROM "public"."${tableName}"`).get();
+                total = countResult ? countResult.total : 0;
+                rows = await db.prepare(`
+                    SELECT * FROM "public"."${tableName}"
+                    LIMIT ? OFFSET ?
+                `).all(limit, offset) || [];
             } else {
                 // SQLite - get data with pagination
                 const totalRow = await db.prepare(`SELECT COUNT(*) as total FROM ${tableName}`).get();
@@ -1734,7 +1784,7 @@ function initAdminRoutes({ io, webpush }) {
                     .query(`SELECT [${columnName}] FROM [${tableName}] WHERE [${primaryKey.columnName}] = @pkValue`);
                 oldValue = result.recordset[0]?.[columnName];
             } else {
-                const row = db.prepare(`SELECT ${columnName} FROM ${tableName} WHERE ${primaryKey.columnName} = ?`).get(primaryKey.value);
+                const row = await db.prepare(`SELECT ${columnName} FROM ${tableName} WHERE ${primaryKey.columnName} = ?`).get(primaryKey.value);
                 oldValue = row?.[columnName];
             }
 
