@@ -166,7 +166,21 @@ function initFeedRoutes({ postUpload, io }) {
             }
 
             if (suggestions.length < 3) {
-                const topCreatorsQuery = db.prepare(`
+                const topCreatorsQuery = db.prepare(isProduction
+                    ? `
+                    SELECT u.id, u.full_name, u.email, u.profile_picture, u.categories,
+                           COUNT(p.id) as total_posts
+                    FROM users u
+                    LEFT JOIN posts p ON u.id = p.user_id
+                    WHERE u.id != ?
+                      AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
+                      AND u.account_status = 'active'
+                    GROUP BY u.id
+                    HAVING COUNT(p.id) > 0
+                    ORDER BY COUNT(p.id) DESC
+                    LIMIT ?
+                `
+                    : `
                     SELECT u.id, u.full_name, u.email, u.profile_picture, u.categories,
                            COUNT(p.id) as total_posts
                     FROM users u

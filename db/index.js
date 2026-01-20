@@ -668,6 +668,7 @@ addColumnIfNotExists('users', 'notify_weekly_summary', 'INTEGER DEFAULT 1');
 addColumnIfNotExists('users', 'notify_method', "TEXT DEFAULT 'both'");
 addColumnIfNotExists('users', 'onboarding_completed', 'INTEGER DEFAULT 0');
 addColumnIfNotExists('users', 'needs_onboarding', 'INTEGER DEFAULT 1');
+addColumnIfNotExists('users', 'total_posts', 'INTEGER DEFAULT 0');
 
 // Posts moderation columns (idempotent)
 addColumnIfNotExists('posts', 'hidden', 'INTEGER DEFAULT 0');

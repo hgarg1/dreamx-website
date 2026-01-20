@@ -67,7 +67,8 @@ CREATE TABLE users (
   phone_verified BIT DEFAULT 0,
   phone_verified_at DATETIME2,
   onboarding_completed BIT DEFAULT 0,
-  needs_onboarding BIT DEFAULT 1
+  needs_onboarding BIT DEFAULT 1,
+  total_posts INT DEFAULT 0
 );
 
 CREATE UNIQUE INDEX idx_users_handle ON users(handle) WHERE handle IS NOT NULL;

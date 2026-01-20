@@ -51,7 +51,7 @@ function initProfileRoutes({ upload, io }) {
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Expires', '0');
 
-            const row = getUserById(req.session.userId);
+            const row = await getUserById(req.session.userId);
             if (!row) return res.redirect('/login');
 
             const passions = safeParseArray(row.categories);
@@ -82,7 +82,7 @@ function initProfileRoutes({ upload, io }) {
 
             const user = {
                 displayName: row.full_name,
-                handle: row.handle || row.email.split('@')[0],
+                handle: row.handle || (row.email ? row.email.split('@')[0] : 'user'),
                 bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
                 passions,
                 skills: skillsList,
@@ -106,7 +106,7 @@ function initProfileRoutes({ upload, io }) {
             };
             const projects = getProjectsByOwner(req.session.userId, 100, 0);
             const services = getUserServices(req.session.userId);
-            const me = getUserById(req.session.userId);
+            const me = await getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
             
             // Get user reposts
@@ -174,7 +174,7 @@ function initProfileRoutes({ upload, io }) {
         try {
             const uid = parseInt(req.params.id, 10);
             if (!uid || isNaN(uid)) return res.redirect('/feed');
-            const row = getUserById(uid);
+            const row = await getUserById(uid);
             if (!row) {
                 return res.status(404).render('user/profile-not-found', {
                     title: 'Profile Not Found - Dream X',
@@ -250,7 +250,7 @@ function initProfileRoutes({ upload, io }) {
 
             const user = {
                 displayName: row.full_name,
-                handle: row.handle || row.email.split('@')[0],
+                handle: row.handle || (row.email ? row.email.split('@')[0] : 'user'),
                 bio: row.bio || (goals.length ? `Goals: ${goals.join(', ')}` : 'No bio added yet.'),
                 passions,
                 skills: skillsList,
@@ -273,7 +273,7 @@ function initProfileRoutes({ upload, io }) {
                 }
             };
             const projects = getProjectsByOwner(uid, 100, 0);
-            const me = getUserById(req.session.userId);
+            const me = await getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
 
             return res.render('user/profile', {
@@ -299,9 +299,9 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // Edit Profile form
-    router.get('/profile/edit', (req, res) => {
+    router.get('/profile/edit', async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
-        const row = getUserById(req.session.userId);
+        const row = await getUserById(req.session.userId);
         if (!row) return res.redirect('/login');
         const authUser = { id: row.id, full_name: row.full_name, email: row.email, profile_picture: row.profile_picture, banner_image: row.banner_image, handle: row.handle };
         const passions = row.categories ? JSON.parse(row.categories) : [];
@@ -367,7 +367,7 @@ function initProfileRoutes({ upload, io }) {
         const filteredPassionGroups = passionGroups.filter(group => group.options.length > 0);
         const user = {
             displayName: row.full_name,
-            handle: row.handle || row.email.split('@')[0],
+            handle: row.handle || (row.email ? row.email.split('@')[0] : 'user'),
             bio: row.bio || '',
             passions,
             skills: row.skills || '',
@@ -439,7 +439,7 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Follow a user
-    router.post('/api/users/:id/follow', (req, res) => {
+    router.post('/api/users/:id/follow', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId || targetUserId === req.session.userId) {
@@ -448,7 +448,7 @@ function initProfileRoutes({ upload, io }) {
         try {
             followUser({ followerId: req.session.userId, followingId: targetUserId });
 
-            const follower = getUserById(req.session.userId);
+            const follower = await getUserById(req.session.userId);
             createNotification({
                 userId: targetUserId,
                 type: 'follow',

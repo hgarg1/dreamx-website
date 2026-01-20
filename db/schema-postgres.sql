@@ -64,7 +64,8 @@ CREATE TABLE users (
   phone_verified BOOLEAN DEFAULT false,
   phone_verified_at TIMESTAMP,
   onboarding_completed BOOLEAN DEFAULT false,
-  needs_onboarding BOOLEAN DEFAULT true
+  needs_onboarding BOOLEAN DEFAULT true,
+  total_posts INTEGER DEFAULT 0
 );
 
 CREATE UNIQUE INDEX idx_users_handle ON users(handle) WHERE handle IS NOT NULL;
