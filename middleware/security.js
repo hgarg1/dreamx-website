@@ -22,7 +22,8 @@ function configureHelmet() {
                     "https://api.mapbox.com",
                     "https://js.stripe.com",
                     "https://www.googletagmanager.com",
-                    "https://www.google-analytics.com"
+                    "https://www.google-analytics.com",
+                    "https://cdnjs.cloudflare.com" // Required for Three.js on dynamic pages
                 ],
                 styleSrc: [
                     "'self'",
