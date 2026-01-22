@@ -154,6 +154,7 @@
         <button class="modal-close" onclick="closeModal('createRole')">&times;</button>
       </div>
       <form action="/api/rbac/roles" method="POST" id="createRoleForm">
+        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
         <div class="form-group">
           <label>Role Name *</label>
           <input type="text" name="name" required placeholder="e.g., content_moderator">

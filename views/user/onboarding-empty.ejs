@@ -307,6 +307,7 @@
         <!-- Action Buttons -->
         <div class="button-group">
             <form action="/onboarding/start" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <button type="submit" class="btn-hero btn-primary-hero">
                     <span>✨ Start Onboarding</span>
                 </button>

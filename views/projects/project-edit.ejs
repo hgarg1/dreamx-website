@@ -440,6 +440,7 @@
   <h1 style="margin: 0 0 32px 0; font-size: 2rem; font-weight: 700; color: #111827;">✏️ Edit Project</h1>
 
   <form id="projectEditForm" method="POST" action="/api/projects/<%= project.id %>">
+    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
     <!-- Basic Info Section -->
     <div class="project-form-section">
       <h2>📋 Basic Information</h2>

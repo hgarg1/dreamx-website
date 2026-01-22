@@ -21,6 +21,7 @@
         <!-- Contact Form -->
         <div class="contact-form-wrapper">
             <form class="contact-form" action="/contact" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <div class="form-group">
                     <label for="name">Your Name</label>
                     <input type="text" id="name" name="name" required placeholder="John Doe">

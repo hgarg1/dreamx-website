@@ -378,6 +378,7 @@
 
   <div class="edit-grid">
     <form method="POST" action="/services/<%= service.id %>/edit" class="edit-main">
+      <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
       <!-- Core Details Section -->
       <div class="edit-card">
         <div class="section-header">

@@ -17,6 +17,7 @@
   <div class="settings-card">
     <h2 class="settings-card-title">Account</h2>
     <form action="/settings/account" method="POST">
+      <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
       <div class="settings-field-group">
         <label class="settings-label" for="accountEmail">Email</label>
         <input id="accountEmail" name="email" type="email" class="settings-input" value="<%= authUser.email %>" required />
@@ -74,6 +75,7 @@
       <% } %>
     </p>
     <form action="/settings/password" method="POST" id="passwordForm">
+      <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
       <% if (ssoBootstrapActive) { %>
         <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);color:#312e81;padding:12px 14px;border-radius:12px;margin-bottom:16px;font-size:0.9rem;">
           <strong>SSO verified:</strong> You recently signed in with <%= (ssoBootstrapProvider ? ssoBootstrapProvider.charAt(0).toUpperCase() + ssoBootstrapProvider.slice(1) : 'an SSO provider') %>, so you can leave the current password field blank this time.
@@ -399,6 +401,7 @@
   <div class="settings-card">
     <h2 class="settings-card-title">Notifications</h2>
     <form action="/settings/notifications" method="POST" class="settings-form">
+      <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
       <label class="toggle-row">
         <input type="checkbox" name="email_notifications" <%= authUser.email_notifications ? 'checked' : '' %> />
         <span>Email notifications</span>
@@ -430,6 +433,7 @@
         <div>
           <% if (linked && linked.google) { %>
             <form action="/settings/connections/unlink" method="POST" style="display:inline;">
+              <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
               <input type="hidden" name="provider" value="google" />
               <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">Disconnect</button>
             </form>
@@ -446,6 +450,7 @@
         <div>
           <% if (linked && linked.microsoft) { %>
             <form action="/settings/connections/unlink" method="POST" style="display:inline;">
+              <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
               <input type="hidden" name="provider" value="microsoft" />
               <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">Disconnect</button>
             </form>
@@ -467,6 +472,7 @@
         <div>
           <% if (linked && linked.apple) { %>
             <form action="/settings/connections/unlink" method="POST" style="display:inline;">
+              <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
               <input type="hidden" name="provider" value="apple" />
               <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">Disconnect</button>
             </form>
@@ -485,6 +491,7 @@
         <div>
           <% if (linked && linked.twitter) { %>
             <form action="/settings/connections/unlink" method="POST" style="display:inline;">
+              <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
               <input type="hidden" name="provider" value="twitter" />
               <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;">Disconnect</button>
             </form>
@@ -588,6 +595,7 @@
       
       <% if (subscription.tier !== 'free' && subscription.status === 'active') { %>
         <form action="/settings/billing/subscription/cancel" method="POST" onsubmit="return confirm('Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your billing period.');">
+          <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
           <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;width:100%;margin-bottom:12px;">Cancel Subscription</button>
         </form>
       <% } %>
@@ -705,10 +713,12 @@
               <div style="display:flex;gap:8px;">
                 <% if (!pm.is_default) { %>
                   <form action="/settings/billing/payment-methods/<%= pm.id %>/set-default" method="POST" style="display:inline;">
+                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                     <button type="submit" class="settings-btn" style="font-size:0.85rem;padding:6px 12px;">Set Default</button>
                   </form>
                 <% } %>
                 <form action="/settings/billing/payment-methods/<%= pm.id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Remove this payment method?');">
+                  <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                   <button type="submit" class="settings-btn" style="background:#fee2e2;color:#991b1b;font-size:0.85rem;padding:6px 12px;">Remove</button>
                 </form>
               </div>
@@ -722,6 +732,7 @@
       <button type="button" onclick="document.getElementById('addPaymentMethodForm').style.display='block';this.style.display='none'" class="settings-btn primary" style="width:100%;margin-bottom:12px;">+ Add Payment Method</button>
       
       <form id="addPaymentMethodForm" action="/settings/billing/payment-methods/add" method="POST" style="display:none;margin-bottom:12px;">
+        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
         <div class="settings-field-group">
           <label class="settings-label">Card Type</label>
           <select name="cardType" class="settings-input" required>
@@ -844,6 +855,7 @@
   <div class="settings-card">
     <h2 class="settings-card-title">Privacy</h2>
     <form action="/settings/privacy" method="POST" class="settings-form">
+      <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
       <div class="settings-field-group">
         <label class="settings-label" for="profile_visibility">Profile visibility</label>
         <select id="profile_visibility" name="profile_visibility" class="settings-input" required>
@@ -947,6 +959,7 @@
     <p style="color:#6b7280;margin-bottom:20px;">Configure your banking details to receive payments from your services.</p>
     
     <form action="/settings/banking" method="POST">
+      <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
       <div class="settings-field-group">
         <label class="settings-label" for="bankCountry">Country</label>
         <select id="bankCountry" name="bankCountry" class="settings-input" required>

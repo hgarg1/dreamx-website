@@ -623,6 +623,7 @@
   <div class="edit-profile-form-wrapper">
     <h1 class="page-title">Edit Profile</h1>
     <form id="editProfileForm" action="/profile/edit" method="POST" class="edit-profile-form" enctype="multipart/form-data">
+      <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
       <!-- Display Name -->
       <div class="form-row">
         <label for="displayName" class="form-label">Display Name</label>

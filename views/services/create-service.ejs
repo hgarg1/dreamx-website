@@ -109,6 +109,7 @@
   </div>
 
   <form id="serviceForm" method="POST" action="/api/services/create">
+    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
     <!-- Step 1: Basics -->
     <div class="wizard-content active" data-step="1">
       <h2>Service Basics</h2>

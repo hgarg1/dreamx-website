@@ -99,6 +99,7 @@
           </div>
 
           <form id="postForm" method="POST" action="/feed/post" enctype="multipart/form-data">
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <input type="hidden" name="contentType" id="postContentType" value="text">
             <input type="hidden" name="activityLabel" value="">
             <div class="composer-grid">

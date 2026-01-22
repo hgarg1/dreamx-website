@@ -57,6 +57,7 @@
               <td style="padding:8px;"><%= new Date(u.created_at).toLocaleString() %></td>
               <td style="padding:8px;">
                 <form action="/admin/users/<%= u.id %>/role" method="POST" style="display:flex;gap:6px;align-items:center;">
+                  <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                   <select name="role" class="settings-select">
                     <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
                     <option value="business_admin" <%= u.role === 'business_admin' ? 'selected' : '' %>>Business Admin</option>
