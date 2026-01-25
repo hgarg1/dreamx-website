@@ -2367,25 +2367,60 @@ module.exports = {
     `, limit, offset);
     const rows = await db.prepare(sql).all(offsetVal, fetchVal);
     const list = Array.isArray(rows) ? rows : (rows?.rows || []);
-    return Promise.all(list.map(async row => {
-      const counts = db.prepare(`
-        SELECT reaction_type, COUNT(*) as c
+
+    if (list.length === 0) return [];
+
+    const postIds = list.map(p => p.id);
+    const placeholders = postIds.map(() => '?').join(',');
+
+    // 1. Batch Reactions Counts
+    const reactionCounts = await db.prepare(`
+      SELECT post_id, reaction_type, COUNT(*) as c
+      FROM post_reactions
+      WHERE post_id IN (${placeholders})
+      GROUP BY post_id, reaction_type
+    `).all(...postIds);
+
+    const reactionsMap = {};
+    reactionCounts.forEach(row => {
+      if (!reactionsMap[row.post_id]) reactionsMap[row.post_id] = {};
+      reactionsMap[row.post_id][row.reaction_type] = row.c;
+    });
+
+    // 2. Batch User Reaction (if userId)
+    let userReactionsMap = {};
+    if (userId) {
+      const userReactions = await db.prepare(`
+        SELECT post_id, reaction_type
         FROM post_reactions
-        WHERE post_id = ?
-        GROUP BY reaction_type
-      `).all(row.id);
-      row.reactions = counts.reduce((acc, r) => { acc[r.reaction_type] = r.c; return acc; }, {});
-      
-      // Get user reaction if userId provided
-      if (userId) {
-        const userReaction = db.prepare(`SELECT reaction_type FROM post_reactions WHERE post_id = ? AND user_id = ?`).get(row.id, userId);
-        row.user_reaction = userReaction ? userReaction.reaction_type : null;
-      }
-      
-      // Get repost info if this is a repost
-      if (row.content_type === 'repost') {
-        const repostInfo = db.prepare(`
-          SELECT pr.original_post_id, pr.repost_depth, pr.is_quote_repost, pr.quote_text,
+        WHERE post_id IN (${placeholders}) AND user_id = ?
+      `).all(...postIds, userId);
+      userReactions.forEach(row => {
+        userReactionsMap[row.post_id] = row.reaction_type;
+      });
+    }
+
+    // 3. Batch Repost Counts
+    const repostCounts = await db.prepare(`
+      SELECT original_post_id, COUNT(*) as c
+      FROM post_reposts
+      WHERE original_post_id IN (${placeholders})
+      GROUP BY original_post_id
+    `).all(...postIds);
+
+    const repostCountsMap = {};
+    repostCounts.forEach(row => {
+      repostCountsMap[row.original_post_id] = row.c;
+    });
+
+    // 4. Batch Repost Info (for reposts)
+    const repostIds = list.filter(p => p.content_type === 'repost').map(p => p.id);
+    const repostInfoMap = {};
+
+    if (repostIds.length > 0) {
+       const repostPlaceholders = repostIds.map(() => '?').join(',');
+       const repostInfos = await db.prepare(`
+          SELECT pr.post_id, pr.original_post_id, pr.repost_depth, pr.is_quote_repost, pr.quote_text,
                  op.user_id as original_user_id, op.title as original_title, op.text_content as original_text_content,
                  op.content_type as original_content_type, op.image_url as original_image_url,
                  op.video_url as original_video_url, op.external_video_url as original_external_video_url,
@@ -2395,23 +2430,56 @@ module.exports = {
           FROM post_reposts pr
           JOIN posts op ON op.id = pr.original_post_id
           JOIN users ou ON ou.id = op.user_id
-          WHERE pr.post_id = ?
-        `).get(row.id);
-        if (repostInfo) {
-          row.repost_info = repostInfo;
-        }
+          WHERE pr.post_id IN (${repostPlaceholders})
+       `).all(...repostIds);
+
+       repostInfos.forEach(row => {
+         repostInfoMap[row.post_id] = row;
+       });
+    }
+
+    // 5. Batch Hashtags
+    const hashtags = await db.prepare(`
+      SELECT ph.post_id, h.name
+      FROM hashtags h
+      JOIN post_hashtags ph ON ph.hashtag_id = h.id
+      WHERE ph.post_id IN (${placeholders})
+      ORDER BY h.name ASC
+    `).all(...postIds);
+
+    const hashtagsMap = {};
+    hashtags.forEach(row => {
+      if (!hashtagsMap[row.post_id]) hashtagsMap[row.post_id] = [];
+      hashtagsMap[row.post_id].push(row.name);
+    });
+
+    // 6. Batch Tags
+    const tags = await db.prepare(`
+      SELECT pt.post_id, t.name
+      FROM tags t
+      JOIN post_tags pt ON pt.tag_id = t.id
+      WHERE pt.post_id IN (${placeholders})
+      ORDER BY t.name ASC
+    `).all(...postIds);
+
+    const tagsMap = {};
+    tags.forEach(row => {
+      if (!tagsMap[row.post_id]) tagsMap[row.post_id] = [];
+      tagsMap[row.post_id].push(row.name);
+    });
+
+    // Assemble
+    return list.map(row => {
+      row.reactions = reactionsMap[row.id] || {};
+      row.user_reaction = userReactionsMap[row.id] || null;
+      row.repost_count = repostCountsMap[row.id] || 0;
+      if (row.content_type === 'repost') {
+        row.repost_info = repostInfoMap[row.id];
       }
-      
-      // Get repost count
-      const repostCount = db.prepare(`SELECT COUNT(*) as c FROM post_reposts WHERE original_post_id = ?`).get(row.id);
-      row.repost_count = repostCount ? repostCount.c : 0;
-      
-      // Hashtags/tags require async when using PostgreSQL adapter
-      // (getPostHashtags/getPostTags are async)
-      row.hashtags = await getPostHashtags(row.id);
-      row.tags = await getPostTags(row.id);
+      row.hashtags = hashtagsMap[row.id] || [];
+      row.tags = tagsMap[row.id] || [];
       return row;
-    }));
+    });
   },
   getUserPosts: async (userId) => {
     const rows = await db.prepare(`
