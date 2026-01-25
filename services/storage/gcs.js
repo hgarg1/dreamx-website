@@ -1,5 +1,28 @@
 // Google Cloud Storage Service
-// This is a placeholder for future Google Cloud Storage integration
+const { Storage } = require('@google-cloud/storage');
+
+let storage = null;
+let bucket = null;
+
+// Initialize Google Cloud Storage client
+function initializeStorageClient() {
+    if (!storage) {
+        const options = {};
+        if (process.env.GCS_PROJECT_ID) {
+            options.projectId = process.env.GCS_PROJECT_ID;
+        }
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            options.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        }
+
+        storage = new Storage(options);
+
+        if (process.env.GCS_BUCKET_NAME) {
+            bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+        }
+    }
+    return { storage, bucket };
+}
 
 /**
  * Google Cloud Storage Service
@@ -23,12 +46,9 @@ const gcsService = {
      */
     uploadFile: async (destination, fileBuffer, contentType) => {
         // TODO: Implement GCS upload logic
-        // const { Storage } = require('@google-cloud/storage');
-        // const storage = new Storage({
-        //     projectId: process.env.GCS_PROJECT_ID,
-        //     keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
-        // });
-        // const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+        // const { bucket } = initializeStorageClient();
+        // if (!bucket) return { success: false, error: 'GCS bucket not configured' };
+
         // const file = bucket.file(destination);
         // await file.save(fileBuffer, {
         //     metadata: { contentType: contentType }
@@ -67,9 +87,9 @@ const gcsService = {
      */
     getSignedUrl: async (filename, expiresIn = 60) => {
         // TODO: Implement signed URL generation
-        // const { Storage } = require('@google-cloud/storage');
-        // const storage = new Storage();
-        // const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+        // const { bucket } = initializeStorageClient();
+        // if (!bucket) return { success: false, error: 'GCS bucket not configured' };
+
         // const file = bucket.file(filename);
         // const [url] = await file.getSignedUrl({
         //     action: 'read',
@@ -107,8 +127,24 @@ const gcsService = {
      * @returns {Promise<{success: boolean, error?: string}>}
      */
     setMetadata: async (filename, metadata) => {
-        // TODO: Implement metadata setting
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            const { bucket } = initializeStorageClient();
+            if (!bucket) {
+                return { success: false, error: 'GCS bucket not configured' };
+            }
+
+            const file = bucket.file(filename);
+
+            // Set custom metadata
+            await file.setMetadata({
+                metadata: metadata
+            });
+
+            return { success: true };
+        } catch (error) {
+            console.error('GCS set metadata error:', error);
+            return { success: false, error: error.message };
+        }
     }
 };
 
