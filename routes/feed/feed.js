@@ -777,12 +777,19 @@ function initFeedRoutes({ postUpload, io }) {
         const offset = parseInt(req.query.offset || '0', 10);
         try {
             const baseComments = getPostComments({ postId, limit, offset }) || [];
-            const comments = [];
-            for (const c of baseComments) {
-                const likedRow = await db.prepare('SELECT 1 FROM comment_likes WHERE comment_id = ? AND user_id = ?').get(c.id, req.session.userId);
-                const liked = !!likedRow;
-                comments.push({ ...c, user_starred: liked });
+
+            const commentIds = baseComments.map(c => c.id);
+            const likedCommentIds = new Set();
+            if (commentIds.length > 0) {
+                const placeholders = commentIds.map(() => '?').join(',');
+                const likedRows = await db.prepare(`SELECT comment_id FROM comment_likes WHERE user_id = ? AND comment_id IN (${placeholders})`).all(req.session.userId, ...commentIds);
+                likedRows.forEach(row => likedCommentIds.add(row.comment_id));
             }
+
+            const comments = baseComments.map(c => ({
+                ...c,
+                user_starred: likedCommentIds.has(c.id)
+            }));
             const total = getCommentsCount(postId);
             res.json({ comments, total });
         } catch (e) {
