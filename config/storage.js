@@ -15,6 +15,13 @@ module.exports = {
     enabled: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
   },
 
+  gcs: {
+    projectId: process.env.GCS_PROJECT_ID,
+    keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    bucketName: process.env.GCS_BUCKET_NAME,
+    enabled: !!(process.env.GCS_PROJECT_ID && process.env.GOOGLE_APPLICATION_CREDENTIALS)
+  },
+
   local: {
     uploadsDir: './public/uploads',
     maxFileSize: 50 * 1024 * 1024, // 50MB

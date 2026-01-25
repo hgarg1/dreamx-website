@@ -1,5 +1,21 @@
 // Google Cloud Storage Service
-// This is a placeholder for future Google Cloud Storage integration
+const { Storage } = require('@google-cloud/storage');
+const storageConfig = require('../../config/storage');
+
+// Initialize storage only if enabled
+let storage;
+let bucket;
+
+const initStorage = () => {
+    if (!storage && storageConfig.gcs && storageConfig.gcs.enabled) {
+        storage = new Storage({
+            projectId: storageConfig.gcs.projectId,
+            keyFilename: storageConfig.gcs.keyFilename
+        });
+        bucket = storage.bucket(storageConfig.gcs.bucketName);
+    }
+    return { storage, bucket };
+};
 
 /**
  * Google Cloud Storage Service
@@ -23,19 +39,6 @@ const gcsService = {
      */
     uploadFile: async (destination, fileBuffer, contentType) => {
         // TODO: Implement GCS upload logic
-        // const { Storage } = require('@google-cloud/storage');
-        // const storage = new Storage({
-        //     projectId: process.env.GCS_PROJECT_ID,
-        //     keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
-        // });
-        // const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
-        // const file = bucket.file(destination);
-        // await file.save(fileBuffer, {
-        //     metadata: { contentType: contentType }
-        // });
-        // const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destination}`;
-        // return { success: true, url: publicUrl };
-        
         return { success: false, error: 'Google Cloud Storage service not yet implemented' };
     },
 
@@ -66,18 +69,24 @@ const gcsService = {
      * @returns {Promise<{success: boolean, url?: string, error?: string}>}
      */
     getSignedUrl: async (filename, expiresIn = 60) => {
-        // TODO: Implement signed URL generation
-        // const { Storage } = require('@google-cloud/storage');
-        // const storage = new Storage();
-        // const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
-        // const file = bucket.file(filename);
-        // const [url] = await file.getSignedUrl({
-        //     action: 'read',
-        //     expires: Date.now() + expiresIn * 60 * 1000
-        // });
-        // return { success: true, url };
-        
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            const { bucket } = initStorage();
+
+            if (!bucket) {
+                return { success: false, error: 'GCS is not configured or enabled' };
+            }
+
+            const file = bucket.file(filename);
+            const [url] = await file.getSignedUrl({
+                action: 'read',
+                expires: Date.now() + expiresIn * 60 * 1000
+            });
+
+            return { success: true, url };
+        } catch (error) {
+            console.error('GCS getSignedUrl error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
