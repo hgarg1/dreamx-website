@@ -1,18 +1,19 @@
 // AWS S3 Storage Service
-// This is a placeholder for future AWS S3 integration
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const config = require('../../config/storage');
 
-/**
- * AWS S3 Storage Service
- * 
- * To use this service:
- * 1. Install AWS SDK: npm install @aws-sdk/client-s3
- * 2. Configure environment variables:
- *    - AWS_ACCESS_KEY_ID
- *    - AWS_SECRET_ACCESS_KEY
- *    - AWS_REGION
- *    - AWS_S3_BUCKET_NAME
- * 3. Implement the service methods below
- */
+let s3Client;
+
+if (config.aws.enabled) {
+    s3Client = new S3Client({
+        region: config.aws.region,
+        credentials: {
+            accessKeyId: config.aws.accessKeyId,
+            secretAccessKey: config.aws.secretAccessKey
+        }
+    });
+}
 
 const s3Service = {
     /**
@@ -24,17 +25,6 @@ const s3Service = {
      */
     uploadFile: async (key, fileBuffer, contentType) => {
         // TODO: Implement S3 upload logic
-        // const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-        // const client = new S3Client({ region: process.env.AWS_REGION });
-        // const command = new PutObjectCommand({
-        //     Bucket: process.env.AWS_S3_BUCKET_NAME,
-        //     Key: key,
-        //     Body: fileBuffer,
-        //     ContentType: contentType
-        // });
-        // const response = await client.send(command);
-        // return { success: true, url: `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${key}` };
-        
         return { success: false, error: 'S3 service not yet implemented' };
     },
 
@@ -65,8 +55,22 @@ const s3Service = {
      * @returns {Promise<{success: boolean, url?: string, error?: string}>}
      */
     getSignedUrl: async (key, expiresIn = 3600) => {
-        // TODO: Implement signed URL generation
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            if (!config.aws.enabled || !s3Client) {
+                return { success: false, error: 'AWS S3 is not configured' };
+            }
+
+            const command = new GetObjectCommand({
+                Bucket: config.aws.bucketName,
+                Key: key
+            });
+
+            const url = await getSignedUrl(s3Client, command, { expiresIn });
+            return { success: true, url };
+        } catch (error) {
+            console.error('S3 Signed URL Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
