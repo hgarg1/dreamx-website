@@ -1,5 +1,6 @@
 const express = require('express');
 const { getUserById, getUserSubscription, saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation, getUnreadMessageCount, getPublicCareerJobs, db, createSalesInquiry, addAuditLog, getPricingTiers, checkAccountStatus, createContentAppeal, createAccountAppeal, getUserCharges, getUserRefundRequests, createRefundRequest } = require('../../db');
+const { email: emailService } = require('../../services');
 
 const router = express.Router();
 
@@ -446,8 +447,29 @@ function initMiscRoutes() {
             // Generate reference ID
             const referenceId = `ENT-${Date.now().toString(36).toUpperCase()}-${inquiryId}`;
 
-            // TODO: Send confirmation email to contact
-            // TODO: Send notification email to sales team
+            // Send confirmation email to contact
+            try {
+                await emailService.sendSalesInquiryConfirmationEmail(contactEmail, contactName, referenceId);
+            } catch (emailErr) {
+                console.error('Failed to send inquiry confirmation email:', emailErr);
+            }
+
+            // Send notification email to sales team
+            try {
+                await emailService.sendSalesInquiryNotificationEmail({
+                    companyName,
+                    industry,
+                    companySize,
+                    contactName,
+                    contactEmail,
+                    contactJobTitle,
+                    useCase,
+                    referenceId,
+                    inquiryId
+                });
+            } catch (emailErr) {
+                console.error('Failed to send sales team notification:', emailErr);
+            }
 
             console.log(`✅ New sales inquiry #${inquiryId} from ${contactEmail} for ${companyName}`);
 
