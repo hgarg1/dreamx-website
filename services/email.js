@@ -312,6 +312,49 @@ const templates = {
                 })
     }),
 
+    // Sales Inquiries
+    salesInquiryConfirmation: (contactName, referenceId) => ({
+        subject: 'We received your inquiry - Dream X',
+        html: buildEmail({
+            preheader: 'Thanks for reaching out to our team.',
+            title: 'Inquiry Received',
+            subtitle: `Reference ID: ${referenceId}`,
+            body: `
+              <p>Hi ${contactName},</p>
+              <p>Thank you for reaching out to Dream X. We have received your sales inquiry and our team is reviewing it.</p>
+              <p>You can expect to hear back from us within 1-2 business days.</p>
+              <p>In the meantime, feel free to explore our <a href="https://dreamx.app/features">features</a> or check our <a href="https://dreamx.app/help-center">help center</a>.</p>
+            `,
+        })
+    }),
+
+    salesInquiryNotification: (inquiry, referenceId) => ({
+        subject: `New Sales Inquiry: ${inquiry.companyName}`,
+        html: buildEmail({
+            preheader: `New lead from ${inquiry.companyName}`,
+            title: 'New Sales Inquiry',
+            subtitle: `From: ${inquiry.companyName}`,
+            body: `
+              <p><strong>Reference ID:</strong> ${referenceId}</p>
+              <p><strong>Contact:</strong> ${inquiry.contactName} (${inquiry.contactEmail})</p>
+              <p><strong>Job Title:</strong> ${inquiry.contactJobTitle}</p>
+
+              <table role="presentation" width="100%" style="margin-top:12px; background:#f9fafb; border-radius:12px; border-collapse: separate; border-spacing: 0;">
+                <tr><td style="padding:12px 16px; border-bottom:1px solid #e5e7eb;"><strong>Company Size:</strong> ${inquiry.companySize}</td></tr>
+                <tr><td style="padding:12px 16px; border-bottom:1px solid #e5e7eb;"><strong>Industry:</strong> ${inquiry.industry}</td></tr>
+                <tr><td style="padding:12px 16px; border-bottom:1px solid #e5e7eb;"><strong>Location:</strong> ${inquiry.companyCity || '-'}, ${inquiry.companyCountry || '-'}</td></tr>
+                <tr><td style="padding:12px 16px; border-bottom:1px solid #e5e7eb;"><strong>Website:</strong> ${inquiry.companyWebsite || '-'}</td></tr>
+                <tr><td style="padding:12px 16px; border-bottom:1px solid #e5e7eb;"><strong>Use Case:</strong> ${inquiry.useCase}</td></tr>
+                <tr><td style="padding:12px 16px;"><strong>Budget:</strong> ${inquiry.budgetRange || '-'}</td></tr>
+              </table>
+
+              <p style="margin-top:16px;"><strong>Additional Info:</strong></p>
+              <p style="font-style: italic; color: #4b5563;">"${inquiry.additionalInfo || 'None provided'}"</p>
+            `,
+            cta: { label: 'Reply to Lead', url: `mailto:${inquiry.contactEmail}` }
+        })
+    }),
+
     // Post interaction notifications
     postReaction: (author, reactor, type, postId, baseUrl) => ({
         subject: 'New reaction on your post - Dream X',
@@ -546,6 +589,22 @@ const emailService = {
             cta: { label: 'Visit Dream X', url: 'http://localhost:3000' },
         });
         return await sendEmail(email, subject, html);
+    },
+
+    // Sales Inquiry emails
+    sendSalesInquiryConfirmation: async (contactEmail, contactName, referenceId) => {
+        const template = templates.salesInquiryConfirmation(contactName, referenceId);
+        return await sendEmail(contactEmail, template.subject, template.html);
+    },
+
+    sendSalesInquiryNotification: async (inquiry, referenceId) => {
+        const salesEmail = process.env.SALES_EMAIL || process.env.GMAIL_USER;
+        if (!salesEmail) {
+             console.warn('⚠️ Sales email not configured (SALES_EMAIL or GMAIL_USER missing). Notification not sent.');
+             return { success: false, error: 'Sales email not configured' };
+        }
+        const template = templates.salesInquiryNotification(inquiry, referenceId);
+        return await sendEmail(salesEmail, template.subject, template.html);
     },
 
     // Career application emails

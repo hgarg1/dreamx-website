@@ -1,5 +1,6 @@
 const express = require('express');
 const { getUserById, getUserSubscription, saveUserLocation, getUserLocation, getAllUserLocations, shouldUpdateLocation, getUnreadMessageCount, getPublicCareerJobs, db, createSalesInquiry, addAuditLog, getPricingTiers, checkAccountStatus, createContentAppeal, createAccountAppeal, getUserCharges, getUserRefundRequests, createRefundRequest } = require('../../db');
+const emailService = require('../../services/email');
 
 const router = express.Router();
 
@@ -446,8 +447,31 @@ function initMiscRoutes() {
             // Generate reference ID
             const referenceId = `ENT-${Date.now().toString(36).toUpperCase()}-${inquiryId}`;
 
-            // TODO: Send confirmation email to contact
-            // TODO: Send notification email to sales team
+            // Send emails (async, don't block response if fails)
+            try {
+                // Confirmation to user
+                await emailService.sendSalesInquiryConfirmation(contactEmail, contactName, referenceId);
+
+                // Notification to sales team
+                const inquiryData = {
+                    companyName,
+                    companySize,
+                    industry,
+                    companyCity,
+                    companyCountry,
+                    companyWebsite,
+                    contactName,
+                    contactEmail,
+                    contactJobTitle,
+                    useCase,
+                    budgetRange,
+                    additionalInfo
+                };
+                await emailService.sendSalesInquiryNotification(inquiryData, referenceId);
+            } catch (emailErr) {
+                console.error('Failed to send sales inquiry emails:', emailErr);
+                // Continue execution - don't fail the request because of email error
+            }
 
             console.log(`✅ New sales inquiry #${inquiryId} from ${contactEmail} for ${companyName}`);
 
