@@ -1,19 +1,44 @@
 // AWS S3 Storage Service
-// This is a placeholder for future AWS S3 integration
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const storageConfig = require('../../config/storage');
+
+let s3Client = null;
+
+/**
+ * Initialize S3 Client
+ */
+function initializeS3Client() {
+    if (!storageConfig.aws.enabled) {
+        return null;
+    }
+
+    if (!s3Client) {
+        s3Client = new S3Client({
+            region: storageConfig.aws.region,
+            credentials: {
+                accessKeyId: storageConfig.aws.accessKeyId,
+                secretAccessKey: storageConfig.aws.secretAccessKey
+            }
+        });
+    }
+
+    return s3Client;
+}
+
+/**
+ * Helper to convert stream to buffer
+ */
+const streamToBuffer = (stream) =>
+    new Promise((resolve, reject) => {
+        const chunks = [];
+        stream.on('data', (chunk) => chunks.push(chunk));
+        stream.on('error', reject);
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+    });
 
 /**
  * AWS S3 Storage Service
- * 
- * To use this service:
- * 1. Install AWS SDK: npm install @aws-sdk/client-s3
- * 2. Configure environment variables:
- *    - AWS_ACCESS_KEY_ID
- *    - AWS_SECRET_ACCESS_KEY
- *    - AWS_REGION
- *    - AWS_S3_BUCKET_NAME
- * 3. Implement the service methods below
  */
-
 const s3Service = {
     /**
      * Upload a file to S3
@@ -24,17 +49,6 @@ const s3Service = {
      */
     uploadFile: async (key, fileBuffer, contentType) => {
         // TODO: Implement S3 upload logic
-        // const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-        // const client = new S3Client({ region: process.env.AWS_REGION });
-        // const command = new PutObjectCommand({
-        //     Bucket: process.env.AWS_S3_BUCKET_NAME,
-        //     Key: key,
-        //     Body: fileBuffer,
-        //     ContentType: contentType
-        // });
-        // const response = await client.send(command);
-        // return { success: true, url: `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${key}` };
-        
         return { success: false, error: 'S3 service not yet implemented' };
     },
 
@@ -44,8 +58,25 @@ const s3Service = {
      * @returns {Promise<{success: boolean, data?: Buffer, error?: string}>}
      */
     downloadFile: async (key) => {
-        // TODO: Implement S3 download logic
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            const client = initializeS3Client();
+            if (!client) {
+                return { success: false, error: 'AWS S3 is not configured' };
+            }
+
+            const command = new GetObjectCommand({
+                Bucket: storageConfig.aws.bucketName,
+                Key: key
+            });
+
+            const response = await client.send(command);
+            const data = await streamToBuffer(response.Body);
+
+            return { success: true, data };
+        } catch (error) {
+            console.error('S3 download error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
