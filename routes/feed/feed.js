@@ -115,11 +115,13 @@ function initFeedRoutes({ postUpload, io }) {
         let activeReels = [];
         try {
             const followed = getFollowing(req.session.userId, 500);
+            const userIds = followed.map(u => u.id);
+            const reelCounts = require('../../db').getActiveReelCountsForUsers(userIds);
             activeReels = followed.map(u => ({
                 user_id: u.id,
                 full_name: u.full_name,
                 profile_picture: u.profile_picture,
-                reelCount: require('../../db').getActiveReelCount(u.id)
+                reelCount: reelCounts[u.id] || 0
             })).filter(r => r.reelCount > 0).sort((a, b) => b.reelCount - a.reelCount);
         } catch (e) { activeReels = []; }
 

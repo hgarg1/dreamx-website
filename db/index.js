@@ -2884,6 +2884,29 @@ module.exports = {
     const row = db.prepare(query).get(userId);
     return row ? row.cnt : 0;
   },
+  getActiveReelCountsForUsers: (userIds) => {
+    if (!userIds || userIds.length === 0) return {};
+
+    // Deduplicate IDs
+    const uniqueIds = [...new Set(userIds)];
+    const placeholders = uniqueIds.map(() => '?').join(',');
+
+    const query = isProduction
+      ? `SELECT user_id, COUNT(*) as cnt FROM posts WHERE user_id IN (${placeholders}) AND is_reel = true AND created_at >= CURRENT_TIMESTAMP - INTERVAL '48 hours' GROUP BY user_id`
+      : `SELECT user_id, COUNT(*) as cnt FROM posts WHERE user_id IN (${placeholders}) AND is_reel = 1 AND created_at >= datetime('now', '-48 hours') GROUP BY user_id`;
+
+    const rows = db.prepare(query).all(...uniqueIds);
+
+    const result = {};
+    // Initialize all to 0
+    uniqueIds.forEach(id => result[id] = 0);
+
+    rows.forEach(row => {
+      result[row.user_id] = row.cnt;
+    });
+
+    return result;
+  },
   // Account moderation helpers
   banUser: ({ userId, reason, bannedBy }) => {
     db.prepare(`UPDATE users SET account_status = 'banned', suspension_reason = ? WHERE id = ?`).run(reason || 'Violation of community guidelines', userId);
