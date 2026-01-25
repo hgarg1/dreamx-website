@@ -1,18 +1,30 @@
 // AWS S3 Storage Service
-// This is a placeholder for future AWS S3 integration
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const storageConfig = require('../../config/storage');
 
 /**
  * AWS S3 Storage Service
  * 
  * To use this service:
- * 1. Install AWS SDK: npm install @aws-sdk/client-s3
+ * 1. Install AWS SDK: npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
  * 2. Configure environment variables:
  *    - AWS_ACCESS_KEY_ID
  *    - AWS_SECRET_ACCESS_KEY
  *    - AWS_REGION
  *    - AWS_S3_BUCKET_NAME
- * 3. Implement the service methods below
  */
+
+// Initialize S3 Client
+const s3Client = new S3Client({
+    region: storageConfig.aws.region,
+    credentials: {
+        accessKeyId: storageConfig.aws.accessKeyId,
+        secretAccessKey: storageConfig.aws.secretAccessKey
+    }
+});
+
+const bucketName = storageConfig.aws.bucketName;
 
 const s3Service = {
     /**
@@ -23,19 +35,25 @@ const s3Service = {
      * @returns {Promise<{success: boolean, url?: string, error?: string}>}
      */
     uploadFile: async (key, fileBuffer, contentType) => {
-        // TODO: Implement S3 upload logic
-        // const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-        // const client = new S3Client({ region: process.env.AWS_REGION });
-        // const command = new PutObjectCommand({
-        //     Bucket: process.env.AWS_S3_BUCKET_NAME,
-        //     Key: key,
-        //     Body: fileBuffer,
-        //     ContentType: contentType
-        // });
-        // const response = await client.send(command);
-        // return { success: true, url: `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${key}` };
-        
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            const command = new PutObjectCommand({
+                Bucket: bucketName,
+                Key: key,
+                Body: fileBuffer,
+                ContentType: contentType
+            });
+
+            await s3Client.send(command);
+
+            // Construct the public URL (assuming public read access or standard S3 URL structure)
+            // Note: If the bucket is private, this URL might not be accessible without signing
+            const url = `https://${bucketName}.s3.${storageConfig.aws.region}.amazonaws.com/${key}`;
+
+            return { success: true, url };
+        } catch (error) {
+            console.error('S3 Upload Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -44,8 +62,29 @@ const s3Service = {
      * @returns {Promise<{success: boolean, data?: Buffer, error?: string}>}
      */
     downloadFile: async (key) => {
-        // TODO: Implement S3 download logic
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            const command = new GetObjectCommand({
+                Bucket: bucketName,
+                Key: key
+            });
+
+            const response = await s3Client.send(command);
+
+            // Convert stream to buffer
+            const streamToBuffer = (stream) =>
+                new Promise((resolve, reject) => {
+                    const chunks = [];
+                    stream.on("data", (chunk) => chunks.push(chunk));
+                    stream.on("error", reject);
+                    stream.on("end", () => resolve(Buffer.concat(chunks)));
+                });
+
+            const data = await streamToBuffer(response.Body);
+            return { success: true, data };
+        } catch (error) {
+            console.error('S3 Download Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -54,8 +93,18 @@ const s3Service = {
      * @returns {Promise<{success: boolean, error?: string}>}
      */
     deleteFile: async (key) => {
-        // TODO: Implement S3 delete logic
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            const command = new DeleteObjectCommand({
+                Bucket: bucketName,
+                Key: key
+            });
+
+            await s3Client.send(command);
+            return { success: true };
+        } catch (error) {
+            console.error('S3 Delete Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -65,8 +114,18 @@ const s3Service = {
      * @returns {Promise<{success: boolean, url?: string, error?: string}>}
      */
     getSignedUrl: async (key, expiresIn = 3600) => {
-        // TODO: Implement signed URL generation
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            const command = new GetObjectCommand({
+                Bucket: bucketName,
+                Key: key
+            });
+
+            const url = await getSignedUrl(s3Client, command, { expiresIn });
+            return { success: true, url };
+        } catch (error) {
+            console.error('S3 Signed URL Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -75,8 +134,25 @@ const s3Service = {
      * @returns {Promise<{success: boolean, files?: Array, error?: string}>}
      */
     listFiles: async (prefix) => {
-        // TODO: Implement S3 list logic
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            const command = new ListObjectsV2Command({
+                Bucket: bucketName,
+                Prefix: prefix
+            });
+
+            const response = await s3Client.send(command);
+            const files = response.Contents ? response.Contents.map(file => ({
+                key: file.Key,
+                lastModified: file.LastModified,
+                size: file.Size,
+                etag: file.ETag
+            })) : [];
+
+            return { success: true, files };
+        } catch (error) {
+            console.error('S3 List Files Error:', error);
+            return { success: false, error: error.message };
+        }
     }
 };
 
