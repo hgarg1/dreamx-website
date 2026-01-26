@@ -1,18 +1,26 @@
 // AWS S3 Storage Service
-// This is a placeholder for future AWS S3 integration
 
-/**
- * AWS S3 Storage Service
- * 
- * To use this service:
- * 1. Install AWS SDK: npm install @aws-sdk/client-s3
- * 2. Configure environment variables:
- *    - AWS_ACCESS_KEY_ID
- *    - AWS_SECRET_ACCESS_KEY
- *    - AWS_REGION
- *    - AWS_S3_BUCKET_NAME
- * 3. Implement the service methods below
- */
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const storageConfig = require('../../config/storage');
+
+let s3Client = null;
+
+const getClient = () => {
+    if (!storageConfig.aws.enabled) {
+        throw new Error('AWS S3 is not enabled');
+    }
+
+    if (!s3Client) {
+        s3Client = new S3Client({
+            region: storageConfig.aws.region,
+            credentials: {
+                accessKeyId: storageConfig.aws.accessKeyId,
+                secretAccessKey: storageConfig.aws.secretAccessKey
+            }
+        });
+    }
+    return s3Client;
+};
 
 const s3Service = {
     /**
@@ -54,8 +62,23 @@ const s3Service = {
      * @returns {Promise<{success: boolean, error?: string}>}
      */
     deleteFile: async (key) => {
-        // TODO: Implement S3 delete logic
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            if (!storageConfig.aws.enabled) {
+                return { success: false, error: 'AWS S3 is not enabled' };
+            }
+
+            const client = getClient();
+            const command = new DeleteObjectCommand({
+                Bucket: storageConfig.aws.bucketName,
+                Key: key
+            });
+
+            await client.send(command);
+            return { success: true };
+        } catch (error) {
+            console.error('S3 Delete Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
