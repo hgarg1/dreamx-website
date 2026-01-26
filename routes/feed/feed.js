@@ -310,25 +310,27 @@ function initFeedRoutes({ postUpload, io }) {
         // Get top passions
         let topPassions = [];
         try {
-            const passionsQuery = db.prepare(`SELECT categories FROM users WHERE categories IS NOT NULL AND categories != ''`);
-            const usersWithCategories = await passionsQuery.all() || [];
-            const passionCounts = {};
-            usersWithCategories.forEach(user => {
-                try {
-                    const categories = JSON.parse(user.categories);
-                    if (Array.isArray(categories)) {
-                        categories.forEach(category => {
-                            if (category && typeof category === 'string') {
-                                passionCounts[category] = (passionCounts[category] || 0) + 1;
-                            }
-                        });
-                    }
-                } catch (e) { }
-            });
-            topPassions = Object.entries(passionCounts)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(([passion]) => passion);
+            const query = isProduction
+                ? `
+                SELECT value as category
+                FROM users, json_array_elements_text(categories::json) as value
+                WHERE categories IS NOT NULL AND categories != ''
+                GROUP BY value
+                ORDER BY COUNT(*) DESC
+                LIMIT 5
+            `
+                : `
+                SELECT value as category
+                FROM users, json_each(users.categories)
+                WHERE categories IS NOT NULL AND categories != '' AND json_valid(categories)
+                GROUP BY value
+                ORDER BY COUNT(*) DESC
+                LIMIT 5
+            `;
+
+            const rows = await db.prepare(query).all() || [];
+            topPassions = rows.map(r => r.category);
+
             if (topPassions.length === 0) {
                 topPassions = ['Entrepreneurship', 'Technology', 'Design', 'Writing', 'Art'];
             }
