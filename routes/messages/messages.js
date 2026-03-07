@@ -140,7 +140,7 @@ function initMessagesRoutes({ chatUpload, io }) {
             }
             markMessagesAsRead({ conversationId: currentConversation.id, userId: req.session.userId });
             try {
-                const reader = getUserById(req.session.userId);
+                const reader = await getUserById(req.session.userId);
                 if (reader && reader.read_receipts === 1 && !currentConversation.is_group) {
                     const lastReadMessage = await db.prepare(`
                       SELECT MAX(id) as maxId
@@ -311,7 +311,7 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // User search API for feed search box
-    router.get('/api/users/search', (req, res) => {
+    router.get('/api/users/search', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const q = (req.query.q || '').trim();
         if (!q) return res.json({ results: [] });

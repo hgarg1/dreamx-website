@@ -59,14 +59,14 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Subscribe to push notifications
-    router.post('/api/push/subscribe', express.json(), (req, res) => {
+    router.post('/api/push/subscribe', express.json(), async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
             const { endpoint, keys } = req.body;
             if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
                 return res.status(400).json({ error: 'Invalid subscription data' });
             }
-            savePushSubscription({
+            await savePushSubscription({
                 userId: req.session.userId,
                 endpoint,
                 p256dh: keys.p256dh,
@@ -80,12 +80,12 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Unsubscribe from push
-    router.post('/api/push/unsubscribe', express.json(), (req, res) => {
+    router.post('/api/push/unsubscribe', express.json(), async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
             const { endpoint } = req.body;
             if (!endpoint) return res.status(400).json({ error: 'Endpoint required' });
-            deletePushSubscription(endpoint);
+            await deletePushSubscription(endpoint);
             res.json({ success: true });
         } catch (error) {
             console.error('Error unsubscribing from push:', error);

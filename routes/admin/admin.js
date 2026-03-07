@@ -1447,14 +1447,47 @@ function initAdminRoutes({ io, webpush }) {
                     name: t.name,
                     type: 'table'
                 }));
-            } else if (dbType === 'postgres') {
+            } else if (dbType === 'postgres' || isProduction) {
                 // Postgres - list user tables in public schema
-                const rows = await db.prepare(`
-                    SELECT tablename AS name, 'table' AS type
-                    FROM pg_catalog.pg_tables
-                    WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-                    ORDER BY tablename
-                `).all() || [];
+                // Handle both direct db.prepare() and pgPool.query()
+                let rows;
+                try {
+                    if (dbType === 'postgres' || (isProduction && !dbType || dbType !== 'sqlite')) {
+                        // PostgreSQL - use pg_catalog
+                        const result = await db.prepare(`
+                            SELECT tablename AS name, 'table' AS type
+                            FROM pg_catalog.pg_tables
+                            WHERE schemaname = 'public'
+                            ORDER BY tablename
+                        `).all();
+                        rows = Array.isArray(result) ? result : (result?.rows || []);
+                    } else {
+                        // Fallback: try information_schema
+                        const result = await db.prepare(`
+                            SELECT table_name AS name, 'table' AS type
+                            FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_type = 'BASE TABLE'
+                            ORDER BY table_name
+                        `).all();
+                        rows = Array.isArray(result) ? result : (result?.rows || []);
+                    }
+                } catch (pgError) {
+                    // If PostgreSQL query fails, try information_schema as fallback
+                    try {
+                        const result = await db.prepare(`
+                            SELECT table_name AS name, 'table' AS type
+                            FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_type = 'BASE TABLE'
+                            ORDER BY table_name
+                        `).all();
+                        rows = Array.isArray(result) ? result : (result?.rows || []);
+                    } catch (fallbackError) {
+                        console.error('PostgreSQL table listing error:', fallbackError);
+                        throw pgError; // Throw original error
+                    }
+                }
                 tables = rows;
             } else {
                 // SQLite - get tables from sqlite_master
@@ -1465,7 +1498,7 @@ function initAdminRoutes({ io, webpush }) {
                     AND name NOT LIKE 'sqlite_%'
                     ORDER BY name
                 `).all() || [];
-                tables = rows;
+                tables = Array.isArray(rows) ? rows : (rows?.rows || []);
             }
 
             res.json({ success: true, tables });
@@ -1508,39 +1541,66 @@ function initAdminRoutes({ io, webpush }) {
                     defaultValue: c.defaultValue,
                     maxLength: c.maxLength
                 }));
-            } else if (dbType === 'postgres') {
-                // Postgres - column info with PK detection
-                const rows = await db.prepare(`
-                    SELECT 
-                        c.column_name AS name,
-                        c.data_type AS type,
-                        (c.is_nullable = 'YES') AS nullable,
-                        c.column_default AS defaultValue,
-                        c.character_maximum_length AS maxLength,
-                        EXISTS (
-                            SELECT 1
-                            FROM information_schema.table_constraints tc
-                            JOIN information_schema.key_column_usage kcu
-                              ON tc.constraint_name = kcu.constraint_name
-                             AND tc.table_schema = kcu.table_schema
-                            WHERE tc.constraint_type = 'PRIMARY KEY'
-                              AND tc.table_name = c.table_name
-                              AND tc.table_schema = c.table_schema
-                              AND kcu.column_name = c.column_name
-                        ) AS primaryKey
-                    FROM information_schema.columns c
-                    WHERE c.table_name = ?
-                      AND c.table_schema = 'public'
-                    ORDER BY c.ordinal_position
-                `).all(tableName) || [];
-                columns = rows.map(c => ({
-                    name: c.name,
-                    type: c.type,
-                    nullable: c.nullable === true,
-                    defaultValue: c.defaultvalue,
-                    maxLength: c.maxlength,
-                    primaryKey: c.primarykey === true
-                }));
+            } else if (dbType === 'postgres' || isProduction) {
+                // Postgres/Neon - column info with PK detection
+                try {
+                    const result = await db.prepare(`
+                        SELECT 
+                            c.column_name AS name,
+                            c.data_type AS type,
+                            (c.is_nullable = 'YES') AS nullable,
+                            c.column_default AS defaultValue,
+                            c.character_maximum_length AS maxLength,
+                            EXISTS (
+                                SELECT 1
+                                FROM information_schema.table_constraints tc
+                                JOIN information_schema.key_column_usage kcu
+                                  ON tc.constraint_name = kcu.constraint_name
+                                 AND tc.table_schema = kcu.table_schema
+                                WHERE tc.constraint_type = 'PRIMARY KEY'
+                                  AND tc.table_name = c.table_name
+                                  AND tc.table_schema = c.table_schema
+                                  AND kcu.column_name = c.column_name
+                            ) AS primaryKey
+                        FROM information_schema.columns c
+                        WHERE c.table_name = $1
+                          AND c.table_schema = 'public'
+                        ORDER BY c.ordinal_position
+                    `).all(tableName);
+                    
+                    const rows = Array.isArray(result) ? result : (result?.rows || []);
+                    columns = rows.map(c => ({
+                        name: c.name || c.column_name,
+                        type: c.type || c.data_type,
+                        nullable: c.nullable === true || c.is_nullable === 'YES',
+                        defaultValue: c.defaultvalue || c.column_default || null,
+                        maxLength: c.maxlength || c.character_maximum_length || null,
+                        primaryKey: c.primarykey === true || c.primarykey === 't'
+                    }));
+                } catch (pgError) {
+                    console.error('PostgreSQL schema query error:', pgError);
+                    // Fallback to simpler query
+                    const result = await db.prepare(`
+                        SELECT 
+                            column_name AS name,
+                            data_type AS type,
+                            is_nullable AS nullable,
+                            column_default AS defaultValue
+                        FROM information_schema.columns
+                        WHERE table_name = $1
+                          AND table_schema = 'public'
+                        ORDER BY ordinal_position
+                    `).all(tableName);
+                    
+                    const rows = Array.isArray(result) ? result : (result?.rows || []);
+                    columns = rows.map(c => ({
+                        name: c.name || c.column_name,
+                        type: c.type || c.data_type,
+                        nullable: (c.nullable === 'YES' || c.is_nullable === 'YES'),
+                        defaultValue: c.defaultvalue || c.column_default || null,
+                        primaryKey: false
+                    }));
+                }
             } else {
                 // SQLite - get table info using PRAGMA
                 if (dbType === 'sqlite') {

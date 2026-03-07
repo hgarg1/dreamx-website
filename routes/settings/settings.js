@@ -753,7 +753,7 @@ function initSettingsRoutes() {
     });
 
     // Handle refund request submission
-    router.post('/refund-request', refundUpload.single('screenshot'), (req, res) => {
+    router.post('/refund-request', refundUpload.single('screenshot'), async (req, res) => {
         if (!req.session.userId) {
             return res.status(401).json({ success: false, error: 'Not authenticated' });
         }
@@ -769,7 +769,7 @@ function initSettingsRoutes() {
         const finalTransactionId = transaction_id || transactionId;
 
         try {
-            const recentRefunds = getUserRefundRequests(req.session.userId);
+            const recentRefunds = await getUserRefundRequests(req.session.userId);
             const fiveDaysAgo = new Date();
             fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
@@ -798,7 +798,7 @@ function initSettingsRoutes() {
                 screenshotPath = req.file.path || `refunds/${req.file.filename}`;
             }
 
-            const refundRequestId = createRefundRequest({
+            const refundRequestId = await createRefundRequest({
                 userId: req.session.userId,
                 chargeId: finalChargeId,
                 amount: parseFloat(amount),

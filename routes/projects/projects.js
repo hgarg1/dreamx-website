@@ -91,23 +91,23 @@ function requireAuth(req, res, next) {
 // ============ PUBLIC ROUTES ============
 
 // GET /projects - Feed-style display of all public projects
-router.get('/projects', requireAuth, (req, res) => {
+router.get('/projects', requireAuth, async (req, res) => {
   try {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     
     const limit = Math.min(parseInt(req.query.limit || 20, 10), 100);
     const offset = parseInt(req.query.offset || 0, 10);
     
-    const projects = getPublicProjects(limit, offset);
-    const total = getProjectCount();
+    const projects = await getPublicProjects(limit, offset);
+    const total = await getProjectCount();
     
-    const authUser = getUserById(req.session.userId);
+    const authUser = await getUserById(req.session.userId);
 
     res.render('projects/projects-feed', {
       title: 'Projects - Dream X',
       currentPage: 'projects',
       authUser,
-      projects,
+      projects: Array.isArray(projects) ? projects : [],
       pagination: { limit, offset, total }
     });
   } catch (err) {

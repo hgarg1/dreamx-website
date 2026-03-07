@@ -104,7 +104,7 @@ function initProfileRoutes({ upload, io }) {
                     open_to_mentoring: row.open_to_mentoring || null
                 }
             };
-            const projects = getProjectsByOwner(req.session.userId, 100, 0);
+            const projects = await getProjectsByOwner(req.session.userId, 100, 0);
             const services = await getUserServices(req.session.userId);
             const me = await getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
@@ -199,7 +199,7 @@ function initProfileRoutes({ upload, io }) {
             });
 
             const viewingOwnProfile = (uid === req.session.userId);
-            const isBlockedByViewer = viewingOwnProfile ? false : isUserBlocked({ userId: req.session.userId, targetId: uid });
+            const isBlockedByViewer = viewingOwnProfile ? false : await isUserBlocked({ userId: req.session.userId, targetId: uid });
 
             // Get user reposts
             let userReposts = [];
@@ -276,7 +276,7 @@ function initProfileRoutes({ upload, io }) {
                     open_to_mentoring: row.open_to_mentoring || null
                 }
             };
-            const projects = getProjectsByOwner(uid, 100, 0);
+            const projects = await getProjectsByOwner(uid, 100, 0);
             const me = await getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
 
@@ -389,7 +389,7 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // Handle edit profile submission
-    router.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }, { name: 'bannerImage', maxCount: 1 }]), (req, res) => {
+    router.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }, { name: 'bannerImage', maxCount: 1 }]), async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         const { displayName, bio, passions, skills, location, customInterests } = req.body;
         const selectedPassions = Array.isArray(passions) ? passions : (passions ? [passions] : []);
@@ -399,7 +399,7 @@ function initProfileRoutes({ upload, io }) {
             .filter(item => item.length > 0);
         const uniquePassions = Array.from(new Set([...selectedPassions, ...customInterestList]));
 
-        updateUserProfile({
+        await updateUserProfile({
             userId: req.session.userId,
             fullName: displayName,
             bio,
@@ -407,7 +407,7 @@ function initProfileRoutes({ upload, io }) {
             skills
         });
 
-        updateOnboarding({
+        await updateOnboarding({
             userId: req.session.userId,
             categories: uniquePassions,
             goals: [],
@@ -416,7 +416,7 @@ function initProfileRoutes({ upload, io }) {
 
         if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
             const profileFile = req.files.profilePicture[0];
-            updateProfilePicture({
+            await updateProfilePicture({
                 userId: req.session.userId,
                 filename: profileFile.path || `profiles/${profileFile.filename}`
             });
@@ -424,7 +424,7 @@ function initProfileRoutes({ upload, io }) {
 
         if (req.files && req.files.bannerImage && req.files.bannerImage[0]) {
             const bannerFile = req.files.bannerImage[0];
-            updateBannerImage({
+            await updateBannerImage({
                 userId: req.session.userId,
                 filename: bannerFile.path || `profiles/${bannerFile.filename}`
             });

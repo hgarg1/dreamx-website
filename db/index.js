@@ -63,31 +63,31 @@ async function seedDatabase() {
   try {
     // Ensure admin permissions and account status are initialized
     try {
-      db.exec(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL;`);
+      await db.exec(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL;`);
     } catch (e) {
       // Ignore if fails
     }
     try {
-      db.exec(`UPDATE users SET admin_permissions = '[]' WHERE admin_permissions IS NULL;`);
-      db.exec(`UPDATE users SET admin_scopes = '[]' WHERE admin_scopes IS NULL;`);
+      await db.exec(`UPDATE users SET admin_permissions = '[]' WHERE admin_permissions IS NULL;`);
+      await db.exec(`UPDATE users SET admin_scopes = '[]' WHERE admin_scopes IS NULL;`);
     } catch (e) {
       // Ignore if fails
     }
 
     // Seed Global Admin account if it doesn't exist
     try {
-      const adminExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('admin@dreamx.local');
+      const adminExists = await db.prepare(`SELECT id FROM users WHERE email = ?`).get('admin@dreamx.local');
       if (!adminExists) {
         const bcrypt = require('bcrypt');
         const adminPassword = bcrypt.hashSync('DreamXAdmin2025!', 10);
-        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+        await db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
           .run('Global Administrator', 'admin@dreamx.local', adminPassword, 'global_admin', 'active', 'Global Administrator - Full System Access');
         console.log('✅ Global Admin account created: admin@dreamx.local / DreamXAdmin2025!');
       } else {
         // Ensure existing admin has global_admin role
-        const adminRole = db.prepare(`SELECT role FROM users WHERE email = ?`).get('admin@dreamx.local');
+        const adminRole = await db.prepare(`SELECT role FROM users WHERE email = ?`).get('admin@dreamx.local');
         if (adminRole && adminRole.role !== 'global_admin') {
-          db.prepare(`UPDATE users SET role = 'global_admin' WHERE email = ?`).run('admin@dreamx.local');
+          await db.prepare(`UPDATE users SET role = 'global_admin' WHERE email = ?`).run('admin@dreamx.local');
           console.log('✅ Admin account upgraded to global_admin role');
         }
       }
@@ -97,15 +97,15 @@ async function seedDatabase() {
 
     // Seed HR account if it doesn't exist
     try {
-      const hrExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('hr@dreamx.local');
+      const hrExists = await db.prepare(`SELECT id FROM users WHERE email = ?`).get('hr@dreamx.local');
       if (!hrExists) {
         const bcrypt = require('bcrypt');
         const hrPassword = bcrypt.hashSync('DreamXHR2025!', 10);
-        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+        await db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
           .run('Global HR Partner', 'hr@dreamx.local', hrPassword, 'global_hr', 'active', 'Global HR Partner - Talent Architecture and People Experience');
         console.log('✅ HR account created: hr@dreamx.local / DreamXHR2025!');
       } else {
-        db.prepare(`UPDATE users SET role = 'global_hr' WHERE email = ? AND role != 'global_hr'`).run('hr@dreamx.local');
+        await db.prepare(`UPDATE users SET role = 'global_hr' WHERE email = ? AND role != 'global_hr'`).run('hr@dreamx.local');
       }
     } catch (e) {
       console.warn('HR seed error:', e.message);
@@ -113,7 +113,7 @@ async function seedDatabase() {
 
     // Seed Business Admin account if it doesn't exist
     try {
-      const businessExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('business@dreamx.local');
+      const businessExists = await db.prepare(`SELECT id FROM users WHERE email = ?`).get('business@dreamx.local');
       if (!businessExists) {
         const bcrypt = require('bcrypt');
         const businessPassword = bcrypt.hashSync('DreamXBusiness2025!', 10);
@@ -132,11 +132,11 @@ async function seedDatabase() {
           'revenue_reports',
           'customer_success'
         ]);
-        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, admin_permissions, email_verified, onboarding_completed, needs_onboarding, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 0, CURRENT_TIMESTAMP)`)
+        await db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, admin_permissions, email_verified, onboarding_completed, needs_onboarding, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 0, CURRENT_TIMESTAMP)`)
           .run('Business Administrator', 'business@dreamx.local', businessPassword, 'business_admin', 'active', 'Business Administrator - Sales & Enterprise Management', businessPermissions);
         console.log('✅ Business Admin account created: business@dreamx.local / DreamXBusiness2025!');
       } else {
-        db.prepare(`UPDATE users SET role = 'business_admin' WHERE email = ? AND role != 'business_admin'`).run('business@dreamx.local');
+        await db.prepare(`UPDATE users SET role = 'business_admin' WHERE email = ? AND role != 'business_admin'`).run('business@dreamx.local');
       }
     } catch (e) {
       console.warn('Business Admin seed error:', e.message);
@@ -144,8 +144,9 @@ async function seedDatabase() {
 
     // Seed default pricing tiers if they don't exist
     try {
-      const tiersExist = db.prepare(`SELECT COUNT(*) as count FROM pricing_tiers`).get();
-      if (!tiersExist || tiersExist.count === 0) {
+      const tiersExist = await db.prepare(`SELECT COUNT(*) as count FROM pricing_tiers`).get();
+      const count = tiersExist?.count || tiersExist?.c || 0;
+      if (count === 0) {
         const defaultTiers = [
           {
             tier_id: 'free',
@@ -257,7 +258,7 @@ async function seedDatabase() {
         `);
         
         for (const tier of defaultTiers) {
-          insertTier.run(
+          await insertTier.run(
             tier.tier_id,
             tier.name,
             tier.price,
@@ -2059,7 +2060,7 @@ module.exports = {
   unlinkProvider: ({ userId, provider }) => {
     db.prepare(`DELETE FROM oauth_accounts WHERE user_id = ? AND provider = ?`).run(userId, provider);
   },
-  updateOnboarding: ({
+  updateOnboarding: async ({
     userId, categories, goals, experience,
     daily_time_commitment, best_time, reminder_frequency,
     accountability_style, progress_visibility,
@@ -2071,7 +2072,7 @@ module.exports = {
     notify_method, bio, profile_picture, onboarding_completed,
     needs_onboarding
   }) => {
-    const updateStmt = db.prepare(`
+    await db.prepare(`
       UPDATE users SET
         categories = ?,
         goals = ?,
@@ -2100,9 +2101,7 @@ module.exports = {
         onboarding_completed = ?,
         needs_onboarding = ?
       WHERE id = ?
-    `);
-
-    updateStmt.run(
+    `).run(
       JSON.stringify(categories || []),
       JSON.stringify(goals || []),
       experience,
@@ -2132,16 +2131,16 @@ module.exports = {
       userId
     );
   },
-  updateUserProfile: ({ userId, fullName, bio, location, skills }) => {
-    db.prepare(`UPDATE users SET full_name = ?, bio = ?, location = ?, skills = ? WHERE id = ?`).run(
+  updateUserProfile: async ({ userId, fullName, bio, location, skills }) => {
+    await db.prepare(`UPDATE users SET full_name = ?, bio = ?, location = ?, skills = ? WHERE id = ?`).run(
       fullName, bio, location, skills, userId
     );
   },
-  updateProfilePicture: ({ userId, filename }) => {
-    db.prepare(`UPDATE users SET profile_picture = ? WHERE id = ?`).run(filename, userId);
+  updateProfilePicture: async ({ userId, filename }) => {
+    await db.prepare(`UPDATE users SET profile_picture = ? WHERE id = ?`).run(filename, userId);
   },
-  updateBannerImage: ({ userId, filename }) => {
-    db.prepare(`UPDATE users SET banner_image = ? WHERE id = ?`).run(filename, userId);
+  updateBannerImage: async ({ userId, filename }) => {
+    await db.prepare(`UPDATE users SET banner_image = ? WHERE id = ?`).run(filename, userId);
   },
   updatePassword: ({ userId, passwordHash }) => {
     db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(passwordHash, userId);
@@ -2730,17 +2729,17 @@ module.exports = {
     const stmt = db.prepare(`DELETE FROM notifications WHERE id = ?`);
     stmt.run(notificationId);
   },
-  savePushSubscription: ({ userId, endpoint, p256dh, auth }) => {
+  savePushSubscription: async ({ userId, endpoint, p256dh, auth }) => {
     if (isProduction) {
       // PostgreSQL: Use ON CONFLICT
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth
       `).run(userId, endpoint, p256dh, auth);
     } else {
       // SQLite: Use ON CONFLICT
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth
@@ -2751,9 +2750,8 @@ module.exports = {
     const rows = await db.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`).all(userId);
     return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  deletePushSubscription: (endpoint) => {
-    const stmt = db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`);
-    stmt.run(endpoint);
+  deletePushSubscription: async (endpoint) => {
+    await db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
   },
   // Subscription helpers
   getUserSubscription: async (userId) => {
@@ -3962,13 +3960,22 @@ module.exports = {
   },
 
   // Refund request functions
-  createRefundRequest: ({ userId, chargeId, amount, reason, description, orderDate, transactionId, preferredMethod, accountEmail, accountLastFour, screenshot, status = 'pending' }) => {
-    const stmt = db.prepare(`
-      INSERT INTO refund_requests (user_id, charge_id, amount, reason, description, order_date, transaction_id, preferred_method, account_email, account_last_four, screenshot, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const result = stmt.run(userId, chargeId || null, amount, reason, description || null, orderDate || null, transactionId || null, preferredMethod, accountEmail || null, accountLastFour || null, screenshot || null, status);
-    return result.lastInsertRowid;
+  createRefundRequest: async ({ userId, chargeId, amount, reason, description, orderDate, transactionId, preferredMethod, accountEmail, accountLastFour, screenshot, status = 'pending' }) => {
+    if (isProduction) {
+      const result = await db.prepare(`
+        INSERT INTO refund_requests (user_id, charge_id, amount, reason, description, order_date, transaction_id, preferred_method, account_email, account_last_four, screenshot, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
+      `).get(userId, chargeId || null, amount, reason, description || null, orderDate || null, transactionId || null, preferredMethod, accountEmail || null, accountLastFour || null, screenshot || null, status);
+      return result?.id || null;
+    } else {
+      const stmt = db.prepare(`
+        INSERT INTO refund_requests (user_id, charge_id, amount, reason, description, order_date, transaction_id, preferred_method, account_email, account_last_four, screenshot, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const result = stmt.run(userId, chargeId || null, amount, reason, description || null, orderDate || null, transactionId || null, preferredMethod, accountEmail || null, accountLastFour || null, screenshot || null, status);
+      return result.lastInsertRowid;
+    }
   },
 
   getRefundRequest: (requestId) => {
@@ -3984,14 +3991,15 @@ module.exports = {
     `).get(requestId);
   },
 
-  getUserRefundRequests: (userId) => {
-    return db.prepare(`
+  getUserRefundRequests: async (userId) => {
+    const rows = await db.prepare(`
       SELECT rr.*, bc.description as charge_description
       FROM refund_requests rr
       LEFT JOIN billing_charges bc ON bc.id = rr.charge_id
       WHERE rr.user_id = ?
       ORDER BY rr.created_at DESC
     `).all(userId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
   getAllRefundRequests: async ({ limit = 50, offset = 0, status }) => {
@@ -4353,7 +4361,7 @@ module.exports = {
     return stmt.get(projectId);
   },
 
-  getProjectsByOwner: (ownerId, limit = 50, offset = 0) => {
+  getProjectsByOwner: async (ownerId, limit = 50, offset = 0) => {
     // PostgreSQL requires all non-aggregated columns from joined tables in GROUP BY
     // Since we're grouping by p.id (primary key), we can select p.*, but u.* columns need GROUP BY
     const groupBy = isProduction 
@@ -4375,11 +4383,11 @@ module.exports = {
       LIMIT ? OFFSET ?
     `;
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
-    const stmt = db.prepare(sql);
-    return stmt.all(ownerId, offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(ownerId, offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
-  getPublicProjects: (limit = 50, offset = 0) => {
+  getPublicProjects: async (limit = 50, offset = 0) => {
     // PostgreSQL requires all non-aggregated columns from joined tables in GROUP BY
     // Since we're grouping by p.id (primary key), we can select p.*, but u.* columns need GROUP BY
     const groupBy = isProduction 
@@ -4401,18 +4409,20 @@ module.exports = {
       LIMIT ? OFFSET ?
     `;
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
-    const stmt = db.prepare(sql);
-    return stmt.all(offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
-  getProjectCount: (ownerId = null) => {
+  getProjectCount: async (ownerId = null) => {
     let stmt;
     if (ownerId) {
       stmt = db.prepare('SELECT COUNT(*) as count FROM projects WHERE owner_id = ?');
-      return stmt.get(ownerId).count;
+      const result = await stmt.get(ownerId);
+      return result?.count || result?.c || 0;
     } else {
       stmt = db.prepare("SELECT COUNT(*) as count FROM projects WHERE visibility IN ('public', 'unlisted')");
-      return stmt.get().count;
+      const result = await stmt.get();
+      return result?.count || result?.c || 0;
     }
   },
 
