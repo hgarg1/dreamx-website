@@ -2,8 +2,12 @@
 const path = require('path');
 
 // Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+// Use PostgreSQL if: NODE_ENV=production OR DB_TYPE=postgres/postgresql OR DATABASE_URL is set (Neon)
 const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
-const isProduction = nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql';
+const isProduction = nodeEnv === 'production' || 
+                     process.env.DB_TYPE === 'postgres' || 
+                     process.env.DB_TYPE === 'postgresql' ||
+                     !!process.env.DATABASE_URL;
 
 module.exports = {
   isProduction,

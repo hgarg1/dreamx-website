@@ -545,24 +545,44 @@ app.use(sanitizeRequest);
 
 // Session configuration - Use PostgreSQL in production, SQLite locally
 // Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+// Use PostgreSQL if: NODE_ENV=production OR DB_TYPE=postgres/postgresql OR DATABASE_URL is set (Neon)
 const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
-const isProductionDB = nodeEnv === 'production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
+const isProductionDB = nodeEnv === 'production' || 
+                       process.env.DB_TYPE === 'postgres' || 
+                       process.env.DB_TYPE === 'postgresql' ||
+                       !!process.env.DATABASE_URL;
 
 let sessionStore;
 if (isProductionDB) {
-    // Production: Use PostgreSQL for sessions
+    // Production: Use PostgreSQL for sessions (Neon or other PostgreSQL)
     // Note: createTableIfMissing is disabled - we handle table creation/migration via ensureSessionTable()
     // This ensures the table has the correct schema (sess/expire columns) for connect-pg-simple
     const { Pool } = require('pg');
-    const pgPool = new Pool({
-        host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
-        port: process.env.PG_PORT || process.env.DB_PORT || 5432,
-        database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
-        user: process.env.PG_USER || process.env.DB_USER || 'postgres',
-        password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
-        // Azure PostgreSQL requires SSL - default to requiring it unless explicitly disabled
-        ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false }
-    });
+    
+    let pgPoolConfig;
+    if (process.env.DATABASE_URL) {
+        // Use DATABASE_URL (Neon/Heroku/Azure format)
+        const isNeon = process.env.DATABASE_URL.includes('neon.tech') || process.env.DATABASE_URL.includes('neon');
+        pgPoolConfig = {
+            connectionString: process.env.DATABASE_URL,
+            // Neon requires SSL, so always enable it for Neon connections
+            ssl: isNeon || process.env.PG_SSL !== 'false' ? { rejectUnauthorized: false } : false
+        };
+        console.log(`📊 Session store using DATABASE_URL${isNeon ? ' (Neon)' : ''}`);
+    } else {
+        // Use individual environment variables
+        pgPoolConfig = {
+            host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
+            port: process.env.PG_PORT || process.env.DB_PORT || 5432,
+            database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
+            user: process.env.PG_USER || process.env.DB_USER || 'postgres',
+            password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
+            // Azure PostgreSQL requires SSL - default to requiring it unless explicitly disabled
+            ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false }
+        };
+    }
+    
+    const pgPool = new Pool(pgPoolConfig);
     sessionStore = new pgSession({
         pool: pgPool,
         tableName: 'sessions',
@@ -1453,8 +1473,12 @@ async function startServer() {
     try {
         // Initialize database connection (required for PostgreSQL in production)
         // Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+        // Use PostgreSQL if: NODE_ENV=production OR DB_TYPE=postgres/postgresql OR DATABASE_URL is set (Neon)
         const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
-        if (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql') {
+        if (nodeEnv === 'production' || 
+            process.env.DB_TYPE === 'postgres' || 
+            process.env.DB_TYPE === 'postgresql' ||
+            !!process.env.DATABASE_URL) {
             console.log('🔄 Initializing PostgreSQL database...');
             try {
                 await initializeDatabase();

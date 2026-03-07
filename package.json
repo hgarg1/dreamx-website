@@ -11,6 +11,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --forceExit",
     "db:migrate:chat": "node scripts/db/migrate-chat-attachments.js",
+    "db:migrate:neon": "node scripts/db/migrate-neon.js",
     "db:clear-reels": "node scripts/cleanup/clear-all-reels.js",
     "cleanup:uploads": "node scripts/maintenance/cleanup-uploads.js",
     "storage:upload": "node scripts/storage/upload-to-blob.js"

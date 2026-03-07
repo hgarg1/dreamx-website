@@ -942,14 +942,14 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Admin: View all user blocks and reports
-    router.get('/admin/moderation/user-actions', requireSuperAdmin, async (req, res) => {
+    router.get('/admin/moderation/user-actions', requireSuperAdmin, (req, res) => {
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
         const pageSize = 50;
         const offset = (page - 1) * pageSize;
         try {
-            const blocks = await getAllBlocksAndReports({ limit: pageSize, offset });
-            const reports = await getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
-            const me = await getUserById(req.session.userId);
+            const blocks = getAllBlocksAndReports({ limit: pageSize, offset });
+            const reports = getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
+            const me = getUserById(req.session.userId);
             res.render('admin/admin-user-actions', {
                 title: 'User Actions Moderation - Dream X',
                 currentPage: 'admin',
@@ -1152,11 +1152,11 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Unban/unsuspend a user
-    router.post('/admin/users/:id/unban', requireSuperAdmin, async (req, res) => {
+    router.post('/admin/users/:id/unban', requireSuperAdmin, (req, res) => {
         const userId = parseInt(req.params.id, 10);
         const isJson = req.headers['content-type']?.includes('application/json');
         try {
-            const targetUser = await getUserById(userId);
+            const targetUser = getUserById(userId);
             unbanUser({ userId, unbannedBy: req.session.userId });
             const { createNotification } = require('../../db');
             createNotification({
@@ -1224,7 +1224,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Hide comment (admin action)
-    router.post('/admin/comments/:id/hide', requireAdmin, async (req, res) => {
+    router.post('/admin/comments/:id/hide', requireAdmin, (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
@@ -1237,7 +1237,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Delete comment (admin action)
-    router.post('/admin/comments/:id/delete', requireAdmin, async (req, res) => {
+    router.post('/admin/comments/:id/delete', requireAdmin, (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
@@ -1250,11 +1250,11 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Restore comment (admin action)
-    router.post('/admin/comments/:id/restore', requireAdmin, async (req, res) => {
+    router.post('/admin/comments/:id/restore', requireAdmin, (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
-            await restoreComment({ commentId, restoredBy: req.session.userId });
+            restoreComment({ commentId, restoredBy: req.session.userId });
             res.json({ success: true, message: 'Comment restored successfully' });
         } catch (error) {
             console.error('Restore comment error:', error);
@@ -1542,15 +1542,51 @@ function initAdminRoutes({ io, webpush }) {
                     primaryKey: c.primarykey === true
                 }));
             } else {
-                // SQLite / Postgres - get table info
-                const rows = await db.prepare(`PRAGMA table_info(${tableName})`).all() || [];
-                columns = rows.map(c => ({
-                    name: c.name,
-                    type: c.type,
-                    nullable: c.notnull === 0,
-                    defaultValue: c.dflt_value,
-                    primaryKey: c.pk === 1
-                }));
+                // SQLite - get table info using PRAGMA
+                if (dbType === 'sqlite') {
+                    const rows = await db.prepare(`PRAGMA table_info(${tableName})`).all() || [];
+                    columns = rows.map(c => ({
+                        name: c.name,
+                        type: c.type,
+                        nullable: c.notnull === 0,
+                        defaultValue: c.dflt_value,
+                        primaryKey: c.pk === 1
+                    }));
+                } else {
+                    // PostgreSQL fallback (shouldn't reach here if postgres check above works)
+                    // Use information_schema for PostgreSQL
+                    const rows = await db.prepare(`
+                        SELECT 
+                            c.column_name AS name,
+                            c.data_type AS type,
+                            (c.is_nullable = 'YES') AS nullable,
+                            c.column_default AS defaultValue,
+                            c.character_maximum_length AS maxLength,
+                            EXISTS (
+                                SELECT 1
+                                FROM information_schema.table_constraints tc
+                                JOIN information_schema.key_column_usage kcu
+                                  ON tc.constraint_name = kcu.constraint_name
+                                 AND tc.table_schema = kcu.table_schema
+                                WHERE tc.constraint_type = 'PRIMARY KEY'
+                                  AND tc.table_name = c.table_name
+                                  AND tc.table_schema = c.table_schema
+                                  AND kcu.column_name = c.column_name
+                            ) AS primaryKey
+                        FROM information_schema.columns c
+                        WHERE c.table_name = ?
+                          AND c.table_schema = 'public'
+                        ORDER BY c.ordinal_position
+                    `).all(tableName) || [];
+                    columns = rows.map(c => ({
+                        name: c.name,
+                        type: c.type,
+                        nullable: c.nullable === true,
+                        defaultValue: c.defaultvalue,
+                        maxLength: c.maxlength,
+                        primaryKey: c.primarykey === true
+                    }));
+                }
             }
 
             res.json({ success: true, tableName, columns });

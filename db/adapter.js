@@ -4,8 +4,12 @@ const fs = require('fs');
 require('dotenv').config();
 
 // Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+// Use PostgreSQL if: NODE_ENV=production OR DB_TYPE=postgres/postgresql OR DATABASE_URL is set (Neon)
 const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
-const isProduction = (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
+const isProduction = (nodeEnv === 'production' || 
+                      process.env.DB_TYPE === 'postgres' || 
+                      process.env.DB_TYPE === 'postgresql' ||
+                      !!process.env.DATABASE_URL);
 
 // Log database mode detection for debugging (only in non-test environments)
 if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
@@ -44,15 +48,18 @@ async function initDatabase() {
     const { Pool } = require('pg');
     dbType = 'postgres';
     
-    // Support Azure PostgreSQL connection string format
+    // Support Neon (DATABASE_URL) and Azure PostgreSQL connection string format
     let config;
     if (process.env.DATABASE_URL) {
-      // Parse connection string (Azure often provides this)
+      // Parse connection string (Neon/Heroku/Azure often provides this)
+      // Neon requires SSL, so we always enable it for DATABASE_URL
+      const isNeon = process.env.DATABASE_URL.includes('neon.tech') || process.env.DATABASE_URL.includes('neon');
       config = {
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.PG_SSL !== 'false' ? { rejectUnauthorized: false } : false
+        // Neon requires SSL, so always enable it for Neon connections
+        ssl: isNeon || process.env.PG_SSL !== 'false' ? { rejectUnauthorized: false } : false
       };
-      console.log('📊 Using DATABASE_URL connection string');
+      console.log(`📊 Using DATABASE_URL connection string${isNeon ? ' (Neon)' : ''}`);
     } else {
       // Use individual environment variables
       config = {
