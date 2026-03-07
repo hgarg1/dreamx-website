@@ -1953,9 +1953,12 @@ module.exports = {
     db.prepare(sql).run();
   },
 
-  getAllUsers: () => db.prepare(`SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC`).all(),
+  getAllUsers: async () => {
+    const rows = await db.prepare(`SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC`).all();
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
+  },
   // Paged users + total for admin
-  getUsersPaged: ({ limit, offset, search }) => {
+  getUsersPaged: async ({ limit, offset, search }) => {
     if (search) {
       const s = `%${search.toLowerCase()}%`;
       const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`
@@ -1965,7 +1968,8 @@ module.exports = {
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
       `, limit, offset);
-      return db.prepare(sql).all(s, s, offsetVal, fetchVal);
+      const rows = await db.prepare(sql).all(s, s, offsetVal, fetchVal);
+      return Array.isArray(rows) ? rows : (rows?.rows || []);
     }
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`
       SELECT id, full_name, email, role, account_status, admin_permissions, admin_scopes, created_at
@@ -1973,22 +1977,26 @@ module.exports = {
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `, limit, offset);
-    return db.prepare(sql).all(offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  getUsersCount: ({ search }) => {
+  getUsersCount: async ({ search }) => {
     if (search) {
       const s = `%${search.toLowerCase()}%`;
-      return db.prepare(`SELECT COUNT(*) as c FROM users WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?`).get(s, s).c;
+      const result = await db.prepare(`SELECT COUNT(*) as c FROM users WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?`).get(s, s);
+      return result?.c || result?.count || 0;
     }
-    return db.prepare(`SELECT COUNT(*) as c FROM users`).get().c;
+    const result = await db.prepare(`SELECT COUNT(*) as c FROM users`).get();
+    return result?.c || result?.count || 0;
   },
-  getHrTeam: () => {
-    return db.prepare(`
+  getHrTeam: async () => {
+    const rows = await db.prepare(`
       SELECT id, full_name, email, role, account_status, admin_scopes, created_at
       FROM users
       WHERE role IN ('hr', 'super_hr', 'global_hr')
       ORDER BY CASE role WHEN 'global_hr' THEN 3 WHEN 'super_hr' THEN 2 ELSE 1 END DESC, created_at DESC
     `).all();
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   searchUsers: ({ query, limit = 10, excludeUserId }) => {
     const s = `%${(query || '').toLowerCase()}%`;

@@ -225,9 +225,9 @@ function initAdminRoutes({ io, webpush }) {
         const pageSize = 20;
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
         const q = (req.query.q || '').trim();
-        const total = getUsersCount({ search: q || null });
+        const total = await getUsersCount({ search: q || null });
         const offset = (page - 1) * pageSize;
-        const usersRaw = getUsersPaged({ limit: pageSize, offset, search: q || null });
+        const usersRaw = await getUsersPaged({ limit: pageSize, offset, search: q || null });
         const users = usersRaw.map(u => {
             let perms = [];
             let scopes = [];
@@ -584,7 +584,7 @@ function initAdminRoutes({ io, webpush }) {
             return res.redirect('/admin?error=Cannot+demote+yourself');
         }
 
-        const all = getAllUsers();
+        const all = await getAllUsers();
         const globalAdmins = all.filter(u => u.role === 'global_admin');
         if (globalAdmins.length === 1 && globalAdmins[0].id === id && role !== 'global_admin') {
             return res.redirect('/admin?error=At+least+one+global+admin+required');
@@ -650,9 +650,9 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // CSV Exports
-    router.get('/admin/export/users.csv', requireAdmin, (req, res) => {
+    router.get('/admin/export/users.csv', requireAdmin, async (req, res) => {
         try { addAuditLog({ userId: req.session.userId, action: 'export_users', details: null }); } catch (e) { }
-        const rows = getAllUsers();
+        const rows = await getAllUsers();
         const header = 'id,full_name,email,role,created_at\n';
         const csv = header + rows.map(r => `${r.id},"${(r.full_name || '').replace(/"/g, '""')}",${r.email},${r.role},${r.created_at}`).join('\n');
         res.setHeader('Content-Type', 'text/csv');

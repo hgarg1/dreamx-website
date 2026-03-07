@@ -98,7 +98,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
         const me = await getUserById(req.session.userId);
         const careers = getCareerApplicationsPaged({ limit: 100, offset: 0 });
         const jobPostings = getCareerJobsForAdmin();
-        const hrTeam = (getHrTeam() || []).map(member => {
+        const hrTeam = ((await getHrTeam()) || []).map(member => {
             const hrMeta = parseHrMeta(member);
             return { ...member, admin_scopes: hrMeta.scopes, hr_permissions: hrMeta.hrPermissions, scope_locked: hrMeta.locked };
         });
@@ -185,10 +185,10 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
     });
 
     // HR leadership APIs
-    router.get('/api/hr/team', requireHR, (req, res) => {
+    router.get('/api/hr/team', requireHR, async (req, res) => {
         const HR_PAGE_SCOPES = ['hr-dashboard', 'candidate-pipeline', 'career-applications', 'job-board', 'hr-org', 'talent-outreach'];
         const HR_PERMISSION_KEYS = new Set(['hr_applications', 'hr_pipeline', 'hr_jobs', 'hr_messages', 'hr_team', 'hr_scopes']);
-        const team = (getHrTeam() || []).map(member => {
+        const team = ((await getHrTeam()) || []).map(member => {
             const hrMeta = parseHrMeta(member);
             return { ...member, admin_scopes: hrMeta.scopes, hr_permissions: hrMeta.hrPermissions, scope_locked: hrMeta.locked };
         });
