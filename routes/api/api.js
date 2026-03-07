@@ -29,11 +29,11 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Mark notification as read
-    router.post('/api/notifications/:id/read', (req, res) => {
+    router.post('/api/notifications/:id/read', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
             const notifId = parseInt(req.params.id, 10);
-            markNotificationAsRead(notifId, req.session.userId);
+            await markNotificationAsRead(notifId, req.session.userId);
             res.json({ success: true });
         } catch (error) {
             console.error('Error marking notification as read:', error);
@@ -42,10 +42,10 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Mark all notifications as read
-    router.post('/api/notifications/read-all', (req, res) => {
+    router.post('/api/notifications/read-all', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
-            markAllNotificationsAsRead(req.session.userId);
+            await markAllNotificationsAsRead(req.session.userId);
             res.json({ success: true });
         } catch (error) {
             console.error('Error marking all as read:', error);

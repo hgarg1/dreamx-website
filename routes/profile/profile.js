@@ -450,7 +450,7 @@ function initProfileRoutes({ upload, io }) {
             return res.status(400).json({ error: 'Invalid user ID' });
         }
         try {
-            followUser({ followerId: req.session.userId, followingId: targetUserId });
+            await followUser({ followerId: req.session.userId, followingId: targetUserId });
 
             const follower = await getUserById(req.session.userId);
             createNotification({
@@ -479,14 +479,14 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Unfollow a user
-    router.post('/api/users/:id/unfollow', (req, res) => {
+    router.post('/api/users/:id/unfollow', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId || targetUserId === req.session.userId) {
             return res.status(400).json({ error: 'Invalid user ID' });
         }
         try {
-            unfollowUser({ followerId: req.session.userId, followingId: targetUserId });
+            await unfollowUser({ followerId: req.session.userId, followingId: targetUserId });
             res.json({ success: true, following: false });
         } catch (error) {
             console.error('Unfollow error:', error);
@@ -495,7 +495,7 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Block a user
-    router.post('/api/users/:id/block', (req, res) => {
+    router.post('/api/users/:id/block', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId || targetUserId === req.session.userId) {
@@ -503,7 +503,7 @@ function initProfileRoutes({ upload, io }) {
         }
         const { reason } = req.body;
         try {
-            blockUser({ blockerId: req.session.userId, blockedId: targetUserId, reason });
+            await blockUser({ blockerId: req.session.userId, blockedId: targetUserId, reason });
             res.json({ success: true });
         } catch (error) {
             if (error.message.includes('locked')) {
@@ -515,12 +515,12 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Unblock a user
-    router.post('/api/users/:id/unblock', (req, res) => {
+    router.post('/api/users/:id/unblock', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId) return res.status(400).json({ error: 'Invalid user ID' });
         try {
-            unblockUser({ blockerId: req.session.userId, blockedId: targetUserId });
+            await unblockUser({ blockerId: req.session.userId, blockedId: targetUserId });
             res.json({ success: true });
         } catch (error) {
             console.error('Unblock error:', error);
@@ -529,7 +529,7 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Report a user
-    router.post('/api/users/:id/report', (req, res) => {
+    router.post('/api/users/:id/report', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId || targetUserId === req.session.userId) {
@@ -538,7 +538,7 @@ function initProfileRoutes({ upload, io }) {
         const { reason, description } = req.body;
         if (!reason) return res.status(400).json({ error: 'Reason is required' });
         try {
-            reportUser({ reporterId: req.session.userId, reportedId: targetUserId, reason, description });
+            await reportUser({ reporterId: req.session.userId, reportedId: targetUserId, reason, description });
             res.json({ success: true, message: 'Report submitted successfully' });
         } catch (error) {
             console.error('Report error:', error);
@@ -547,10 +547,10 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Get blocked users
-    router.get('/api/users/blocked', (req, res) => {
+    router.get('/api/users/blocked', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         try {
-            const blocked = getBlockedUsers(req.session.userId);
+            const blocked = await getBlockedUsers(req.session.userId);
             res.json({ blocked });
         } catch (error) {
             console.error('Get blocked error:', error);
@@ -559,12 +559,12 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Check if user is blocked
-    router.get('/api/users/:id/is-blocked', (req, res) => {
+    router.get('/api/users/:id/is-blocked', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId) return res.status(400).json({ error: 'Invalid user ID' });
         try {
-            const blocked = isUserBlocked({ userId: req.session.userId, targetId: targetUserId });
+            const blocked = await isUserBlocked({ userId: req.session.userId, targetId: targetUserId });
             res.json({ blocked });
         } catch (error) {
             console.error('Check blocked error:', error);

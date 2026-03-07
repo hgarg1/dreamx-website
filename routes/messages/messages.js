@@ -33,11 +33,11 @@ function ensureAuthenticated(req, res, next) {
 // Initialize router with dependencies
 function initMessagesRoutes({ chatUpload, io }) {
     // Start a chat with a user (create or open conversation) and redirect
-    router.get('/messages/start/:userId', ensureAuthenticated, (req, res) => {
+    router.get('/messages/start/:userId', ensureAuthenticated, async (req, res) => {
         const otherId = parseInt(req.params.userId, 10);
         if (isNaN(otherId) || otherId <= 0) return res.redirect('/messages');
         if (otherId === req.session.userId) return res.redirect('/messages');
-        const conv = getOrCreateConversation({ user1Id: req.session.userId, user2Id: otherId });
+        const conv = await getOrCreateConversation({ user1Id: req.session.userId, user2Id: otherId });
         return res.redirect(`/messages?conversation=${conv.id}`);
     });
 
@@ -49,7 +49,7 @@ function initMessagesRoutes({ chatUpload, io }) {
         res.setHeader('Expires', '0');
 
         // Get authenticated user
-        const userRow = getUserById(req.session.userId);
+        const userRow = await getUserById(req.session.userId);
         if (!userRow) return res.redirect('/login');
         
         const authUser = {

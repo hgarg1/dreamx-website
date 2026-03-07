@@ -301,7 +301,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
         res.json({ success: true, jobs });
     });
 
-    router.post('/api/hr/career-jobs', requireHR, careerAssetUpload.array('assetFiles', 6), (req, res) => {
+    router.post('/api/hr/career-jobs', requireHR, careerAssetUpload.array('assetFiles', 6), async (req, res) => {
         try {
             const { title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, goLiveAt, freezeUntil, status, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority } = req.body;
             if (!title || !description) {
@@ -310,7 +310,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
             const goLiveIso = goLiveAt && !isNaN(new Date(goLiveAt)) ? new Date(goLiveAt).toISOString() : null;
             const freezeUntilIso = freezeUntil && !isNaN(new Date(freezeUntil)) ? new Date(freezeUntil).toISOString() : null;
             const computedStatus = resolveJobStatus({ requestedStatus: status, goLiveAt: goLiveIso, freezeUntil: freezeUntilIso });
-            const jobId = createCareerJob({
+            const jobId = await createCareerJob({
                 title,
                 location,
                 team,
@@ -335,16 +335,14 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
                 isFrozen: computedStatus === 'frozen'
             });
             if (req.files && req.files.length) {
-                req.files.forEach(file => {
-                    addCareerJobAsset({
-                        jobId,
-                        label: file.originalname,
-                        fileName: file.originalname,
-                        filePath: file.url || `/uploads/${file.path || `career-assets/${file.filename}`}`,
-                        fileSize: file.size,
-                        mimeType: file.mimetype
-                    });
-                });
+                await Promise.all(req.files.map(file => addCareerJobAsset({
+                    jobId,
+                    label: file.originalname,
+                    fileName: file.originalname,
+                    filePath: file.url || `/uploads/${file.path || `career-assets/${file.filename}`}`,
+                    fileSize: file.size,
+                    mimeType: file.mimetype
+                })));
             }
             const job = await getCareerJobById(jobId);
             try { addAuditLog({ userId: req.session.userId, action: 'career_job_created', details: JSON.stringify({ jobId, title }) }); } catch (_) { }

@@ -2173,18 +2173,23 @@ module.exports = {
     );
   },
   // Messaging functions
-  getOrCreateConversation: ({ user1Id, user2Id }) => {
-    const existing = db.prepare(`
+  getOrCreateConversation: async ({ user1Id, user2Id }) => {
+    const existing = await db.prepare(`
       SELECT * FROM conversations 
       WHERE is_group = ${isProduction ? 'false' : '0'} AND ((user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?))
     `).get(user1Id, user2Id, user2Id, user1Id);
     if (existing) return existing;
     const sql = isProduction
-      ? `INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,false)`
+      ? `INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,false) RETURNING *`
       : `INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,0)`;
-    const stmt = db.prepare(sql);
-    const info = stmt.run(user1Id, user2Id);
-    return db.prepare('SELECT * FROM conversations WHERE id = ?').get(info.lastInsertRowid);
+    if (isProduction) {
+      const result = await db.prepare(sql).get(user1Id, user2Id);
+      return result;
+    } else {
+      const stmt = db.prepare(sql);
+      const info = stmt.run(user1Id, user2Id);
+      return db.prepare('SELECT * FROM conversations WHERE id = ?').get(info.lastInsertRowid);
+    }
   },
   createGroupConversation: ({ creatorId, participantIds, groupName }) => {
     const sql = isProduction
@@ -2709,19 +2714,17 @@ module.exports = {
     const row = await db.prepare(sql).get(userId);
     return row?.count || row?.c || 0;
   },
-  markNotificationAsRead: (notificationId) => {
+  markNotificationAsRead: async (notificationId) => {
     const sql = isProduction
       ? `UPDATE notifications SET read = true WHERE id = ?`
       : `UPDATE notifications SET read = 1 WHERE id = ?`;
-    const stmt = db.prepare(sql);
-    stmt.run(notificationId);
+    await db.prepare(sql).run(notificationId);
   },
-  markAllNotificationsAsRead: (userId) => {
+  markAllNotificationsAsRead: async (userId) => {
     const sql = isProduction
       ? `UPDATE notifications SET read = true WHERE user_id = ?`
       : `UPDATE notifications SET read = 1 WHERE user_id = ?`;
-    const stmt = db.prepare(sql);
-    stmt.run(userId);
+    await db.prepare(sql).run(userId);
   },
   deleteNotification: (notificationId) => {
     const stmt = db.prepare(`DELETE FROM notifications WHERE id = ?`);
@@ -2849,23 +2852,21 @@ module.exports = {
     return stmt.all(userId);
   },
   // Follow helpers
-  followUser: ({ followerId, followingId }) => {
+  followUser: async ({ followerId, followingId }) => {
     if (isProduction) {
-      // SQL Server: INSERT with WHERE NOT EXISTS
-      db.prepare(`
+      // PostgreSQL: INSERT with WHERE NOT EXISTS
+      await db.prepare(`
         INSERT INTO follows (follower_id, following_id)
         SELECT ?, ?
         WHERE NOT EXISTS (SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?)
       `).run(followerId, followingId, followerId, followingId);
     } else {
-      const sql = isProduction
-        ? `INSERT INTO follows (follower_id, following_id) VALUES (?,?) ON CONFLICT (follower_id, following_id) DO NOTHING`
-        : `INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`;
-      db.prepare(sql).run(followerId, followingId);
+      const sql = `INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`;
+      await db.prepare(sql).run(followerId, followingId);
     }
   },
-  unfollowUser: ({ followerId, followingId }) => {
-    db.prepare(`DELETE FROM follows WHERE follower_id = ? AND following_id = ?`).run(followerId, followingId);
+  unfollowUser: async ({ followerId, followingId }) => {
+    await db.prepare(`DELETE FROM follows WHERE follower_id = ? AND following_id = ?`).run(followerId, followingId);
   },
   isFollowing: async ({ followerId, followingId }) => {
     const row = await db.prepare(`SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`).get(followerId, followingId);
@@ -2989,36 +2990,68 @@ module.exports = {
     return { all, open };
   },
   // Job postings
-  createCareerJob: ({ title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags = [], salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility = 'public', priority, status = 'draft', goLiveAt, freezeUntil, isFrozen = 0 }) => {
-    const stmt = db.prepare(`
-      INSERT INTO career_jobs (title, location, team, employment_type, seniority, headline, description, responsibilities, requirements, perks, tags, salary_min, salary_max, salary_currency, apply_url, workplace_type, visibility, priority, status, go_live_at, freeze_until, is_frozen)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `);
-    const info = stmt.run(
-      title,
-      location || null,
-      team || null,
-      employmentType || null,
-      seniority || null,
-      headline || null,
-      description || null,
-      responsibilities || null,
-      requirements || null,
-      perks || null,
-      JSON.stringify(tags || []),
-      salaryMin || null,
-      salaryMax || null,
-      salaryCurrency || null,
-      applyUrl || null,
-      workplaceType || null,
-      visibility || 'public',
-      priority || null,
-      status || 'draft',
-      goLiveAt || null,
-      freezeUntil || null,
-      isFrozen ? 1 : 0
-    );
-    return info.lastInsertRowid;
+  createCareerJob: async ({ title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags = [], salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility = 'public', priority, status = 'draft', goLiveAt, freezeUntil, isFrozen = 0 }) => {
+    if (isProduction) {
+      const result = await db.prepare(`
+        INSERT INTO career_jobs (title, location, team, employment_type, seniority, headline, description, responsibilities, requirements, perks, tags, salary_min, salary_max, salary_currency, apply_url, workplace_type, visibility, priority, status, go_live_at, freeze_until, is_frozen)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
+      `).get(
+        title,
+        location || null,
+        team || null,
+        employmentType || null,
+        seniority || null,
+        headline || null,
+        description || null,
+        responsibilities || null,
+        requirements || null,
+        perks || null,
+        JSON.stringify(tags || []),
+        salaryMin || null,
+        salaryMax || null,
+        salaryCurrency || null,
+        applyUrl || null,
+        workplaceType || null,
+        visibility || 'public',
+        priority || null,
+        status || 'draft',
+        goLiveAt || null,
+        freezeUntil || null,
+        isFrozen ? 1 : 0
+      );
+      return result?.id || null;
+    } else {
+      const stmt = db.prepare(`
+        INSERT INTO career_jobs (title, location, team, employment_type, seniority, headline, description, responsibilities, requirements, perks, tags, salary_min, salary_max, salary_currency, apply_url, workplace_type, visibility, priority, status, go_live_at, freeze_until, is_frozen)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `);
+      const info = stmt.run(
+        title,
+        location || null,
+        team || null,
+        employmentType || null,
+        seniority || null,
+        headline || null,
+        description || null,
+        responsibilities || null,
+        requirements || null,
+        perks || null,
+        JSON.stringify(tags || []),
+        salaryMin || null,
+        salaryMax || null,
+        salaryCurrency || null,
+        applyUrl || null,
+        workplaceType || null,
+        visibility || 'public',
+        priority || null,
+        status || 'draft',
+        goLiveAt || null,
+        freezeUntil || null,
+        isFrozen ? 1 : 0
+      );
+      return info.lastInsertRowid;
+    }
   },
   updateCareerJob: ({ id, title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority, status, goLiveAt, freezeUntil, isFrozen }) => {
     const existing = db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
@@ -3074,12 +3107,11 @@ module.exports = {
     job.assets = db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(id);
     return job;
   },
-  addCareerJobAsset: ({ jobId, label, fileName, filePath, fileSize, mimeType }) => {
-    const stmt = db.prepare(`
+  addCareerJobAsset: async ({ jobId, label, fileName, filePath, fileSize, mimeType }) => {
+    await db.prepare(`
       INSERT INTO career_job_assets (job_id, label, file_name, file_path, file_size, mime_type)
       VALUES (?,?,?,?,?,?)
-    `);
-    const info = stmt.run(jobId, label || null, fileName, filePath, fileSize || null, mimeType || null);
+    `).run(jobId, label || null, fileName, filePath, fileSize || null, mimeType || null);
     return info.lastInsertRowid;
   },
   removeCareerJobAsset: ({ assetId, jobId }) => {
@@ -3609,9 +3641,9 @@ module.exports = {
   },
 
   // User blocks
-  blockUser: ({ blockerId, blockedId, reason }) => {
+  blockUser: async ({ blockerId, blockedId, reason }) => {
     // Check if blocker's block functionality is locked
-    const modRow = db.prepare(`SELECT block_functionality_locked FROM user_moderation WHERE user_id = ?`).get(blockerId);
+    const modRow = await db.prepare(`SELECT block_functionality_locked FROM user_moderation WHERE user_id = ?`).get(blockerId);
     if (modRow && modRow.block_functionality_locked === 1) {
       throw new Error('Block functionality is locked for this user');
     }
@@ -3619,36 +3651,33 @@ module.exports = {
     let result;
     if (isProduction) {
       // PostgreSQL: INSERT with ON CONFLICT
-      const stmt = db.prepare(`
+      result = await db.prepare(`
         INSERT INTO user_blocks (blocker_id, blocked_id, reason)
         VALUES (?, ?, ?)
         ON CONFLICT (blocker_id, blocked_id) DO NOTHING
-      `);
-      result = stmt.run(blockerId, blockedId, reason || null);
+      `).run(blockerId, blockedId, reason || null);
     } else {
-      const stmt = db.prepare(`INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id, reason) VALUES (?,?,?)`);
-      result = stmt.run(blockerId, blockedId, reason || null);
+      result = await db.prepare(`INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id, reason) VALUES (?,?,?)`).run(blockerId, blockedId, reason || null);
     }
     // Log the action
-    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+    await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       blockerId,
       'block_user',
       JSON.stringify({ blockedId, reason })
     );
     return result.changes > 0;
   },
-  unblockUser: ({ blockerId, blockedId }) => {
-    const stmt = db.prepare(`DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?`);
-    const result = stmt.run(blockerId, blockedId);
-    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+  unblockUser: async ({ blockerId, blockedId }) => {
+    const result = await db.prepare(`DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?`).run(blockerId, blockedId);
+    await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       blockerId,
       'unblock_user',
       JSON.stringify({ blockedId })
     );
     return result.changes > 0;
   },
-  isUserBlocked: ({ userId, targetId }) => {
-    const row = db.prepare(`SELECT 1 FROM user_blocks WHERE blocker_id = ? AND blocked_id = ? LIMIT 1`).get(userId, targetId);
+  isUserBlocked: async ({ userId, targetId }) => {
+    const row = await db.prepare(`SELECT 1 FROM user_blocks WHERE blocker_id = ? AND blocked_id = ? LIMIT 1`).get(userId, targetId);
     return !!row;
   },
   getBlockedUsers: (userId) => {
@@ -3662,10 +3691,9 @@ module.exports = {
   },
 
   // User reports
-  reportUser: ({ reporterId, reportedId, reason, description }) => {
-    const stmt = db.prepare(`INSERT INTO user_reports (reporter_id, reported_id, reason, description) VALUES (?,?,?,?)`);
-    const result = stmt.run(reporterId, reportedId, reason, description || null);
-    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+  reportUser: async ({ reporterId, reportedId, reason, description }) => {
+    const result = await db.prepare(`INSERT INTO user_reports (reporter_id, reported_id, reason, description) VALUES (?,?,?,?)`).run(reporterId, reportedId, reason, description || null);
+    await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       reporterId,
       'report_user',
       JSON.stringify({ reportedId, reason })

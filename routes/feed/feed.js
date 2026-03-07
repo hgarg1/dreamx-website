@@ -309,7 +309,7 @@ function initFeedRoutes({ postUpload, io }) {
             recentActivity = [];
         }
 
-        const authUser = getUserById(req.session.userId);
+        const authUser = await getUserById(req.session.userId);
 
         // Get top passions
         let topPassions = [];
@@ -358,9 +358,9 @@ function initFeedRoutes({ postUpload, io }) {
     });
 
     // Unified search page
-    router.get('/search', (req, res) => {
+    router.get('/search', async (req, res) => {
         const q = (req.query.q || '').trim();
-        const authUser = req.session.userId ? getUserById(req.session.userId) : null;
+        const authUser = req.session.userId ? await getUserById(req.session.userId) : null;
         let users = [];
         try {
             if (q) {
@@ -565,7 +565,7 @@ function initFeedRoutes({ postUpload, io }) {
     });
 
     // API: Get following users with reel counts
-    router.get('/api/users/following/reels', (req, res) => {
+    router.get('/api/users/following/reels', async (req, res) => {
         if (!req.session.userId) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
@@ -691,7 +691,7 @@ function initFeedRoutes({ postUpload, io }) {
             const { createNotification } = require('../../db');
 
             if (post && post.user_id !== req.session.userId && result.status !== 'cleared') {
-                const reactor = getUserById(req.session.userId);
+                const reactor = await getUserById(req.session.userId);
                 createNotification({
                     userId: post.user_id,
                     type: 'reaction',
@@ -710,7 +710,7 @@ function initFeedRoutes({ postUpload, io }) {
                     });
                 }
 
-                const author = getUserById(post.user_id);
+                const author = await getUserById(post.user_id);
                 if (author && author.email_notifications === 1) {
                     const baseUrl = getRequestBaseUrl(req);
                     await emailService.sendPostReactionEmail(author, reactor, 'like', postId, baseUrl, req);
@@ -744,7 +744,7 @@ function initFeedRoutes({ postUpload, io }) {
             // Get the original post for notification
             const originalPost = await db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
             if (originalPost && originalPost.user_id !== req.session.userId) {
-                const reposter = getUserById(req.session.userId);
+                const reposter = await getUserById(req.session.userId);
                 const { createNotification } = require('../../db');
                 createNotification({
                     userId: originalPost.user_id,
@@ -829,7 +829,7 @@ function initFeedRoutes({ postUpload, io }) {
             `).get(commentId);
 
             const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
-            const commenter = getUserById(req.session.userId);
+            const commenter = await getUserById(req.session.userId);
             const { createNotification } = require('../../db');
 
             if (post && post.user_id !== req.session.userId && !parentId) {
@@ -851,7 +851,7 @@ function initFeedRoutes({ postUpload, io }) {
                     });
                 }
 
-                const author = getUserById(post.user_id);
+                const author = await getUserById(post.user_id);
                 if (author && author.email_notifications === 1) {
                     const baseUrl = getRequestBaseUrl(req);
                     await emailService.sendPostCommentEmail(author, commenter, content, postId, baseUrl, req);
@@ -877,7 +877,7 @@ function initFeedRoutes({ postUpload, io }) {
                     });
                 }
 
-                const parentAuthor = getUserById(parentAuthorId);
+                const parentAuthor = await getUserById(parentAuthorId);
                 if (parentAuthor && parentAuthor.email_notifications === 1) {
                     const baseUrl = getRequestBaseUrl(req);
                     await emailService.sendCommentReplyEmail(parentAuthor, commenter, content, postId, baseUrl, req);
