@@ -60,7 +60,7 @@ function initMessagesRoutes({ chatUpload, io }) {
             profile_picture: userRow.profile_picture || null
         };
 
-        const conversations = getUserConversations(req.session.userId) || [];
+        const conversations = await getUserConversations(req.session.userId) || [];
         let currentConversation = null;
         let messages = [];
         let participants = [];
@@ -117,9 +117,9 @@ function initMessagesRoutes({ chatUpload, io }) {
         }
         
         if (currentConversation) {
-            messages = getConversationMessages(currentConversation.id);
+            messages = await getConversationMessages(currentConversation.id);
             if (currentConversation.is_group) {
-                participants = getConversationParticipants(currentConversation.id);
+                participants = await getConversationParticipants(currentConversation.id);
             }
             if (!currentConversation.is_group) {
                 const otherParticipantId = currentConversation.other_user_id || (currentConversation.user1_id === req.session.userId ? currentConversation.user2_id : currentConversation.user1_id);
@@ -287,12 +287,12 @@ function initMessagesRoutes({ chatUpload, io }) {
     });
 
     // Get conversation messages API (for switching conversations)
-    router.get('/api/messages/:conversationId', (req, res) => {
+    router.get('/api/messages/:conversationId', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
         const { conversationId } = req.params;
-        const messages = getConversationMessages(conversationId);
-        markMessagesAsRead({ conversationId, userId: req.session.userId });
+        const messages = await getConversationMessages(conversationId);
+        await markMessagesAsRead({ conversationId, userId: req.session.userId });
 
         res.json({ messages, userId: req.session.userId });
     });
@@ -316,7 +316,7 @@ function initMessagesRoutes({ chatUpload, io }) {
         const q = (req.query.q || '').trim();
         if (!q) return res.json({ results: [] });
         try {
-            const results = searchUsers({ query: q, limit: 10, excludeUserId: req.session.userId });
+            const results = await searchUsers({ query: q, limit: 10, excludeUserId: req.session.userId });
             res.json({ results });
         } catch (e) {
             console.error('User search error:', e);
@@ -381,7 +381,7 @@ function initMessagesRoutes({ chatUpload, io }) {
                 replyToMessageId
             });
             createdMessageIds.push(messageId);
-            const payload = getMessageWithContext(messageId) || {
+            const payload = await getMessageWithContext(messageId) || {
                 id: messageId,
                 conversation_id: conversationId,
                 sender_id: req.session.userId,
@@ -410,7 +410,7 @@ function initMessagesRoutes({ chatUpload, io }) {
                 replyToMessageId: replyToMessageId && !content ? replyToMessageId : null
             });
             createdMessageIds.push(messageId);
-            const payload = getMessageWithContext(messageId) || {
+            const payload = await getMessageWithContext(messageId) || {
                 id: messageId,
                 conversation_id: conversationId,
                 sender_id: req.session.userId,

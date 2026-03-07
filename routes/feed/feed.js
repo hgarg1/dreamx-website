@@ -114,13 +114,17 @@ function initFeedRoutes({ postUpload, io }) {
         // Active reels from followed users
         let activeReels = [];
         try {
-            const followed = getFollowing(req.session.userId, 500);
-            activeReels = followed.map(u => ({
-                user_id: u.id,
-                full_name: u.full_name,
-                profile_picture: u.profile_picture,
-                reelCount: require('../../db').getActiveReelCount(u.id)
-            })).filter(r => r.reelCount > 0).sort((a, b) => b.reelCount - a.reelCount);
+            const followed = await getFollowing(req.session.userId, 500);
+            const activeReelsPromises = followed.map(async u => {
+                const reelCount = await require('../../db').getActiveReelCount(u.id);
+                return {
+                    user_id: u.id,
+                    full_name: u.full_name,
+                    profile_picture: u.profile_picture,
+                    reelCount
+                };
+            });
+            activeReels = (await Promise.all(activeReelsPromises)).filter(r => r.reelCount > 0).sort((a, b) => b.reelCount - a.reelCount);
         } catch (e) { activeReels = []; }
 
         // Get suggested users
@@ -360,7 +364,7 @@ function initFeedRoutes({ postUpload, io }) {
         let users = [];
         try {
             if (q) {
-                users = searchUsers({ query: q, limit: 20, excludeUserId: req.session.userId });
+                users = await searchUsers({ query: q, limit: 20, excludeUserId: req.session.userId });
             }
         } catch (e) {
             console.error('Search route error:', e);
@@ -570,7 +574,7 @@ function initFeedRoutes({ postUpload, io }) {
             const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '12', 10), 1), 200);
             let rawFollowing;
             try {
-                rawFollowing = getFollowing(req.session.userId, 500);
+                rawFollowing = await getFollowing(req.session.userId, 500);
             } catch (err) {
                 console.error('Error getting following list:', err);
                 rawFollowing = null;
@@ -578,9 +582,9 @@ function initFeedRoutes({ postUpload, io }) {
             if (!rawFollowing || !Array.isArray(rawFollowing) || rawFollowing.length === 0) {
                 return res.json({ users: [], page: 1, pageSize, total: 0, totalPages: 0 });
             }
-            const usersWithReels = rawFollowing.map(u => {
+            const usersWithReelsPromises = rawFollowing.map(async u => {
                 try {
-                    const reelCount = require('../../db').getActiveReelCount(u.id) || 0;
+                    const reelCount = await require('../../db').getActiveReelCount(u.id) || 0;
                     return {
                         id: u.id,
                         full_name: u.full_name,
@@ -591,7 +595,8 @@ function initFeedRoutes({ postUpload, io }) {
                     console.error(`Error getting reel count for user ${u.id}:`, err);
                     return null;
                 }
-            }).filter(u => u !== null && u.reelCount > 0);
+            });
+            const usersWithReels = (await Promise.all(usersWithReelsPromises)).filter(u => u !== null && u.reelCount > 0);
             usersWithReels.sort((a, b) => b.reelCount - a.reelCount);
             const startIndex = (page - 1) * pageSize;
             const users = usersWithReels.slice(startIndex, startIndex + pageSize);
@@ -778,14 +783,14 @@ function initFeedRoutes({ postUpload, io }) {
         const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
         const offset = parseInt(req.query.offset || '0', 10);
         try {
-            const baseComments = getPostComments({ postId, limit, offset }) || [];
+            const baseComments = await getPostComments({ postId, limit, offset }) || [];
             const comments = [];
             for (const c of baseComments) {
                 const likedRow = await db.prepare('SELECT 1 FROM comment_likes WHERE comment_id = ? AND user_id = ?').get(c.id, req.session.userId);
                 const liked = !!likedRow;
                 comments.push({ ...c, user_starred: liked });
             }
-            const total = getCommentsCount(postId);
+            const total = await getCommentsCount(postId);
             res.json({ comments, total });
         } catch (e) {
             console.error('list comments error', e);

@@ -186,12 +186,12 @@ function initSettingsRoutes() {
             ? req.session.ssoPasswordBootstrap.provider
             : null;
 
-        const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
-        const paymentMethods = getPaymentMethods(req.session.userId) || [];
-        const invoices = getInvoices(req.session.userId) || [];
+        const subscription = await getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
+        const paymentMethods = await getPaymentMethods(req.session.userId) || [];
+        const invoices = await getInvoices(req.session.userId) || [];
         const { getUserCharges } = require('../../db');
-        const charges = getUserCharges({ userId: req.session.userId, limit: 50, offset: 0 }) || [];
-        const blockedUsers = getBlockedUsers(req.session.userId) || [];
+        const charges = await getUserCharges({ userId: req.session.userId, limit: 50, offset: 0 }) || [];
+        const blockedUsers = await getBlockedUsers(req.session.userId) || [];
 
         res.render('user/settings', {
             title: 'Settings - Dream X',
@@ -220,7 +220,7 @@ function initSettingsRoutes() {
         if (!req.session.userId) return res.redirect('/login');
         const row = await getUserById(req.session.userId);
         if (!row) return res.redirect('/login');
-        const subscription = getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
+        const subscription = await getUserSubscription(req.session.userId) || { tier: 'free', status: 'active' };
         const userTier = (subscription.tier || 'free');
 
         res.render('user/billing', {

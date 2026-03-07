@@ -69,13 +69,13 @@ function initProfileRoutes({ upload, io }) {
                 return p;
             });
 
-            const followerCount = getFollowerCount(req.session.userId);
-            const followingCount = getFollowingCount(req.session.userId);
-            const userServices = getUserServices(req.session.userId);
+            const followerCount = await getFollowerCount(req.session.userId);
+            const followingCount = await getFollowingCount(req.session.userId);
+            const userServices = await getUserServices(req.session.userId);
             const isSeller = userServices && userServices.length > 0;
             
             // Check subscription to determine if user can list services
-            const subscription = getUserSubscription(req.session.userId);
+            const subscription = await getUserSubscription(req.session.userId);
             const tier = subscription ? subscription.tier : 'free';
             const canListServices = tier !== 'free' && tier !== 'pro-buyer';
             const sessionsCount = canListServices ? (userServices ? userServices.length : 0) : '-';
@@ -105,7 +105,7 @@ function initProfileRoutes({ upload, io }) {
                 }
             };
             const projects = getProjectsByOwner(req.session.userId, 100, 0);
-            const services = getUserServices(req.session.userId);
+            const services = await getUserServices(req.session.userId);
             const me = await getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
             
@@ -240,14 +240,14 @@ function initProfileRoutes({ upload, io }) {
                 userReposts = [];
             }
 
-            const followerCount = getFollowerCount(uid);
-            const followingCount = getFollowingCount(uid);
-            const isFollowingUser = isFollowing({ followerId: req.session.userId, followingId: uid });
-            const services = getUserServices(uid);
+            const followerCount = await getFollowerCount(uid);
+            const followingCount = await getFollowingCount(uid);
+            const isFollowingUser = await isFollowing({ followerId: req.session.userId, followingId: uid });
+            const services = await getUserServices(uid);
             const isSeller = services && services.length > 0;
             
             // Check subscription to determine if user can list services
-            const subscription = getUserSubscription(uid);
+            const subscription = await getUserSubscription(uid);
             const tier = subscription ? subscription.tier : 'free';
             const canListServices = tier !== 'free' && tier !== 'pro-buyer';
             const sessionsCount = canListServices ? (services ? services.length : 0) : '-';

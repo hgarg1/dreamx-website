@@ -198,7 +198,7 @@ async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions,
         if (!webpush) return;
         const user = await getUserByIdFn(userId);
         if (!user || user.push_notifications !== 1) return;
-        const subs = getPushSubscriptions(userId) || [];
+        const subs = await getPushSubscriptions(userId) || [];
         const payload = JSON.stringify({ title: title || 'Dream X', body: body || '', url: url || '/', icon: '/img/icon-192x192.png', badge: '/img/badge-72x72.png' });
         for (const s of subs) {
             try {
@@ -221,7 +221,7 @@ async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions,
 function initAdminRoutes({ io, webpush }) {
     // Admin dashboard
     router.get('/admin', requireAdmin, async (req, res) => {
-        const stats = getStats();
+        const stats = await getStats();
         const pageSize = 20;
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
         const q = (req.query.q || '').trim();
@@ -244,7 +244,7 @@ function initAdminRoutes({ io, webpush }) {
         });
 
         const me = req.session.userId ? await getUserById(req.session.userId) : null;
-        const logs = (me && (me.role === 'super_admin' || me.role === 'global_admin')) ? getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
+        const logs = (me && (me.role === 'super_admin' || me.role === 'global_admin')) ? await getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
 
         const qLimit = 20;
         const cPage = Math.max(parseInt(req.query.cPage || '1', 10) || 1, 1);
@@ -261,9 +261,9 @@ function initAdminRoutes({ io, webpush }) {
             const caOffset = (caPage - 1) * qLimit;
             const aaOffset = (aaPage - 1) * qLimit;
             const dbm = require('../../db');
-            careers = dbm.getCareerApplicationsPaged({ limit: qLimit + 1, offset: cOffset, status: cStatus });
-            contentAppeals = dbm.getContentAppealsPaged({ limit: qLimit + 1, offset: caOffset, status: caStatus });
-            accountAppeals = dbm.getAccountAppealsPaged({ limit: qLimit + 1, offset: aaOffset, status: aaStatus });
+            careers = await dbm.getCareerApplicationsPaged({ limit: qLimit + 1, offset: cOffset, status: cStatus });
+            contentAppeals = await dbm.getContentAppealsPaged({ limit: qLimit + 1, offset: caOffset, status: caStatus });
+            accountAppeals = await dbm.getAccountAppealsPaged({ limit: qLimit + 1, offset: aaOffset, status: aaStatus });
             if (careers.length > qLimit) { cHasMore = true; careers = careers.slice(0, qLimit); }
             if (contentAppeals.length > qLimit) { caHasMore = true; contentAppeals = contentAppeals.slice(0, qLimit); }
             if (accountAppeals.length > qLimit) { aaHasMore = true; accountAppeals = accountAppeals.slice(0, qLimit); }
@@ -276,11 +276,11 @@ function initAdminRoutes({ io, webpush }) {
         let rHasMore = false;
         try {
             const dbm = require('../../db');
-            refundRequests = dbm.getAllRefundRequests({
+            refundRequests = (await dbm.getAllRefundRequests({
                 limit: qLimit + 1,
                 offset: rOffset,
                 status: rStatus
-            }) || [];
+            })) || [];
             if (refundRequests.length > qLimit) {
                 rHasMore = true;
                 refundRequests = refundRequests.slice(0, qLimit);
@@ -293,8 +293,8 @@ function initAdminRoutes({ io, webpush }) {
         let salesInquiryStats = { total: 0, new: 0, urgent: 0 };
         let recentSalesInquiries = [];
         try {
-            salesInquiryStats = getSalesInquiryStats();
-            recentSalesInquiries = getSalesInquiriesPaged({ limit: 5, offset: 0, status: 'new' });
+            salesInquiryStats = await getSalesInquiryStats();
+            recentSalesInquiries = await getSalesInquiriesPaged({ limit: 5, offset: 0, status: 'new' });
         } catch (e) {
             console.warn('Sales inquiries fetch error:', e.message);
         }
@@ -612,8 +612,8 @@ function initAdminRoutes({ io, webpush }) {
 
         const postsCount = (await db.prepare('SELECT COUNT(*) as count FROM posts WHERE user_id = ?').get(userId))?.count || 0;
         const commentsCount = (await db.prepare('SELECT COUNT(*) as count FROM post_comments WHERE user_id = ?').get(userId))?.count || 0;
-        const followersCount = getFollowerCount(userId);
-        const followingCount = getFollowingCount(userId);
+        const followersCount = await getFollowerCount(userId);
+        const followingCount = await getFollowingCount(userId);
         const conversationsCount = (await db.prepare('SELECT COUNT(DISTINCT conversation_id) as count FROM conversation_participants WHERE user_id = ?').get(userId))?.count || 0;
         const messagesCount = (await db.prepare('SELECT COUNT(*) as count FROM messages WHERE sender_id = ?').get(userId))?.count || 0;
 
@@ -628,7 +628,7 @@ function initAdminRoutes({ io, webpush }) {
         `).all(userId) || [];
 
         const accountAge = Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24));
-        const accountStatus = checkAccountStatus(userId);
+        const accountStatus = await checkAccountStatus(userId);
 
         res.render('admin/admin-user-stats', {
             title: `${user.full_name} - User Statistics - Dream X`,
@@ -673,8 +673,8 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // CSV export for career applications
-    router.get('/admin/export/careers.csv', requireHR, (req, res) => {
-        const careers = getCareerApplicationsPaged({ limit: 10000, offset: 0 });
+    router.get('/admin/export/careers.csv', requireHR, async (req, res) => {
+        const careers = await getCareerApplicationsPaged({ limit: 10000, offset: 0 });
         let csv = 'ID,Name,Email,Phone,Position,Status,Applied Date,Cover Letter\n';
         careers.forEach(c => {
             const coverLetter = (c.cover_letter || '').replace(/"/g, '""').replace(/\n/g, ' ');
@@ -699,7 +699,7 @@ function initAdminRoutes({ io, webpush }) {
             return res.redirect('/admin?error=Invalid+status');
         }
 
-        const application = db.getCareerApplicationById(id);
+        const application = await db.getCareerApplicationById(id);
         require('../../db').updateCareerApplicationStatus({ id, status, reviewerId: req.session.userId });
         try { addAuditLog({ userId: req.session.userId, action: 'career_status_update', details: JSON.stringify({ id, status }) }); } catch (e) { }
 

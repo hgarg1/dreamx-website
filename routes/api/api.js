@@ -14,13 +14,13 @@ const router = express.Router();
 // Initialize router with dependencies
 function initApiRoutes({ io, careerUpload }) {
     // Get user notifications
-    router.get('/api/notifications', (req, res) => {
+    router.get('/api/notifications', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
             const limit = parseInt(req.query.limit || 50, 10);
             const offset = parseInt(req.query.offset || 0, 10);
-            const notifications = getUserNotifications(req.session.userId, limit, offset);
-            const unreadCount = getUnreadNotificationCount(req.session.userId);
+            const notifications = await getUserNotifications(req.session.userId, limit, offset);
+            const unreadCount = await getUnreadNotificationCount(req.session.userId);
             res.json({ success: true, notifications, unreadCount });
         } catch (error) {
             console.error('Error fetching notifications:', error);

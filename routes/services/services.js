@@ -96,7 +96,7 @@ function initServicesRoutes({ io }) {
     });
 
     // Service details page
-    router.get('/services/:id', (req, res) => {
+    router.get('/services/:id', async (req, res) => {
         const { id } = req.params;
         const service = getService(id);
 
@@ -144,7 +144,7 @@ function initServicesRoutes({ io }) {
         let canReview = false;
         if (authUserId && !isOwner) {
             try {
-                canReview = isVerifiedPurchaser({ serviceId: Number(id), userId: authUserId });
+                canReview = await isVerifiedPurchaser({ serviceId: Number(id), userId: authUserId });
             } catch (e) { canReview = false; }
         }
 
@@ -280,7 +280,7 @@ function initServicesRoutes({ io }) {
                 'enterprise': 999
             };
 
-            const currentCount = getServiceCount(userId);
+            const currentCount = await getServiceCount(userId);
             const maxServices = serviceLimits[tier] || 0;
 
             res.json({
@@ -323,7 +323,7 @@ function initServicesRoutes({ io }) {
                 'enterprise': 999
             };
 
-            const currentCount = getServiceCount(userId);
+            const currentCount = await getServiceCount(userId);
             const maxServices = serviceLimits[tier] || 0;
 
             if (currentCount >= maxServices) {
@@ -364,7 +364,7 @@ function initServicesRoutes({ io }) {
     });
 
     // API: Service reviews
-    router.get('/api/services/:id/reviews', (req, res) => {
+    router.get('/api/services/:id/reviews', async (req, res) => {
         const serviceId = parseInt(req.params.id, 10);
         const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
         const offset = parseInt(req.query.offset || '0', 10);
@@ -372,8 +372,8 @@ function initServicesRoutes({ io }) {
             const authUserId = req.session.userId || null;
             const authUser = authUserId ? getUserById(authUserId) : null;
             const isAdminUser = authUser && ['admin', 'super_admin', 'global_admin'].includes(authUser.role);
-            const reviews = getServiceReviews({ serviceId, limit, offset, isAdmin: isAdminUser });
-            const summary = getServiceRatingsSummary(serviceId);
+            const reviews = await getServiceReviews({ serviceId, limit, offset, isAdmin: isAdminUser });
+            const summary = await getServiceRatingsSummary(serviceId);
             res.json({ success: true, reviews, summary });
         } catch (e) {
             console.error('list service reviews error', e);
@@ -388,10 +388,10 @@ function initServicesRoutes({ io }) {
         const r = parseInt(rating, 10);
         if (!(r >= 1 && r <= 5)) return res.status(400).json({ success: false, error: 'Invalid rating' });
         try {
-            const service = getService(serviceId);
+            const service = await getService(serviceId);
             if (!service) return res.status(404).json({ success: false, error: 'Service not found' });
             if (Number(service.user_id) === Number(userId)) return res.status(403).json({ success: false, error: 'Owners cannot review their own service' });
-            const verified = isVerifiedPurchaser({ serviceId, userId });
+            const verified = await isVerifiedPurchaser({ serviceId, userId });
             if (!verified) return res.status(403).json({ success: false, error: 'Only verified purchasers can review' });
 
             const reviewId = addOrUpdateServiceReview({ serviceId, userId, rating: r, comment: (comment || '').trim() });
@@ -421,7 +421,7 @@ function initServicesRoutes({ io }) {
                 }
             } catch (e) { /* noop */ }
 
-            const summary = getServiceRatingsSummary(serviceId);
+            const summary = await getServiceRatingsSummary(serviceId);
             res.json({ success: true, reviewId, summary });
         } catch (e) {
             console.error('add service review error', e);

@@ -96,8 +96,8 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
     // HR review portal
     router.get('/hr', requireHR, async (req, res) => {
         const me = await getUserById(req.session.userId);
-        const careers = getCareerApplicationsPaged({ limit: 100, offset: 0 });
-        const jobPostings = getCareerJobsForAdmin();
+        const careers = await getCareerApplicationsPaged({ limit: 100, offset: 0 });
+        const jobPostings = await getCareerJobsForAdmin();
         const hrTeam = ((await getHrTeam()) || []).map(member => {
             const hrMeta = parseHrMeta(member);
             return { ...member, admin_scopes: hrMeta.scopes, hr_permissions: hrMeta.hrPermissions, scope_locked: hrMeta.locked };
@@ -296,8 +296,8 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
     });
 
     // HR job management APIs
-    router.get('/api/hr/career-jobs', requireHR, (req, res) => {
-        const jobs = getCareerJobsForAdmin();
+    router.get('/api/hr/career-jobs', requireHR, async (req, res) => {
+        const jobs = await getCareerJobsForAdmin();
         res.json({ success: true, jobs });
     });
 
@@ -346,7 +346,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
                     });
                 });
             }
-            const job = getCareerJobById(jobId);
+            const job = await getCareerJobById(jobId);
             try { addAuditLog({ userId: req.session.userId, action: 'career_job_created', details: JSON.stringify({ jobId, title }) }); } catch (_) { }
             res.json({ success: true, job });
         } catch (error) {
@@ -355,10 +355,10 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
         }
     });
 
-    router.patch('/api/hr/career-jobs/:id', requireHR, careerAssetUpload.array('assetFiles', 6), (req, res) => {
+    router.patch('/api/hr/career-jobs/:id', requireHR, careerAssetUpload.array('assetFiles', 6), async (req, res) => {
         try {
             const id = parseInt(req.params.id, 10);
-            const existing = getCareerJobById(id);
+            const existing = await getCareerJobById(id);
             if (!existing) return res.status(404).json({ success: false, error: 'Job not found' });
             const { title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, goLiveAt, freezeUntil, status, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority } = req.body;
             const goLiveIso = goLiveAt !== undefined && goLiveAt !== null && goLiveAt !== '' && !isNaN(new Date(goLiveAt)) ? new Date(goLiveAt).toISOString() : existing.go_live_at;
@@ -401,7 +401,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
                     });
                 });
             }
-            const job = getCareerJobById(id) || updated;
+            const job = await getCareerJobById(id) || updated;
             try { addAuditLog({ userId: req.session.userId, action: 'career_job_updated', details: JSON.stringify({ jobId: id, status: computedStatus }) }); } catch (_) { }
             res.json({ success: true, job });
         } catch (error) {
@@ -417,7 +417,7 @@ function initHrRoutes({ emailService, careerAssetUpload }) {
             if (!['draft', 'scheduled', 'live', 'frozen', 'closed'].includes(status)) {
                 return res.status(400).json({ success: false, error: 'Invalid status' });
             }
-            const existing = getCareerJobById(id);
+            const existing = await getCareerJobById(id);
             if (!existing) return res.status(404).json({ success: false, error: 'Job not found' });
             const freezeUntilIso = freezeUntil && !isNaN(new Date(freezeUntil)) ? new Date(freezeUntil).toISOString() : null;
             const job = setCareerJobStatus({ id, status, freezeUntil: freezeUntilIso });
