@@ -1223,6 +1223,9 @@ main {
     color: white;
     padding: var(--spacing-lg) var(--spacing-md);
     text-align: center;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
 }
 
 .page-header h1 {
@@ -1708,6 +1711,9 @@ main {
     text-align: center;
     position: relative;
     overflow: hidden;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
 }
 
 .features-hero::before {
@@ -6106,6 +6112,9 @@ main {
     text-align: center;
     position: relative;
     overflow: hidden;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
 }
 
 .pricing-hero-inner {
