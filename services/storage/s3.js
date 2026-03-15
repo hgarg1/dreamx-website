@@ -32,17 +32,6 @@ const s3Service = {
      */
     uploadFile: async (key, fileBuffer, contentType) => {
         // TODO: Implement S3 upload logic
-        // const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-        // const client = new S3Client({ region: process.env.AWS_REGION });
-        // const command = new PutObjectCommand({
-        //     Bucket: process.env.AWS_S3_BUCKET_NAME,
-        //     Key: key,
-        //     Body: fileBuffer,
-        //     ContentType: contentType
-        // });
-        // const response = await client.send(command);
-        // return { success: true, url: `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${key}` };
-        
         return { success: false, error: 'S3 service not yet implemented' };
     },
 
@@ -88,8 +77,22 @@ const s3Service = {
      * @returns {Promise<{success: boolean, url?: string, error?: string}>}
      */
     getSignedUrl: async (key, expiresIn = 3600) => {
-        // TODO: Implement signed URL generation
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            if (!config.aws.enabled || !s3Client) {
+                return { success: false, error: 'AWS S3 is not configured' };
+            }
+
+            const command = new GetObjectCommand({
+                Bucket: config.aws.bucketName,
+                Key: key
+            });
+
+            const url = await getSignedUrl(s3Client, command, { expiresIn });
+            return { success: true, url };
+        } catch (error) {
+            console.error('S3 Signed URL Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
