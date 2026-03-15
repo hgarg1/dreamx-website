@@ -3,7 +3,10 @@ require('dotenv').config();
 const { BlobServiceClient, generateBlobSASQueryParameters, BlobSASPermissions, StorageSharedKeyCredential } = require('@azure/storage-blob');
 const { DefaultAzureCredential } = require('@azure/identity');
 
-const isProduction = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'Production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql';
+// Only use Azure Blob Storage when actually running on Azure App Service
+// Check for Azure App Service environment variables (WEBSITE_SITE_NAME is set by Azure)
+const isAzureAppService = !!process.env.WEBSITE_SITE_NAME;
+const isProduction = (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'Production') && isAzureAppService;
 const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME || process.env.AZURE_STORAGE_ACCOUNT;
 // Account key is only needed for SAS token generation, not for main operations
 const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY || process.env.AZURE_STORAGE_ACCESS_KEY;
@@ -59,15 +62,30 @@ async function ensureContainer() {
       }
     }
   } catch (error) {
-    console.error('Error ensuring container exists:', error);
-    throw error;
+    // Don't throw - just log a warning. This allows the app to continue running
+    // even if Azure Storage isn't configured (e.g., in local development)
+    if (error.message && error.message.includes('ChainedTokenCredential')) {
+      console.warn('⚠️  Azure Blob Storage: Authentication not available. This is normal in local development.');
+      console.warn('   Azure Storage will be skipped. Files will use local storage instead.');
+    } else {
+      console.warn('⚠️  Azure Blob Storage container initialization warning:', error.message || error);
+    }
+    // Don't throw - allow app to continue
   }
 }
 
-// Initialize on module load (production only)
-if (isProduction && accountName) {
-  initializeBlobClient();
-  ensureContainer().catch(err => console.warn('Container initialization warning:', err.message));
+// Initialize on module load (only when actually on Azure App Service)
+// Skip initialization in local development to avoid authentication errors
+if (isProduction && accountName && isAzureAppService) {
+  try {
+    initializeBlobClient();
+    ensureContainer().catch(err => {
+      // Silently handle - already logged in ensureContainer
+    });
+  } catch (error) {
+    // Silently fail - Azure Storage not available in local dev
+    console.warn('⚠️  Azure Blob Storage initialization skipped (not on Azure App Service)');
+  }
 }
 
 const azureBlobService = {

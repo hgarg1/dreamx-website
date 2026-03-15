@@ -596,6 +596,11 @@ router.get('/login', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+    
+    // The CSRF middleware has already set req.session.csrfToken
+    // express-session will automatically save the session and set the cookie
+    // when the response is sent - no need to manually save here
+    
     if (req.session && req.session.userId) {
         const user = await getUserById(req.session.userId);
         if (user) return res.redirect(resolvePostAuthRedirect(user));
@@ -611,10 +616,14 @@ router.get('/login', async (req, res) => {
     const xLoginHref = useEasyAuth
         ? '/.auth/login/twitter?post_login_redirect_url=%2Ffeed'
         : '/auth/x';
+    
+    // Handle error from query parameter (e.g., from CSRF redirect)
+    const error = req.query.error || null;
+    
     res.render('auth/login', {
         title: 'Login - Dream X',
         currentPage: 'auth/login',
-        error: null,
+        error: error,
         providers: { googleEnabled, microsoftEnabled, appleEnabled, twitterEnabled },
         xLoginHref
     });

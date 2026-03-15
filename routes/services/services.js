@@ -39,7 +39,7 @@ const isGlobalAdmin = (user) => user && user.role === 'global_admin';
 // Initialize router with dependencies
 function initServicesRoutes({ io }) {
     // Services marketplace page
-    router.get('/services', (req, res) => {
+    router.get('/services', async (req, res) => {
         const categories = [
             'Tutoring',
             'Mentorship',
@@ -65,7 +65,7 @@ function initServicesRoutes({ io }) {
         ];
         const { category, priceRange, experience, format } = req.query;
 
-        const services = getAllServices({
+        const services = await getAllServices({
             category,
             priceRange,
             experienceLevel: experience,
@@ -74,7 +74,7 @@ function initServicesRoutes({ io }) {
         });
 
         const authUserId = req.session.userId || null;
-        const authUser = authUserId ? getUserById(authUserId) : null;
+        const authUser = authUserId ? await getUserById(authUserId) : null;
 
         res.render('services/services', {
             title: 'Services Marketplace - Dream X',
@@ -86,8 +86,8 @@ function initServicesRoutes({ io }) {
     });
 
     // Create service page
-    router.get('/services/new', ensureAuthenticated, (req, res) => {
-        const authUser = getUserById(req.session.userId);
+    router.get('/services/new', ensureAuthenticated, async (req, res) => {
+        const authUser = await getUserById(req.session.userId);
         res.render('services/create-service', {
             title: 'Create Service - Dream X',
             currentPage: 'services',
@@ -96,9 +96,9 @@ function initServicesRoutes({ io }) {
     });
 
     // Service details page
-    router.get('/services/:id', (req, res) => {
+    router.get('/services/:id', async (req, res) => {
         const { id } = req.params;
-        const service = getService(id);
+        const service = await getService(id);
 
         if (!service) {
             return res.status(404).render('404', { title: 'Service Not Found' });
@@ -128,9 +128,10 @@ function initServicesRoutes({ io }) {
         let reviews = [];
         try {
             const authUserId = req.session.userId || null;
-            const authUser = authUserId ? getUserById(authUserId) : null;
+            const authUser = authUserId ? await getUserById(authUserId) : null;
             const isAdminUser = authUser && ['admin', 'super_admin', 'global_admin'].includes(authUser.role);
-            reviews = db.getServiceReviews({ serviceId: id, limit: 20, offset: 0, isAdmin: isAdminUser }).map(r => ({
+            const reviewsRaw = await getServiceReviews({ serviceId: id, limit: 20, offset: 0, isAdmin: isAdminUser });
+            reviews = reviewsRaw.map(r => ({
                 id: r.id,
                 user: r.full_name,
                 rating: r.rating,
@@ -144,7 +145,7 @@ function initServicesRoutes({ io }) {
         let canReview = false;
         if (authUserId && !isOwner) {
             try {
-                canReview = isVerifiedPurchaser({ serviceId: Number(id), userId: authUserId });
+                canReview = await isVerifiedPurchaser({ serviceId: Number(id), userId: authUserId });
             } catch (e) { canReview = false; }
         }
 
@@ -155,27 +156,28 @@ function initServicesRoutes({ io }) {
             reviews,
             canReview,
             isOwner,
-            authUser: authUserId ? getUserById(authUserId) : null
+            authUser: authUserId ? await getUserById(authUserId) : null
         });
     });
 
     // Edit service (owner)
-    router.get('/services/:id/edit', ensureAuthenticated, (req, res) => {
+    router.get('/services/:id/edit', ensureAuthenticated, async (req, res) => {
         const { id } = req.params;
-        const service = getService(id);
+        const service = await getService(id);
         if (!service) return res.status(404).render('404', { title: 'Service Not Found' });
-        if (Number(service.user_id) !== Number(req.session.userId) && !isAdmin(getUserById(req.session.userId))) {
+        const authUserCheck = await getUserById(req.session.userId);
+        if (Number(service.user_id) !== Number(req.session.userId) && !isAdmin(authUserCheck)) {
             return res.redirect(`/services/${id}`);
         }
-        const authUser = getUserById(req.session.userId);
+        const authUser = authUserCheck;
         res.render('services/edit-service', { title: `Edit Service - ${service.title}`, currentPage: 'services', service, authUser });
     });
 
-    router.post('/services/:id/edit', ensureAuthenticated, (req, res) => {
+    router.post('/services/:id/edit', ensureAuthenticated, async (req, res) => {
         const { id } = req.params;
-        const service = getService(id);
+        const service = await getService(id);
         if (!service) return res.redirect('/services');
-        const me = getUserById(req.session.userId);
+        const me = await getUserById(req.session.userId);
         const isOwner = Number(service.user_id) === Number(req.session.userId);
         const canAdminEdit = isSuperAdmin(me) || isGlobalAdmin(me);
         const allowed = ['title', 'description', 'category', 'pricePerHour', 'durationMinutes', 'experienceLevel', 'format', 'availability', 'location', 'tags'];
@@ -220,17 +222,17 @@ function initServicesRoutes({ io }) {
     });
 
     // Book a service
-    router.post('/services/:id/book', ensureAuthenticated, (req, res) => {
+    router.post('/services/:id/book', ensureAuthenticated, async (req, res) => {
         const serviceId = parseInt(req.params.id, 10);
         const userId = req.session.userId;
         try {
-            const s = getService(serviceId);
+            const s = await getService(serviceId);
             if (!s) return res.status(404).json({ success: false, error: 'Service not found' });
             if (Number(s.user_id) === Number(userId)) return res.status(400).json({ success: false, error: 'Cannot book your own service' });
 
-            const methods = getPaymentMethods(userId) || [];
+            const methods = await getPaymentMethods(userId) || [];
             const hasCard = methods.length > 0;
-            const user = getUserById(userId);
+            const user = await getUserById(userId);
             const hasBank = !!(user && user.bank_account_number && user.bank_routing_number);
             if (!hasCard && !hasBank) {
                 return res.status(402).json({
@@ -256,10 +258,10 @@ function initServicesRoutes({ io }) {
     });
 
     // API: Check service creation eligibility
-    router.get('/api/services/check-eligibility', ensureAuthenticated, (req, res) => {
+    router.get('/api/services/check-eligibility', ensureAuthenticated, async (req, res) => {
         try {
             const userId = req.session.userId;
-            const user = getUserById(userId);
+            const user = await getUserById(userId);
             if (user.seller_privileges_frozen === 1) {
                 return res.json({
                     success: false,
@@ -269,7 +271,7 @@ function initServicesRoutes({ io }) {
                 });
             }
 
-            const subscription = getUserSubscription(userId);
+            const subscription = await getUserSubscription(userId);
             const tier = subscription ? subscription.tier : 'free';
 
             const serviceLimits = {
@@ -280,7 +282,7 @@ function initServicesRoutes({ io }) {
                 'enterprise': 999
             };
 
-            const currentCount = getServiceCount(userId);
+            const currentCount = await getServiceCount(userId);
             const maxServices = serviceLimits[tier] || 0;
 
             res.json({
@@ -303,7 +305,7 @@ function initServicesRoutes({ io }) {
             const userId = req.session.userId;
             const { title, description, category, pricePerHour, durationMinutes, experienceLevel, format, availability, location, tags } = req.body;
 
-            const user = getUserById(userId);
+            const user = await getUserById(userId);
             if (user.seller_privileges_frozen === 1) {
                 return res.json({
                     success: false,
@@ -312,7 +314,7 @@ function initServicesRoutes({ io }) {
                 });
             }
 
-            const subscription = getUserSubscription(userId);
+            const subscription = await getUserSubscription(userId);
             const tier = subscription ? subscription.tier : 'free';
 
             const serviceLimits = {
@@ -323,7 +325,7 @@ function initServicesRoutes({ io }) {
                 'enterprise': 999
             };
 
-            const currentCount = getServiceCount(userId);
+            const currentCount = await getServiceCount(userId);
             const maxServices = serviceLimits[tier] || 0;
 
             if (currentCount >= maxServices) {
@@ -364,7 +366,7 @@ function initServicesRoutes({ io }) {
     });
 
     // API: Service reviews
-    router.get('/api/services/:id/reviews', (req, res) => {
+    router.get('/api/services/:id/reviews', async (req, res) => {
         const serviceId = parseInt(req.params.id, 10);
         const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
         const offset = parseInt(req.query.offset || '0', 10);
@@ -372,8 +374,8 @@ function initServicesRoutes({ io }) {
             const authUserId = req.session.userId || null;
             const authUser = authUserId ? getUserById(authUserId) : null;
             const isAdminUser = authUser && ['admin', 'super_admin', 'global_admin'].includes(authUser.role);
-            const reviews = getServiceReviews({ serviceId, limit, offset, isAdmin: isAdminUser });
-            const summary = getServiceRatingsSummary(serviceId);
+            const reviews = await getServiceReviews({ serviceId, limit, offset, isAdmin: isAdminUser });
+            const summary = await getServiceRatingsSummary(serviceId);
             res.json({ success: true, reviews, summary });
         } catch (e) {
             console.error('list service reviews error', e);
@@ -388,17 +390,17 @@ function initServicesRoutes({ io }) {
         const r = parseInt(rating, 10);
         if (!(r >= 1 && r <= 5)) return res.status(400).json({ success: false, error: 'Invalid rating' });
         try {
-            const service = getService(serviceId);
+            const service = await getService(serviceId);
             if (!service) return res.status(404).json({ success: false, error: 'Service not found' });
             if (Number(service.user_id) === Number(userId)) return res.status(403).json({ success: false, error: 'Owners cannot review their own service' });
-            const verified = isVerifiedPurchaser({ serviceId, userId });
+            const verified = await isVerifiedPurchaser({ serviceId, userId });
             if (!verified) return res.status(403).json({ success: false, error: 'Only verified purchasers can review' });
 
             const reviewId = addOrUpdateServiceReview({ serviceId, userId, rating: r, comment: (comment || '').trim() });
 
             try {
-                const owner = getUserById(service.user_id);
-                const reviewer = getUserById(userId);
+                const owner = await getUserById(service.user_id);
+                const reviewer = await getUserById(userId);
                 createNotification({
                     userId: service.user_id,
                     type: 'service_review',
@@ -421,7 +423,7 @@ function initServicesRoutes({ io }) {
                 }
             } catch (e) { /* noop */ }
 
-            const summary = getServiceRatingsSummary(serviceId);
+            const summary = await getServiceRatingsSummary(serviceId);
             res.json({ success: true, reviewId, summary });
         } catch (e) {
             console.error('add service review error', e);

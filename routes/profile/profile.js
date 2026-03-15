@@ -69,13 +69,13 @@ function initProfileRoutes({ upload, io }) {
                 return p;
             });
 
-            const followerCount = getFollowerCount(req.session.userId);
-            const followingCount = getFollowingCount(req.session.userId);
-            const userServices = getUserServices(req.session.userId);
+            const followerCount = await getFollowerCount(req.session.userId);
+            const followingCount = await getFollowingCount(req.session.userId);
+            const userServices = await getUserServices(req.session.userId);
             const isSeller = userServices && userServices.length > 0;
             
             // Check subscription to determine if user can list services
-            const subscription = getUserSubscription(req.session.userId);
+            const subscription = await getUserSubscription(req.session.userId);
             const tier = subscription ? subscription.tier : 'free';
             const canListServices = tier !== 'free' && tier !== 'pro-buyer';
             const sessionsCount = canListServices ? (userServices ? userServices.length : 0) : '-';
@@ -104,8 +104,8 @@ function initProfileRoutes({ upload, io }) {
                     open_to_mentoring: row.open_to_mentoring || null
                 }
             };
-            const projects = getProjectsByOwner(req.session.userId, 100, 0);
-            const services = getUserServices(req.session.userId);
+            const projects = await getProjectsByOwner(req.session.userId, 100, 0);
+            const services = await getUserServices(req.session.userId);
             const me = await getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
             
@@ -199,7 +199,7 @@ function initProfileRoutes({ upload, io }) {
             });
 
             const viewingOwnProfile = (uid === req.session.userId);
-            const isBlockedByViewer = viewingOwnProfile ? false : isUserBlocked({ userId: req.session.userId, targetId: uid });
+            const isBlockedByViewer = viewingOwnProfile ? false : await isUserBlocked({ userId: req.session.userId, targetId: uid });
 
             // Get user reposts
             let userReposts = [];
@@ -240,14 +240,14 @@ function initProfileRoutes({ upload, io }) {
                 userReposts = [];
             }
 
-            const followerCount = getFollowerCount(uid);
-            const followingCount = getFollowingCount(uid);
-            const isFollowingUser = isFollowing({ followerId: req.session.userId, followingId: uid });
-            const services = getUserServices(uid);
+            const followerCount = await getFollowerCount(uid);
+            const followingCount = await getFollowingCount(uid);
+            const isFollowingUser = await isFollowing({ followerId: req.session.userId, followingId: uid });
+            const services = await getUserServices(uid);
             const isSeller = services && services.length > 0;
             
             // Check subscription to determine if user can list services
-            const subscription = getUserSubscription(uid);
+            const subscription = await getUserSubscription(uid);
             const tier = subscription ? subscription.tier : 'free';
             const canListServices = tier !== 'free' && tier !== 'pro-buyer';
             const sessionsCount = canListServices ? (services ? services.length : 0) : '-';
@@ -276,7 +276,7 @@ function initProfileRoutes({ upload, io }) {
                     open_to_mentoring: row.open_to_mentoring || null
                 }
             };
-            const projects = getProjectsByOwner(uid, 100, 0);
+            const projects = await getProjectsByOwner(uid, 100, 0);
             const me = await getUserById(req.session.userId);
             const isSuperAdmin = me && (me.role === 'super_admin' || me.role === 'global_admin' || me.role === 'admin');
 
@@ -389,7 +389,7 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // Handle edit profile submission
-    router.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }, { name: 'bannerImage', maxCount: 1 }]), (req, res) => {
+    router.post('/profile/edit', upload.fields([{ name: 'profilePicture', maxCount: 1 }, { name: 'bannerImage', maxCount: 1 }]), async (req, res) => {
         if (!req.session.userId) return res.redirect('/login');
         const { displayName, bio, passions, skills, location, customInterests } = req.body;
         const selectedPassions = Array.isArray(passions) ? passions : (passions ? [passions] : []);
@@ -399,7 +399,7 @@ function initProfileRoutes({ upload, io }) {
             .filter(item => item.length > 0);
         const uniquePassions = Array.from(new Set([...selectedPassions, ...customInterestList]));
 
-        updateUserProfile({
+        await updateUserProfile({
             userId: req.session.userId,
             fullName: displayName,
             bio,
@@ -407,7 +407,7 @@ function initProfileRoutes({ upload, io }) {
             skills
         });
 
-        updateOnboarding({
+        await updateOnboarding({
             userId: req.session.userId,
             categories: uniquePassions,
             goals: [],
@@ -416,7 +416,7 @@ function initProfileRoutes({ upload, io }) {
 
         if (req.files && req.files.profilePicture && req.files.profilePicture[0]) {
             const profileFile = req.files.profilePicture[0];
-            updateProfilePicture({
+            await updateProfilePicture({
                 userId: req.session.userId,
                 filename: profileFile.path || `profiles/${profileFile.filename}`
             });
@@ -424,7 +424,7 @@ function initProfileRoutes({ upload, io }) {
 
         if (req.files && req.files.bannerImage && req.files.bannerImage[0]) {
             const bannerFile = req.files.bannerImage[0];
-            updateBannerImage({
+            await updateBannerImage({
                 userId: req.session.userId,
                 filename: bannerFile.path || `profiles/${bannerFile.filename}`
             });
@@ -450,7 +450,7 @@ function initProfileRoutes({ upload, io }) {
             return res.status(400).json({ error: 'Invalid user ID' });
         }
         try {
-            followUser({ followerId: req.session.userId, followingId: targetUserId });
+            await followUser({ followerId: req.session.userId, followingId: targetUserId });
 
             const follower = await getUserById(req.session.userId);
             createNotification({
@@ -479,14 +479,14 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Unfollow a user
-    router.post('/api/users/:id/unfollow', (req, res) => {
+    router.post('/api/users/:id/unfollow', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId || targetUserId === req.session.userId) {
             return res.status(400).json({ error: 'Invalid user ID' });
         }
         try {
-            unfollowUser({ followerId: req.session.userId, followingId: targetUserId });
+            await unfollowUser({ followerId: req.session.userId, followingId: targetUserId });
             res.json({ success: true, following: false });
         } catch (error) {
             console.error('Unfollow error:', error);
@@ -495,7 +495,7 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Block a user
-    router.post('/api/users/:id/block', (req, res) => {
+    router.post('/api/users/:id/block', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId || targetUserId === req.session.userId) {
@@ -503,7 +503,7 @@ function initProfileRoutes({ upload, io }) {
         }
         const { reason } = req.body;
         try {
-            blockUser({ blockerId: req.session.userId, blockedId: targetUserId, reason });
+            await blockUser({ blockerId: req.session.userId, blockedId: targetUserId, reason });
             res.json({ success: true });
         } catch (error) {
             if (error.message.includes('locked')) {
@@ -515,12 +515,12 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Unblock a user
-    router.post('/api/users/:id/unblock', (req, res) => {
+    router.post('/api/users/:id/unblock', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId) return res.status(400).json({ error: 'Invalid user ID' });
         try {
-            unblockUser({ blockerId: req.session.userId, blockedId: targetUserId });
+            await unblockUser({ blockerId: req.session.userId, blockedId: targetUserId });
             res.json({ success: true });
         } catch (error) {
             console.error('Unblock error:', error);
@@ -529,7 +529,7 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Report a user
-    router.post('/api/users/:id/report', (req, res) => {
+    router.post('/api/users/:id/report', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId || targetUserId === req.session.userId) {
@@ -538,7 +538,7 @@ function initProfileRoutes({ upload, io }) {
         const { reason, description } = req.body;
         if (!reason) return res.status(400).json({ error: 'Reason is required' });
         try {
-            reportUser({ reporterId: req.session.userId, reportedId: targetUserId, reason, description });
+            await reportUser({ reporterId: req.session.userId, reportedId: targetUserId, reason, description });
             res.json({ success: true, message: 'Report submitted successfully' });
         } catch (error) {
             console.error('Report error:', error);
@@ -547,10 +547,10 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Get blocked users
-    router.get('/api/users/blocked', (req, res) => {
+    router.get('/api/users/blocked', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         try {
-            const blocked = getBlockedUsers(req.session.userId);
+            const blocked = await getBlockedUsers(req.session.userId);
             res.json({ blocked });
         } catch (error) {
             console.error('Get blocked error:', error);
@@ -559,12 +559,12 @@ function initProfileRoutes({ upload, io }) {
     });
 
     // API: Check if user is blocked
-    router.get('/api/users/:id/is-blocked', (req, res) => {
+    router.get('/api/users/:id/is-blocked', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const targetUserId = parseInt(req.params.id, 10);
         if (!targetUserId) return res.status(400).json({ error: 'Invalid user ID' });
         try {
-            const blocked = isUserBlocked({ userId: req.session.userId, targetId: targetUserId });
+            const blocked = await isUserBlocked({ userId: req.session.userId, targetId: targetUserId });
             res.json({ blocked });
         } catch (error) {
             console.error('Check blocked error:', error);

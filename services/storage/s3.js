@@ -1,19 +1,26 @@
 // AWS S3 Storage Service
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const config = require('../../config/storage');
 
-let s3Client;
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const storageConfig = require('../../config/storage');
 
-if (config.aws.enabled) {
-    s3Client = new S3Client({
-        region: config.aws.region,
-        credentials: {
-            accessKeyId: config.aws.accessKeyId,
-            secretAccessKey: config.aws.secretAccessKey
-        }
-    });
-}
+let s3Client = null;
+
+const getClient = () => {
+    if (!storageConfig.aws.enabled) {
+        throw new Error('AWS S3 is not enabled');
+    }
+
+    if (!s3Client) {
+        s3Client = new S3Client({
+            region: storageConfig.aws.region,
+            credentials: {
+                accessKeyId: storageConfig.aws.accessKeyId,
+                secretAccessKey: storageConfig.aws.secretAccessKey
+            }
+        });
+    }
+    return s3Client;
+};
 
 const s3Service = {
     /**
@@ -44,8 +51,23 @@ const s3Service = {
      * @returns {Promise<{success: boolean, error?: string}>}
      */
     deleteFile: async (key) => {
-        // TODO: Implement S3 delete logic
-        return { success: false, error: 'S3 service not yet implemented' };
+        try {
+            if (!storageConfig.aws.enabled) {
+                return { success: false, error: 'AWS S3 is not enabled' };
+            }
+
+            const client = getClient();
+            const command = new DeleteObjectCommand({
+                Bucket: storageConfig.aws.bucketName,
+                Key: key
+            });
+
+            await client.send(command);
+            return { success: true };
+        } catch (error) {
+            console.error('S3 Delete Error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**

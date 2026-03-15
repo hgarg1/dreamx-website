@@ -532,35 +532,123 @@ function csrfProtection(req, res, next) {
 
     // Skip CSRF for safe methods (GET, HEAD, OPTIONS)
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-        // Generate token for use in forms if session exists
-        if (req.session) {
-            if (!req.session.csrfToken) {
-                req.session.csrfToken = generateCsrfToken();
-                // Save session to ensure token persists
-                req.session.save((err) => {
-                    if (err) {
-                        console.warn('Failed to save CSRF token to session:', err?.message || err);
-                    }
+        // Ensure session exists (Express creates it automatically when accessed)
+        // Just accessing req.session creates it if it doesn't exist
+        
+        // Generate token for use in forms
+        if (!req.session.csrfToken) {
+            const token = generateCsrfToken();
+            req.session.csrfToken = token;
+            // Mark session as modified - express-session will automatically save it
+            // and set the cookie when the response is sent
+            req.session.csrfInitialized = true;
+            
+            // Log for debugging
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('[CSRF] Generated token for session:', {
+                    sessionId: req.sessionID?.substring(0, 8) + '...',
+                    tokenPreview: token.substring(0, 8) + '...',
+                    sessionKeys: Object.keys(req.session || {})
                 });
             }
-            // Make token available to templates and set helper cookie for JS clients
-            setResponseToken(req.session.csrfToken || '');
-        } else {
-            // No session yet - set empty token (session will be created on first write)
-            setResponseToken('');
         }
+        
+        // Make token available to templates and set helper cookie for JS clients
+        setResponseToken(req.session.csrfToken || '');
+        
+        // Verify cookie will be set (express-session does this automatically)
+        // Hook into response to verify cookie is set
+        if (process.env.NODE_ENV !== 'production' && !req.session.csrfTokenVerified) {
+            req.session.csrfTokenVerified = true;
+            const originalEnd = res.end;
+            res.end = function(...args) {
+                const setCookieHeader = res.getHeader('Set-Cookie');
+                if (setCookieHeader) {
+                    const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+                    const sessionCookie = cookies.find(c => c.startsWith('sessionId='));
+                    console.log('[CSRF] Response sent with cookie:', {
+                        hasSetCookie: !!setCookieHeader,
+                        hasSessionCookie: !!sessionCookie,
+                        sessionCookiePreview: sessionCookie ? sessionCookie.substring(0, 60) + '...' : 'none',
+                        sessionId: req.sessionID?.substring(0, 8) + '...'
+                    });
+                } else {
+                    console.warn('[CSRF] WARNING: No Set-Cookie header in response!');
+                }
+                originalEnd.apply(res, args);
+            };
+        }
+        
+        return next();
+        
+        // Make token available to templates and set helper cookie for JS clients
+        setResponseToken(req.session.csrfToken || '');
         return next();
     }
 
     // For state-changing methods, verify CSRF token
+    // Ensure session exists
+    if (!req.session) {
+        req.session = {};
+    }
+    
     const sessionToken = req.session?.csrfToken;
     const requestToken = req.body?._csrf || req.headers['x-csrf-token'] || req.headers['csrf-token'];
+
+    // Debug logging for troubleshooting
+    if (!sessionToken) {
+        // Parse cookies manually to check for session cookie
+        const cookieHeader = req.headers.cookie || '';
+        const sessionCookieMatch = cookieHeader.match(/sessionId=([^;]+)/);
+        
+        console.warn('[CSRF] Missing session token on POST:', {
+            sessionId: req.sessionID?.substring(0, 8) + '...',
+            sessionKeys: Object.keys(req.session || {}),
+            hasSession: !!req.session,
+            cookies: cookieHeader ? 'present' : 'missing',
+            cookieHeader: cookieHeader.substring(0, 150),
+            sessionCookieInHeader: sessionCookieMatch ? 'present (' + sessionCookieMatch[1].substring(0, 8) + '...)' : 'missing',
+            sessionCookieName: 'sessionId'
+        });
+    }
 
     if (!sessionToken || !requestToken) {
         logSecurityEvent('CSRF_TOKEN_MISSING', { 
             method: req.method, 
-            path: req.path 
+            path: req.path,
+            hasSession: !!req.session,
+            hasSessionToken: !!sessionToken,
+            hasRequestToken: !!requestToken,
+            sessionId: req.sessionID?.substring(0, 8) + '...',
+            sessionKeys: Object.keys(req.session || {})
         }, req);
+        
+        // Check if this is an HTML form submission (not an API call)
+        const acceptsHtml = req.accepts('html');
+        const isFormSubmission = req.get('content-type')?.includes('application/x-www-form-urlencoded') || 
+                                 req.get('content-type')?.includes('multipart/form-data');
+        
+        if (acceptsHtml && isFormSubmission) {
+            // For form submissions, redirect back to the login page with an error
+            // This provides a better user experience than a JSON error
+            if (req.path === '/login' || req.path === '/auth/login') {
+                return res.redirect('/login?error=Please refresh the page and try again.');
+            }
+            // For other forms, return a generic error page
+            return res.status(403).send(`
+                <!DOCTYPE html>
+                <html>
+                <head><title>Security Error</title></head>
+                <body>
+                    <h1>Security Error</h1>
+                    <p>Your session may have expired. Please refresh the page and try again.</p>
+                    <p><a href="${req.path}">Go back</a></p>
+                </body>
+                </html>
+            `);
+        }
+        
+        // For API calls, return JSON
         return res.status(403).json({ error: 'CSRF token missing' });
     }
 

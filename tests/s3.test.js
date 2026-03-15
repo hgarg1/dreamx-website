@@ -1,77 +1,80 @@
-const s3Service = require('../services/storage/s3');
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const config = require('../config/storage');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
+// Mock dependencies
 jest.mock('@aws-sdk/client-s3');
-jest.mock('@aws-sdk/s3-request-presigner');
 jest.mock('../config/storage', () => ({
-    aws: {
-        enabled: true,
-        region: 'us-east-1',
-        bucketName: 'test-bucket',
-        accessKeyId: 'test-key',
-        secretAccessKey: 'test-secret'
-    }
+  aws: {
+    enabled: true,
+    accessKeyId: 'test-access-key',
+    secretAccessKey: 'test-secret-key',
+    region: 'us-east-1',
+    bucketName: 'test-bucket'
+  }
 }));
 
-describe('S3 Service', () => {
+// Import service after mocks
+const s3Service = require('../services/storage/s3');
+const storageConfig = require('../config/storage');
+
+describe('S3 Service - deleteFile', () => {
+    let sendMock;
+
     beforeEach(() => {
+        // Reset mocks
         jest.clearAllMocks();
+
+        // Setup S3Client.send mock
+        sendMock = jest.fn();
+        S3Client.prototype.send = sendMock;
+
+        // Reset config to enabled by default
+        storageConfig.aws.enabled = true;
     });
 
-    describe('getSignedUrl', () => {
-        it('should generate a signed URL successfully', async () => {
-            const mockSignedUrl = 'https://s3.amazonaws.com/test-bucket/test-key?signature=xyz';
-            getSignedUrl.mockResolvedValue(mockSignedUrl);
+    it('should successfully delete a file when AWS is enabled', async () => {
+        sendMock.mockResolvedValue({});
 
-            const result = await s3Service.getSignedUrl('test-key');
+        const result = await s3Service.deleteFile('test-file.jpg');
 
-            expect(result.success).toBe(true);
-            expect(result.url).toBe(mockSignedUrl);
-            // S3Client is initialized at module load, and clearAllMocks() in beforeEach wipes the history
-            // expect(S3Client).toHaveBeenCalled();
-            expect(GetObjectCommand).toHaveBeenCalledWith({
-                Bucket: 'test-bucket',
-                Key: 'test-key'
-            });
-            expect(getSignedUrl).toHaveBeenCalled();
+        // Verify Client Initialization
+        expect(S3Client).toHaveBeenCalledWith(expect.objectContaining({
+            region: 'us-east-1',
+            credentials: {
+                accessKeyId: 'test-access-key',
+                secretAccessKey: 'test-secret-key'
+            }
+        }));
+
+        // Verify Command Creation
+        expect(DeleteObjectCommand).toHaveBeenCalledWith({
+            Bucket: 'test-bucket',
+            Key: 'test-file.jpg'
         });
 
-        it('should handle errors when generating signed URL', async () => {
-            getSignedUrl.mockRejectedValue(new Error('AWS Error'));
+        // Verify Command Sent
+        expect(sendMock).toHaveBeenCalledTimes(1);
 
-            // We need to reset the module to test error handling if the client initialization is cached,
-            // but for now let's assume getSignedUrl failure.
+        // Verify Result
+        expect(result).toEqual({ success: true });
+    });
 
-            const result = await s3Service.getSignedUrl('test-key');
+    it('should return error if AWS is disabled', async () => {
+        storageConfig.aws.enabled = false;
 
-            expect(result.success).toBe(false);
-            expect(result.error).toBe('AWS Error');
-        });
+        const result = await s3Service.deleteFile('test-file.jpg');
 
-        it('should use default expiration time if not provided', async () => {
-            getSignedUrl.mockResolvedValue('url');
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/not enabled/i);
+        expect(sendMock).not.toHaveBeenCalled();
+    });
 
-            await s3Service.getSignedUrl('test-key');
+    it('should handle S3 errors gracefully', async () => {
+        const errorMessage = 'Network error';
+        sendMock.mockRejectedValue(new Error(errorMessage));
 
-            expect(getSignedUrl).toHaveBeenCalledWith(
-                expect.any(Object), // client
-                expect.any(Object), // command
-                { expiresIn: 3600 }
-            );
-        });
+        const result = await s3Service.deleteFile('test-file.jpg');
 
-        it('should use provided expiration time', async () => {
-            getSignedUrl.mockResolvedValue('url');
-
-            await s3Service.getSignedUrl('test-key', 60);
-
-            expect(getSignedUrl).toHaveBeenCalledWith(
-                expect.any(Object), // client
-                expect.any(Object), // command
-                { expiresIn: 60 }
-            );
-        });
+        expect(result.success).toBe(false);
+        expect(result.error).toBe(errorMessage);
     });
 });

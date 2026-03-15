@@ -13,6 +13,8 @@
  * 3. Implement the service methods below
  */
 
+const { Storage } = require('@google-cloud/storage');
+
 const gcsService = {
     /**
      * Upload a file to Google Cloud Storage
@@ -22,21 +24,30 @@ const gcsService = {
      * @returns {Promise<{success: boolean, url?: string, error?: string}>}
      */
     uploadFile: async (destination, fileBuffer, contentType) => {
-        // TODO: Implement GCS upload logic
-        // const { Storage } = require('@google-cloud/storage');
-        // const storage = new Storage({
-        //     projectId: process.env.GCS_PROJECT_ID,
-        //     keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
-        // });
-        // const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
-        // const file = bucket.file(destination);
-        // await file.save(fileBuffer, {
-        //     metadata: { contentType: contentType }
-        // });
-        // const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destination}`;
-        // return { success: true, url: publicUrl };
-        
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            if (!process.env.GCS_PROJECT_ID || !process.env.GCS_BUCKET_NAME) {
+                return { success: false, error: 'GCS configuration missing' };
+            }
+
+            const storage = new Storage({
+                projectId: process.env.GCS_PROJECT_ID,
+                keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+            });
+
+            const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+            const file = bucket.file(destination);
+
+            await file.save(fileBuffer, {
+                metadata: { contentType: contentType },
+                resumable: false
+            });
+
+            const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destination}`;
+            return { success: true, url: publicUrl };
+        } catch (error) {
+            console.error('GCS upload error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -45,8 +56,25 @@ const gcsService = {
      * @returns {Promise<{success: boolean, data?: Buffer, error?: string}>}
      */
     downloadFile: async (filename) => {
-        // TODO: Implement GCS download logic
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            if (!process.env.GCS_PROJECT_ID || !process.env.GCS_BUCKET_NAME) {
+                return { success: false, error: 'GCS configuration missing' };
+            }
+
+            const storage = new Storage({
+                projectId: process.env.GCS_PROJECT_ID,
+                keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+            });
+
+            const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+            const file = bucket.file(filename);
+
+            const [content] = await file.download();
+            return { success: true, data: content };
+        } catch (error) {
+            console.error('GCS download error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -55,8 +83,25 @@ const gcsService = {
      * @returns {Promise<{success: boolean, error?: string}>}
      */
     deleteFile: async (filename) => {
-        // TODO: Implement GCS delete logic
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            if (!process.env.GCS_PROJECT_ID || !process.env.GCS_BUCKET_NAME) {
+                return { success: false, error: 'GCS configuration missing' };
+            }
+
+            const storage = new Storage({
+                projectId: process.env.GCS_PROJECT_ID,
+                keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+            });
+
+            const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+            const file = bucket.file(filename);
+
+            await file.delete();
+            return { success: true };
+        } catch (error) {
+            console.error('GCS delete error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -66,18 +111,29 @@ const gcsService = {
      * @returns {Promise<{success: boolean, url?: string, error?: string}>}
      */
     getSignedUrl: async (filename, expiresIn = 60) => {
-        // TODO: Implement signed URL generation
-        // const { Storage } = require('@google-cloud/storage');
-        // const storage = new Storage();
-        // const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
-        // const file = bucket.file(filename);
-        // const [url] = await file.getSignedUrl({
-        //     action: 'read',
-        //     expires: Date.now() + expiresIn * 60 * 1000
-        // });
-        // return { success: true, url };
-        
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            if (!process.env.GCS_PROJECT_ID || !process.env.GCS_BUCKET_NAME) {
+                return { success: false, error: 'GCS configuration missing' };
+            }
+
+            const storage = new Storage({
+                projectId: process.env.GCS_PROJECT_ID,
+                keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+            });
+
+            const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+            const file = bucket.file(filename);
+
+            const [url] = await file.getSignedUrl({
+                action: 'read',
+                expires: Date.now() + expiresIn * 60 * 1000
+            });
+
+            return { success: true, url };
+        } catch (error) {
+            console.error('GCS signed URL error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -86,8 +142,31 @@ const gcsService = {
      * @returns {Promise<{success: boolean, files?: Array, error?: string}>}
      */
     listFiles: async (prefix) => {
-        // TODO: Implement GCS list logic
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            if (!process.env.GCS_PROJECT_ID || !process.env.GCS_BUCKET_NAME) {
+                return { success: false, error: 'GCS configuration missing' };
+            }
+
+            const storage = new Storage({
+                projectId: process.env.GCS_PROJECT_ID,
+                keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+            });
+
+            const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+            const [files] = await bucket.getFiles({ prefix });
+
+            const fileList = files.map(file => ({
+                name: file.name,
+                size: parseInt(file.metadata.size, 10),
+                updated: file.metadata.updated,
+                contentType: file.metadata.contentType
+            }));
+
+            return { success: true, files: fileList };
+        } catch (error) {
+            console.error('GCS list files error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -96,8 +175,27 @@ const gcsService = {
      * @returns {Promise<{success: boolean, url?: string, error?: string}>}
      */
     makePublic: async (filename) => {
-        // TODO: Implement make public logic
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            if (!process.env.GCS_PROJECT_ID || !process.env.GCS_BUCKET_NAME) {
+                return { success: false, error: 'GCS configuration missing' };
+            }
+
+            const storage = new Storage({
+                projectId: process.env.GCS_PROJECT_ID,
+                keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+            });
+
+            const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+            const file = bucket.file(filename);
+
+            await file.makePublic();
+            const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${filename}`;
+
+            return { success: true, url: publicUrl };
+        } catch (error) {
+            console.error('GCS make public error:', error);
+            return { success: false, error: error.message };
+        }
     },
 
     /**
@@ -107,8 +205,25 @@ const gcsService = {
      * @returns {Promise<{success: boolean, error?: string}>}
      */
     setMetadata: async (filename, metadata) => {
-        // TODO: Implement metadata setting
-        return { success: false, error: 'Google Cloud Storage service not yet implemented' };
+        try {
+            if (!process.env.GCS_PROJECT_ID || !process.env.GCS_BUCKET_NAME) {
+                return { success: false, error: 'GCS configuration missing' };
+            }
+
+            const storage = new Storage({
+                projectId: process.env.GCS_PROJECT_ID,
+                keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+            });
+
+            const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
+            const file = bucket.file(filename);
+
+            await file.setMetadata(metadata);
+            return { success: true };
+        } catch (error) {
+            console.error('GCS set metadata error:', error);
+            return { success: false, error: error.message };
+        }
     }
 };
 

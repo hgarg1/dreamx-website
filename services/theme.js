@@ -12,8 +12,12 @@ const path = require('path');
 const fs = require('fs');
 
 // Check for PostgreSQL - handle both 'production' and 'Production' (case-insensitive)
+// Use PostgreSQL if: NODE_ENV=production OR DB_TYPE=postgres/postgresql OR DATABASE_URL is set (Neon)
 const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
-const isPostgres = (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
+const isPostgres = (nodeEnv === 'production' || 
+                   process.env.DB_TYPE === 'postgres' || 
+                   process.env.DB_TYPE === 'postgresql' ||
+                   !!process.env.DATABASE_URL);
 
 // Lazy load database
 let db = null;
@@ -406,9 +410,11 @@ async function getActiveTheme() {
     // Ensure theme settings table exists
     await createThemeSettingsTable();
     
+    // Use boolean for PostgreSQL, integer for SQLite
+    const isEnabledValue = isPostgres ? true : 1;
     const setting = await database.prepare(`
-      SELECT * FROM theme_settings WHERE setting_key = 'active_theme' AND is_enabled = 1
-    `).get();
+      SELECT * FROM theme_settings WHERE setting_key = 'active_theme' AND is_enabled = ?
+    `).get(isEnabledValue);
     
     if (setting && setting.setting_value) {
       const themeId = setting.setting_value;
@@ -457,16 +463,22 @@ async function setActiveTheme(themeId, changedBy = null) {
     `).get();
     
     if (existing) {
+      // Ensure changedBy is null or a number
+      const updatedBy = changedBy ? parseInt(changedBy) : null;
       await database.prepare(`
         UPDATE theme_settings 
         SET setting_value = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
         WHERE setting_key = 'active_theme'
-      `).run(themeId, changedBy);
+      `).run(themeId, updatedBy);
     } else {
+      // Use boolean for PostgreSQL, integer for SQLite
+      const isEnabledValue = isPostgres ? true : 1;
+      // Ensure changedBy is null or a number
+      const updatedBy = changedBy ? parseInt(changedBy) : null;
       await database.prepare(`
         INSERT INTO theme_settings (setting_key, setting_value, is_enabled, updated_by)
-        VALUES ('active_theme', ?, 1, ?)
-      `).run(themeId, changedBy);
+        VALUES ('active_theme', ?, ?, ?)
+      `).run(themeId, isEnabledValue, updatedBy);
     }
     
     // Log the change
@@ -565,19 +577,23 @@ async function logThemeChange(action, themeId, changedBy, themeData = null) {
 /**
  * Get theme change history
  */
-function getThemeHistory(limit = 50) {
+async function getThemeHistory(limit = 50) {
   const database = initDb();
   if (!database) return [];
   
   try {
-    return database.prepare(`
+    const results = await database.prepare(`
       SELECT tcl.*, u.full_name as changed_by_name, u.email as changed_by_email
       FROM theme_change_log tcl
       LEFT JOIN users u ON u.id = tcl.changed_by
       ORDER BY tcl.created_at DESC
       LIMIT ?
     `).all(limit);
+    
+    // Handle both SQLite (array) and PostgreSQL (object with rows property)
+    return Array.isArray(results) ? results : (results?.rows || []);
   } catch (error) {
+    console.error('Get theme history error:', error);
     return [];
   }
 }
@@ -620,10 +636,12 @@ async function saveCustomTheme(themeData, savedBy = null) {
         WHERE setting_key = ?
       `).run(themeId, themeJson, savedBy, key);
     } else {
+      // Use boolean for PostgreSQL, integer for SQLite
+      const isEnabledValue = isPostgres ? true : 1;
       await database.prepare(`
         INSERT INTO theme_settings (setting_key, setting_value, custom_theme_data, is_enabled, updated_by)
-        VALUES (?, ?, ?, 1, ?)
-      `).run(key, themeId, themeJson, savedBy);
+        VALUES (?, ?, ?, ?, ?)
+      `).run(key, themeId, themeJson, isEnabledValue, savedBy);
     }
     
     await logThemeChange('theme.custom.save', themeId, savedBy, themeData);
@@ -638,16 +656,21 @@ async function saveCustomTheme(themeData, savedBy = null) {
 /**
  * Get all custom themes
  */
-function getCustomThemes() {
+async function getCustomThemes() {
   const database = initDb();
   if (!database) return [];
   
   try {
-    const results = database.prepare(`
-      SELECT * FROM theme_settings WHERE setting_key LIKE 'custom_theme_%' AND is_enabled = 1
-    `).all();
+    // Use boolean for PostgreSQL, integer for SQLite
+    const isEnabledValue = isPostgres ? true : 1;
+    const results = await database.prepare(`
+      SELECT * FROM theme_settings WHERE setting_key LIKE 'custom_theme_%' AND is_enabled = ?
+    `).all(isEnabledValue);
     
-    return results.map(r => {
+    // Handle both SQLite (array) and PostgreSQL (object with rows property)
+    const rows = Array.isArray(results) ? results : (results?.rows || []);
+    
+    return rows.map(r => {
       try {
         return JSON.parse(r.custom_theme_data);
       } catch (e) {
@@ -662,7 +685,7 @@ function getCustomThemes() {
 /**
  * Delete a custom theme
  */
-function deleteCustomTheme(themeId, deletedBy = null) {
+async function deleteCustomTheme(themeId, deletedBy = null) {
   const database = initDb();
   if (!database) {
     throw new Error('Database not available');
@@ -675,10 +698,12 @@ function deleteCustomTheme(themeId, deletedBy = null) {
   
   try {
     const key = `custom_theme_${themeId}`;
-    database.prepare(`
-      UPDATE theme_settings SET is_enabled = 0, updated_at = CURRENT_TIMESTAMP, updated_by = ?
+    // Use boolean for PostgreSQL, integer for SQLite
+    const isEnabledValue = isPostgres ? false : 0;
+    await database.prepare(`
+      UPDATE theme_settings SET is_enabled = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
       WHERE setting_key = ?
-    `).run(deletedBy, key);
+    `).run(isEnabledValue, deletedBy, key);
     
     // If this was the active theme, reset to default
     const active = getActiveTheme();

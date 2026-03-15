@@ -198,7 +198,7 @@ async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions,
         if (!webpush) return;
         const user = await getUserByIdFn(userId);
         if (!user || user.push_notifications !== 1) return;
-        const subs = getPushSubscriptions(userId) || [];
+        const subs = await getPushSubscriptions(userId) || [];
         const payload = JSON.stringify({ title: title || 'Dream X', body: body || '', url: url || '/', icon: '/img/icon-192x192.png', badge: '/img/badge-72x72.png' });
         for (const s of subs) {
             try {
@@ -221,13 +221,13 @@ async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions,
 function initAdminRoutes({ io, webpush }) {
     // Admin dashboard
     router.get('/admin', requireAdmin, async (req, res) => {
-        const stats = getStats();
+        const stats = await getStats();
         const pageSize = 20;
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
         const q = (req.query.q || '').trim();
-        const total = getUsersCount({ search: q || null });
+        const total = await getUsersCount({ search: q || null });
         const offset = (page - 1) * pageSize;
-        const usersRaw = getUsersPaged({ limit: pageSize, offset, search: q || null });
+        const usersRaw = await getUsersPaged({ limit: pageSize, offset, search: q || null });
         const users = usersRaw.map(u => {
             let perms = [];
             let scopes = [];
@@ -244,7 +244,7 @@ function initAdminRoutes({ io, webpush }) {
         });
 
         const me = req.session.userId ? await getUserById(req.session.userId) : null;
-        const logs = (me && (me.role === 'super_admin' || me.role === 'global_admin')) ? getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
+        const logs = (me && (me.role === 'super_admin' || me.role === 'global_admin')) ? await getAuditLogsPaged({ limit: 50, offset: 0 }) : [];
 
         const qLimit = 20;
         const cPage = Math.max(parseInt(req.query.cPage || '1', 10) || 1, 1);
@@ -261,9 +261,9 @@ function initAdminRoutes({ io, webpush }) {
             const caOffset = (caPage - 1) * qLimit;
             const aaOffset = (aaPage - 1) * qLimit;
             const dbm = require('../../db');
-            careers = dbm.getCareerApplicationsPaged({ limit: qLimit + 1, offset: cOffset, status: cStatus });
-            contentAppeals = dbm.getContentAppealsPaged({ limit: qLimit + 1, offset: caOffset, status: caStatus });
-            accountAppeals = dbm.getAccountAppealsPaged({ limit: qLimit + 1, offset: aaOffset, status: aaStatus });
+            careers = await dbm.getCareerApplicationsPaged({ limit: qLimit + 1, offset: cOffset, status: cStatus });
+            contentAppeals = await dbm.getContentAppealsPaged({ limit: qLimit + 1, offset: caOffset, status: caStatus });
+            accountAppeals = await dbm.getAccountAppealsPaged({ limit: qLimit + 1, offset: aaOffset, status: aaStatus });
             if (careers.length > qLimit) { cHasMore = true; careers = careers.slice(0, qLimit); }
             if (contentAppeals.length > qLimit) { caHasMore = true; contentAppeals = contentAppeals.slice(0, qLimit); }
             if (accountAppeals.length > qLimit) { aaHasMore = true; accountAppeals = accountAppeals.slice(0, qLimit); }
@@ -276,11 +276,11 @@ function initAdminRoutes({ io, webpush }) {
         let rHasMore = false;
         try {
             const dbm = require('../../db');
-            refundRequests = dbm.getAllRefundRequests({
+            refundRequests = (await dbm.getAllRefundRequests({
                 limit: qLimit + 1,
                 offset: rOffset,
                 status: rStatus
-            }) || [];
+            })) || [];
             if (refundRequests.length > qLimit) {
                 rHasMore = true;
                 refundRequests = refundRequests.slice(0, qLimit);
@@ -293,8 +293,8 @@ function initAdminRoutes({ io, webpush }) {
         let salesInquiryStats = { total: 0, new: 0, urgent: 0 };
         let recentSalesInquiries = [];
         try {
-            salesInquiryStats = getSalesInquiryStats();
-            recentSalesInquiries = getSalesInquiriesPaged({ limit: 5, offset: 0, status: 'new' });
+            salesInquiryStats = await getSalesInquiryStats();
+            recentSalesInquiries = await getSalesInquiriesPaged({ limit: 5, offset: 0, status: 'new' });
         } catch (e) {
             console.warn('Sales inquiries fetch error:', e.message);
         }
@@ -584,7 +584,7 @@ function initAdminRoutes({ io, webpush }) {
             return res.redirect('/admin?error=Cannot+demote+yourself');
         }
 
-        const all = getAllUsers();
+        const all = await getAllUsers();
         const globalAdmins = all.filter(u => u.role === 'global_admin');
         if (globalAdmins.length === 1 && globalAdmins[0].id === id && role !== 'global_admin') {
             return res.redirect('/admin?error=At+least+one+global+admin+required');
@@ -612,8 +612,8 @@ function initAdminRoutes({ io, webpush }) {
 
         const postsCount = (await db.prepare('SELECT COUNT(*) as count FROM posts WHERE user_id = ?').get(userId))?.count || 0;
         const commentsCount = (await db.prepare('SELECT COUNT(*) as count FROM post_comments WHERE user_id = ?').get(userId))?.count || 0;
-        const followersCount = getFollowerCount(userId);
-        const followingCount = getFollowingCount(userId);
+        const followersCount = await getFollowerCount(userId);
+        const followingCount = await getFollowingCount(userId);
         const conversationsCount = (await db.prepare('SELECT COUNT(DISTINCT conversation_id) as count FROM conversation_participants WHERE user_id = ?').get(userId))?.count || 0;
         const messagesCount = (await db.prepare('SELECT COUNT(*) as count FROM messages WHERE sender_id = ?').get(userId))?.count || 0;
 
@@ -628,7 +628,7 @@ function initAdminRoutes({ io, webpush }) {
         `).all(userId) || [];
 
         const accountAge = Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24));
-        const accountStatus = checkAccountStatus(userId);
+        const accountStatus = await checkAccountStatus(userId);
 
         res.render('admin/admin-user-stats', {
             title: `${user.full_name} - User Statistics - Dream X`,
@@ -650,9 +650,9 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // CSV Exports
-    router.get('/admin/export/users.csv', requireAdmin, (req, res) => {
+    router.get('/admin/export/users.csv', requireAdmin, async (req, res) => {
         try { addAuditLog({ userId: req.session.userId, action: 'export_users', details: null }); } catch (e) { }
-        const rows = getAllUsers();
+        const rows = await getAllUsers();
         const header = 'id,full_name,email,role,created_at\n';
         const csv = header + rows.map(r => `${r.id},"${(r.full_name || '').replace(/"/g, '""')}",${r.email},${r.role},${r.created_at}`).join('\n');
         res.setHeader('Content-Type', 'text/csv');
@@ -673,8 +673,8 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // CSV export for career applications
-    router.get('/admin/export/careers.csv', requireHR, (req, res) => {
-        const careers = getCareerApplicationsPaged({ limit: 10000, offset: 0 });
+    router.get('/admin/export/careers.csv', requireHR, async (req, res) => {
+        const careers = await getCareerApplicationsPaged({ limit: 10000, offset: 0 });
         let csv = 'ID,Name,Email,Phone,Position,Status,Applied Date,Cover Letter\n';
         careers.forEach(c => {
             const coverLetter = (c.cover_letter || '').replace(/"/g, '""').replace(/\n/g, ' ');
@@ -699,7 +699,7 @@ function initAdminRoutes({ io, webpush }) {
             return res.redirect('/admin?error=Invalid+status');
         }
 
-        const application = db.getCareerApplicationById(id);
+        const application = await db.getCareerApplicationById(id);
         require('../../db').updateCareerApplicationStatus({ id, status, reviewerId: req.session.userId });
         try { addAuditLog({ userId: req.session.userId, action: 'career_status_update', details: JSON.stringify({ id, status }) }); } catch (e) { }
 
@@ -942,14 +942,14 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Admin: View all user blocks and reports
-    router.get('/admin/moderation/user-actions', requireSuperAdmin, async (req, res) => {
+    router.get('/admin/moderation/user-actions', requireSuperAdmin, (req, res) => {
         const page = Math.max(parseInt(req.query.page || '1', 10) || 1, 1);
         const pageSize = 50;
         const offset = (page - 1) * pageSize;
         try {
-            const blocks = await getAllBlocksAndReports({ limit: pageSize, offset });
-            const reports = await getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
-            const me = await getUserById(req.session.userId);
+            const blocks = getAllBlocksAndReports({ limit: pageSize, offset });
+            const reports = getUserReports({ limit: pageSize, offset: 0, status: req.query.status });
+            const me = getUserById(req.session.userId);
             res.render('admin/admin-user-actions', {
                 title: 'User Actions Moderation - Dream X',
                 currentPage: 'admin',
@@ -1152,11 +1152,11 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Unban/unsuspend a user
-    router.post('/admin/users/:id/unban', requireSuperAdmin, async (req, res) => {
+    router.post('/admin/users/:id/unban', requireSuperAdmin, (req, res) => {
         const userId = parseInt(req.params.id, 10);
         const isJson = req.headers['content-type']?.includes('application/json');
         try {
-            const targetUser = await getUserById(userId);
+            const targetUser = getUserById(userId);
             unbanUser({ userId, unbannedBy: req.session.userId });
             const { createNotification } = require('../../db');
             createNotification({
@@ -1224,7 +1224,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Hide comment (admin action)
-    router.post('/admin/comments/:id/hide', requireAdmin, async (req, res) => {
+    router.post('/admin/comments/:id/hide', requireAdmin, (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
@@ -1237,7 +1237,7 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Delete comment (admin action)
-    router.post('/admin/comments/:id/delete', requireAdmin, async (req, res) => {
+    router.post('/admin/comments/:id/delete', requireAdmin, (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
@@ -1250,11 +1250,11 @@ function initAdminRoutes({ io, webpush }) {
     });
 
     // Restore comment (admin action)
-    router.post('/admin/comments/:id/restore', requireAdmin, async (req, res) => {
+    router.post('/admin/comments/:id/restore', requireAdmin, (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
         const commentId = parseInt(req.params.id, 10);
         try {
-            await restoreComment({ commentId, restoredBy: req.session.userId });
+            restoreComment({ commentId, restoredBy: req.session.userId });
             res.json({ success: true, message: 'Comment restored successfully' });
         } catch (error) {
             console.error('Restore comment error:', error);
@@ -1447,14 +1447,47 @@ function initAdminRoutes({ io, webpush }) {
                     name: t.name,
                     type: 'table'
                 }));
-            } else if (dbType === 'postgres') {
+            } else if (dbType === 'postgres' || isProduction) {
                 // Postgres - list user tables in public schema
-                const rows = await db.prepare(`
-                    SELECT tablename AS name, 'table' AS type
-                    FROM pg_catalog.pg_tables
-                    WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-                    ORDER BY tablename
-                `).all() || [];
+                // Handle both direct db.prepare() and pgPool.query()
+                let rows;
+                try {
+                    if (dbType === 'postgres' || (isProduction && !dbType || dbType !== 'sqlite')) {
+                        // PostgreSQL - use pg_catalog
+                        const result = await db.prepare(`
+                            SELECT tablename AS name, 'table' AS type
+                            FROM pg_catalog.pg_tables
+                            WHERE schemaname = 'public'
+                            ORDER BY tablename
+                        `).all();
+                        rows = Array.isArray(result) ? result : (result?.rows || []);
+                    } else {
+                        // Fallback: try information_schema
+                        const result = await db.prepare(`
+                            SELECT table_name AS name, 'table' AS type
+                            FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_type = 'BASE TABLE'
+                            ORDER BY table_name
+                        `).all();
+                        rows = Array.isArray(result) ? result : (result?.rows || []);
+                    }
+                } catch (pgError) {
+                    // If PostgreSQL query fails, try information_schema as fallback
+                    try {
+                        const result = await db.prepare(`
+                            SELECT table_name AS name, 'table' AS type
+                            FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_type = 'BASE TABLE'
+                            ORDER BY table_name
+                        `).all();
+                        rows = Array.isArray(result) ? result : (result?.rows || []);
+                    } catch (fallbackError) {
+                        console.error('PostgreSQL table listing error:', fallbackError);
+                        throw pgError; // Throw original error
+                    }
+                }
                 tables = rows;
             } else {
                 // SQLite - get tables from sqlite_master
@@ -1465,7 +1498,7 @@ function initAdminRoutes({ io, webpush }) {
                     AND name NOT LIKE 'sqlite_%'
                     ORDER BY name
                 `).all() || [];
-                tables = rows;
+                tables = Array.isArray(rows) ? rows : (rows?.rows || []);
             }
 
             res.json({ success: true, tables });
@@ -1508,49 +1541,112 @@ function initAdminRoutes({ io, webpush }) {
                     defaultValue: c.defaultValue,
                     maxLength: c.maxLength
                 }));
-            } else if (dbType === 'postgres') {
-                // Postgres - column info with PK detection
-                const rows = await db.prepare(`
-                    SELECT 
-                        c.column_name AS name,
-                        c.data_type AS type,
-                        (c.is_nullable = 'YES') AS nullable,
-                        c.column_default AS defaultValue,
-                        c.character_maximum_length AS maxLength,
-                        EXISTS (
-                            SELECT 1
-                            FROM information_schema.table_constraints tc
-                            JOIN information_schema.key_column_usage kcu
-                              ON tc.constraint_name = kcu.constraint_name
-                             AND tc.table_schema = kcu.table_schema
-                            WHERE tc.constraint_type = 'PRIMARY KEY'
-                              AND tc.table_name = c.table_name
-                              AND tc.table_schema = c.table_schema
-                              AND kcu.column_name = c.column_name
-                        ) AS primaryKey
-                    FROM information_schema.columns c
-                    WHERE c.table_name = ?
-                      AND c.table_schema = 'public'
-                    ORDER BY c.ordinal_position
-                `).all(tableName) || [];
-                columns = rows.map(c => ({
-                    name: c.name,
-                    type: c.type,
-                    nullable: c.nullable === true,
-                    defaultValue: c.defaultvalue,
-                    maxLength: c.maxlength,
-                    primaryKey: c.primarykey === true
-                }));
+            } else if (dbType === 'postgres' || isProduction) {
+                // Postgres/Neon - column info with PK detection
+                try {
+                    const result = await db.prepare(`
+                        SELECT 
+                            c.column_name AS name,
+                            c.data_type AS type,
+                            (c.is_nullable = 'YES') AS nullable,
+                            c.column_default AS defaultValue,
+                            c.character_maximum_length AS maxLength,
+                            EXISTS (
+                                SELECT 1
+                                FROM information_schema.table_constraints tc
+                                JOIN information_schema.key_column_usage kcu
+                                  ON tc.constraint_name = kcu.constraint_name
+                                 AND tc.table_schema = kcu.table_schema
+                                WHERE tc.constraint_type = 'PRIMARY KEY'
+                                  AND tc.table_name = c.table_name
+                                  AND tc.table_schema = c.table_schema
+                                  AND kcu.column_name = c.column_name
+                            ) AS primaryKey
+                        FROM information_schema.columns c
+                        WHERE c.table_name = $1
+                          AND c.table_schema = 'public'
+                        ORDER BY c.ordinal_position
+                    `).all(tableName);
+                    
+                    const rows = Array.isArray(result) ? result : (result?.rows || []);
+                    columns = rows.map(c => ({
+                        name: c.name || c.column_name,
+                        type: c.type || c.data_type,
+                        nullable: c.nullable === true || c.is_nullable === 'YES',
+                        defaultValue: c.defaultvalue || c.column_default || null,
+                        maxLength: c.maxlength || c.character_maximum_length || null,
+                        primaryKey: c.primarykey === true || c.primarykey === 't'
+                    }));
+                } catch (pgError) {
+                    console.error('PostgreSQL schema query error:', pgError);
+                    // Fallback to simpler query
+                    const result = await db.prepare(`
+                        SELECT 
+                            column_name AS name,
+                            data_type AS type,
+                            is_nullable AS nullable,
+                            column_default AS defaultValue
+                        FROM information_schema.columns
+                        WHERE table_name = $1
+                          AND table_schema = 'public'
+                        ORDER BY ordinal_position
+                    `).all(tableName);
+                    
+                    const rows = Array.isArray(result) ? result : (result?.rows || []);
+                    columns = rows.map(c => ({
+                        name: c.name || c.column_name,
+                        type: c.type || c.data_type,
+                        nullable: (c.nullable === 'YES' || c.is_nullable === 'YES'),
+                        defaultValue: c.defaultvalue || c.column_default || null,
+                        primaryKey: false
+                    }));
+                }
             } else {
-                // SQLite / Postgres - get table info
-                const rows = await db.prepare(`PRAGMA table_info(${tableName})`).all() || [];
-                columns = rows.map(c => ({
-                    name: c.name,
-                    type: c.type,
-                    nullable: c.notnull === 0,
-                    defaultValue: c.dflt_value,
-                    primaryKey: c.pk === 1
-                }));
+                // SQLite - get table info using PRAGMA
+                if (dbType === 'sqlite') {
+                    const rows = await db.prepare(`PRAGMA table_info(${tableName})`).all() || [];
+                    columns = rows.map(c => ({
+                        name: c.name,
+                        type: c.type,
+                        nullable: c.notnull === 0,
+                        defaultValue: c.dflt_value,
+                        primaryKey: c.pk === 1
+                    }));
+                } else {
+                    // PostgreSQL fallback (shouldn't reach here if postgres check above works)
+                    // Use information_schema for PostgreSQL
+                    const rows = await db.prepare(`
+                        SELECT 
+                            c.column_name AS name,
+                            c.data_type AS type,
+                            (c.is_nullable = 'YES') AS nullable,
+                            c.column_default AS defaultValue,
+                            c.character_maximum_length AS maxLength,
+                            EXISTS (
+                                SELECT 1
+                                FROM information_schema.table_constraints tc
+                                JOIN information_schema.key_column_usage kcu
+                                  ON tc.constraint_name = kcu.constraint_name
+                                 AND tc.table_schema = kcu.table_schema
+                                WHERE tc.constraint_type = 'PRIMARY KEY'
+                                  AND tc.table_name = c.table_name
+                                  AND tc.table_schema = c.table_schema
+                                  AND kcu.column_name = c.column_name
+                            ) AS primaryKey
+                        FROM information_schema.columns c
+                        WHERE c.table_name = ?
+                          AND c.table_schema = 'public'
+                        ORDER BY c.ordinal_position
+                    `).all(tableName) || [];
+                    columns = rows.map(c => ({
+                        name: c.name,
+                        type: c.type,
+                        nullable: c.nullable === true,
+                        defaultValue: c.defaultvalue,
+                        maxLength: c.maxlength,
+                        primaryKey: c.primarykey === true
+                    }));
+                }
             }
 
             res.json({ success: true, tableName, columns });

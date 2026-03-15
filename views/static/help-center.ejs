@@ -4,10 +4,14 @@
   <div class="help-hero-inner">
     <h1 class="help-title">Help Center</h1>
     <p class="help-subtitle">We’re here to help you build, not get stuck.</p>
+    <a href="#help-content" class="scroll-arrow" aria-label="Scroll to Help Center content">
+      <span class="scroll-arrow-icon"></span>
+      <span class="scroll-arrow-text">Keep scrolling</span>
+    </a>
   </div>
 </section>
 
-<section class="help-search-section">
+<section class="help-search-section" id="help-content">
   <form action="#" method="GET" class="help-search-form" onsubmit="event.preventDefault();">
     <input type="text" class="help-search-input" placeholder="Search for help topics…" aria-label="Search help center" />
     <button type="submit" class="help-search-btn">Search</button>
@@ -47,6 +51,9 @@
   color: white;
   position: relative;
   overflow: hidden;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
 }
 
 .help-hero::before {
@@ -94,6 +101,8 @@
   gap: 1rem;
   padding: 0.5rem;
   border-radius: 50px;
+  background: transparent;
+  box-shadow: none;
 }
 
 .help-search-input {
@@ -102,7 +111,8 @@
   padding: 1rem 1.5rem;
   font-size: 1rem;
   outline: none;
-  background: transparent;
+  background: #ffffff;
+  border-radius: 999px;
 }
 
 .help-search-btn {

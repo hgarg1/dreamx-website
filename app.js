@@ -545,24 +545,44 @@ app.use(sanitizeRequest);
 
 // Session configuration - Use PostgreSQL in production, SQLite locally
 // Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+// Use PostgreSQL if: NODE_ENV=production OR DB_TYPE=postgres/postgresql OR DATABASE_URL is set (Neon)
 const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
-const isProductionDB = nodeEnv === 'production' && (process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql');
+const isProductionDB = nodeEnv === 'production' || 
+                       process.env.DB_TYPE === 'postgres' || 
+                       process.env.DB_TYPE === 'postgresql' ||
+                       !!process.env.DATABASE_URL;
 
 let sessionStore;
 if (isProductionDB) {
-    // Production: Use PostgreSQL for sessions
+    // Production: Use PostgreSQL for sessions (Neon or other PostgreSQL)
     // Note: createTableIfMissing is disabled - we handle table creation/migration via ensureSessionTable()
     // This ensures the table has the correct schema (sess/expire columns) for connect-pg-simple
     const { Pool } = require('pg');
-    const pgPool = new Pool({
-        host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
-        port: process.env.PG_PORT || process.env.DB_PORT || 5432,
-        database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
-        user: process.env.PG_USER || process.env.DB_USER || 'postgres',
-        password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
-        // Azure PostgreSQL requires SSL - default to requiring it unless explicitly disabled
-        ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false }
-    });
+    
+    let pgPoolConfig;
+    if (process.env.DATABASE_URL) {
+        // Use DATABASE_URL (Neon/Heroku/Azure format)
+        const isNeon = process.env.DATABASE_URL.includes('neon.tech') || process.env.DATABASE_URL.includes('neon');
+        pgPoolConfig = {
+            connectionString: process.env.DATABASE_URL,
+            // Neon requires SSL, so always enable it for Neon connections
+            ssl: isNeon || process.env.PG_SSL !== 'false' ? { rejectUnauthorized: false } : false
+        };
+        console.log(`📊 Session store using DATABASE_URL${isNeon ? ' (Neon)' : ''}`);
+    } else {
+        // Use individual environment variables
+        pgPoolConfig = {
+            host: process.env.PG_HOST || process.env.DB_HOST || 'localhost',
+            port: process.env.PG_PORT || process.env.DB_PORT || 5432,
+            database: process.env.PG_DATABASE || process.env.DB_NAME || 'dreamx',
+            user: process.env.PG_USER || process.env.DB_USER || 'postgres',
+            password: process.env.PG_PASSWORD || process.env.DB_PASSWORD || '',
+            // Azure PostgreSQL requires SSL - default to requiring it unless explicitly disabled
+            ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false }
+        };
+    }
+    
+    const pgPool = new Pool(pgPoolConfig);
     sessionStore = new pgSession({
         pool: pgPool,
         tableName: 'sessions',
@@ -577,14 +597,19 @@ app.use(session({
     store: sessionStore,
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
-    saveUninitialized: false,
+    // Changed to true to ensure sessions with CSRF tokens are saved and cookies are set
+    // This is necessary for CSRF protection to work properly
+    saveUninitialized: true,
     name: 'sessionId', // Rename session cookie to prevent fingerprinting
     cookie: {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
         httpOnly: true,
         // Secure cookies in production or when BASE_URL is https
-        secure: (process.env.NODE_ENV === 'production') || (process.env.BASE_URL || '').startsWith('https://'),
-        sameSite: 'lax'
+        // In development (localhost), secure must be false for cookies to work
+        secure: (process.env.NODE_ENV === 'production') && (process.env.BASE_URL || '').startsWith('https://'),
+        sameSite: 'lax',
+        // Ensure cookie is set for all paths
+        path: '/'
     },
     rolling: true, // Reset session expiration on each request
     unset: 'destroy' // Destroy session when unset
@@ -1344,26 +1369,6 @@ app.get('/', (req, res) => {
 });
 
 
-// Error handler for 503 errors (catch-all for unmatched routes)
-// IMPORTANT: Exclude Azure Easy Auth endpoints (/.auth/*) - those are handled by Azure, not the app
-app.use((req, res, next) => {
-    // Skip Azure Easy Auth endpoints - let Azure handle them
-    // Azure handles /.auth/login/{provider} and /.auth/logout at the platform level
-    // The app only handles /.auth/login/{provider}/callback
-    if (req.path.startsWith('/.auth/') && !req.path.endsWith('/callback')) {
-        // If we're here, Azure Easy Auth isn't handling this request at the platform level
-        // This means the provider (e.g., Twitter/X) isn't configured in Azure Portal
-        // Skip this catch-all and let the 404 handler provide a helpful error
-        return next();
-    }
-    
-    // If response was already sent (e.g., by Azure Easy Auth), don't send another
-    if (res.headersSent || res.finished) {
-        return next();
-    }
-    res.status(503).render('errors/503', { title: 'Service Unavailable - Dream X' });
-});
-
 // Error handler for 500 errors
 app.use((err, req, res, next) => {
     console.error('❌ Server Error:', err);
@@ -1453,8 +1458,12 @@ async function startServer() {
     try {
         // Initialize database connection (required for PostgreSQL in production)
         // Check for production mode - handle both 'production' and 'Production' (case-insensitive)
+        // Use PostgreSQL if: NODE_ENV=production OR DB_TYPE=postgres/postgresql OR DATABASE_URL is set (Neon)
         const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
-        if (nodeEnv === 'production' || process.env.DB_TYPE === 'postgres' || process.env.DB_TYPE === 'postgresql') {
+        if (nodeEnv === 'production' || 
+            process.env.DB_TYPE === 'postgres' || 
+            process.env.DB_TYPE === 'postgresql' ||
+            !!process.env.DATABASE_URL) {
             console.log('🔄 Initializing PostgreSQL database...');
             try {
                 await initializeDatabase();

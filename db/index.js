@@ -63,31 +63,31 @@ async function seedDatabase() {
   try {
     // Ensure admin permissions and account status are initialized
     try {
-      db.exec(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL;`);
+      await db.exec(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL;`);
     } catch (e) {
       // Ignore if fails
     }
     try {
-      db.exec(`UPDATE users SET admin_permissions = '[]' WHERE admin_permissions IS NULL;`);
-      db.exec(`UPDATE users SET admin_scopes = '[]' WHERE admin_scopes IS NULL;`);
+      await db.exec(`UPDATE users SET admin_permissions = '[]' WHERE admin_permissions IS NULL;`);
+      await db.exec(`UPDATE users SET admin_scopes = '[]' WHERE admin_scopes IS NULL;`);
     } catch (e) {
       // Ignore if fails
     }
 
     // Seed Global Admin account if it doesn't exist
     try {
-      const adminExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('admin@dreamx.local');
+      const adminExists = await db.prepare(`SELECT id FROM users WHERE email = ?`).get('admin@dreamx.local');
       if (!adminExists) {
         const bcrypt = require('bcrypt');
         const adminPassword = bcrypt.hashSync('DreamXAdmin2025!', 10);
-        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+        await db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
           .run('Global Administrator', 'admin@dreamx.local', adminPassword, 'global_admin', 'active', 'Global Administrator - Full System Access');
         console.log('✅ Global Admin account created: admin@dreamx.local / DreamXAdmin2025!');
       } else {
         // Ensure existing admin has global_admin role
-        const adminRole = db.prepare(`SELECT role FROM users WHERE email = ?`).get('admin@dreamx.local');
+        const adminRole = await db.prepare(`SELECT role FROM users WHERE email = ?`).get('admin@dreamx.local');
         if (adminRole && adminRole.role !== 'global_admin') {
-          db.prepare(`UPDATE users SET role = 'global_admin' WHERE email = ?`).run('admin@dreamx.local');
+          await db.prepare(`UPDATE users SET role = 'global_admin' WHERE email = ?`).run('admin@dreamx.local');
           console.log('✅ Admin account upgraded to global_admin role');
         }
       }
@@ -97,15 +97,15 @@ async function seedDatabase() {
 
     // Seed HR account if it doesn't exist
     try {
-      const hrExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('hr@dreamx.local');
+      const hrExists = await db.prepare(`SELECT id FROM users WHERE email = ?`).get('hr@dreamx.local');
       if (!hrExists) {
         const bcrypt = require('bcrypt');
         const hrPassword = bcrypt.hashSync('DreamXHR2025!', 10);
-        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+        await db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
           .run('Global HR Partner', 'hr@dreamx.local', hrPassword, 'global_hr', 'active', 'Global HR Partner - Talent Architecture and People Experience');
         console.log('✅ HR account created: hr@dreamx.local / DreamXHR2025!');
       } else {
-        db.prepare(`UPDATE users SET role = 'global_hr' WHERE email = ? AND role != 'global_hr'`).run('hr@dreamx.local');
+        await db.prepare(`UPDATE users SET role = 'global_hr' WHERE email = ? AND role != 'global_hr'`).run('hr@dreamx.local');
       }
     } catch (e) {
       console.warn('HR seed error:', e.message);
@@ -113,7 +113,7 @@ async function seedDatabase() {
 
     // Seed Business Admin account if it doesn't exist
     try {
-      const businessExists = db.prepare(`SELECT id FROM users WHERE email = ?`).get('business@dreamx.local');
+      const businessExists = await db.prepare(`SELECT id FROM users WHERE email = ?`).get('business@dreamx.local');
       if (!businessExists) {
         const bcrypt = require('bcrypt');
         const businessPassword = bcrypt.hashSync('DreamXBusiness2025!', 10);
@@ -132,11 +132,11 @@ async function seedDatabase() {
           'revenue_reports',
           'customer_success'
         ]);
-        db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, admin_permissions, email_verified, onboarding_completed, needs_onboarding, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 0, CURRENT_TIMESTAMP)`)
+        await db.prepare(`INSERT INTO users (full_name, email, password_hash, role, account_status, bio, admin_permissions, email_verified, onboarding_completed, needs_onboarding, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 0, CURRENT_TIMESTAMP)`)
           .run('Business Administrator', 'business@dreamx.local', businessPassword, 'business_admin', 'active', 'Business Administrator - Sales & Enterprise Management', businessPermissions);
         console.log('✅ Business Admin account created: business@dreamx.local / DreamXBusiness2025!');
       } else {
-        db.prepare(`UPDATE users SET role = 'business_admin' WHERE email = ? AND role != 'business_admin'`).run('business@dreamx.local');
+        await db.prepare(`UPDATE users SET role = 'business_admin' WHERE email = ? AND role != 'business_admin'`).run('business@dreamx.local');
       }
     } catch (e) {
       console.warn('Business Admin seed error:', e.message);
@@ -144,8 +144,9 @@ async function seedDatabase() {
 
     // Seed default pricing tiers if they don't exist
     try {
-      const tiersExist = db.prepare(`SELECT COUNT(*) as count FROM pricing_tiers`).get();
-      if (!tiersExist || tiersExist.count === 0) {
+      const tiersExist = await db.prepare(`SELECT COUNT(*) as count FROM pricing_tiers`).get();
+      const count = tiersExist?.count || tiersExist?.c || 0;
+      if (count === 0) {
         const defaultTiers = [
           {
             tier_id: 'free',
@@ -257,7 +258,7 @@ async function seedDatabase() {
         `);
         
         for (const tier of defaultTiers) {
-          insertTier.run(
+          await insertTier.run(
             tier.tier_id,
             tier.name,
             tier.price,
@@ -1953,9 +1954,12 @@ module.exports = {
     db.prepare(sql).run();
   },
 
-  getAllUsers: () => db.prepare(`SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC`).all(),
+  getAllUsers: async () => {
+    const rows = await db.prepare(`SELECT id, full_name, email, role, created_at FROM users ORDER BY created_at DESC`).all();
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
+  },
   // Paged users + total for admin
-  getUsersPaged: ({ limit, offset, search }) => {
+  getUsersPaged: async ({ limit, offset, search }) => {
     if (search) {
       const s = `%${search.toLowerCase()}%`;
       const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`
@@ -1965,7 +1969,8 @@ module.exports = {
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
       `, limit, offset);
-      return db.prepare(sql).all(s, s, offsetVal, fetchVal);
+      const rows = await db.prepare(sql).all(s, s, offsetVal, fetchVal);
+      return Array.isArray(rows) ? rows : (rows?.rows || []);
     }
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`
       SELECT id, full_name, email, role, account_status, admin_permissions, admin_scopes, created_at
@@ -1973,27 +1978,32 @@ module.exports = {
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `, limit, offset);
-    return db.prepare(sql).all(offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  getUsersCount: ({ search }) => {
+  getUsersCount: async ({ search }) => {
     if (search) {
       const s = `%${search.toLowerCase()}%`;
-      return db.prepare(`SELECT COUNT(*) as c FROM users WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?`).get(s, s).c;
+      const result = await db.prepare(`SELECT COUNT(*) as c FROM users WHERE LOWER(full_name) LIKE ? OR LOWER(email) LIKE ?`).get(s, s);
+      return result?.c || result?.count || 0;
     }
-    return db.prepare(`SELECT COUNT(*) as c FROM users`).get().c;
+    const result = await db.prepare(`SELECT COUNT(*) as c FROM users`).get();
+    return result?.c || result?.count || 0;
   },
-  getHrTeam: () => {
-    return db.prepare(`
+  getHrTeam: async () => {
+    const rows = await db.prepare(`
       SELECT id, full_name, email, role, account_status, admin_scopes, created_at
       FROM users
       WHERE role IN ('hr', 'super_hr', 'global_hr')
       ORDER BY CASE role WHEN 'global_hr' THEN 3 WHEN 'super_hr' THEN 2 ELSE 1 END DESC, created_at DESC
     `).all();
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  searchUsers: ({ query, limit = 10, excludeUserId }) => {
+  searchUsers: async ({ query, limit = 10, excludeUserId }) => {
     const s = `%${(query || '').toLowerCase()}%`;
+    let rows;
     if (excludeUserId) {
-      return db.prepare(`
+      rows = await db.prepare(`
         SELECT id, full_name, email, profile_picture, bio, location, handle
         FROM users
         WHERE id != ? AND (
@@ -2004,21 +2014,26 @@ module.exports = {
         ORDER BY full_name ASC
         LIMIT ?
       `).all(excludeUserId, s, s, s, limit);
+    } else {
+      rows = await db.prepare(`
+        SELECT id, full_name, email, profile_picture, bio, location, handle
+        FROM users
+        WHERE LOWER(full_name) LIKE ? 
+          OR LOWER(handle) LIKE ?
+          OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?)
+        ORDER BY full_name ASC
+        LIMIT ?
+      `).all(s, s, s, limit);
     }
-    return db.prepare(`
-      SELECT id, full_name, email, profile_picture, bio, location, handle
-      FROM users
-      WHERE LOWER(full_name) LIKE ? 
-        OR LOWER(handle) LIKE ?
-        OR (discoverable_by_email = 1 AND LOWER(email) LIKE ?)
-      ORDER BY full_name ASC
-      LIMIT ?
-    `).all(s, s, s, limit);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  getStats: () => {
-    const users = db.prepare(`SELECT COUNT(*) as c FROM users`).get().c;
-    const conv = db.prepare(`SELECT COUNT(*) as c FROM conversations`).get().c;
-    const msgs = db.prepare(`SELECT COUNT(*) as c FROM messages`).get().c;
+  getStats: async () => {
+    const usersResult = await db.prepare(`SELECT COUNT(*) as c FROM users`).get();
+    const users = usersResult?.c || usersResult?.count || 0;
+    const convResult = await db.prepare(`SELECT COUNT(*) as c FROM conversations`).get();
+    const conv = convResult?.c || convResult?.count || 0;
+    const msgsResult = await db.prepare(`SELECT COUNT(*) as c FROM messages`).get();
+    const msgs = msgsResult?.c || msgsResult?.count || 0;
     return { users, conversations: conv, messages: msgs };
   },
   updateUserProvider: ({ userId, provider, providerId }) => {
@@ -2045,7 +2060,7 @@ module.exports = {
   unlinkProvider: ({ userId, provider }) => {
     db.prepare(`DELETE FROM oauth_accounts WHERE user_id = ? AND provider = ?`).run(userId, provider);
   },
-  updateOnboarding: ({
+  updateOnboarding: async ({
     userId, categories, goals, experience,
     daily_time_commitment, best_time, reminder_frequency,
     accountability_style, progress_visibility,
@@ -2057,7 +2072,7 @@ module.exports = {
     notify_method, bio, profile_picture, onboarding_completed,
     needs_onboarding
   }) => {
-    const updateStmt = db.prepare(`
+    await db.prepare(`
       UPDATE users SET
         categories = ?,
         goals = ?,
@@ -2086,9 +2101,7 @@ module.exports = {
         onboarding_completed = ?,
         needs_onboarding = ?
       WHERE id = ?
-    `);
-
-    updateStmt.run(
+    `).run(
       JSON.stringify(categories || []),
       JSON.stringify(goals || []),
       experience,
@@ -2118,16 +2131,16 @@ module.exports = {
       userId
     );
   },
-  updateUserProfile: ({ userId, fullName, bio, location, skills }) => {
-    db.prepare(`UPDATE users SET full_name = ?, bio = ?, location = ?, skills = ? WHERE id = ?`).run(
+  updateUserProfile: async ({ userId, fullName, bio, location, skills }) => {
+    await db.prepare(`UPDATE users SET full_name = ?, bio = ?, location = ?, skills = ? WHERE id = ?`).run(
       fullName, bio, location, skills, userId
     );
   },
-  updateProfilePicture: ({ userId, filename }) => {
-    db.prepare(`UPDATE users SET profile_picture = ? WHERE id = ?`).run(filename, userId);
+  updateProfilePicture: async ({ userId, filename }) => {
+    await db.prepare(`UPDATE users SET profile_picture = ? WHERE id = ?`).run(filename, userId);
   },
-  updateBannerImage: ({ userId, filename }) => {
-    db.prepare(`UPDATE users SET banner_image = ? WHERE id = ?`).run(filename, userId);
+  updateBannerImage: async ({ userId, filename }) => {
+    await db.prepare(`UPDATE users SET banner_image = ? WHERE id = ?`).run(filename, userId);
   },
   updatePassword: ({ userId, passwordHash }) => {
     db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(passwordHash, userId);
@@ -2159,18 +2172,23 @@ module.exports = {
     );
   },
   // Messaging functions
-  getOrCreateConversation: ({ user1Id, user2Id }) => {
-    const existing = db.prepare(`
+  getOrCreateConversation: async ({ user1Id, user2Id }) => {
+    const existing = await db.prepare(`
       SELECT * FROM conversations 
       WHERE is_group = ${isProduction ? 'false' : '0'} AND ((user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?))
     `).get(user1Id, user2Id, user2Id, user1Id);
     if (existing) return existing;
     const sql = isProduction
-      ? `INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,false)`
+      ? `INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,false) RETURNING *`
       : `INSERT INTO conversations (user1_id, user2_id, is_group) VALUES (?,?,0)`;
-    const stmt = db.prepare(sql);
-    const info = stmt.run(user1Id, user2Id);
-    return db.prepare('SELECT * FROM conversations WHERE id = ?').get(info.lastInsertRowid);
+    if (isProduction) {
+      const result = await db.prepare(sql).get(user1Id, user2Id);
+      return result;
+    } else {
+      const stmt = db.prepare(sql);
+      const info = stmt.run(user1Id, user2Id);
+      return db.prepare('SELECT * FROM conversations WHERE id = ?').get(info.lastInsertRowid);
+    }
   },
   createGroupConversation: ({ creatorId, participantIds, groupName }) => {
     const sql = isProduction
@@ -2197,13 +2215,14 @@ module.exports = {
     }
     return db.prepare('SELECT * FROM conversations WHERE id = ?').get(convId);
   },
-  getConversationParticipants: (conversationId) => {
-    return db.prepare(`
+  getConversationParticipants: async (conversationId) => {
+    const rows = await db.prepare(`
       SELECT u.id, u.full_name, u.email, u.profile_picture
       FROM conversation_participants cp
       JOIN users u ON u.id = cp.user_id
       WHERE cp.conversation_id = ?
     `).all(conversationId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   isUserInConversation: ({ conversationId, userId }) => {
     const conv = db.prepare(`SELECT * FROM conversations WHERE id = ?`).get(conversationId);
@@ -2214,9 +2233,9 @@ module.exports = {
     }
     return conv.user1_id === userId || conv.user2_id === userId;
   },
-  getUserConversations: (userId) => {
+  getUserConversations: async (userId) => {
     // Only return conversations that have at least one message
-    const direct = db.prepare(`
+    const directRaw = await db.prepare(`
       SELECT c.*, 
         CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END as other_user_id,
         u.full_name as other_user_name,
@@ -2238,7 +2257,9 @@ module.exports = {
       WHERE (c.user1_id = ? OR c.user2_id = ?) AND c.is_group = ${isProduction ? 'false' : '0'}
         AND EXISTS (SELECT 1 FROM messages WHERE conversation_id = c.id LIMIT 1)
     `).all(userId, userId, userId, userId, userId);
-    const groups = db.prepare(`
+    const direct = Array.isArray(directRaw) ? directRaw : (directRaw?.rows || []);
+    
+    const groupsRaw = await db.prepare(`
       SELECT c.*,
         c.group_name as other_user_name,
         NULL as other_user_picture,
@@ -2259,14 +2280,16 @@ module.exports = {
       WHERE cp.user_id = ? AND c.is_group = ${isProduction ? 'true' : '1'}
         AND EXISTS (SELECT 1 FROM messages WHERE conversation_id = c.id LIMIT 1)
     `).all(userId, userId);
+    const groups = Array.isArray(groupsRaw) ? groupsRaw : (groupsRaw?.rows || []);
+    
     return [...direct, ...groups].sort((a, b) => {
       const ta = new Date(a.last_message_time || 0).getTime();
       const tb = new Date(b.last_message_time || 0).getTime();
       return tb - ta;
     });
   },
-  getConversationMessages: (conversationId) => {
-    return db.prepare(`
+  getConversationMessages: async (conversationId) => {
+    const rows = await db.prepare(`
       SELECT m.*, u.full_name as sender_name, u.profile_picture as sender_picture,
         rm.content AS reply_content,
         rm.attachment_url AS reply_attachment_url,
@@ -2280,9 +2303,10 @@ module.exports = {
       WHERE m.conversation_id = ?
       ORDER BY m.created_at ASC
     `).all(conversationId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  getMessageWithContext: (messageId) => {
-    return db.prepare(`
+  getMessageWithContext: async (messageId) => {
+    const result = await db.prepare(`
       SELECT m.*, u.full_name as sender_name, u.profile_picture as sender_picture,
         rm.content AS reply_content,
         rm.attachment_url AS reply_attachment_url,
@@ -2295,6 +2319,7 @@ module.exports = {
       LEFT JOIN users ru ON rm.sender_id = ru.id
       WHERE m.id = ?
     `).get(messageId);
+    return result;
   },
   createMessage: ({ conversationId, senderId, content, attachmentUrl, attachmentMime, replyToMessageId }) => {
     const stmt = db.prepare(`
@@ -2317,21 +2342,22 @@ module.exports = {
       : `UPDATE messages SET read = 1 WHERE conversation_id = ? AND sender_id != ?`;
     db.prepare(sql).run(conversationId, userId);
   },
-  getUnreadMessageCount: (userId) => {
-    const result = db.prepare(`
+  getUnreadMessageCount: async (userId) => {
+    const result = await db.prepare(`
       SELECT COUNT(*) as count FROM messages m
       JOIN conversations c ON m.conversation_id = c.id
       WHERE (c.user1_id = ? OR c.user2_id = ?) AND m.sender_id != ? AND m.read = ${isProduction ? 'false' : '0'}
     `).get(userId, userId, userId);
-    return result.count;
+    return result?.count || result?.c || 0;
   },
   // Audit logs
   addAuditLog: ({ userId, action, details }) => {
     db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(userId || null, action, details || null);
   },
-  getAuditLogsPaged: ({ limit, offset }) => {
+  getAuditLogsPaged: async ({ limit, offset }) => {
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT id, user_id, action, details, created_at FROM audit_logs ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
-    return db.prepare(sql).all(offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   getAuditLogCount: () => {
     return db.prepare(`SELECT COUNT(*) as c FROM audit_logs`).get().c;
@@ -2517,7 +2543,7 @@ module.exports = {
     const info = db.prepare(`INSERT INTO post_comments (post_id, user_id, parent_id, content) VALUES (?,?,?,?)`).run(postId, userId, parentId || null, content);
     return info.lastInsertRowid;
   },
-  getPostComments: ({ postId, limit = 20, offset = 0, isAdmin = false }) => {
+  getPostComments: async ({ postId, limit = 20, offset = 0, isAdmin = false }) => {
     const whereClause = isAdmin
       ? 'WHERE c.post_id = ?'
       : 'WHERE c.post_id = ? AND c.is_hidden = 0 AND c.is_deleted = 0';
@@ -2536,14 +2562,15 @@ module.exports = {
       LIMIT ? OFFSET ?
     `;
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
-    const comments = db.prepare(sql).all(postId, offsetVal, fetchVal);
-    return comments;
+    const commentsRaw = await db.prepare(sql).all(postId, offsetVal, fetchVal);
+    return Array.isArray(commentsRaw) ? commentsRaw : (commentsRaw?.rows || []);
   },
-  getCommentsCount: (postId, isAdmin = false) => {
+  getCommentsCount: async (postId, isAdmin = false) => {
     const whereClause = isAdmin
       ? 'WHERE post_id = ?'
       : 'WHERE post_id = ? AND is_hidden = 0 AND is_deleted = 0';
-    return db.prepare(`SELECT COUNT(*) as c FROM post_comments ${whereClause}`).get(postId).c;
+    const result = await db.prepare(`SELECT COUNT(*) as c FROM post_comments ${whereClause}`).get(postId);
+    return result?.c || result?.count || 0;
   },
   toggleCommentLike: ({ commentId, userId }) => {
     const existing = db.prepare(`SELECT id FROM comment_likes WHERE comment_id = ? AND user_id = ?`).get(commentId, userId);
@@ -2669,71 +2696,67 @@ module.exports = {
     const result = stmt.run(userId, type, title, message, link || null);
     return result.lastInsertRowid;
   },
-  getUserNotifications: (userId, limit = 50) => {
-    const stmt = db.prepare(`
+  getUserNotifications: async (userId, limit = 50) => {
+    const rows = await db.prepare(`
       SELECT id, type, title, message, link, read, created_at
       FROM notifications
       WHERE user_id = ?
       ORDER BY created_at DESC
       LIMIT ?
-    `);
-    return stmt.all(userId, limit);
+    `).all(userId, limit);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  getUnreadNotificationCount: (userId) => {
+  getUnreadNotificationCount: async (userId) => {
     const sql = isProduction
       ? `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = false`
       : `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = 0`;
-    const stmt = db.prepare(sql);
-    const row = stmt.get(userId);
-    return row ? row.count : 0;
+    const row = await db.prepare(sql).get(userId);
+    return row?.count || row?.c || 0;
   },
-  markNotificationAsRead: (notificationId) => {
+  markNotificationAsRead: async (notificationId) => {
     const sql = isProduction
       ? `UPDATE notifications SET read = true WHERE id = ?`
       : `UPDATE notifications SET read = 1 WHERE id = ?`;
-    const stmt = db.prepare(sql);
-    stmt.run(notificationId);
+    await db.prepare(sql).run(notificationId);
   },
-  markAllNotificationsAsRead: (userId) => {
+  markAllNotificationsAsRead: async (userId) => {
     const sql = isProduction
       ? `UPDATE notifications SET read = true WHERE user_id = ?`
       : `UPDATE notifications SET read = 1 WHERE user_id = ?`;
-    const stmt = db.prepare(sql);
-    stmt.run(userId);
+    await db.prepare(sql).run(userId);
   },
   deleteNotification: (notificationId) => {
     const stmt = db.prepare(`DELETE FROM notifications WHERE id = ?`);
     stmt.run(notificationId);
   },
-  savePushSubscription: ({ userId, endpoint, p256dh, auth }) => {
+  savePushSubscription: async ({ userId, endpoint, p256dh, auth }) => {
     if (isProduction) {
       // PostgreSQL: Use ON CONFLICT
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(endpoint) DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth
       `).run(userId, endpoint, p256dh, auth);
     } else {
       // SQLite: Use ON CONFLICT
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth
       `).run(userId, endpoint, p256dh, auth);
     }
   },
-  getPushSubscriptions: (userId) => {
-    const stmt = db.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`);
-    return stmt.all(userId);
+  getPushSubscriptions: async (userId) => {
+    const rows = await db.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`).all(userId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  deletePushSubscription: (endpoint) => {
-    const stmt = db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`);
-    stmt.run(endpoint);
+  deletePushSubscription: async (endpoint) => {
+    await db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
   },
   // Subscription helpers
-  getUserSubscription: (userId) => {
-    const stmt = db.prepare(`SELECT * FROM user_subscriptions WHERE user_id = ?`);
-    return stmt.get(userId);
+  getUserSubscription: async (userId) => {
+    const result = await db.prepare(`SELECT * FROM user_subscriptions WHERE user_id = ?`).get(userId);
+    return result;
   },
   createOrUpdateSubscription: ({ userId, tier, status = 'active', endsAt = null, autoRenew = 1, provider = null, providerSubscriptionId = null, providerCustomerId = null }) => {
     const existing = db.prepare(`SELECT id FROM user_subscriptions WHERE user_id = ?`).get(userId);
@@ -2771,9 +2794,9 @@ module.exports = {
     const result = stmt.run(userId, provider, providerPaymentMethodId, cardType, lastFour, expiryMonth, expiryYear, isDefault);
     return result.lastInsertRowid;
   },
-  getPaymentMethods: (userId) => {
-    const stmt = db.prepare(`SELECT * FROM payment_methods WHERE user_id = ? ORDER BY is_default DESC, created_at DESC`);
-    return stmt.all(userId);
+  getPaymentMethods: async (userId) => {
+    const rows = await db.prepare(`SELECT * FROM payment_methods WHERE user_id = ? ORDER BY is_default DESC, created_at DESC`).all(userId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   deletePaymentMethod: (id) => {
     const stmt = db.prepare(`DELETE FROM payment_methods WHERE id = ?`);
@@ -2792,9 +2815,9 @@ module.exports = {
     const result = stmt.run(userId, amount, tier, status, provider, providerPaymentId);
     return result.lastInsertRowid;
   },
-  getInvoices: (userId) => {
-    const stmt = db.prepare(`SELECT * FROM invoices WHERE user_id = ? ORDER BY invoice_date DESC`);
-    return stmt.all(userId);
+  getInvoices: async (userId) => {
+    const rows = await db.prepare(`SELECT * FROM invoices WHERE user_id = ? ORDER BY invoice_date DESC`).all(userId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   // Payment customers (for storing provider customer IDs)
   getPaymentCustomer: ({ userId, provider }) => {
@@ -2827,36 +2850,36 @@ module.exports = {
     return stmt.all(userId);
   },
   // Follow helpers
-  followUser: ({ followerId, followingId }) => {
+  followUser: async ({ followerId, followingId }) => {
     if (isProduction) {
-      // SQL Server: INSERT with WHERE NOT EXISTS
-      db.prepare(`
+      // PostgreSQL: INSERT with WHERE NOT EXISTS
+      await db.prepare(`
         INSERT INTO follows (follower_id, following_id)
         SELECT ?, ?
         WHERE NOT EXISTS (SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?)
       `).run(followerId, followingId, followerId, followingId);
     } else {
-      const sql = isProduction
-        ? `INSERT INTO follows (follower_id, following_id) VALUES (?,?) ON CONFLICT (follower_id, following_id) DO NOTHING`
-        : `INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`;
-      db.prepare(sql).run(followerId, followingId);
+      const sql = `INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?,?)`;
+      await db.prepare(sql).run(followerId, followingId);
     }
   },
-  unfollowUser: ({ followerId, followingId }) => {
-    db.prepare(`DELETE FROM follows WHERE follower_id = ? AND following_id = ?`).run(followerId, followingId);
+  unfollowUser: async ({ followerId, followingId }) => {
+    await db.prepare(`DELETE FROM follows WHERE follower_id = ? AND following_id = ?`).run(followerId, followingId);
   },
-  isFollowing: ({ followerId, followingId }) => {
-    const row = db.prepare(`SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`).get(followerId, followingId);
+  isFollowing: async ({ followerId, followingId }) => {
+    const row = await db.prepare(`SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`).get(followerId, followingId);
     return !!row;
   },
-  getFollowerCount: (userId) => {
-    return db.prepare(`SELECT COUNT(*) as c FROM follows WHERE following_id = ?`).get(userId).c;
+  getFollowerCount: async (userId) => {
+    const result = await db.prepare(`SELECT COUNT(*) as c FROM follows WHERE following_id = ?`).get(userId);
+    return result?.c || result?.count || 0;
   },
-  getFollowingCount: (userId) => {
-    return db.prepare(`SELECT COUNT(*) as c FROM follows WHERE follower_id = ?`).get(userId).c;
+  getFollowingCount: async (userId) => {
+    const result = await db.prepare(`SELECT COUNT(*) as c FROM follows WHERE follower_id = ?`).get(userId);
+    return result?.c || result?.count || 0;
   },
-  getFollowers: (userId, limit = 100) => {
-    return db.prepare(`
+  getFollowers: async (userId, limit = 100) => {
+    const rows = await db.prepare(`
       SELECT u.id, u.full_name, u.email, u.profile_picture, u.bio
       FROM follows f
       JOIN users u ON u.id = f.follower_id
@@ -2864,9 +2887,10 @@ module.exports = {
       ORDER BY f.created_at DESC
       LIMIT ?
     `).all(userId, limit);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  getFollowing: (userId, limit = 100) => {
-    return db.prepare(`
+  getFollowing: async (userId, limit = 100) => {
+    const rows = await db.prepare(`
       SELECT u.id, u.full_name, u.email, u.profile_picture, u.bio
       FROM follows f
       JOIN users u ON u.id = f.following_id
@@ -2874,15 +2898,16 @@ module.exports = {
       ORDER BY f.created_at DESC
       LIMIT ?
     `).all(userId, limit);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   // Active reel count (last 48 hours)
-  getActiveReelCount: (userId) => {
+  getActiveReelCount: async (userId) => {
     // Use different date functions for PostgreSQL vs SQLite
     const query = isProduction
       ? `SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = true AND created_at >= CURRENT_TIMESTAMP - INTERVAL '48 hours'`
       : `SELECT COUNT(*) as cnt FROM posts WHERE user_id = ? AND is_reel = 1 AND created_at >= datetime('now', '-48 hours')`;
-    const row = db.prepare(query).get(userId);
-    return row ? row.cnt : 0;
+    const row = await db.prepare(query).get(userId);
+    return row?.cnt || row?.count || 0;
   },
   // Account moderation helpers
   banUser: ({ userId, reason, bannedBy }) => {
@@ -2909,8 +2934,8 @@ module.exports = {
       JSON.stringify({ targetUserId: userId })
     );
   },
-  checkAccountStatus: (userId) => {
-    const user = db.prepare(`SELECT account_status, suspension_until, suspension_reason FROM users WHERE id = ?`).get(userId);
+  checkAccountStatus: async (userId) => {
+    const user = await db.prepare(`SELECT account_status, suspension_until, suspension_reason FROM users WHERE id = ?`).get(userId);
     if (!user) return { status: 'not_found' };
 
     // Check if suspension has expired
@@ -2918,7 +2943,7 @@ module.exports = {
       const now = new Date();
       const suspensionEnd = new Date(user.suspension_until);
       if (now >= suspensionEnd) {
-        db.prepare(`UPDATE users SET account_status = 'active', suspension_until = NULL, suspension_reason = NULL WHERE id = ?`).run(userId);
+        await db.prepare(`UPDATE users SET account_status = 'active', suspension_until = NULL, suspension_reason = NULL WHERE id = ?`).run(userId);
         return { status: 'active' };
       }
     }
@@ -2938,56 +2963,93 @@ module.exports = {
     const info = stmt.run(position, name, email, phone || null, coverLetter, resumeFile || null, portfolioFile || null);
     return info.lastInsertRowid;
   },
-  getCareerApplicationsPaged: ({ limit = 50, offset = 0, status }) => {
+  getCareerApplicationsPaged: async ({ limit = 50, offset = 0, status }) => {
     if (status) {
       const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM career_applications WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
-      return db.prepare(sql).all(status, offsetVal, fetchVal);
+      const rows = await db.prepare(sql).all(status, offsetVal, fetchVal);
+      return Array.isArray(rows) ? rows : (rows?.rows || []);
     }
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
-    return db.prepare(sql).all(offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  getCareerApplicationById: (id) => {
-    return db.prepare(`SELECT * FROM career_applications WHERE id = ?`).get(id);
+  getCareerApplicationById: async (id) => {
+    const result = await db.prepare(`SELECT * FROM career_applications WHERE id = ?`).get(id);
+    return result;
   },
   updateCareerApplicationStatus: ({ id, status, reviewerId }) => {
     db.prepare(`UPDATE career_applications SET status = ?, reviewer_id = ? WHERE id = ?`).run(status, reviewerId || null, id);
   },
-  getCareerApplicationCounts: () => {
-    const all = db.prepare(`SELECT COUNT(*) as c FROM career_applications`).get().c;
-    const open = db.prepare(`SELECT COUNT(*) as c FROM career_applications WHERE status IN ('new','under_review')`).get().c;
+  getCareerApplicationCounts: async () => {
+    const allResult = await db.prepare(`SELECT COUNT(*) as c FROM career_applications`).get();
+    const all = allResult?.c || allResult?.count || 0;
+    const openResult = await db.prepare(`SELECT COUNT(*) as c FROM career_applications WHERE status IN ('new','under_review')`).get();
+    const open = openResult?.c || openResult?.count || 0;
     return { all, open };
   },
   // Job postings
-  createCareerJob: ({ title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags = [], salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility = 'public', priority, status = 'draft', goLiveAt, freezeUntil, isFrozen = 0 }) => {
-    const stmt = db.prepare(`
-      INSERT INTO career_jobs (title, location, team, employment_type, seniority, headline, description, responsibilities, requirements, perks, tags, salary_min, salary_max, salary_currency, apply_url, workplace_type, visibility, priority, status, go_live_at, freeze_until, is_frozen)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `);
-    const info = stmt.run(
-      title,
-      location || null,
-      team || null,
-      employmentType || null,
-      seniority || null,
-      headline || null,
-      description || null,
-      responsibilities || null,
-      requirements || null,
-      perks || null,
-      JSON.stringify(tags || []),
-      salaryMin || null,
-      salaryMax || null,
-      salaryCurrency || null,
-      applyUrl || null,
-      workplaceType || null,
-      visibility || 'public',
-      priority || null,
-      status || 'draft',
-      goLiveAt || null,
-      freezeUntil || null,
-      isFrozen ? 1 : 0
-    );
-    return info.lastInsertRowid;
+  createCareerJob: async ({ title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags = [], salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility = 'public', priority, status = 'draft', goLiveAt, freezeUntil, isFrozen = 0 }) => {
+    if (isProduction) {
+      const result = await db.prepare(`
+        INSERT INTO career_jobs (title, location, team, employment_type, seniority, headline, description, responsibilities, requirements, perks, tags, salary_min, salary_max, salary_currency, apply_url, workplace_type, visibility, priority, status, go_live_at, freeze_until, is_frozen)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
+      `).get(
+        title,
+        location || null,
+        team || null,
+        employmentType || null,
+        seniority || null,
+        headline || null,
+        description || null,
+        responsibilities || null,
+        requirements || null,
+        perks || null,
+        JSON.stringify(tags || []),
+        salaryMin || null,
+        salaryMax || null,
+        salaryCurrency || null,
+        applyUrl || null,
+        workplaceType || null,
+        visibility || 'public',
+        priority || null,
+        status || 'draft',
+        goLiveAt || null,
+        freezeUntil || null,
+        isFrozen ? 1 : 0
+      );
+      return result?.id || null;
+    } else {
+      const stmt = db.prepare(`
+        INSERT INTO career_jobs (title, location, team, employment_type, seniority, headline, description, responsibilities, requirements, perks, tags, salary_min, salary_max, salary_currency, apply_url, workplace_type, visibility, priority, status, go_live_at, freeze_until, is_frozen)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `);
+      const info = stmt.run(
+        title,
+        location || null,
+        team || null,
+        employmentType || null,
+        seniority || null,
+        headline || null,
+        description || null,
+        responsibilities || null,
+        requirements || null,
+        perks || null,
+        JSON.stringify(tags || []),
+        salaryMin || null,
+        salaryMax || null,
+        salaryCurrency || null,
+        applyUrl || null,
+        workplaceType || null,
+        visibility || 'public',
+        priority || null,
+        status || 'draft',
+        goLiveAt || null,
+        freezeUntil || null,
+        isFrozen ? 1 : 0
+      );
+      return info.lastInsertRowid;
+    }
   },
   updateCareerJob: ({ id, title, location, team, employmentType, seniority, headline, description, responsibilities, requirements, perks, tags, salaryMin, salaryMax, salaryCurrency, applyUrl, workplaceType, visibility, priority, status, goLiveAt, freezeUntil, isFrozen }) => {
     const existing = db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
@@ -3023,11 +3085,12 @@ module.exports = {
     );
     return db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
   },
-  getCareerJobById: (id) => {
-    const job = db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
+  getCareerJobById: async (id) => {
+    const job = await db.prepare(`SELECT * FROM career_jobs WHERE id = ?`).get(id);
     if (!job) return null;
     try { job.tags = job.tags ? JSON.parse(job.tags) : []; } catch (_) { job.tags = []; }
-    job.assets = db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(id);
+    const assetsRaw = await db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(id);
+    job.assets = Array.isArray(assetsRaw) ? assetsRaw : (assetsRaw?.rows || []);
     return job;
   },
   setCareerJobStatus: ({ id, status, freezeUntil }) => {
@@ -3042,12 +3105,11 @@ module.exports = {
     job.assets = db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(id);
     return job;
   },
-  addCareerJobAsset: ({ jobId, label, fileName, filePath, fileSize, mimeType }) => {
-    const stmt = db.prepare(`
+  addCareerJobAsset: async ({ jobId, label, fileName, filePath, fileSize, mimeType }) => {
+    await db.prepare(`
       INSERT INTO career_job_assets (job_id, label, file_name, file_path, file_size, mime_type)
       VALUES (?,?,?,?,?,?)
-    `);
-    const info = stmt.run(jobId, label || null, fileName, filePath, fileSize || null, mimeType || null);
+    `).run(jobId, label || null, fileName, filePath, fileSize || null, mimeType || null);
     return info.lastInsertRowid;
   },
   removeCareerJobAsset: ({ assetId, jobId }) => {
@@ -3058,15 +3120,20 @@ module.exports = {
   getCareerJobAssets: (jobId) => {
     return db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(jobId);
   },
-  getCareerJobsForAdmin: () => {
+  getCareerJobsForAdmin: async () => {
     const parseTags = (value) => {
       try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch (_) { return []; }
     };
-    const jobs = db.prepare(`SELECT * FROM career_jobs ORDER BY created_at DESC`).all();
-    return jobs.map(j => ({
-      ...j,
-      tags: parseTags(j.tags),
-      assets: db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(j.id)
+    const jobsRaw = await db.prepare(`SELECT * FROM career_jobs ORDER BY created_at DESC`).all();
+    const jobs = Array.isArray(jobsRaw) ? jobsRaw : (jobsRaw?.rows || []);
+    return Promise.all(jobs.map(async j => {
+      const assetsRaw = await db.prepare(`SELECT * FROM career_job_assets WHERE job_id = ? ORDER BY created_at DESC`).all(j.id);
+      const assets = Array.isArray(assetsRaw) ? assetsRaw : (assetsRaw?.rows || []);
+      return {
+        ...j,
+        tags: parseTags(j.tags),
+        assets
+      };
     }));
   },
   getPublicCareerJobs: () => {
@@ -3096,13 +3163,15 @@ module.exports = {
     const info = stmt.run(email, contentType, contentUrl || null, removalReason || null, description || null, appealReason, additionalInfo || null);
     return info.lastInsertRowid;
   },
-  getContentAppealsPaged: ({ limit = 50, offset = 0, status }) => {
+  getContentAppealsPaged: async ({ limit = 50, offset = 0, status }) => {
     if (status) {
       const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM content_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
-      return db.prepare(sql).all(status, offsetVal, fetchVal);
+      const rows = await db.prepare(sql).all(status, offsetVal, fetchVal);
+      return Array.isArray(rows) ? rows : (rows?.rows || []);
     }
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM content_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
-    return db.prepare(sql).all(offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   getContentAppealById: (id) => {
     return db.prepare(`SELECT * FROM content_appeals WHERE id = ?`).get(id);
@@ -3119,13 +3188,15 @@ module.exports = {
     const info = stmt.run(email, username, accountAction, actionDate || null, violationReason || null, appealReason, preventionPlan || null, additionalInfo || null, contactEmail || null);
     return info.lastInsertRowid;
   },
-  getAccountAppealsPaged: ({ limit = 50, offset = 0, status }) => {
+  getAccountAppealsPaged: async ({ limit = 50, offset = 0, status }) => {
     if (status) {
       const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM account_appeals WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
-      return db.prepare(sql).all(status, offsetVal, fetchVal);
+      const rows = await db.prepare(sql).all(status, offsetVal, fetchVal);
+      return Array.isArray(rows) ? rows : (rows?.rows || []);
     }
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(`SELECT * FROM account_appeals ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset);
-    return db.prepare(sql).all(offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   getAccountAppealById: (id) => {
     return db.prepare(`SELECT * FROM account_appeals WHERE id = ?`).get(id);
@@ -3134,11 +3205,11 @@ module.exports = {
     db.prepare(`UPDATE account_appeals SET status = ?, reviewer_id = ? WHERE id = ?`).run(status, reviewerId || null, id);
   },
   // Get recent activity for feed sidebar
-  getRecentActivity: (limit = 5) => {
+  getRecentActivity: async (limit = 5) => {
     const activities = [];
 
     // Get recent posts (with user info)
-    const recentPosts = db.prepare(`
+    const recentPostsRaw = await db.prepare(`
       SELECT p.created_at, u.full_name
       FROM posts p
       JOIN users u ON p.user_id = u.id
@@ -3146,6 +3217,7 @@ module.exports = {
       ORDER BY p.created_at DESC
       LIMIT ?
     `).all(limit);
+    const recentPosts = Array.isArray(recentPostsRaw) ? recentPostsRaw : (recentPostsRaw?.rows || []);
 
     recentPosts.forEach(post => {
       activities.push({
@@ -3157,7 +3229,7 @@ module.exports = {
     });
 
     // Get recent follows
-    const recentFollows = db.prepare(`
+    const recentFollowsRaw = await db.prepare(`
       SELECT f.created_at, 
              u1.full_name as follower_name,
              u2.full_name as following_name
@@ -3167,6 +3239,7 @@ module.exports = {
       ORDER BY f.created_at DESC
       LIMIT ?
     `).all(limit);
+    const recentFollows = Array.isArray(recentFollowsRaw) ? recentFollowsRaw : (recentFollowsRaw?.rows || []);
 
     recentFollows.forEach(follow => {
       activities.push({
@@ -3193,7 +3266,8 @@ module.exports = {
       ORDER BY created_at DESC
       LIMIT ?
     `;
-    const recentUpdates = db.prepare(recentUpdatesQuery).all(limit);
+    const recentUpdatesRaw = await db.prepare(recentUpdatesQuery).all(limit);
+    const recentUpdates = Array.isArray(recentUpdatesRaw) ? recentUpdatesRaw : (recentUpdatesRaw?.rows || []);
 
     recentUpdates.forEach(update => {
       activities.push({
@@ -3330,15 +3404,16 @@ module.exports = {
     return result.lastInsertRowid;
   },
 
-  getUserServices: (userId) => {
-    return db.prepare(`
+  getUserServices: async (userId) => {
+    const rows = await db.prepare(`
       SELECT * FROM services
       WHERE user_id = ? AND status = 'active'
       ORDER BY created_at DESC
     `).all(userId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
-  getAllServices: ({ category, priceRange, experienceLevel, format, limit = 100 }) => {
+  getAllServices: async ({ category, priceRange, experienceLevel, format, limit = 100 }) => {
     let query = `
       SELECT 
         s.*, 
@@ -3377,11 +3452,12 @@ module.exports = {
     query += ` ORDER BY s.created_at DESC LIMIT ?`;
     params.push(limit);
 
-    return db.prepare(query).all(...params);
+    const rows = await db.prepare(query).all(...params);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
-  getService: (serviceId) => {
-    return db.prepare(`
+  getService: async (serviceId) => {
+    const result = await db.prepare(`
       SELECT 
         s.*, 
         u.full_name, u.profile_picture, u.email, u.bio, u.categories,
@@ -3395,6 +3471,7 @@ module.exports = {
       JOIN users u ON u.id = s.user_id
       WHERE s.id = ? AND s.status = 'active'
     `).get(serviceId);
+    return result;
   },
 
   updateService: ({ serviceId, userId, title, description, category, pricePerHour, durationMinutes, experienceLevel, format, availability, location, tags, imageUrl }) => {
@@ -3415,9 +3492,9 @@ module.exports = {
     return result.changes > 0;
   },
 
-  getServiceCount: (userId) => {
-    const result = db.prepare(`SELECT COUNT(*) as count FROM services WHERE user_id = ? AND status = 'active'`).get(userId);
-    return result.count;
+  getServiceCount: async (userId) => {
+    const result = await db.prepare(`SELECT COUNT(*) as count FROM services WHERE user_id = ? AND status = 'active'`).get(userId);
+    return result?.count || result?.c || 0;
   },
 
   // Service Orders (for purchase verification)
@@ -3425,8 +3502,8 @@ module.exports = {
     const info = db.prepare(`INSERT INTO service_orders (service_id, buyer_id, status) VALUES (?,?,?)`).run(serviceId, buyerId, status);
     return info.lastInsertRowid;
   },
-  isVerifiedPurchaser: ({ serviceId, userId }) => {
-    const row = db.prepare(`SELECT 1 FROM service_orders WHERE service_id = ? AND buyer_id = ? AND status = 'completed' LIMIT 1`).get(serviceId, userId);
+  isVerifiedPurchaser: async ({ serviceId, userId }) => {
+    const row = await db.prepare(`SELECT 1 FROM service_orders WHERE service_id = ? AND buyer_id = ? AND status = 'completed' LIMIT 1`).get(serviceId, userId);
     return !!row;
   },
 
@@ -3441,7 +3518,7 @@ module.exports = {
     const info = db.prepare(`INSERT INTO service_reviews (service_id, user_id, rating, comment) VALUES (?,?,?,?)`).run(serviceId, userId, rating, comment || null);
     return info.lastInsertRowid;
   },
-  getServiceReviews: ({ serviceId, limit = 20, offset = 0, isAdmin = false }) => {
+  getServiceReviews: async ({ serviceId, limit = 20, offset = 0, isAdmin = false }) => {
     const whereClause = isAdmin
       ? 'WHERE r.service_id = ?'
       : 'WHERE r.service_id = ? AND r.is_hidden = 0 AND r.is_deleted = 0';
@@ -3455,10 +3532,11 @@ module.exports = {
       LIMIT ? OFFSET ?
     `;
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
-    return db.prepare(sql).all(serviceId, offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(serviceId, offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
-  getServiceRatingsSummary: (serviceId) => {
-    const row = db.prepare(`SELECT ROUND(AVG(rating), 2) AS avg, COUNT(*) AS count FROM service_reviews WHERE service_id = ?`).get(serviceId);
+  getServiceRatingsSummary: async (serviceId) => {
+    const row = await db.prepare(`SELECT ROUND(AVG(rating), 2) AS avg, COUNT(*) AS count FROM service_reviews WHERE service_id = ?`).get(serviceId);
     return { average: row?.avg || 0, count: row?.count || 0 };
   },
 
@@ -3561,9 +3639,9 @@ module.exports = {
   },
 
   // User blocks
-  blockUser: ({ blockerId, blockedId, reason }) => {
+  blockUser: async ({ blockerId, blockedId, reason }) => {
     // Check if blocker's block functionality is locked
-    const modRow = db.prepare(`SELECT block_functionality_locked FROM user_moderation WHERE user_id = ?`).get(blockerId);
+    const modRow = await db.prepare(`SELECT block_functionality_locked FROM user_moderation WHERE user_id = ?`).get(blockerId);
     if (modRow && modRow.block_functionality_locked === 1) {
       throw new Error('Block functionality is locked for this user');
     }
@@ -3571,36 +3649,33 @@ module.exports = {
     let result;
     if (isProduction) {
       // PostgreSQL: INSERT with ON CONFLICT
-      const stmt = db.prepare(`
+      result = await db.prepare(`
         INSERT INTO user_blocks (blocker_id, blocked_id, reason)
         VALUES (?, ?, ?)
         ON CONFLICT (blocker_id, blocked_id) DO NOTHING
-      `);
-      result = stmt.run(blockerId, blockedId, reason || null);
+      `).run(blockerId, blockedId, reason || null);
     } else {
-      const stmt = db.prepare(`INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id, reason) VALUES (?,?,?)`);
-      result = stmt.run(blockerId, blockedId, reason || null);
+      result = await db.prepare(`INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id, reason) VALUES (?,?,?)`).run(blockerId, blockedId, reason || null);
     }
     // Log the action
-    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+    await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       blockerId,
       'block_user',
       JSON.stringify({ blockedId, reason })
     );
     return result.changes > 0;
   },
-  unblockUser: ({ blockerId, blockedId }) => {
-    const stmt = db.prepare(`DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?`);
-    const result = stmt.run(blockerId, blockedId);
-    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+  unblockUser: async ({ blockerId, blockedId }) => {
+    const result = await db.prepare(`DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?`).run(blockerId, blockedId);
+    await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       blockerId,
       'unblock_user',
       JSON.stringify({ blockedId })
     );
     return result.changes > 0;
   },
-  isUserBlocked: ({ userId, targetId }) => {
-    const row = db.prepare(`SELECT 1 FROM user_blocks WHERE blocker_id = ? AND blocked_id = ? LIMIT 1`).get(userId, targetId);
+  isUserBlocked: async ({ userId, targetId }) => {
+    const row = await db.prepare(`SELECT 1 FROM user_blocks WHERE blocker_id = ? AND blocked_id = ? LIMIT 1`).get(userId, targetId);
     return !!row;
   },
   getBlockedUsers: (userId) => {
@@ -3614,17 +3689,16 @@ module.exports = {
   },
 
   // User reports
-  reportUser: ({ reporterId, reportedId, reason, description }) => {
-    const stmt = db.prepare(`INSERT INTO user_reports (reporter_id, reported_id, reason, description) VALUES (?,?,?,?)`);
-    const result = stmt.run(reporterId, reportedId, reason, description || null);
-    db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
+  reportUser: async ({ reporterId, reportedId, reason, description }) => {
+    const result = await db.prepare(`INSERT INTO user_reports (reporter_id, reported_id, reason, description) VALUES (?,?,?,?)`).run(reporterId, reportedId, reason, description || null);
+    await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?,?,?)`).run(
       reporterId,
       'report_user',
       JSON.stringify({ reportedId, reason })
     );
     return result.lastInsertRowid;
   },
-  getUserReports: ({ limit = 50, offset = 0, status }) => {
+  getUserReports: async ({ limit = 50, offset = 0, status }) => {
     let sql = `
       SELECT r.*, 
              u1.handle as reporter_username, u1.full_name as reporter_name,
@@ -3640,7 +3714,8 @@ module.exports = {
     if (status) { sql += ` AND r.status = ?`; params.push(status); }
     sql += ` ORDER BY r.created_at DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
-    return db.prepare(sql).all(...params);
+    const rows = await db.prepare(sql).all(...params);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
   updateReportStatus: ({ reportId, status, reviewerId, adminNotes }) => {
     const stmt = db.prepare(`
@@ -3862,7 +3937,7 @@ module.exports = {
     return result.lastInsertRowid;
   },
 
-  getUserCharges: ({ userId, limit = 50, offset = 0 }) => {
+  getUserCharges: async ({ userId, limit = 50, offset = 0 }) => {
     let query = `
       SELECT * FROM billing_charges
       WHERE user_id = ?
@@ -3870,7 +3945,8 @@ module.exports = {
       LIMIT ? OFFSET ?
     `;
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
-    return db.prepare(sql).all(userId, offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(userId, offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
   getAllCharges: ({ limit = 100, offset = 0, status }) => {
@@ -3884,13 +3960,22 @@ module.exports = {
   },
 
   // Refund request functions
-  createRefundRequest: ({ userId, chargeId, amount, reason, description, orderDate, transactionId, preferredMethod, accountEmail, accountLastFour, screenshot, status = 'pending' }) => {
-    const stmt = db.prepare(`
-      INSERT INTO refund_requests (user_id, charge_id, amount, reason, description, order_date, transaction_id, preferred_method, account_email, account_last_four, screenshot, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const result = stmt.run(userId, chargeId || null, amount, reason, description || null, orderDate || null, transactionId || null, preferredMethod, accountEmail || null, accountLastFour || null, screenshot || null, status);
-    return result.lastInsertRowid;
+  createRefundRequest: async ({ userId, chargeId, amount, reason, description, orderDate, transactionId, preferredMethod, accountEmail, accountLastFour, screenshot, status = 'pending' }) => {
+    if (isProduction) {
+      const result = await db.prepare(`
+        INSERT INTO refund_requests (user_id, charge_id, amount, reason, description, order_date, transaction_id, preferred_method, account_email, account_last_four, screenshot, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
+      `).get(userId, chargeId || null, amount, reason, description || null, orderDate || null, transactionId || null, preferredMethod, accountEmail || null, accountLastFour || null, screenshot || null, status);
+      return result?.id || null;
+    } else {
+      const stmt = db.prepare(`
+        INSERT INTO refund_requests (user_id, charge_id, amount, reason, description, order_date, transaction_id, preferred_method, account_email, account_last_four, screenshot, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const result = stmt.run(userId, chargeId || null, amount, reason, description || null, orderDate || null, transactionId || null, preferredMethod, accountEmail || null, accountLastFour || null, screenshot || null, status);
+      return result.lastInsertRowid;
+    }
   },
 
   getRefundRequest: (requestId) => {
@@ -3906,17 +3991,18 @@ module.exports = {
     `).get(requestId);
   },
 
-  getUserRefundRequests: (userId) => {
-    return db.prepare(`
+  getUserRefundRequests: async (userId) => {
+    const rows = await db.prepare(`
       SELECT rr.*, bc.description as charge_description
       FROM refund_requests rr
       LEFT JOIN billing_charges bc ON bc.id = rr.charge_id
       WHERE rr.user_id = ?
       ORDER BY rr.created_at DESC
     `).all(userId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
-  getAllRefundRequests: ({ limit = 50, offset = 0, status }) => {
+  getAllRefundRequests: async ({ limit = 50, offset = 0, status }) => {
     let sql = `
       SELECT rr.*, u.full_name, u.email,
              bc.description as charge_description,
@@ -3932,7 +4018,8 @@ module.exports = {
     sql += ` ORDER BY rr.created_at DESC LIMIT ? OFFSET ?`;
     const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(sql, limit, offset);
     params.push(offsetVal, fetchVal);
-    return db.prepare(convertedSql).all(...params);
+    const rows = await db.prepare(convertedSql).all(...params);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
   // User admin notes
@@ -4031,15 +4118,18 @@ module.exports = {
     }
   },
 
-  getCareerJobAssets: (jobId) => {
-    return db.prepare("SELECT * FROM career_job_assets WHERE job_id = ?").all(jobId);
+  getCareerJobAssets: async (jobId) => {
+    const rows = await db.prepare("SELECT * FROM career_job_assets WHERE job_id = ?").all(jobId);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
-  getCareerJobsForAdmin: () => {
+  getCareerJobsForAdmin: async () => {
     try {
-      const jobs = db.prepare("SELECT * FROM career_jobs ORDER BY created_at DESC").all();
+      const jobsRaw = await db.prepare("SELECT * FROM career_jobs ORDER BY created_at DESC").all();
+      const jobs = Array.isArray(jobsRaw) ? jobsRaw : (jobsRaw?.rows || []);
       for (const job of jobs) {
-        job.assets = db.prepare("SELECT * FROM career_job_assets WHERE job_id = ?").all(job.id);
+        const assetsRaw = await db.prepare("SELECT * FROM career_job_assets WHERE job_id = ?").all(job.id);
+        job.assets = Array.isArray(assetsRaw) ? assetsRaw : (assetsRaw?.rows || []);
       }
       return jobs;
     } catch (e) {
@@ -4047,11 +4137,12 @@ module.exports = {
     }
   },
 
-  getCareerApplicationsPaged: ({ limit, offset }) => {
+  getCareerApplicationsPaged: async ({ limit, offset }) => {
     try {
       let query = "SELECT * FROM career_applications ORDER BY created_at DESC LIMIT ? OFFSET ?";
       const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
-      return db.prepare(sql).all(offsetVal, fetchVal);
+      const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+      return Array.isArray(rows) ? rows : (rows?.rows || []);
     } catch (e) {
       return [];
     }
@@ -4270,7 +4361,7 @@ module.exports = {
     return stmt.get(projectId);
   },
 
-  getProjectsByOwner: (ownerId, limit = 50, offset = 0) => {
+  getProjectsByOwner: async (ownerId, limit = 50, offset = 0) => {
     // PostgreSQL requires all non-aggregated columns from joined tables in GROUP BY
     // Since we're grouping by p.id (primary key), we can select p.*, but u.* columns need GROUP BY
     const groupBy = isProduction 
@@ -4292,11 +4383,11 @@ module.exports = {
       LIMIT ? OFFSET ?
     `;
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
-    const stmt = db.prepare(sql);
-    return stmt.all(ownerId, offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(ownerId, offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
-  getPublicProjects: (limit = 50, offset = 0) => {
+  getPublicProjects: async (limit = 50, offset = 0) => {
     // PostgreSQL requires all non-aggregated columns from joined tables in GROUP BY
     // Since we're grouping by p.id (primary key), we can select p.*, but u.* columns need GROUP BY
     const groupBy = isProduction 
@@ -4318,18 +4409,20 @@ module.exports = {
       LIMIT ? OFFSET ?
     `;
     const { sql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(query, limit, offset);
-    const stmt = db.prepare(sql);
-    return stmt.all(offsetVal, fetchVal);
+    const rows = await db.prepare(sql).all(offsetVal, fetchVal);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
-  getProjectCount: (ownerId = null) => {
+  getProjectCount: async (ownerId = null) => {
     let stmt;
     if (ownerId) {
       stmt = db.prepare('SELECT COUNT(*) as count FROM projects WHERE owner_id = ?');
-      return stmt.get(ownerId).count;
+      const result = await stmt.get(ownerId);
+      return result?.count || result?.c || 0;
     } else {
       stmt = db.prepare("SELECT COUNT(*) as count FROM projects WHERE visibility IN ('public', 'unlisted')");
-      return stmt.get().count;
+      const result = await stmt.get();
+      return result?.count || result?.c || 0;
     }
   },
 
@@ -4839,7 +4932,7 @@ module.exports = {
     `).get(id);
   },
 
-  getSalesInquiriesPaged: ({ limit = 20, offset = 0, status, priority, assignedTo, search }) => {
+  getSalesInquiriesPaged: async ({ limit = 20, offset = 0, status, priority, assignedTo, search }) => {
     let sql = `
       SELECT si.*,
              u1.full_name as assigned_to_name, u1.email as assigned_to_email
@@ -4880,7 +4973,8 @@ module.exports = {
     const { sql: convertedSql, limit: offsetVal, offset: fetchVal } = prepareLimitOffset(sql, limit, offset);
     params.push(offsetVal, fetchVal);
 
-    return db.prepare(convertedSql).all(...params);
+    const rows = await db.prepare(convertedSql).all(...params);
+    return Array.isArray(rows) ? rows : (rows?.rows || []);
   },
 
   getSalesInquiriesCount: ({ status, priority, assignedTo, search }) => {
@@ -4992,15 +5086,22 @@ module.exports = {
     `).all(inquiryId);
   },
 
-  getSalesInquiryStats: () => {
+  getSalesInquiryStats: async () => {
     const stats = {};
-    stats.total = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries`).get().c;
-    stats.new = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'new'`).get().c;
-    stats.contacted = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'contacted'`).get().c;
-    stats.inProgress = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'in_progress'`).get().c;
-    stats.qualified = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'qualified'`).get().c;
-    stats.closed = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'closed'`).get().c;
-    stats.urgent = db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE priority = 'urgent' AND status != 'closed'`).get().c;
+    const totalResult = await db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries`).get();
+    stats.total = totalResult?.c || totalResult?.count || 0;
+    const newResult = await db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'new'`).get();
+    stats.new = newResult?.c || newResult?.count || 0;
+    const contactedResult = await db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'contacted'`).get();
+    stats.contacted = contactedResult?.c || contactedResult?.count || 0;
+    const inProgressResult = await db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'in_progress'`).get();
+    stats.inProgress = inProgressResult?.c || inProgressResult?.count || 0;
+    const qualifiedResult = await db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'qualified'`).get();
+    stats.qualified = qualifiedResult?.c || qualifiedResult?.count || 0;
+    const closedResult = await db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE status = 'closed'`).get();
+    stats.closed = closedResult?.c || closedResult?.count || 0;
+    const urgentResult = await db.prepare(`SELECT COUNT(*) as c FROM sales_inquiries WHERE priority = 'urgent' AND status != 'closed'`).get();
+    stats.urgent = urgentResult?.c || urgentResult?.count || 0;
     return stats;
   },
 

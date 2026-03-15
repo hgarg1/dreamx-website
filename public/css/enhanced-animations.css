@@ -252,6 +252,9 @@
     animation: gradientShift 15s ease infinite;
     position: relative;
     overflow: hidden;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
 }
 
 .hero::before {

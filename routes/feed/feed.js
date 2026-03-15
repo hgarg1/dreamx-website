@@ -114,13 +114,17 @@ function initFeedRoutes({ postUpload, io }) {
         // Active reels from followed users
         let activeReels = [];
         try {
-            const followed = getFollowing(req.session.userId, 500);
-            activeReels = followed.map(u => ({
-                user_id: u.id,
-                full_name: u.full_name,
-                profile_picture: u.profile_picture,
-                reelCount: require('../../db').getActiveReelCount(u.id)
-            })).filter(r => r.reelCount > 0).sort((a, b) => b.reelCount - a.reelCount);
+            const followed = await getFollowing(req.session.userId, 500);
+            const activeReelsPromises = followed.map(async u => {
+                const reelCount = await require('../../db').getActiveReelCount(u.id);
+                return {
+                    user_id: u.id,
+                    full_name: u.full_name,
+                    profile_picture: u.profile_picture,
+                    reelCount
+                };
+            });
+            activeReels = (await Promise.all(activeReelsPromises)).filter(r => r.reelCount > 0).sort((a, b) => b.reelCount - a.reelCount);
         } catch (e) { activeReels = []; }
 
         // Get suggested users
@@ -305,30 +309,32 @@ function initFeedRoutes({ postUpload, io }) {
             recentActivity = [];
         }
 
-        const authUser = getUserById(req.session.userId);
+        const authUser = await getUserById(req.session.userId);
 
         // Get top passions
         let topPassions = [];
         try {
-            const passionsQuery = db.prepare(`SELECT categories FROM users WHERE categories IS NOT NULL AND categories != ''`);
-            const usersWithCategories = await passionsQuery.all() || [];
-            const passionCounts = {};
-            usersWithCategories.forEach(user => {
-                try {
-                    const categories = JSON.parse(user.categories);
-                    if (Array.isArray(categories)) {
-                        categories.forEach(category => {
-                            if (category && typeof category === 'string') {
-                                passionCounts[category] = (passionCounts[category] || 0) + 1;
-                            }
-                        });
-                    }
-                } catch (e) { }
-            });
-            topPassions = Object.entries(passionCounts)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(([passion]) => passion);
+            const query = isProduction
+                ? `
+                SELECT value as category
+                FROM users, json_array_elements_text(categories::json) as value
+                WHERE categories IS NOT NULL AND categories != ''
+                GROUP BY value
+                ORDER BY COUNT(*) DESC
+                LIMIT 5
+            `
+                : `
+                SELECT value as category
+                FROM users, json_each(users.categories)
+                WHERE categories IS NOT NULL AND categories != '' AND json_valid(categories)
+                GROUP BY value
+                ORDER BY COUNT(*) DESC
+                LIMIT 5
+            `;
+
+            const rows = await db.prepare(query).all() || [];
+            topPassions = rows.map(r => r.category);
+
             if (topPassions.length === 0) {
                 topPassions = ['Entrepreneurship', 'Technology', 'Design', 'Writing', 'Art'];
             }
@@ -352,13 +358,13 @@ function initFeedRoutes({ postUpload, io }) {
     });
 
     // Unified search page
-    router.get('/search', (req, res) => {
+    router.get('/search', async (req, res) => {
         const q = (req.query.q || '').trim();
-        const authUser = req.session.userId ? getUserById(req.session.userId) : null;
+        const authUser = req.session.userId ? await getUserById(req.session.userId) : null;
         let users = [];
         try {
             if (q) {
-                users = searchUsers({ query: q, limit: 20, excludeUserId: req.session.userId });
+                users = await searchUsers({ query: q, limit: 20, excludeUserId: req.session.userId });
             }
         } catch (e) {
             console.error('Search route error:', e);
@@ -559,7 +565,7 @@ function initFeedRoutes({ postUpload, io }) {
     });
 
     // API: Get following users with reel counts
-    router.get('/api/users/following/reels', (req, res) => {
+    router.get('/api/users/following/reels', async (req, res) => {
         if (!req.session.userId) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
@@ -568,7 +574,7 @@ function initFeedRoutes({ postUpload, io }) {
             const pageSize = Math.min(Math.max(parseInt(req.query.pageSize || '12', 10), 1), 200);
             let rawFollowing;
             try {
-                rawFollowing = getFollowing(req.session.userId, 500);
+                rawFollowing = await getFollowing(req.session.userId, 500);
             } catch (err) {
                 console.error('Error getting following list:', err);
                 rawFollowing = null;
@@ -576,9 +582,9 @@ function initFeedRoutes({ postUpload, io }) {
             if (!rawFollowing || !Array.isArray(rawFollowing) || rawFollowing.length === 0) {
                 return res.json({ users: [], page: 1, pageSize, total: 0, totalPages: 0 });
             }
-            const usersWithReels = rawFollowing.map(u => {
+            const usersWithReelsPromises = rawFollowing.map(async u => {
                 try {
-                    const reelCount = require('../../db').getActiveReelCount(u.id) || 0;
+                    const reelCount = await require('../../db').getActiveReelCount(u.id) || 0;
                     return {
                         id: u.id,
                         full_name: u.full_name,
@@ -589,7 +595,8 @@ function initFeedRoutes({ postUpload, io }) {
                     console.error(`Error getting reel count for user ${u.id}:`, err);
                     return null;
                 }
-            }).filter(u => u !== null && u.reelCount > 0);
+            });
+            const usersWithReels = (await Promise.all(usersWithReelsPromises)).filter(u => u !== null && u.reelCount > 0);
             usersWithReels.sort((a, b) => b.reelCount - a.reelCount);
             const startIndex = (page - 1) * pageSize;
             const users = usersWithReels.slice(startIndex, startIndex + pageSize);
@@ -684,7 +691,7 @@ function initFeedRoutes({ postUpload, io }) {
             const { createNotification } = require('../../db');
 
             if (post && post.user_id !== req.session.userId && result.status !== 'cleared') {
-                const reactor = getUserById(req.session.userId);
+                const reactor = await getUserById(req.session.userId);
                 createNotification({
                     userId: post.user_id,
                     type: 'reaction',
@@ -703,7 +710,7 @@ function initFeedRoutes({ postUpload, io }) {
                     });
                 }
 
-                const author = getUserById(post.user_id);
+                const author = await getUserById(post.user_id);
                 if (author && author.email_notifications === 1) {
                     const baseUrl = getRequestBaseUrl(req);
                     await emailService.sendPostReactionEmail(author, reactor, 'like', postId, baseUrl, req);
@@ -737,7 +744,7 @@ function initFeedRoutes({ postUpload, io }) {
             // Get the original post for notification
             const originalPost = await db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
             if (originalPost && originalPost.user_id !== req.session.userId) {
-                const reposter = getUserById(req.session.userId);
+                const reposter = await getUserById(req.session.userId);
                 const { createNotification } = require('../../db');
                 createNotification({
                     userId: originalPost.user_id,
@@ -776,14 +783,14 @@ function initFeedRoutes({ postUpload, io }) {
         const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
         const offset = parseInt(req.query.offset || '0', 10);
         try {
-            const baseComments = getPostComments({ postId, limit, offset }) || [];
+            const baseComments = await getPostComments({ postId, limit, offset }) || [];
             const comments = [];
             for (const c of baseComments) {
                 const likedRow = await db.prepare('SELECT 1 FROM comment_likes WHERE comment_id = ? AND user_id = ?').get(c.id, req.session.userId);
                 const liked = !!likedRow;
                 comments.push({ ...c, user_starred: liked });
             }
-            const total = getCommentsCount(postId);
+            const total = await getCommentsCount(postId);
             res.json({ comments, total });
         } catch (e) {
             console.error('list comments error', e);
@@ -822,7 +829,7 @@ function initFeedRoutes({ postUpload, io }) {
             `).get(commentId);
 
             const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').get(postId);
-            const commenter = getUserById(req.session.userId);
+            const commenter = await getUserById(req.session.userId);
             const { createNotification } = require('../../db');
 
             if (post && post.user_id !== req.session.userId && !parentId) {
@@ -844,7 +851,7 @@ function initFeedRoutes({ postUpload, io }) {
                     });
                 }
 
-                const author = getUserById(post.user_id);
+                const author = await getUserById(post.user_id);
                 if (author && author.email_notifications === 1) {
                     const baseUrl = getRequestBaseUrl(req);
                     await emailService.sendPostCommentEmail(author, commenter, content, postId, baseUrl, req);
@@ -870,7 +877,7 @@ function initFeedRoutes({ postUpload, io }) {
                     });
                 }
 
-                const parentAuthor = getUserById(parentAuthorId);
+                const parentAuthor = await getUserById(parentAuthorId);
                 if (parentAuthor && parentAuthor.email_notifications === 1) {
                     const baseUrl = getRequestBaseUrl(req);
                     await emailService.sendCommentReplyEmail(parentAuthor, commenter, content, postId, baseUrl, req);

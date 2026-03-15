@@ -17,30 +17,60 @@ const themeService = require('../../services/theme');
 // MIDDLEWARE
 // =============================================================================
 
-function requireAdmin(req, res, next) {
-  const user = req.session.userId ? getUserById(req.session.userId) : null;
-  const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin');
-  if (!isAdmin) {
+async function requireAdmin(req, res, next) {
+  try {
+    if (!req.session.userId) {
+      if (req.headers.accept?.includes('application/json')) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      return res.redirect('/');
+    }
+    
+    const user = await getUserById(req.session.userId);
+    const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'global_admin');
+    if (!isAdmin) {
+      if (req.headers.accept?.includes('application/json')) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      return res.redirect('/');
+    }
+    req.adminUser = user;
+    next();
+  } catch (error) {
+    console.error('requireAdmin error:', error);
     if (req.headers.accept?.includes('application/json')) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
     return res.redirect('/');
   }
-  req.adminUser = user;
-  next();
 }
 
-function requireSuperAdmin(req, res, next) {
-  const user = req.session.userId ? getUserById(req.session.userId) : null;
-  const isSuperAdmin = user && (user.role === 'super_admin' || user.role === 'global_admin');
-  if (!isSuperAdmin) {
+async function requireSuperAdmin(req, res, next) {
+  try {
+    if (!req.session.userId) {
+      if (req.headers.accept?.includes('application/json')) {
+        return res.status(403).json({ error: 'Super admin access required' });
+      }
+      return res.redirect('/admin?error=Insufficient+permissions');
+    }
+    
+    const user = await getUserById(req.session.userId);
+    const isSuperAdmin = user && (user.role === 'super_admin' || user.role === 'global_admin');
+    if (!isSuperAdmin) {
+      if (req.headers.accept?.includes('application/json')) {
+        return res.status(403).json({ error: 'Super admin access required' });
+      }
+      return res.redirect('/admin?error=Insufficient+permissions');
+    }
+    req.adminUser = user;
+    next();
+  } catch (error) {
+    console.error('requireSuperAdmin error:', error);
     if (req.headers.accept?.includes('application/json')) {
-      return res.status(403).json({ error: 'Super admin access required' });
+      return res.status(500).json({ error: 'Internal server error' });
     }
     return res.redirect('/admin?error=Insufficient+permissions');
   }
-  req.adminUser = user;
-  next();
 }
 
 // =============================================================================
@@ -51,12 +81,12 @@ function requireSuperAdmin(req, res, next) {
  * GET /admin/theme
  * Theme management dashboard
  */
-router.get('/', requireSuperAdmin, (req, res) => {
+router.get('/', requireSuperAdmin, async (req, res) => {
   try {
     const availableThemes = themeService.getAvailableThemes();
-    const customThemes = themeService.getCustomThemes();
-    const activeTheme = themeService.getActiveTheme();
-    const themeHistory = themeService.getThemeHistory(25);
+    const customThemes = await themeService.getCustomThemes();
+    const activeTheme = await themeService.getActiveTheme();
+    const themeHistory = await themeService.getThemeHistory(25);
     
     res.render('admin/admin-theme', {
       title: 'Theme Management - Admin - Dream X',
@@ -83,11 +113,11 @@ router.get('/', requireSuperAdmin, (req, res) => {
  * GET /admin/theme/api/themes
  * Get all available themes (predefined + custom)
  */
-router.get('/api/themes', requireAdmin, (req, res) => {
+router.get('/api/themes', requireAdmin, async (req, res) => {
   try {
     const predefined = themeService.getAvailableThemes();
-    const custom = themeService.getCustomThemes();
-    const active = themeService.getActiveTheme();
+    const custom = await themeService.getCustomThemes();
+    const active = await themeService.getActiveTheme();
     
     res.json({
       success: true,
@@ -173,7 +203,7 @@ router.get('/api/themes/:themeId/css', requireAdmin, (req, res) => {
  * POST /admin/theme/api/activate
  * Activate a theme globally
  */
-router.post('/api/activate', requireSuperAdmin, (req, res) => {
+router.post('/api/activate', requireSuperAdmin, async (req, res) => {
   try {
     const { themeId } = req.body;
     
@@ -181,11 +211,11 @@ router.post('/api/activate', requireSuperAdmin, (req, res) => {
       return res.status(400).json({ success: false, error: 'Theme ID required' });
     }
     
-    const theme = themeService.setActiveTheme(themeId, req.adminUser.id);
+    const theme = await themeService.setActiveTheme(themeId, req.adminUser.id);
     
     // Log the action
     try {
-      addAuditLog({
+      await addAuditLog({
         userId: req.adminUser.id,
         action: 'theme_activated',
         details: JSON.stringify({ themeId, themeName: theme.name })
@@ -209,7 +239,7 @@ router.post('/api/activate', requireSuperAdmin, (req, res) => {
  * POST /admin/theme/api/custom
  * Save a custom theme
  */
-router.post('/api/custom', requireSuperAdmin, (req, res) => {
+router.post('/api/custom', requireSuperAdmin, async (req, res) => {
   try {
     const { id, name, description, colors } = req.body;
     
@@ -228,11 +258,11 @@ router.post('/api/custom', requireSuperAdmin, (req, res) => {
       colors
     };
     
-    const savedTheme = themeService.saveCustomTheme(themeData, req.adminUser.id);
+    const savedTheme = await themeService.saveCustomTheme(themeData, req.adminUser.id);
     
     // Log the action
     try {
-      addAuditLog({
+      await addAuditLog({
         userId: req.adminUser.id,
         action: 'theme_custom_created',
         details: JSON.stringify({ themeId: id, themeName: name })
@@ -256,15 +286,15 @@ router.post('/api/custom', requireSuperAdmin, (req, res) => {
  * DELETE /admin/theme/api/custom/:themeId
  * Delete a custom theme
  */
-router.delete('/api/custom/:themeId', requireSuperAdmin, (req, res) => {
+router.delete('/api/custom/:themeId', requireSuperAdmin, async (req, res) => {
   try {
     const { themeId } = req.params;
     
-    themeService.deleteCustomTheme(themeId, req.adminUser.id);
+    await themeService.deleteCustomTheme(themeId, req.adminUser.id);
     
     // Log the action
     try {
-      addAuditLog({
+      await addAuditLog({
         userId: req.adminUser.id,
         action: 'theme_custom_deleted',
         details: JSON.stringify({ themeId })
@@ -287,10 +317,10 @@ router.delete('/api/custom/:themeId', requireSuperAdmin, (req, res) => {
  * GET /admin/theme/api/history
  * Get theme change history
  */
-router.get('/api/history', requireSuperAdmin, (req, res) => {
+router.get('/api/history', requireSuperAdmin, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const history = themeService.getThemeHistory(limit);
+    const history = await themeService.getThemeHistory(limit);
     
     res.json({ success: true, history });
   } catch (error) {

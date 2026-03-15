@@ -14,13 +14,13 @@ const router = express.Router();
 // Initialize router with dependencies
 function initApiRoutes({ io, careerUpload }) {
     // Get user notifications
-    router.get('/api/notifications', (req, res) => {
+    router.get('/api/notifications', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
             const limit = parseInt(req.query.limit || 50, 10);
             const offset = parseInt(req.query.offset || 0, 10);
-            const notifications = getUserNotifications(req.session.userId, limit, offset);
-            const unreadCount = getUnreadNotificationCount(req.session.userId);
+            const notifications = await getUserNotifications(req.session.userId, limit, offset);
+            const unreadCount = await getUnreadNotificationCount(req.session.userId);
             res.json({ success: true, notifications, unreadCount });
         } catch (error) {
             console.error('Error fetching notifications:', error);
@@ -29,11 +29,11 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Mark notification as read
-    router.post('/api/notifications/:id/read', (req, res) => {
+    router.post('/api/notifications/:id/read', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
             const notifId = parseInt(req.params.id, 10);
-            markNotificationAsRead(notifId, req.session.userId);
+            await markNotificationAsRead(notifId, req.session.userId);
             res.json({ success: true });
         } catch (error) {
             console.error('Error marking notification as read:', error);
@@ -42,10 +42,10 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Mark all notifications as read
-    router.post('/api/notifications/read-all', (req, res) => {
+    router.post('/api/notifications/read-all', async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
-            markAllNotificationsAsRead(req.session.userId);
+            await markAllNotificationsAsRead(req.session.userId);
             res.json({ success: true });
         } catch (error) {
             console.error('Error marking all as read:', error);
@@ -59,14 +59,14 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Subscribe to push notifications
-    router.post('/api/push/subscribe', express.json(), (req, res) => {
+    router.post('/api/push/subscribe', express.json(), async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
             const { endpoint, keys } = req.body;
             if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
                 return res.status(400).json({ error: 'Invalid subscription data' });
             }
-            savePushSubscription({
+            await savePushSubscription({
                 userId: req.session.userId,
                 endpoint,
                 p256dh: keys.p256dh,
@@ -80,12 +80,12 @@ function initApiRoutes({ io, careerUpload }) {
     });
 
     // Unsubscribe from push
-    router.post('/api/push/unsubscribe', express.json(), (req, res) => {
+    router.post('/api/push/unsubscribe', express.json(), async (req, res) => {
         if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
         try {
             const { endpoint } = req.body;
             if (!endpoint) return res.status(400).json({ error: 'Endpoint required' });
-            deletePushSubscription(endpoint);
+            await deletePushSubscription(endpoint);
             res.json({ success: true });
         } catch (error) {
             console.error('Error unsubscribing from push:', error);
