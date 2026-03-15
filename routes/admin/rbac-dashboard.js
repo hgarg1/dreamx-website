@@ -308,9 +308,13 @@ router.get('/users', requireRbacDashboardAccess, ensureRbacReady, async (req, re
     
     users = await db.prepare(sql).all(...params, offsetVal, fetchVal) || [];
     
-    // Get RBAC roles for each user
-    for (const user of users) {
-      user.rbacRoles = rbacService.getUserRoles(user.id);
+    // Get RBAC roles for each user in bulk (Performance Optimization)
+    if (users.length > 0) {
+      const userIds = users.map(u => u.id);
+      const rolesByUser = await rbacService.getUsersRoles(userIds);
+      for (const user of users) {
+        user.rbacRoles = rolesByUser[user.id] || [];
+      }
     }
     
     // Get total count
