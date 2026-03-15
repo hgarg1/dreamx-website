@@ -975,6 +975,44 @@ function getUserRoles(userId, { includeExpired = false } = {}) {
 }
 
 /**
+ * Get all roles for multiple users
+ */
+async function getUsersRoles(userIds, { includeExpired = false } = {}) {
+  if (!isInitialized) throw new Error('RBAC service not initialized');
+  if (!Array.isArray(userIds) || userIds.length === 0) return {};
+
+  const enabledValue = isProduction ? 'true' : '1';
+  const placeholders = userIds.map(() => '?').join(',');
+
+  let sql = `
+    SELECT ur.user_id, r.*, ur.is_primary, ur.expires_at, ur.assigned_by, ur.assigned_at, ur.scope
+    FROM rbac_user_roles ur
+    JOIN rbac_roles r ON r.id = ur.role_id
+    WHERE ur.user_id IN (${placeholders}) AND r.is_enabled = ${enabledValue} AND r.deleted_at IS NULL
+  `;
+
+  if (!includeExpired) {
+    sql += ' AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)';
+  }
+
+  sql += ' ORDER BY ur.is_primary DESC, r.priority DESC';
+
+  const result = db.prepare(sql).all(...userIds);
+  const rows = result instanceof Promise ? await result : result;
+
+  // Group by user_id
+  const rolesByUser = {};
+  for (const row of rows) {
+    if (!rolesByUser[row.user_id]) {
+      rolesByUser[row.user_id] = [];
+    }
+    rolesByUser[row.user_id].push(row);
+  }
+
+  return rolesByUser;
+}
+
+/**
  * Bulk assign role to multiple users
  */
 function bulkAssignRole(userIds, roleId, { assignedBy = null, expiresAt = null } = {}) {
@@ -2187,6 +2225,7 @@ module.exports = {
   assignRoleToUser,
   revokeRoleFromUser,
   getUserRoles,
+  getUsersRoles,
   bulkAssignRole,
   
   // User overrides
