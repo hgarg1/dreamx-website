@@ -407,6 +407,40 @@ const templates = {
         })
     }),
 
+    // Sales Inquiry notifications
+    salesInquiryConfirmation: (contactName, referenceId) => ({
+        subject: 'We received your inquiry - Dream X',
+        html: buildEmail({
+            preheader: 'Thanks for reaching out to Dream X.',
+            title: 'Inquiry Received',
+            subtitle: `Reference ID: ${referenceId}`,
+            body: `
+                <p>Hi ${contactName},</p>
+                <p>Thank you for contacting our sales team. We have received your inquiry and are reviewing it.</p>
+                <p>One of our team members will get back to you within 1-2 business days.</p>
+            `,
+        })
+    }),
+
+    salesInquiryNotification: (inquiry) => ({
+        subject: `New Sales Inquiry: ${inquiry.companyName}`,
+        html: buildEmail({
+            preheader: `New inquiry from ${inquiry.contactName}`,
+            title: 'New Sales Inquiry',
+            subtitle: inquiry.companyName,
+            body: `
+                <p><strong>Contact:</strong> ${inquiry.contactName} (${inquiry.contactEmail})</p>
+                <p><strong>Job Title:</strong> ${inquiry.contactJobTitle}</p>
+                <p><strong>Company Size:</strong> ${inquiry.companySize}</p>
+                <p><strong>Industry:</strong> ${inquiry.industry}</p>
+                <p><strong>Use Case:</strong> ${inquiry.useCase}</p>
+                <br>
+                <p><strong>Reference ID:</strong> ${inquiry.referenceId}</p>
+            `,
+            cta: { label: 'View Inquiry', url: '#' }
+        })
+    }),
+
     // Account moderation notifications
     accountBanned: (user, reason) => ({
         subject: 'Account Banned - Dream X',
@@ -452,6 +486,19 @@ const templates = {
 const emailService = {
     // Send generic email
     send: sendEmail,
+
+    // Sales Inquiry emails
+    sendSalesInquiryConfirmationEmail: async (email, name, referenceId) => {
+        const template = templates.salesInquiryConfirmation(name, referenceId);
+        return await sendEmail(email, template.subject, template.html);
+    },
+
+    sendSalesInquiryNotificationEmail: async (inquiry) => {
+        // Fallback to GMAIL_USER or a default sales email if env var not set
+        const salesEmail = process.env.SALES_TEAM_EMAIL || process.env.GMAIL_USER || 'sales@dreamx.app';
+        const template = templates.salesInquiryNotification(inquiry);
+        return await sendEmail(salesEmail, template.subject, template.html);
+    },
 
     // Appeal emails
     sendContentApprovalEmail: async (email, appeal) => {
