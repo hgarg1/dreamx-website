@@ -200,7 +200,7 @@ async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions,
         if (!user || user.push_notifications !== 1) return;
         const subs = await getPushSubscriptions(userId) || [];
         const payload = JSON.stringify({ title: title || 'Dream X', body: body || '', url: url || '/', icon: '/img/icon-192x192.png', badge: '/img/badge-72x72.png' });
-        for (const s of subs) {
+        await Promise.all(subs.map(async (s) => {
             try {
                 await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
             } catch (err) {
@@ -211,7 +211,7 @@ async function sendBrowserPush(userId, title, body, url, { getPushSubscriptions,
                     console.warn('Web push send error:', err.message);
                 }
             }
-        }
+        }));
     } catch (e) {
         console.warn('sendBrowserPush error:', e.message);
     }
